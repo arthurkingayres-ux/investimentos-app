@@ -4,10 +4,15 @@ window.formatBrl = (n) => new Intl.NumberFormat("pt-BR", {
   style: "currency", currency: "BRL", minimumFractionDigits: 2,
 }).format(n ?? 0);
 
-window.formatPct = (n, digits = 1) => {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(digits)}%`;
+// Entrada em decimal (0.1296 → +12,96%).
+window.formatPct = (decimal, digits = 2) => {
+  if (decimal === null || decimal === undefined || Number.isNaN(decimal)) return "—";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "percent",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    signDisplay: "exceptZero",
+  }).format(decimal);
 };
 
 window.formatDataHora = (iso) => {

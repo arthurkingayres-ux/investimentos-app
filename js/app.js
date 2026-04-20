@@ -6,6 +6,21 @@ document.addEventListener("alpine:init", () => {
     carregando: false,
     json: null,
 
+    get escoposRentabilidade() {
+      const r = (this.json && this.json.rentabilidade) || {};
+      const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
+      return ["Total", "Brasil", "EUA"]
+        .filter((k) => r[k])
+        .map((k, i) => ({
+          key: k,
+          flag: flags[k],
+          data: r[k],
+          interpretacao: (r.interpretacao && r.interpretacao[k]) || null,
+          benchmarks: Object.entries(r[k].benchmarks || {}),
+          isFirst: i === 0,
+        }));
+    },
+
     async submitPin() {
       if (this.pin.length !== 6 || !/^\d{6}$/.test(this.pin)) {
         this.pinError = "PIN deve ter 6 dígitos";

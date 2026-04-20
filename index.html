@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=5">
-  <script src="js/crypto.js?v=5"></script>
-  <script src="js/format.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <link rel="stylesheet" href="css/app.css?v=6">
+  <script src="js/crypto.js?v=6"></script>
+  <script src="js/format.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -59,6 +59,62 @@
             <span x-text="'(' + formatPct(json.patrimonio.variacao_semanal_pct) + ')'"></span>
             <span class="texto">· 7d</span>
           </div>
+        </section>
+
+        <section class="card rentabilidade" aria-label="Rentabilidade por escopo">
+          <h2 class="card-titulo">Rentabilidade</h2>
+          <template x-for="escopo in escoposRentabilidade" :key="escopo.key">
+            <div class="rent-escopo">
+              <div class="rent-header">
+                <span class="bandeira" x-text="escopo.flag"></span>
+                <span x-text="escopo.key"></span>
+              </div>
+              <div class="rent-cols-head" x-show="escopo.isFirst">
+                <span></span><span>Origem</span><span>Ano</span><span>12m</span>
+              </div>
+
+              <div class="rent-linha">
+                <span class="rent-label">XIRR</span>
+                <span
+                  class="chip chip-xirr"
+                  :class="(escopo.data.xirr_origem ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.xirr_origem)"></span>
+                <span
+                  class="rent-valor"
+                  :class="escopo.data.xirr_ytd === null || escopo.data.xirr_ytd === undefined ? 'is-null' : (escopo.data.xirr_ytd < 0 && 'is-neg')"
+                  x-text="formatPct(escopo.data.xirr_ytd)"></span>
+                <span
+                  class="rent-valor"
+                  :class="escopo.data.xirr_12m === null || escopo.data.xirr_12m === undefined ? 'is-null' : (escopo.data.xirr_12m < 0 && 'is-neg')"
+                  x-text="formatPct(escopo.data.xirr_12m)"></span>
+              </div>
+
+              <template x-for="[bkey, bench] in escopo.benchmarks" :key="bkey">
+                <div class="rent-benchmark">
+                  <span class="bench-label" x-text="bkey"></span>
+                  <span class="bench-valor" x-text="formatPct(bench.xirr_espelhado)"></span>
+                </div>
+              </template>
+
+              <div class="rent-linha">
+                <span class="rent-label">TWR</span>
+                <span
+                  class="chip chip-twr"
+                  :class="(escopo.data.twr_origem ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.twr_origem)"></span>
+                <span
+                  class="rent-valor"
+                  :class="escopo.data.twr_ytd === null || escopo.data.twr_ytd === undefined ? 'is-null' : (escopo.data.twr_ytd < 0 && 'is-neg')"
+                  x-text="formatPct(escopo.data.twr_ytd)"></span>
+                <span
+                  class="rent-valor"
+                  :class="escopo.data.twr_12m === null || escopo.data.twr_12m === undefined ? 'is-null' : (escopo.data.twr_12m < 0 && 'is-neg')"
+                  x-text="formatPct(escopo.data.twr_12m)"></span>
+              </div>
+
+              <p class="rent-interpretacao" x-show="escopo.interpretacao" x-text="escopo.interpretacao"></p>
+            </div>
+          </template>
         </section>
       </section>
     </template>
