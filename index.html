@@ -45,7 +45,21 @@
     <template x-if="fase === 'raiox'">
       <section class="raiox">
         <h1>Raio X</h1>
-        <pre x-text="JSON.stringify(json, null, 2)"></pre>
+
+        <section class="hero" aria-label="Patrimônio total">
+          <p class="hero-label">Patrimônio total</p>
+          <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
+          <p class="hero-valor" x-text="formatBrl(json.patrimonio.total_brl)"></p>
+          <div
+            class="hero-delta"
+            :class="json.patrimonio.variacao_semanal_brl >= 0 ? 'is-positive' : 'is-negative'"
+            x-show="json.patrimonio.variacao_semanal_brl !== null && json.patrimonio.variacao_semanal_brl !== undefined">
+            <span class="seta" x-text="json.patrimonio.variacao_semanal_brl >= 0 ? '▲' : '▼'"></span>
+            <span x-text="formatBrl(json.patrimonio.variacao_semanal_brl)"></span>
+            <span x-text="'(' + formatPct(json.patrimonio.variacao_semanal_pct) + ')'"></span>
+            <span class="texto">· 7d</span>
+          </div>
+        </section>
       </section>
     </template>
   </main>

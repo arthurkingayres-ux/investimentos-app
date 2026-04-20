@@ -1,3 +1,21 @@
+:root {
+  --g-900: #064e3b;
+  --g-800: #065f46;
+  --g-700: #047857;
+  --g-600: #059669;
+  --g-500: #10b981;
+  --teal: #14b8a6;
+  --amber: #f59e0b;
+  --amber-light: #fbbf24;
+  --red: #b91c1c;
+  --ink: #1a1d1c;
+  --gray: #64706c;
+  --neutral-50: #fafaf7;
+  --neutral-100: #f0efe9;
+  --neutral-200: #e5e5e0;
+  --card-shadow: 0 1px 2px rgba(6, 78, 59, 0.04), 0 4px 16px rgba(6, 78, 59, 0.07);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -9,8 +27,8 @@ html, body {
 
 body {
   font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-  background: #fafaf7;
-  color: #1a1d1c;
+  background: var(--neutral-50);
+  color: var(--ink);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
@@ -95,12 +113,98 @@ h1 {
   font-size: 0.875rem;
 }
 
-.raiox pre {
-  background: #fff;
-  border: 1px solid #e5e5e0;
-  border-radius: 12px;
-  padding: 1rem;
+.raiox {
+  padding-bottom: 2rem;
+}
+
+.raiox > h1 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin: 0 0 1rem;
+}
+
+.hero {
+  position: relative;
+  border-radius: 22px;
+  padding: 1.5rem 1.25rem 1.75rem;
+  color: #fff;
+  background:
+    radial-gradient(120% 180% at 0% 0%, rgba(20, 184, 166, 0.35) 0%, transparent 55%),
+    linear-gradient(145deg, var(--g-900) 0%, var(--g-700) 55%, var(--teal) 140%);
+  box-shadow: 0 12px 32px rgba(6, 78, 59, 0.22), 0 2px 6px rgba(6, 78, 59, 0.12);
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(80% 60% at 100% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.hero-label {
+  position: relative;
   font-size: 0.75rem;
-  overflow-x: auto;
-  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
+  margin: 0 0 0.25rem;
+}
+
+.hero-updated {
+  position: relative;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin: 0 0 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-valor {
+  position: relative;
+  font-size: 2.375rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.hero-delta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.hero-delta.is-positive {
+  color: #d1fae5;
+}
+
+.hero-delta.is-negative {
+  color: #fecaca;
+}
+
+.hero-delta .seta {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.hero-delta .texto {
+  opacity: 0.85;
+  font-weight: 500;
 }
