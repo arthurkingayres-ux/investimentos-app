@@ -15,6 +15,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+[x-cloak] {
+  display: none !important;
+}
+
 main {
   padding: 1.5rem;
   max-width: 520px;
@@ -22,12 +26,81 @@ main {
 }
 
 h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #064e3b;
 }
 
-#status {
+.subtitle {
   color: #64706c;
-  margin: 0;
+  margin: 0 0 1.5rem;
+}
+
+.pin-screen {
+  padding-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pin-input {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5rem;
+  text-align: center;
+  width: 100%;
+  max-width: 280px;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e5e0;
+  border-radius: 14px;
+  background: #fff;
+  color: #1a1d1c;
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+.pin-input:focus {
+  border-color: #047857;
+}
+
+.pin-submit {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 280px;
+  min-height: 48px;
+  border: none;
+  border-radius: 14px;
+  background: #064e3b;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.pin-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pin-submit:not(:disabled):active {
+  background: #047857;
+}
+
+.pin-error {
+  color: #b91c1c;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.raiox pre {
+  background: #fff;
+  border: 1px solid #e5e5e0;
+  border-radius: 12px;
+  padding: 1rem;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
 }
