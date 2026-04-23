@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=11">
-  <script src="js/crypto.js?v=11"></script>
-  <script src="js/format.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <link rel="stylesheet" href="css/app.css?v=12">
+  <script src="js/crypto.js?v=12"></script>
+  <script src="js/format.js?v=12"></script>
+  <script src="js/app.js?v=12"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -118,7 +118,10 @@
                   x-text="formatPct(escopo.data.twr_12m)"></span>
               </div>
 
-              <p class="rent-interpretacao" x-show="escopo.interpretacao" x-text="escopo.interpretacao"></p>
+              <p class="rent-interpretacao"
+                 :class="escopo.tom && ('tom-' + escopo.tom)"
+                 x-show="escopo.interpretacao"
+                 x-text="escopo.interpretacao"></p>
             </div>
           </template>
         </section>

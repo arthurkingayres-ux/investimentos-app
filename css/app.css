@@ -4,15 +4,16 @@
   --g-700: #047857;
   --g-600: #059669;
   --g-500: #10b981;
+  --g-400: #34d399;
   --teal: #14b8a6;
   --amber: #f59e0b;
   --amber-light: #fbbf24;
   --red: #b91c1c;
   --ink: #1a1d1c;
-  --gray: #64706c;
+  --gray: #6b7065;
   --neutral-50: #fafaf7;
-  --neutral-100: #f0efe9;
-  --neutral-200: #e5e5e0;
+  --neutral-100: #f5f5f0;
+  --neutral-200: #e7e5de;
   --neutral-300: #d4d4d0;
   --card-shadow: 0 1px 2px rgba(6, 78, 59, 0.04), 0 4px 16px rgba(6, 78, 59, 0.07);
 }
@@ -187,10 +188,10 @@ h1 {
 
 .hero-valor {
   position: relative;
-  font-size: 2.375rem;
-  font-weight: 700;
+  font-size: 2.625rem;
+  font-weight: 800;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
   margin: 0;
 }
@@ -313,6 +314,12 @@ h1 {
 }
 
 .rent-valor.is-neg { color: var(--red); }
+.rent-valor.is-neg::before {
+  content: "▼ ";
+  font-size: 0.7em;
+  vertical-align: 0.1em;
+  margin-right: 0.05em;
+}
 .rent-valor.is-null { color: var(--neutral-200); font-weight: 500; }
 
 .chip {
@@ -342,6 +349,13 @@ h1 {
   color: var(--red);
 }
 
+.chip.is-neg::before {
+  content: "▼ ";
+  font-size: 0.75em;
+  margin-right: 0.1em;
+  vertical-align: 0.05em;
+}
+
 .rent-benchmark {
   display: grid;
   grid-template-columns: 2.5rem 1fr;
@@ -369,7 +383,22 @@ h1 {
   font-size: 0.8125rem;
   line-height: 1.45;
   color: var(--ink);
-  border-left: 3px solid var(--g-600);
+  border-left: 3px solid var(--gray);
+}
+
+.rent-interpretacao.tom-bom {
+  background: #ecfdf5;
+  border-left-color: var(--g-600);
+}
+
+.rent-interpretacao.tom-misto {
+  background: #fffbeb;
+  border-left-color: var(--amber);
+}
+
+.rent-interpretacao.tom-ruim {
+  background: #fef2f2;
+  border-left-color: var(--red);
 }
 
 .aloc-linha {
@@ -455,7 +484,9 @@ h1 {
 }
 
 .aloc-drift.is-pos { color: var(--g-700); }
+.aloc-drift.is-pos::before { content: "▲ "; font-size: 0.85em; margin-right: 0.05em; }
 .aloc-drift.is-neg { color: var(--red); }
+.aloc-drift.is-neg::before { content: "▼ "; font-size: 0.85em; margin-right: 0.05em; }
 
 .aporte-header {
   display: flex;
@@ -611,19 +642,24 @@ footer.rodape code {
 }
 
 .btn-bloquear {
-  background: transparent;
-  border: 1px solid var(--neutral-300);
+  background: var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 12px;
-  padding: 0.75rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   min-height: 44px;
-  color: var(--ink);
+  color: #fff;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 160ms ease;
+  transition: background 160ms ease, transform 160ms ease;
 }
 
 .btn-bloquear:hover {
-  background: var(--neutral-100);
+  background: #000;
+}
+
+.btn-bloquear:active {
+  transform: scale(0.98);
 }
 
 .btn-bloquear:focus-visible {

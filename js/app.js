@@ -4,6 +4,14 @@ const BLOCK_5_MS = 5 * 60 * 1000;
 const BLOCK_15_MS = 15 * 60 * 1000;
 const BLOCK_60_MS = 60 * 60 * 1000;
 
+function derivarTomInterpretacao(texto) {
+  if (!texto) return "neutro";
+  if (texto === "Boas escolhas de ativos e timing favorável") return "bom";
+  if (texto === "Seleção e timing abaixo do índice") return "ruim";
+  if (texto.startsWith("Dados insuficientes")) return "neutro";
+  return "misto";
+}
+
 document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     fase: "pin",
@@ -148,14 +156,18 @@ document.addEventListener("alpine:init", () => {
       const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
       return ["Total", "Brasil", "EUA"]
         .filter((k) => r[k])
-        .map((k, i) => ({
-          key: k,
-          flag: flags[k],
-          data: r[k],
-          interpretacao: (r.interpretacao && r.interpretacao[k]) || null,
-          benchmarks: Object.entries(r[k].benchmarks || {}),
-          isFirst: i === 0,
-        }));
+        .map((k, i) => {
+          const interpretacao = (r.interpretacao && r.interpretacao[k]) || null;
+          return {
+            key: k,
+            flag: flags[k],
+            data: r[k],
+            interpretacao,
+            tom: derivarTomInterpretacao(interpretacao),
+            benchmarks: Object.entries(r[k].benchmarks || {}),
+            isFirst: i === 0,
+          };
+        });
     },
 
     async submitPin() {
