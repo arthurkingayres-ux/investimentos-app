@@ -350,3 +350,88 @@ h1 {
   color: var(--ink);
   border-left: 3px solid var(--g-600);
 }
+
+.aloc-linha {
+  padding: 0.55rem 0;
+}
+
+.aloc-linha + .aloc-linha {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.aloc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.9375rem;
+}
+
+.aloc-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.aloc-nome {
+  font-weight: 600;
+  color: var(--ink);
+  flex: 1;
+}
+
+.aloc-valores {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.aloc-valores .atual {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.aloc-valores .alvo {
+  font-size: 0.75rem;
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.aloc-trilha {
+  position: relative;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  overflow: visible;
+}
+
+.aloc-preenchimento {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 300ms ease;
+}
+
+.aloc-alvo {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.62;
+  border-radius: 2px;
+  transform: translateX(-1px);
+}
+
+.aloc-drift {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray);
+}
+
+.aloc-drift.is-pos { color: var(--g-700); }
+.aloc-drift.is-neg { color: var(--red); }

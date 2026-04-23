@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=6">
-  <script src="js/crypto.js?v=6"></script>
-  <script src="js/format.js?v=6"></script>
-  <script src="js/app.js?v=6"></script>
+  <link rel="stylesheet" href="css/app.css?v=7">
+  <script src="js/crypto.js?v=7"></script>
+  <script src="js/format.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -113,6 +113,36 @@
               </div>
 
               <p class="rent-interpretacao" x-show="escopo.interpretacao" x-text="escopo.interpretacao"></p>
+            </div>
+          </template>
+        </section>
+
+        <section class="card alocacao" aria-label="Alocação da carteira">
+          <h2 class="card-titulo">Alocação</h2>
+          <template x-for="linha in linhasAlocacao" :key="linha.nome">
+            <div class="aloc-linha">
+              <div class="aloc-header">
+                <span class="aloc-dot" :style="{ background: linha.cor }"></span>
+                <span class="aloc-nome" x-text="linha.nome"></span>
+                <span class="aloc-valores">
+                  <span class="atual" x-text="formatPct(linha.pct_atual)"></span>
+                  <span class="alvo" x-text="'alvo ' + formatPct(linha.pct_alvo)"></span>
+                </span>
+              </div>
+              <div class="aloc-trilha" role="progressbar"
+                :aria-valuenow="Math.round(linha.pct_atual * 10000) / 100"
+                aria-valuemin="0" aria-valuemax="100">
+                <div class="aloc-preenchimento"
+                  :style="{ width: Math.min(Math.max(linha.pct_atual, 0) * 100, 100) + '%', background: linha.gradiente }">
+                </div>
+                <div class="aloc-alvo"
+                  x-show="linha.pct_alvo > 0"
+                  :style="{ left: Math.min(Math.max(linha.pct_alvo, 0) * 100, 100) + '%' }"
+                  :title="'Alvo ' + formatPct(linha.pct_alvo)"></div>
+              </div>
+              <p class="aloc-drift"
+                :class="Math.abs(linha.drift) < 0.005 ? '' : (linha.drift > 0 ? 'is-pos' : 'is-neg')"
+                x-text="(linha.drift > 0 ? '+' : '') + formatPct(linha.drift) + ' vs alvo'"></p>
             </div>
           </template>
         </section>
