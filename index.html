@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=7">
-  <script src="js/crypto.js?v=7"></script>
-  <script src="js/format.js?v=7"></script>
-  <script src="js/app.js?v=7"></script>
+  <link rel="stylesheet" href="css/app.css?v=8">
+  <script src="js/crypto.js?v=8"></script>
+  <script src="js/format.js?v=8"></script>
+  <script src="js/app.js?v=8"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -142,7 +142,7 @@
               </div>
               <p class="aloc-drift"
                 :class="Math.abs(linha.drift) < 0.005 ? '' : (linha.drift > 0 ? 'is-pos' : 'is-neg')"
-                x-text="(linha.drift > 0 ? '+' : '') + formatPct(linha.drift) + ' vs alvo'"></p>
+                x-text="formatPct(linha.drift) + ' vs alvo'"></p>
             </div>
           </template>
         </section>
