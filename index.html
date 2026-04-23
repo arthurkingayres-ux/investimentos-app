@@ -8,18 +8,20 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=10">
-  <script src="js/crypto.js?v=10"></script>
-  <script src="js/format.js?v=10"></script>
-  <script src="js/app.js?v=10"></script>
+  <link rel="stylesheet" href="css/app.css?v=11">
+  <script src="js/crypto.js?v=11"></script>
+  <script src="js/format.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
   <main>
     <template x-if="fase === 'pin'">
-      <section class="pin-screen">
+      <section class="pin-screen" :class="{ 'is-shaking': shake }">
         <h1>Carteira</h1>
-        <p class="subtitle">Digite o PIN para visualizar</p>
+        <p class="subtitle" x-show="!estaBloqueado">Digite o PIN para visualizar</p>
+        <p class="subtitle pin-block-msg" x-show="estaBloqueado"
+           x-text="'Muitas tentativas. Aguarde ' + bloqueioRestanteMin + ' min'"></p>
         <form @submit.prevent="submitPin">
           <input
             type="tel"
@@ -28,16 +30,20 @@
             maxlength="6"
             autocomplete="off"
             x-model="pin"
-            :disabled="carregando"
+            :disabled="carregando || estaBloqueado"
             placeholder="••••••"
             class="pin-input"
             aria-label="PIN de 6 dígitos"
             autofocus>
-          <button type="submit" :disabled="carregando || pin.length !== 6" class="pin-submit">
-            <span x-show="!carregando">Entrar</span>
+          <button type="submit"
+            :disabled="carregando || estaBloqueado || pin.length !== 6"
+            class="pin-submit">
+            <span x-show="!carregando && !estaBloqueado">Entrar</span>
             <span x-show="carregando">Decifrando…</span>
+            <span x-show="!carregando && estaBloqueado"
+              x-text="'Aguarde ' + bloqueioRestanteMin + ' min'"></span>
           </button>
-          <p class="pin-error" x-show="pinError" x-text="pinError"></p>
+          <p class="pin-error" x-show="pinError && !estaBloqueado" x-text="pinError"></p>
         </form>
       </section>
     </template>

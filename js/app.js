@@ -1,3 +1,9 @@
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const FAIL_WINDOW_MS = 30 * 60 * 1000;
+const BLOCK_5_MS = 5 * 60 * 1000;
+const BLOCK_15_MS = 15 * 60 * 1000;
+const BLOCK_60_MS = 60 * 60 * 1000;
+
 document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     fase: "pin",
@@ -5,6 +11,88 @@ document.addEventListener("alpine:init", () => {
     pinError: "",
     carregando: false,
     json: null,
+    agora: Date.now(),
+    pinBlockUntil: 0,
+    shake: false,
+
+    async init() {
+      this.pinBlockUntil = Number(sessionStorage.getItem("pinBlockUntil")) || 0;
+      setInterval(() => { this.agora = Date.now(); }, 1000);
+      await this.tentarAutoResume();
+    },
+
+    async tentarAutoResume() {
+      const pin = sessionStorage.getItem("pin");
+      const ts = Number(sessionStorage.getItem("pinTimestamp") || 0);
+      if (!pin || !ts) return;
+      if (Date.now() - ts >= SESSION_TTL_MS) {
+        sessionStorage.removeItem("pin");
+        sessionStorage.removeItem("pinTimestamp");
+        sessionStorage.removeItem("atualizadoEm");
+        return;
+      }
+      this.carregando = true;
+      try {
+        const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payloadB64 = (await response.text()).trim();
+        const plaintext = await window.decifrar(payloadB64, pin);
+        this.json = JSON.parse(plaintext);
+        this.pin = pin;
+        this.fase = "raiox";
+        sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);
+      } catch (err) {
+        console.warn("auto-resume falhou, limpando sessão", err);
+        sessionStorage.removeItem("pin");
+        sessionStorage.removeItem("pinTimestamp");
+        sessionStorage.removeItem("atualizadoEm");
+      } finally {
+        this.carregando = false;
+      }
+    },
+
+    get estaBloqueado() {
+      return this.agora < this.pinBlockUntil;
+    },
+
+    get bloqueioRestanteMin() {
+      return Math.max(1, Math.ceil((this.pinBlockUntil - this.agora) / 60000));
+    },
+
+    registrarFalha() {
+      const agora = Date.now();
+      let fails = Number(sessionStorage.getItem("pinFails") || 0);
+      let firstAt = Number(sessionStorage.getItem("pinFirstFailAt") || 0);
+      if (!firstAt || agora - firstAt > FAIL_WINDOW_MS) {
+        fails = 0;
+        firstAt = agora;
+      }
+      fails += 1;
+      sessionStorage.setItem("pinFails", String(fails));
+      sessionStorage.setItem("pinFirstFailAt", String(firstAt));
+
+      let dur = 0;
+      if (fails === 5) dur = BLOCK_5_MS;
+      else if (fails === 6) dur = BLOCK_15_MS;
+      else if (fails >= 7) dur = BLOCK_60_MS;
+      if (dur > 0) {
+        const until = agora + dur;
+        this.pinBlockUntil = until;
+        sessionStorage.setItem("pinBlockUntil", String(until));
+      }
+    },
+
+    resetarFalhas() {
+      sessionStorage.removeItem("pinFails");
+      sessionStorage.removeItem("pinFirstFailAt");
+      sessionStorage.removeItem("pinBlockUntil");
+      this.pinBlockUntil = 0;
+    },
+
+    dispararShake() {
+      this.shake = true;
+      setTimeout(() => { this.shake = false; }, 420);
+    },
 
     get linhasAlocacao() {
       const a = (this.json && this.json.alocacao) || {};
@@ -52,6 +140,7 @@ document.addEventListener("alpine:init", () => {
       this.json = null;
       this.pin = "";
       this.pinError = "";
+      this.pinBlockUntil = 0;
     },
 
     get escoposRentabilidade() {
@@ -70,6 +159,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     async submitPin() {
+      if (this.estaBloqueado) return;
       if (this.pin.length !== 6 || !/^\d{6}$/.test(this.pin)) {
         this.pinError = "PIN deve ter 6 dígitos";
         return;
@@ -82,10 +172,20 @@ document.addEventListener("alpine:init", () => {
         const payloadB64 = (await response.text()).trim();
         const plaintext = await window.decifrar(payloadB64, this.pin);
         this.json = JSON.parse(plaintext);
+        sessionStorage.setItem("pin", this.pin);
+        sessionStorage.setItem("pinTimestamp", String(Date.now()));
+        sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        this.resetarFalhas();
         this.fase = "raiox";
       } catch (err) {
         console.error(err);
-        this.pinError = "PIN incorreto ou dados indisponíveis";
+        this.registrarFalha();
+        this.dispararShake();
+        if (this.estaBloqueado) {
+          this.pinError = `Aguarde ${this.bloqueioRestanteMin} min`;
+        } else {
+          this.pinError = "PIN incorreto ou dados indisponíveis";
+        }
         this.pin = "";
       } finally {
         this.carregando = false;
