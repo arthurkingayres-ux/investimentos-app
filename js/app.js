@@ -37,6 +37,23 @@ document.addEventListener("alpine:init", () => {
         });
     },
 
+    get anoCorrente() {
+      return this.json?.proventos?.mensal?.[0]?.mes?.slice(0, 4)
+             ?? String(new Date().getFullYear());
+    },
+
+    get anoAnterior() {
+      return String(Number(this.anoCorrente) - 1);
+    },
+
+    bloquear() {
+      sessionStorage.clear();
+      this.fase = "pin";
+      this.json = null;
+      this.pin = "";
+      this.pinError = "";
+    },
+
     get escoposRentabilidade() {
       const r = (this.json && this.json.rentabilidade) || {};
       const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };

@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=9">
-  <script src="js/crypto.js?v=9"></script>
-  <script src="js/format.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <link rel="stylesheet" href="css/app.css?v=10">
+  <script src="js/crypto.js?v=10"></script>
+  <script src="js/format.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -178,6 +178,22 @@
             <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
+
+        <section class="card proventos" aria-labelledby="proventos-titulo">
+          <h2 id="proventos-titulo" class="card-titulo">Proventos recebidos</h2>
+          <div class="proventos-linha">
+            <span class="proventos-ytd" x-text="formatBrl(json.proventos.ytd_brl)"></span>
+            <span class="pill pill-anterior">
+              <span x-text="anoAnterior"></span> · <span x-text="formatBrl(json.proventos.ano_anterior_brl)"></span>
+            </span>
+          </div>
+          <p class="proventos-subtexto">Recebidos em <span x-text="anoCorrente"></span></p>
+        </section>
+
+        <footer class="rodape">
+          <p>Fonte: <code>investimentos.db</code> · doc-trail auditável</p>
+          <button @click="bloquear" class="btn-bloquear" type="button">🔒 Bloquear sessão</button>
+        </footer>
       </section>
     </template>
   </main>
