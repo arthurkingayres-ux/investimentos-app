@@ -435,3 +435,97 @@ h1 {
 
 .aloc-drift.is-pos { color: var(--g-700); }
 .aloc-drift.is-neg { color: var(--red); }
+
+.aporte-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.aporte-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.aporte-data {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.aporte-ha {
+  font-size: 0.8125rem;
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+
+.aporte-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--g-700), var(--g-500));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.25);
+  letter-spacing: -0.01em;
+}
+
+.aporte-item {
+  display: grid;
+  grid-template-columns: 1.3rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+
+.aporte-item + .aporte-item {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.aporte-bandeira {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.aporte-detalhes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.aporte-ticker {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.aporte-meta {
+  font-size: 0.75rem;
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+
+.aporte-valor {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aporte-vazio {
+  font-size: 0.875rem;
+  color: var(--gray);
+  text-align: center;
+  padding: 1.25rem 0;
+  margin: 0;
+}

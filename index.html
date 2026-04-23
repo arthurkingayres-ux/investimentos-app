@@ -8,10 +8,10 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=8">
-  <script src="js/crypto.js?v=8"></script>
-  <script src="js/format.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <link rel="stylesheet" href="css/app.css?v=9">
+  <script src="js/crypto.js?v=9"></script>
+  <script src="js/format.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app" x-cloak>
@@ -144,6 +144,38 @@
                 :class="Math.abs(linha.drift) < 0.005 ? '' : (linha.drift > 0 ? 'is-pos' : 'is-neg')"
                 x-text="formatPct(linha.drift) + ' vs alvo'"></p>
             </div>
+          </template>
+        </section>
+
+        <section class="card aporte" aria-label="Último aporte">
+          <h2 class="card-titulo">Último aporte</h2>
+          <template x-if="json.ultimo_aporte">
+            <div>
+              <div class="aporte-header">
+                <div class="aporte-header-left">
+                  <span class="aporte-data" x-text="formatDataCurta(json.ultimo_aporte.data)"></span>
+                  <span class="aporte-ha"
+                    x-text="json.ultimo_aporte.dias_atras === 0 ? 'hoje' : 'há ' + json.ultimo_aporte.dias_atras + ' dia' + (json.ultimo_aporte.dias_atras === 1 ? '' : 's')">
+                  </span>
+                </div>
+                <span class="aporte-pill" x-text="formatBrl(json.ultimo_aporte.total_brl)"></span>
+              </div>
+              <template x-for="item in json.ultimo_aporte.itens" :key="item.ticker">
+                <div class="aporte-item">
+                  <span class="aporte-bandeira" x-text="item.bandeira"></span>
+                  <div class="aporte-detalhes">
+                    <span class="aporte-ticker" x-text="item.ticker"></span>
+                    <span class="aporte-meta"
+                      x-text="item.quantidade + ' cota' + (item.quantidade === 1 ? '' : 's') + ' · ' + formatBrl(item.preco_unitario) + ' por unidade'">
+                    </span>
+                  </div>
+                  <span class="aporte-valor" x-text="formatBrl(item.valor_brl)"></span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <template x-if="!json.ultimo_aporte">
+            <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
       </section>
