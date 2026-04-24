@@ -28,7 +28,24 @@ document.addEventListener("alpine:init", () => {
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
       this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
+      window.addEventListener("storage", (e) => {
+        // Multi-tab sync: se outra aba limpou a sessão, esta aba cai para PIN.
+        if (e.key === "pin" && e.newValue === null && this.fase === "raiox") {
+          this.fase = "pin";
+          this.json = null;
+          this.pin = "";
+          this.pinError = "";
+        }
+      });
       await this.tentarAutoResume();
+    },
+
+    limparSessao() {
+      // Remove apenas credenciais de sessão. NÃO toca pinBlockUntil/pinFails/pinFirstFailAt
+      // — rate-limit persiste intencionalmente (atacante não escapa via bloquear manual).
+      localStorage.removeItem("pin");
+      localStorage.removeItem("pinTimestamp");
+      localStorage.removeItem("atualizadoEm");
     },
 
     mostrarToast(mensagem, tom = "verde", duracaoMs = 3000) {
@@ -65,9 +82,7 @@ document.addEventListener("alpine:init", () => {
       const ts = Number(localStorage.getItem("pinTimestamp") || 0);
       if (!pin || !ts) return;
       if (Date.now() - ts >= SESSION_TTL_MS) {
-        localStorage.removeItem("pin");
-        localStorage.removeItem("pinTimestamp");
-        localStorage.removeItem("atualizadoEm");
+        this.limparSessao();
         return;
       }
       this.carregando = true;
@@ -79,13 +94,14 @@ document.addEventListener("alpine:init", () => {
         this.json = JSON.parse(plaintext);
         this.pin = pin;
         this.fase = "raiox";
+        // Janela 7d deslizante — refresca timestamp a cada auto-resume bem-sucedido.
+        // PIN só é exigido após 7d de inatividade total.
+        localStorage.setItem("pinTimestamp", String(Date.now()));
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
-        localStorage.removeItem("pin");
-        localStorage.removeItem("pinTimestamp");
-        localStorage.removeItem("atualizadoEm");
+        this.limparSessao();
       } finally {
         this.carregando = false;
       }
@@ -176,9 +192,9 @@ document.addEventListener("alpine:init", () => {
     },
 
     bloquear() {
-      localStorage.removeItem("pin");
-      localStorage.removeItem("pinTimestamp");
-      localStorage.removeItem("atualizadoEm");
+      // Lock manual: limpa sessão mas preserva rate-limit (pinBlockUntil/pinFails).
+      // Invariante: atacante não escapa do bloqueio progressivo chamando bloquear().
+      this.limparSessao();
       this.fase = "pin";
       this.json = null;
       this.pin = "";

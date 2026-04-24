@@ -14,6 +14,7 @@ async function mockPortfolio(page: Page) {
 }
 
 test.describe("Toast de atualizacao", () => {
+
   test("atualizado_em novo vs. cache -> toast verde 'Carteira atualizada'", async ({
     page,
   }) => {

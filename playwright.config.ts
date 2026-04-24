@@ -10,11 +10,14 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:8080",
     trace: "on-first-retry",
+    // Bloqueia SW para testes deterministicos — SW faz network-first cache
+    // do portfolio.json.enc e mascara o page.route().fulfill().
+    serviceWorkers: "block",
   },
   projects: [
     {
-      name: "chromium-iphone",
-      use: { ...devices["iPhone 14"] },
+      name: "chromium-mobile",
+      use: { ...devices["Pixel 7"] },
     },
   ],
   webServer: {
