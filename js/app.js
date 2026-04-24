@@ -22,11 +22,41 @@ document.addEventListener("alpine:init", () => {
     agora: Date.now(),
     pinBlockUntil: 0,
     shake: false,
+    toast: { visible: false, mensagem: "", tom: "verde", timer: null },
 
     async init() {
       this.pinBlockUntil = Number(sessionStorage.getItem("pinBlockUntil")) || 0;
       setInterval(() => { this.agora = Date.now(); }, 1000);
       await this.tentarAutoResume();
+    },
+
+    mostrarToast(mensagem, tom = "verde", duracaoMs = 3000) {
+      if (this.toast.timer) clearTimeout(this.toast.timer);
+      this.toast = {
+        visible: true,
+        mensagem,
+        tom,
+        timer: setTimeout(() => { this.toast.visible = false; }, duracaoMs),
+      };
+    },
+
+    avaliarAtualizacao(atualizadoEmNovo) {
+      const anterior = sessionStorage.getItem("atualizadoEm");
+      if (!navigator.onLine) {
+        this.mostrarToast(
+          `Offline · última atualização: ${window.formatDataHora(atualizadoEmNovo)}`,
+          "cinza",
+          3000,
+        );
+        return;
+      }
+      if (anterior && anterior !== atualizadoEmNovo) {
+        this.mostrarToast(
+          `Carteira atualizada · ${window.formatDataHora(atualizadoEmNovo)}`,
+          "verde",
+          3000,
+        );
+      }
     },
 
     async tentarAutoResume() {
@@ -48,6 +78,7 @@ document.addEventListener("alpine:init", () => {
         this.json = JSON.parse(plaintext);
         this.pin = pin;
         this.fase = "raiox";
+        this.avaliarAtualizacao(this.json.atualizado_em);
         sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
@@ -184,6 +215,7 @@ document.addEventListener("alpine:init", () => {
         const payloadB64 = (await response.text()).trim();
         const plaintext = await window.decifrar(payloadB64, this.pin);
         this.json = JSON.parse(plaintext);
+        this.avaliarAtualizacao(this.json.atualizado_em);
         sessionStorage.setItem("pin", this.pin);
         sessionStorage.setItem("pinTimestamp", String(Date.now()));
         sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);

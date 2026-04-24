@@ -666,3 +666,32 @@ footer.rodape code {
   outline: 2px solid var(--g-500);
   outline-offset: 2px;
 }
+
+.toast {
+  position: fixed;
+  top: max(env(safe-area-inset-top), 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100% - 2rem);
+  padding: 0.625rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  box-shadow: 0 6px 24px rgba(6, 78, 59, 0.18);
+  pointer-events: none;
+  color: #fff;
+  background: var(--g-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toast-verde {
+  background: linear-gradient(90deg, var(--g-700) 0%, var(--g-500) 100%);
+}
+
+.toast-cinza {
+  background: var(--gray);
+}
