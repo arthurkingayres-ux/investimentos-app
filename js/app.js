@@ -209,10 +209,18 @@ document.addEventListener("alpine:init", () => {
       }
       this.pinError = "";
       this.carregando = true;
+      let payloadB64;
       try {
         const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payloadB64 = (await response.text()).trim();
+        payloadB64 = (await response.text()).trim();
+      } catch (err) {
+        console.warn("fetch portfolio falhou", err);
+        this.pinError = "Dados indisponíveis · verifique sua conexão";
+        this.carregando = false;
+        return;
+      }
+      try {
         const plaintext = await window.decifrar(payloadB64, this.pin);
         this.json = JSON.parse(plaintext);
         this.avaliarAtualizacao(this.json.atualizado_em);
@@ -222,13 +230,13 @@ document.addEventListener("alpine:init", () => {
         this.resetarFalhas();
         this.fase = "raiox";
       } catch (err) {
-        console.error(err);
+        console.error("decifra falhou", err);
         this.registrarFalha();
         this.dispararShake();
         if (this.estaBloqueado) {
           this.pinError = `Aguarde ${this.bloqueioRestanteMin} min`;
         } else {
-          this.pinError = "PIN incorreto ou dados indisponíveis";
+          this.pinError = "PIN incorreto";
         }
         this.pin = "";
       } finally {
