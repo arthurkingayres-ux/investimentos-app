@@ -8,18 +8,37 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=9">
-  <script src="js/crypto.js?v=9"></script>
-  <script src="js/format.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <link rel="stylesheet" href="css/app.css?v=13">
+  <script src="js/crypto.js?v=13"></script>
+  <script src="js/format.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js").catch((err) => {
+          console.warn("SW register falhou:", err);
+        });
+      });
+    }
+  </script>
 </head>
 <body x-data="app" x-cloak>
+  <div
+    class="toast"
+    :class="toast.tom ? ('toast-' + toast.tom) : ''"
+    x-show="toast.visible"
+    x-transition.opacity
+    role="status"
+    aria-live="polite"
+    x-text="toast.mensagem"></div>
   <main>
     <template x-if="fase === 'pin'">
-      <section class="pin-screen">
+      <section class="pin-screen" :class="{ 'is-shaking': shake }">
         <h1>Carteira</h1>
-        <p class="subtitle">Digite o PIN para visualizar</p>
+        <p class="subtitle" x-show="!estaBloqueado">Digite o PIN para visualizar</p>
+        <p class="subtitle pin-block-msg" x-show="estaBloqueado"
+           x-text="'Muitas tentativas. Aguarde ' + bloqueioRestanteMin + ' min'"></p>
         <form @submit.prevent="submitPin">
           <input
             type="tel"
@@ -28,16 +47,20 @@
             maxlength="6"
             autocomplete="off"
             x-model="pin"
-            :disabled="carregando"
+            :disabled="carregando || estaBloqueado"
             placeholder="••••••"
             class="pin-input"
             aria-label="PIN de 6 dígitos"
             autofocus>
-          <button type="submit" :disabled="carregando || pin.length !== 6" class="pin-submit">
-            <span x-show="!carregando">Entrar</span>
+          <button type="submit"
+            :disabled="carregando || estaBloqueado || pin.length !== 6"
+            class="pin-submit">
+            <span x-show="!carregando && !estaBloqueado">Entrar</span>
             <span x-show="carregando">Decifrando…</span>
+            <span x-show="!carregando && estaBloqueado"
+              x-text="'Aguarde ' + bloqueioRestanteMin + ' min'"></span>
           </button>
-          <p class="pin-error" x-show="pinError" x-text="pinError"></p>
+          <p class="pin-error" x-show="pinError && !estaBloqueado" x-text="pinError"></p>
         </form>
       </section>
     </template>
@@ -112,7 +135,10 @@
                   x-text="formatPct(escopo.data.twr_12m)"></span>
               </div>
 
-              <p class="rent-interpretacao" x-show="escopo.interpretacao" x-text="escopo.interpretacao"></p>
+              <p class="rent-interpretacao"
+                 :class="escopo.tom && ('tom-' + escopo.tom)"
+                 x-show="escopo.interpretacao"
+                 x-text="escopo.interpretacao"></p>
             </div>
           </template>
         </section>
@@ -178,6 +204,22 @@
             <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
+
+        <section class="card proventos" aria-labelledby="proventos-titulo">
+          <h2 id="proventos-titulo" class="card-titulo">Proventos recebidos</h2>
+          <div class="proventos-linha">
+            <span class="proventos-ytd" x-text="formatBrl(json.proventos.ytd_brl)"></span>
+            <span class="pill pill-anterior">
+              <span x-text="anoAnterior"></span> · <span x-text="formatBrl(json.proventos.ano_anterior_brl)"></span>
+            </span>
+          </div>
+          <p class="proventos-subtexto">Recebidos em <span x-text="anoCorrente"></span></p>
+        </section>
+
+        <footer class="rodape">
+          <p>Fonte: <code>investimentos.db</code> · doc-trail auditável</p>
+          <button @click="bloquear" class="btn-bloquear" type="button">🔒 Bloquear sessão</button>
+        </footer>
       </section>
     </template>
   </main>
