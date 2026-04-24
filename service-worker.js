@@ -67,7 +67,7 @@ async function cacheFirstShell(req) {
   try {
     const resp = await fetch(req);
     if (resp && resp.ok && resp.type === "basic") {
-      cache.put(req, resp.clone());
+      cache.put(req, resp.clone()).catch((err) => console.warn("[sw] put fail:", err));
     }
     return resp;
   } catch (err) {
@@ -82,7 +82,7 @@ async function networkFirstDados(req) {
   try {
     const resp = await fetchComTimeout(req, DADOS_TIMEOUT_MS);
     if (resp && resp.ok) {
-      cache.put(req, resp.clone());
+      cache.put(req, resp.clone()).catch((err) => console.warn("[sw] put fail:", err));
     }
     return resp;
   } catch (err) {
@@ -94,8 +94,12 @@ async function networkFirstDados(req) {
 
 function fetchComTimeout(req, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("sw-timeout")), timeoutMs);
-    fetch(req, { cache: "no-store" })
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error("sw-timeout"));
+    }, timeoutMs);
+    fetch(req, { cache: "no-store", signal: controller.signal })
       .then((resp) => { clearTimeout(timer); resolve(resp); })
       .catch((err) => { clearTimeout(timer); reject(err); });
   });

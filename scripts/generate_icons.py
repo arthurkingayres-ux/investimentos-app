@@ -36,7 +36,11 @@ def _carregar_fonte(tamanho: int) -> ImageFont.FreeTypeFont:
             return ImageFont.truetype(nome, tamanho)
         except OSError:
             continue
-    return ImageFont.load_default()
+    raise RuntimeError(
+        f"Nenhuma fonte TTF bold encontrada em {candidatos}; "
+        "ImageFont.load_default() ignora tamanho e produz 'C' ~10px. "
+        "Instale uma das fontes ou ajuste a lista."
+    )
 
 
 def _gradiente_radial(tam: int) -> Image.Image:

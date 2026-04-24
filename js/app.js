@@ -23,10 +23,11 @@ document.addEventListener("alpine:init", () => {
     pinBlockUntil: 0,
     shake: false,
     toast: { visible: false, mensagem: "", tom: "verde", timer: null },
+    agoraTimer: null,
 
     async init() {
       this.pinBlockUntil = Number(sessionStorage.getItem("pinBlockUntil")) || 0;
-      setInterval(() => { this.agora = Date.now(); }, 1000);
+      this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
       await this.tentarAutoResume();
     },
 
@@ -95,6 +96,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     get bloqueioRestanteMin() {
+      if (!this.estaBloqueado) return 0;
       return Math.max(1, Math.ceil((this.pinBlockUntil - this.agora) / 60000));
     },
 
