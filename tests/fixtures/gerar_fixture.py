@@ -7,9 +7,11 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
-Payload mínimo que satisfaz todos os caminhos consumidos por js/app.js e
-index.html (hero, rentabilidade com xirr/twr origem/ytd/12m + benchmarks,
-alocacao.atual/alvo, proventos ytd + ano_anterior + mensal, ultimo_aporte).
+Schema v2.2 (Fase 7a.E): payload mínimo que satisfaz raio-x + 3 telas
+de detalhe (#rentabilidade com historico_twr mensal por escopo,
+#alocacao detalhada por classe, #ativo/:ticker com movimentos +
+proventos inline). Inclui 2 tickers em posicoes[] para drill-down:
+HGLG11 (com movimentos+proventos) e VOO (só movimentos).
 """
 from __future__ import annotations
 
@@ -21,8 +23,25 @@ from src.output.crypto import encriptar_json
 PIN_TESTE = "123456"
 OUT = Path(__file__).resolve().parent / "portfolio.test.json.enc"
 
+
+def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_bench: float) -> list[dict]:
+    """Gera uma série de 6 pontos linearmente interpolados em meses fictícios."""
+    meses = ["2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-04"]
+    n = len(meses)
+    return [
+        {
+            "data": meses[i],
+            "twr": round(start_twr + (fim_twr - start_twr) * (i / (n - 1)), 4),
+            "benchmark": round(
+                start_bench + (fim_bench - start_bench) * (i / (n - 1)), 4
+            ),
+        }
+        for i in range(n)
+    ]
+
+
 PAYLOAD = {
-    "versao": "2.1",
+    "versao": "2.2",
     "atualizado_em": "2026-04-24T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -49,6 +68,7 @@ PAYLOAD = {
                 "IBOV": {"xirr_espelhado": 0.021},
                 "S&P 500": {"xirr_espelhado": 0.058},
             },
+            "historico_twr": _serie_mensal(0.05, 0.118, 0.04, 0.08),
         },
         "Brasil": {
             "xirr_origem": 0.091,
@@ -61,6 +81,7 @@ PAYLOAD = {
                 "IBOV": {"xirr_espelhado": 0.021},
                 "CDI": {"xirr_espelhado": 0.025},
             },
+            "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
         },
         "EUA": {
             "xirr_origem": 0.138,
@@ -72,6 +93,7 @@ PAYLOAD = {
             "benchmarks": {
                 "S&P 500": {"xirr_espelhado": 0.058},
             },
+            "historico_twr": _serie_mensal(0.06, 0.118, 0.05, 0.058),
         },
         "interpretacao": {
             "Total": "Boas escolhas de ativos e timing favorável",
@@ -103,7 +125,70 @@ PAYLOAD = {
         ],
     },
     "top5_xirr": [],
-    "posicoes": [],
+    "posicoes": [
+        {
+            "ticker": "HGLG11",
+            "classe": "FIIs",
+            "moeda": "BRL",
+            "quantidade": 50,
+            "custo_medio": 130.0,
+            "ultimo_preco": 150.0,
+            "valor_mercado_brl": 7500.0,
+            "ganho_perda_brl": 1000.0,
+            "ganho_perda_pct": 0.1538,
+            "xirr_aa": 0.092,
+            "movimentos": [
+                {
+                    "data": "2026-04-15",
+                    "lado": "Compra",
+                    "quantidade": 8,
+                    "preco_unitario": 131.25,
+                    "total_brl": 1050.0,
+                },
+                {
+                    "data": "2026-03-10",
+                    "lado": "Compra",
+                    "quantidade": 5,
+                    "preco_unitario": 129.80,
+                    "total_brl": 649.0,
+                },
+            ],
+            "proventos": [
+                {
+                    "data_pagamento": "2026-04-05",
+                    "valor_liquido_brl": 87.20,
+                    "tipo": "Rendimento",
+                },
+                {
+                    "data_pagamento": "2026-03-05",
+                    "valor_liquido_brl": 85.10,
+                    "tipo": "Rendimento",
+                },
+            ],
+        },
+        {
+            "ticker": "VOO",
+            "classe": "Exterior",
+            "moeda": "USD",
+            "quantidade": 10,
+            "custo_medio": 480.0,
+            "ultimo_preco": 520.0,
+            "valor_mercado_brl": 27040.0,
+            "ganho_perda_brl": 2080.0,
+            "ganho_perda_pct": 0.0833,
+            "xirr_aa": 0.118,
+            "movimentos": [
+                {
+                    "data": "2026-04-20",
+                    "lado": "Compra",
+                    "quantidade": 1,
+                    "preco_unitario": 520.0,
+                    "total_brl": 2704.0,
+                },
+            ],
+            "proventos": [],
+        },
+    ],
 }
 
 
