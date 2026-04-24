@@ -2,3 +2,9 @@
 *.log
 node_modules/
 .vscode/
+playwright-report/
+test-results/
+tests/fixtures/*.json
+!tests/fixtures/portfolio.test.json.enc
+__pycache__/
+*.pyc

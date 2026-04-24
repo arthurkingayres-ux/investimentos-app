@@ -1,0 +1,15 @@
+{
+  "name": "investimentos-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA raio-x da carteira do Dr. Arthur",
+  "license": "MIT",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "serve": "python -m http.server 8080"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
