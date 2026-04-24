@@ -26,7 +26,7 @@ document.addEventListener("alpine:init", () => {
     agoraTimer: null,
 
     async init() {
-      this.pinBlockUntil = Number(sessionStorage.getItem("pinBlockUntil")) || 0;
+      this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
       this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
       await this.tentarAutoResume();
     },
@@ -42,7 +42,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     avaliarAtualizacao(atualizadoEmNovo) {
-      const anterior = sessionStorage.getItem("atualizadoEm");
+      const anterior = localStorage.getItem("atualizadoEm");
       if (!navigator.onLine) {
         this.mostrarToast(
           `Offline · última atualização: ${window.formatDataHora(atualizadoEmNovo)}`,
@@ -61,13 +61,13 @@ document.addEventListener("alpine:init", () => {
     },
 
     async tentarAutoResume() {
-      const pin = sessionStorage.getItem("pin");
-      const ts = Number(sessionStorage.getItem("pinTimestamp") || 0);
+      const pin = localStorage.getItem("pin");
+      const ts = Number(localStorage.getItem("pinTimestamp") || 0);
       if (!pin || !ts) return;
       if (Date.now() - ts >= SESSION_TTL_MS) {
-        sessionStorage.removeItem("pin");
-        sessionStorage.removeItem("pinTimestamp");
-        sessionStorage.removeItem("atualizadoEm");
+        localStorage.removeItem("pin");
+        localStorage.removeItem("pinTimestamp");
+        localStorage.removeItem("atualizadoEm");
         return;
       }
       this.carregando = true;
@@ -80,12 +80,12 @@ document.addEventListener("alpine:init", () => {
         this.pin = pin;
         this.fase = "raiox";
         this.avaliarAtualizacao(this.json.atualizado_em);
-        sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        localStorage.setItem("atualizadoEm", this.json.atualizado_em);
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
-        sessionStorage.removeItem("pin");
-        sessionStorage.removeItem("pinTimestamp");
-        sessionStorage.removeItem("atualizadoEm");
+        localStorage.removeItem("pin");
+        localStorage.removeItem("pinTimestamp");
+        localStorage.removeItem("atualizadoEm");
       } finally {
         this.carregando = false;
       }
@@ -102,15 +102,15 @@ document.addEventListener("alpine:init", () => {
 
     registrarFalha() {
       const agora = Date.now();
-      let fails = Number(sessionStorage.getItem("pinFails") || 0);
-      let firstAt = Number(sessionStorage.getItem("pinFirstFailAt") || 0);
+      let fails = Number(localStorage.getItem("pinFails") || 0);
+      let firstAt = Number(localStorage.getItem("pinFirstFailAt") || 0);
       if (!firstAt || agora - firstAt > FAIL_WINDOW_MS) {
         fails = 0;
         firstAt = agora;
       }
       fails += 1;
-      sessionStorage.setItem("pinFails", String(fails));
-      sessionStorage.setItem("pinFirstFailAt", String(firstAt));
+      localStorage.setItem("pinFails", String(fails));
+      localStorage.setItem("pinFirstFailAt", String(firstAt));
 
       let dur = 0;
       if (fails === 5) dur = BLOCK_5_MS;
@@ -119,14 +119,14 @@ document.addEventListener("alpine:init", () => {
       if (dur > 0) {
         const until = agora + dur;
         this.pinBlockUntil = until;
-        sessionStorage.setItem("pinBlockUntil", String(until));
+        localStorage.setItem("pinBlockUntil", String(until));
       }
     },
 
     resetarFalhas() {
-      sessionStorage.removeItem("pinFails");
-      sessionStorage.removeItem("pinFirstFailAt");
-      sessionStorage.removeItem("pinBlockUntil");
+      localStorage.removeItem("pinFails");
+      localStorage.removeItem("pinFirstFailAt");
+      localStorage.removeItem("pinBlockUntil");
       this.pinBlockUntil = 0;
     },
 
@@ -176,12 +176,13 @@ document.addEventListener("alpine:init", () => {
     },
 
     bloquear() {
-      sessionStorage.clear();
+      localStorage.removeItem("pin");
+      localStorage.removeItem("pinTimestamp");
+      localStorage.removeItem("atualizadoEm");
       this.fase = "pin";
       this.json = null;
       this.pin = "";
       this.pinError = "";
-      this.pinBlockUntil = 0;
     },
 
     get escoposRentabilidade() {
@@ -226,9 +227,9 @@ document.addEventListener("alpine:init", () => {
         const plaintext = await window.decifrar(payloadB64, this.pin);
         this.json = JSON.parse(plaintext);
         this.avaliarAtualizacao(this.json.atualizado_em);
-        sessionStorage.setItem("pin", this.pin);
-        sessionStorage.setItem("pinTimestamp", String(Date.now()));
-        sessionStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        localStorage.setItem("pin", this.pin);
+        localStorage.setItem("pinTimestamp", String(Date.now()));
+        localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         this.resetarFalhas();
         this.fase = "raiox";
       } catch (err) {
