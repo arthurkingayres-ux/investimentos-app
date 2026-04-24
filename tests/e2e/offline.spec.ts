@@ -9,6 +9,4 @@ import { test } from "@playwright/test";
 // Cobertura offline: smoke manual no iPhone real (plano Task 15.4 + spec §4.3).
 // Alternativa futura: suite "offline" dedicada com `serviceWorkers: "allow"`
 // + arquivo real `portfolio.json.enc` gerado para o PIN de teste.
-test.describe.skip("Offline / Service Worker", () => {
-  test("skipped — conflito SW-block vs. cache-first SW", () => {});
-});
+test.skip("offline via Service Worker — coberto por smoke manual", () => {});

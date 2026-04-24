@@ -91,6 +91,11 @@ document.addEventListener("alpine:init", () => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payloadB64 = (await response.text()).trim();
         const plaintext = await window.decifrar(payloadB64, pin);
+        // Race guard: outra aba pode ter chamado bloquear() durante o await.
+        // Se o pin sumiu do localStorage, respeitar o logout e não promover a fase.
+        if (localStorage.getItem("pin") === null) {
+          return;
+        }
         this.json = JSON.parse(plaintext);
         this.pin = pin;
         this.fase = "raiox";

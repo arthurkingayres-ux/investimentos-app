@@ -39,4 +39,43 @@ test.describe("Multi-tab sync", () => {
     // B deve cair via evento storage
     await expect(pageB.locator(".pin-screen")).toBeVisible({ timeout: 5_000 });
   });
+
+  test("race: bloquear() durante auto-resume da aba B -> B respeita logout", async ({
+    context,
+  }) => {
+    const pageA = await context.newPage();
+    await mockPortfolio(pageA);
+    const pageB = await context.newPage();
+
+    // Log in na aba A para semear localStorage com pin + pinTimestamp
+    await pageA.goto("/");
+    await pageA.locator("input.pin-input").fill("123456");
+    await pageA.locator("button.pin-submit").click();
+    await pageA.locator(".raiox").waitFor({ timeout: 10_000 });
+
+    // Simula fetch lento em B: 2s de atraso no portfolio.json.enc.
+    const FIXTURE = await pageA.evaluate(() =>
+      fetch("./portfolio.json.enc").then((r) => r.text()),
+    );
+    await pageB.route("**/portfolio.json.enc", async (route) => {
+      await new Promise((r) => setTimeout(r, 2_000));
+      return route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" });
+    });
+
+    // B abre — vai entrar em tentarAutoResume com fetch em curso (2s de espera).
+    const navB = pageB.goto("/");
+    await pageB.waitForTimeout(300);
+
+    // Durante esse window, A chama bloquear() — limpa pin do localStorage.
+    await pageA.getByRole("button", { name: /bloquear/i }).click();
+    await expect(pageA.locator(".pin-screen")).toBeVisible();
+
+    // Espera B terminar navegação + auto-resume + race-guard
+    await navB;
+    await pageB.waitForTimeout(3_000);
+
+    // B DEVE continuar em PIN (race guard rejeita promoção de fase)
+    await expect(pageB.locator(".pin-screen")).toBeVisible();
+    await expect(pageB.locator(".raiox")).toHaveCount(0);
+  });
 });

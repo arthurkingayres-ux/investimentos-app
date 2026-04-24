@@ -10,6 +10,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -51,10 +52,8 @@ EXCLUIR_ARQUIVOS = {
 }
 
 
-def _deve_varrer(p: Path) -> bool:
+def _arquivo_elegivel(p: Path) -> bool:
     if p.name in EXCLUIR_ARQUIVOS:
-        return False
-    if any(part in EXCLUIR_DIRS for part in p.parts):
         return False
     return p.suffix.lower() in EXTENSOES_TEXTO
 
@@ -68,16 +67,20 @@ def main() -> int:
     root = Path(args.path).resolve()
     violacoes: list[tuple[Path, int, str, str]] = []
 
-    for arquivo in root.rglob("*"):
-        if not arquivo.is_file() or not _deve_varrer(arquivo):
-            continue
-        try:
-            texto = arquivo.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-        hits = listar_violacoes(texto, mode=args.mode)
-        for h in hits:
-            violacoes.append((arquivo.relative_to(root), h.linha, h.categoria, h.contexto))
+    # os.walk com prune em dirs[:] evita descer em node_modules/.git/etc.
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in EXCLUIR_DIRS]
+        for nome in filenames:
+            arquivo = Path(dirpath) / nome
+            if not _arquivo_elegivel(arquivo):
+                continue
+            try:
+                texto = arquivo.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            hits = listar_violacoes(texto, mode=args.mode)
+            for h in hits:
+                violacoes.append((arquivo.relative_to(root), h.linha, h.categoria, h.contexto))
 
     if not violacoes:
         print(f"PII scan OK ({args.mode}): nenhuma violacao em {root}")
