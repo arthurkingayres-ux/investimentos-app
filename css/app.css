@@ -274,26 +274,9 @@ h1 {
   line-height: 1;
 }
 
-.rent-cols-head {
-  display: grid;
-  grid-template-columns: 2.5rem 1fr 1fr 1fr;
-  gap: 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--gray);
-  margin-bottom: 0.4rem;
-  padding: 0 0.25rem;
-}
-
-.rent-cols-head > span:not(:first-child) {
-  text-align: right;
-}
-
 .rent-linha {
   display: grid;
-  grid-template-columns: 2.5rem 1fr 1fr 1fr;
+  grid-template-columns: 2.5rem 1fr;   /* era: 2.5rem 1fr 1fr 1fr */
   gap: 0.5rem;
   align-items: center;
   padding: 0.35rem 0.25rem;
@@ -358,7 +341,7 @@ h1 {
 
 .rent-benchmark {
   display: grid;
-  grid-template-columns: 2.5rem 1fr 1fr 1fr;
+  grid-template-columns: 2.5rem 1fr;   /* era: 2.5rem 1fr 1fr 1fr */
   gap: 0.5rem;
   align-items: center;
   padding: 0.2rem 0.25rem;
@@ -384,12 +367,6 @@ h1 {
   text-align: right;
   font-weight: 500;
   color: var(--ink);
-}
-
-.rent-benchmark .bench-vazio {
-  text-align: right;
-  color: var(--neutral-300);
-  font-weight: 400;
 }
 
 .rent-interpretacao {
