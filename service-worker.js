@@ -64,7 +64,8 @@ self.addEventListener("fetch", (event) => {
 
 async function cacheFirstShell(req) {
   const cache = await caches.open(CACHE_SHELL);
-  const cached = await cache.match(req, { ignoreSearch: true });
+  // Match exato (respeita query string `?v=` para cache-bust automático).
+  const cached = await cache.match(req);
   if (cached) return cached;
   try {
     const resp = await fetch(req);
@@ -73,6 +74,9 @@ async function cacheFirstShell(req) {
     }
     return resp;
   } catch (err) {
+    // Offline: fallback para qualquer versão cacheada (ignora `?v=`).
+    const stale = await cache.match(req, { ignoreSearch: true });
+    if (stale) return stale;
     const fallback = await cache.match("./index.html");
     if (fallback && req.mode === "navigate") return fallback;
     throw err;
