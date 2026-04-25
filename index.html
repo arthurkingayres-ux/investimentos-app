@@ -87,8 +87,8 @@
           </div>
         </section>
 
-        <section class="card rentabilidade" aria-label="Rentabilidade por escopo">
-          <h2 class="card-titulo">Rentabilidade</h2>
+        <a href="#rentabilidade" class="card rentabilidade card-link" aria-label="Abrir rentabilidade detalhada">
+          <h2 class="card-titulo">Rentabilidade <span class="card-arrow">→</span></h2>
           <template x-for="escopo in escoposRentabilidade" :key="escopo.key">
             <div class="rent-escopo">
               <div class="rent-header">
@@ -144,10 +144,10 @@
                  x-text="escopo.interpretacao"></p>
             </div>
           </template>
-        </section>
+        </a>
 
-        <section class="card alocacao" aria-label="Alocação da carteira">
-          <h2 class="card-titulo">Alocação</h2>
+        <a href="#alocacao" class="card alocacao card-link" aria-label="Abrir alocação detalhada">
+          <h2 class="card-titulo">Alocação <span class="card-arrow">→</span></h2>
           <template x-for="linha in linhasAlocacao" :key="linha.nome">
             <div class="aloc-linha">
               <div class="aloc-header">
@@ -174,7 +174,7 @@
                 x-text="formatPct(linha.drift) + ' vs alvo'"></p>
             </div>
           </template>
-        </section>
+        </a>
 
         <section class="card aporte" aria-label="Último aporte">
           <h2 class="card-titulo">Último aporte</h2>
@@ -190,7 +190,7 @@
                 <span class="aporte-pill" x-text="formatBrl(json.ultimo_aporte.total_brl)"></span>
               </div>
               <template x-for="item in json.ultimo_aporte.itens" :key="item.ticker">
-                <div class="aporte-item">
+                <a class="aporte-item aporte-item-link" :href="'#ativo/' + item.ticker">
                   <span class="aporte-bandeira" x-text="item.bandeira"></span>
                   <div class="aporte-detalhes">
                     <span class="aporte-ticker" x-text="item.ticker"></span>
@@ -199,7 +199,7 @@
                     </span>
                   </div>
                   <span class="aporte-valor" x-text="formatBrl(item.valor_brl)"></span>
-                </div>
+                </a>
               </template>
             </div>
           </template>
