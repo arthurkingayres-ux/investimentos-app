@@ -106,4 +106,36 @@ test.describe("Tela #rentabilidade", () => {
     await expect(legenda).toContainText("XIRR");
     await expect(legenda).toContainText("TWR");
   });
+
+  test("legenda do gráfico mostra Portfólio + benchmark do escopo", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+
+    // Legenda do uPlot é uma <table class="u-legend"> dentro do container .chart-rent.
+    const legenda = page.locator(".chart-rent .u-legend");
+    await expect(legenda).toBeVisible();
+    await expect(legenda).toContainText("Portfólio");
+    await expect(legenda).toContainText("CDI");
+
+    // Verifica que a legenda NÃO está clipada por overflow:hidden do container.
+    // Necessário porque toBeVisible() ignora clipping de ancestrais.
+    // Lança erro nominativo se o DOM não tiver os elementos esperados — assim
+    // a falha é "Container .chart-rent não encontrado" em vez do críptico
+    // "expected false to be true".
+    const legendaDentroDoContainer = await page.evaluate(() => {
+      const container = document.querySelector(".chart-rent") as HTMLElement;
+      if (!container) throw new Error("Container .chart-rent não encontrado no DOM");
+      const legend = container.querySelector(".u-legend") as HTMLElement;
+      if (!legend) throw new Error(".u-legend não encontrado dentro de .chart-rent");
+      const cRect = container.getBoundingClientRect();
+      const lRect = legend.getBoundingClientRect();
+      // Legenda inteira deve caber dentro da área visível do container.
+      return lRect.bottom <= cRect.bottom + 1 && lRect.top >= cRect.top - 1;
+    });
+    expect(legendaDentroDoContainer).toBe(true);
+
+    // Trocar para EUA: legenda deve atualizar para S&P 500.
+    await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
+    await expect(legenda).toContainText("S&P 500");
+  });
 });

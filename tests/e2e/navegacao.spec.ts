@@ -59,4 +59,26 @@ test.describe("Navegacao hash routing", () => {
     await page.reload();
     await expect(page.locator(".tela-alocacao")).toBeVisible();
   });
+
+  test("raio-x mostra benchmark com prefixo 'vs' e travessão em Ano/12m", async ({ page }) => {
+    await autenticar(page);
+    // Garantir que estamos no raio-x (rota default).
+    await expect(page.locator(".raiox")).toBeVisible();
+
+    // Pegar a primeira linha de benchmark do escopo Total.
+    const benchmarks = page.locator(".raiox .rent-benchmark");
+    await expect(benchmarks.first()).toBeVisible();
+
+    // Label deve começar com "vs " e ser uma string com peso visível.
+    const primeiroLabel = benchmarks.first().locator(".bench-label");
+    await expect(primeiroLabel).toContainText("vs ");
+
+    // 4 spans diretos: label, valor (col Origem), travessão (col Ano), travessão (col 12m).
+    const spansDaPrimeira = benchmarks.first().locator(":scope > span");
+    await expect(spansDaPrimeira).toHaveCount(4);
+
+    // As duas células finais devem ser travessões.
+    await expect(spansDaPrimeira.nth(2)).toHaveText("—");
+    await expect(spansDaPrimeira.nth(3)).toHaveText("—");
+  });
 });

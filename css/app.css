@@ -358,21 +358,38 @@ h1 {
 
 .rent-benchmark {
   display: grid;
-  grid-template-columns: 2.5rem 1fr;
+  grid-template-columns: 2.5rem 1fr 1fr 1fr;
   gap: 0.5rem;
-  padding: 0.15rem 0.25rem 0.15rem 2.5rem;
+  align-items: center;
+  padding: 0.2rem 0.25rem;
   font-size: 0.8125rem;
-  color: var(--gray);
   font-variant-numeric: tabular-nums;
+  border-top: 1px dashed var(--neutral-200);
+  margin-top: 0.1rem;
+}
+
+.rent-benchmark + .rent-benchmark {
+  border-top: none;
+  padding-top: 0.1rem;
+  margin-top: 0;
 }
 
 .rent-benchmark .bench-label {
   font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 .rent-benchmark .bench-valor {
   text-align: right;
   font-weight: 500;
+  color: var(--ink);
+}
+
+.rent-benchmark .bench-vazio {
+  text-align: right;
+  color: var(--neutral-300);
+  font-weight: 400;
 }
 
 .rent-interpretacao {
@@ -770,13 +787,15 @@ footer.rodape code {
 
 .chart-rent {
   width: 100%;
-  height: 280px;
+  /* min-height: 320px = padding (24px total) + uPlot canvas (280px, fixo em
+     hidratarRentabilidade) + ~16px reservados para a tabela <u-legend>
+     que o uPlot renderiza abaixo do canvas. Sem isso, a legenda some. */
+  min-height: 320px;
   margin: 12px 0 24px;
   background: white;
   border-radius: 14px;
   padding: 12px;
   box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
-  overflow: hidden;
 }
 
 .interpretacao {
@@ -1204,4 +1223,17 @@ footer.rodape code {
 .lado-neutro {
   color: var(--ink);
   background: var(--neutral-100);
+}
+
+/* Accessibility utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
