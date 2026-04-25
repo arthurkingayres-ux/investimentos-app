@@ -93,6 +93,22 @@ test.describe("Navegacao hash routing", () => {
     }
   });
 
+  test("raio-x não exibe benchmarks YTD ou 12m — Origem-only (proteção 7a.E.3 + 7a.E.4)", async ({ page }) => {
+    await autenticar(page);
+    await expect(page.locator(".raiox")).toBeVisible();
+
+    const benchmarks = page.locator(".raiox .rent-benchmark");
+    const count = await benchmarks.count();
+    expect(count).toBeGreaterThan(0);
+
+    for (let i = 0; i < count; i++) {
+      const text = await benchmarks.nth(i).textContent();
+      const pct = (text ?? "").match(/[+\-]?\d+(?:[,.]?\d+)?\s*%/g) ?? [];
+      // Raio-x mostra APENAS Origem — máximo 1 percentual por linha de benchmark.
+      expect(pct.length).toBeLessThanOrEqual(1);
+    }
+  });
+
   test("raio-x card alocação não prepend '+' em pct atual ou alvo", async ({ page }) => {
     await autenticar(page);
     await expect(page.locator(".raiox")).toBeVisible();
