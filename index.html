@@ -8,13 +8,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=17">
-  <link rel="stylesheet" href="css/app.css?v=17">
-  <script src="js/vendor/uplot.min.js?v=17"></script>
-  <script src="js/crypto.js?v=17"></script>
-  <script src="js/format.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
-  <script defer src="js/vendor/alpine.min.js?v=17"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=18">
+  <link rel="stylesheet" href="css/app.css?v=18">
+  <script src="js/vendor/uplot.min.js?v=18"></script>
+  <script src="js/crypto.js?v=18"></script>
+  <script src="js/format.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
+  <script defer src="js/vendor/alpine.min.js?v=18"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -121,11 +121,6 @@
                   :class="(escopo.data.twr_origem ?? 0) < 0 && 'is-neg'"
                   x-text="formatPct(escopo.data.twr_origem)"></span>
               </div>
-
-              <p class="rent-interpretacao"
-                 :class="escopo.tom && ('tom-' + escopo.tom)"
-                 x-show="escopo.interpretacao"
-                 x-text="escopo.interpretacao"></p>
             </div>
           </template>
         </a>
@@ -303,7 +298,7 @@
                 tabindex="0"
                 @keydown.enter.prevent="expandirClasse(classe)"
                 @keydown.space.prevent="expandirClasse(classe)">
-                <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
+                <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
                 <span class="classe-nome" x-text="classe"></span>
                 <span class="classe-pct">
                   <span x-text="formatPctSemSinal(pctAtualClasse(classe))"></span>
