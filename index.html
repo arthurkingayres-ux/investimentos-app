@@ -138,8 +138,8 @@
                 <span class="aloc-dot" :style="{ background: linha.cor }"></span>
                 <span class="aloc-nome" x-text="linha.nome"></span>
                 <span class="aloc-valores">
-                  <span class="atual" x-text="formatPct(linha.pct_atual)"></span>
-                  <span class="alvo" x-text="'alvo ' + formatPct(linha.pct_alvo)"></span>
+                  <span class="atual" x-text="formatPctSemSinal(linha.pct_atual)"></span>
+                  <span class="alvo" x-text="'alvo ' + formatPctSemSinal(linha.pct_alvo)"></span>
                 </span>
               </div>
               <div class="aloc-trilha" role="progressbar"
@@ -151,7 +151,7 @@
                 <div class="aloc-alvo"
                   x-show="linha.pct_alvo > 0"
                   :style="{ left: Math.min(Math.max(linha.pct_alvo, 0) * 100, 100) + '%' }"
-                  :title="'Alvo ' + formatPct(linha.pct_alvo)"></div>
+                  :title="'Alvo ' + formatPctSemSinal(linha.pct_alvo)"></div>
               </div>
               <p class="aloc-drift"
                 :class="Math.abs(linha.drift) < 0.005 ? '' : (linha.drift > 0 ? 'is-pos' : 'is-neg')"
@@ -306,8 +306,8 @@
                 <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
                 <span class="classe-nome" x-text="classe"></span>
                 <span class="classe-pct">
-                  <span x-text="formatPct(pctAtualClasse(classe))"></span>
-                  <span class="alvo-pct">alvo <span x-text="formatPct(pctAlvoClasse(classe))"></span></span>
+                  <span x-text="formatPctSemSinal(pctAtualClasse(classe))"></span>
+                  <span class="alvo-pct">alvo <span x-text="formatPctSemSinal(pctAlvoClasse(classe))"></span></span>
                 </span>
                 <span class="classe-arrow" x-text="classeExpandida === classe ? '▾' : '▸'"></span>
               </div>
@@ -320,7 +320,7 @@
                   <a :href="'#ativo/' + p.ticker" class="ticker-row">
                     <span class="ticker-name" x-text="p.ticker"></span>
                     <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
-                    <span class="ticker-pct" x-text="formatPct(p.peso_na_classe)"></span>
+                    <span class="ticker-pct" x-text="formatPctSemSinal(p.peso_na_classe)"></span>
                   </a>
                 </template>
                 <p class="ticker-empty" x-show="tickersComPesos(classe).length === 0">
