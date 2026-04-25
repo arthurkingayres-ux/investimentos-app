@@ -15,6 +15,8 @@ function derivarTomInterpretacao(texto) {
 document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     fase: "pin",
+    rota: "",
+    tickerAtual: "",
     pin: "",
     pinError: "",
     carregando: false,
@@ -24,6 +26,9 @@ document.addEventListener("alpine:init", () => {
     shake: false,
     toast: { visible: false, mensagem: "", tom: "verde", timer: null },
     agoraTimer: null,
+    escopoAtivo: "Total",
+    classeExpandida: null,
+    uplotInstance: null,
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -32,12 +37,41 @@ document.addEventListener("alpine:init", () => {
         // Multi-tab sync: se outra aba limpou a sessão, esta aba cai para PIN.
         if (e.key === "pin" && e.newValue === null && this.fase === "raiox") {
           this.fase = "pin";
+          this.rota = "";
           this.json = null;
           this.pin = "";
           this.pinError = "";
         }
       });
+      window.addEventListener("hashchange", () => this.atualizarRota());
+      this.atualizarRota();
       await this.tentarAutoResume();
+    },
+
+    atualizarRota() {
+      const h = (location.hash || "").replace(/^#/, "");
+      if (h === "") { this.rota = ""; return; }
+      if (h === "rentabilidade") {
+        this.rota = "rentabilidade";
+        // Hidrata o gráfico após Alpine renderizar a section.
+        setTimeout(() => this.hidratarRentabilidade(), 0);
+        return;
+      }
+      if (h === "alocacao") { this.rota = "alocacao"; return; }
+      const m = h.match(/^ativo\/([A-Z0-9_-]{2,10})$/);
+      if (m) { this.rota = "ativo"; this.tickerAtual = m[1]; return; }
+      // Fallback: hash inválido vira raio-x sem entrar no histórico.
+      history.replaceState(null, "", location.pathname + location.search);
+      this.rota = "";
+    },
+
+    voltar() {
+      if (history.length > 1) {
+        history.back();
+      } else {
+        history.replaceState(null, "", location.pathname);
+        this.rota = "";
+      }
     },
 
     limparSessao() {

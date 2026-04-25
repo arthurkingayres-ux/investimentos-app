@@ -695,3 +695,49 @@ footer.rodape code {
 .toast-cinza {
   background: var(--gray);
 }
+
+/* ── Telas de detalhe (Fase 7a.E) ───────────────────────────────────── */
+
+.tela-detalhes {
+  padding: 16px 20px 80px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--neutral-200);
+  margin-bottom: 16px;
+}
+
+.breadcrumb button {
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  padding: 4px 12px;
+  color: var(--g-900);
+  line-height: 1;
+}
+
+.breadcrumb button:hover {
+  background: var(--neutral-100);
+  border-radius: 8px;
+}
+
+.breadcrumb h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--g-900);
+}
+
+.placeholder {
+  color: var(--gray);
+  font-style: italic;
+  padding: 24px;
+  text-align: center;
+}

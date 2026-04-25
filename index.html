@@ -68,7 +68,8 @@
     </template>
 
     <template x-if="fase === 'raiox'">
-      <section class="raiox">
+      <div>
+      <section class="raiox" x-show="rota === ''" x-cloak>
         <h1>Raio X</h1>
 
         <section class="hero" aria-label="Patrimônio total">
@@ -223,6 +224,31 @@
           <button @click="bloquear" class="btn-bloquear" type="button">🔒 Bloquear sessão</button>
         </footer>
       </section>
+
+      <section class="tela-detalhes tela-rentabilidade" x-show="rota === 'rentabilidade'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Rentabilidade</h1>
+        </header>
+        <p class="placeholder">Em construção (Task 9).</p>
+      </section>
+
+      <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Alocação</h1>
+        </header>
+        <p class="placeholder">Em construção (Task 10).</p>
+      </section>
+
+      <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 x-text="tickerAtual"></h1>
+        </header>
+        <p class="placeholder">Em construção (Task 11).</p>
+      </section>
+      </div>
     </template>
   </main>
 </body>
