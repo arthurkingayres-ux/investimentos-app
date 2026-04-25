@@ -8,13 +8,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=16">
-  <link rel="stylesheet" href="css/app.css?v=16">
-  <script src="js/vendor/uplot.min.js?v=16"></script>
-  <script src="js/crypto.js?v=16"></script>
-  <script src="js/format.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
-  <script defer src="js/vendor/alpine.min.js?v=16"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=17">
+  <link rel="stylesheet" href="css/app.css?v=17">
+  <script src="js/vendor/uplot.min.js?v=17"></script>
+  <script src="js/crypto.js?v=17"></script>
+  <script src="js/format.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <script defer src="js/vendor/alpine.min.js?v=17"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -95,9 +95,6 @@
                 <span class="bandeira" x-text="escopo.flag"></span>
                 <span x-text="escopo.key"></span>
               </div>
-              <div class="rent-cols-head" x-show="escopo.isFirst">
-                <span></span><span>Origem</span><span>Ano</span><span>12m</span>
-              </div>
 
               <div class="rent-linha">
                 <span class="rent-label">XIRR</span>
@@ -105,14 +102,6 @@
                   class="chip chip-xirr"
                   :class="(escopo.data.xirr_origem ?? 0) < 0 && 'is-neg'"
                   x-text="formatPct(escopo.data.xirr_origem)"></span>
-                <span
-                  class="rent-valor"
-                  :class="escopo.data.xirr_ytd === null || escopo.data.xirr_ytd === undefined ? 'is-null' : (escopo.data.xirr_ytd < 0 && 'is-neg')"
-                  x-text="formatPct(escopo.data.xirr_ytd)"></span>
-                <span
-                  class="rent-valor"
-                  :class="escopo.data.xirr_12m === null || escopo.data.xirr_12m === undefined ? 'is-null' : (escopo.data.xirr_12m < 0 && 'is-neg')"
-                  x-text="formatPct(escopo.data.xirr_12m)"></span>
               </div>
 
               <template x-for="[bkey, bench] in escopo.benchmarks" :key="bkey">
@@ -122,8 +111,6 @@
                     <span x-text="formatPct(bench.xirr_espelhado)"></span>
                     <span class="sr-only">janela desde a origem</span>
                   </span>
-                  <span class="bench-vazio" aria-hidden="true">—</span>
-                  <span class="bench-vazio" aria-hidden="true">—</span>
                 </div>
               </template>
 
@@ -133,14 +120,6 @@
                   class="chip chip-twr"
                   :class="(escopo.data.twr_origem ?? 0) < 0 && 'is-neg'"
                   x-text="formatPct(escopo.data.twr_origem)"></span>
-                <span
-                  class="rent-valor"
-                  :class="escopo.data.twr_ytd === null || escopo.data.twr_ytd === undefined ? 'is-null' : (escopo.data.twr_ytd < 0 && 'is-neg')"
-                  x-text="formatPct(escopo.data.twr_ytd)"></span>
-                <span
-                  class="rent-valor"
-                  :class="escopo.data.twr_12m === null || escopo.data.twr_12m === undefined ? 'is-null' : (escopo.data.twr_12m < 0 && 'is-neg')"
-                  x-text="formatPct(escopo.data.twr_12m)"></span>
               </div>
 
               <p class="rent-interpretacao"
@@ -159,8 +138,8 @@
                 <span class="aloc-dot" :style="{ background: linha.cor }"></span>
                 <span class="aloc-nome" x-text="linha.nome"></span>
                 <span class="aloc-valores">
-                  <span class="atual" x-text="formatPct(linha.pct_atual)"></span>
-                  <span class="alvo" x-text="'alvo ' + formatPct(linha.pct_alvo)"></span>
+                  <span class="atual" x-text="formatPctSemSinal(linha.pct_atual)"></span>
+                  <span class="alvo" x-text="'alvo ' + formatPctSemSinal(linha.pct_alvo)"></span>
                 </span>
               </div>
               <div class="aloc-trilha" role="progressbar"
@@ -172,7 +151,7 @@
                 <div class="aloc-alvo"
                   x-show="linha.pct_alvo > 0"
                   :style="{ left: Math.min(Math.max(linha.pct_alvo, 0) * 100, 100) + '%' }"
-                  :title="'Alvo ' + formatPct(linha.pct_alvo)"></div>
+                  :title="'Alvo ' + formatPctSemSinal(linha.pct_alvo)"></div>
               </div>
               <p class="aloc-drift"
                 :class="Math.abs(linha.drift) < 0.005 ? '' : (linha.drift > 0 ? 'is-pos' : 'is-neg')"
@@ -327,8 +306,8 @@
                 <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
                 <span class="classe-nome" x-text="classe"></span>
                 <span class="classe-pct">
-                  <span x-text="formatPct(pctAtualClasse(classe))"></span>
-                  <span class="alvo-pct">alvo <span x-text="formatPct(pctAlvoClasse(classe))"></span></span>
+                  <span x-text="formatPctSemSinal(pctAtualClasse(classe))"></span>
+                  <span class="alvo-pct">alvo <span x-text="formatPctSemSinal(pctAlvoClasse(classe))"></span></span>
                 </span>
                 <span class="classe-arrow" x-text="classeExpandida === classe ? '▾' : '▸'"></span>
               </div>
@@ -341,7 +320,7 @@
                   <a :href="'#ativo/' + p.ticker" class="ticker-row">
                     <span class="ticker-name" x-text="p.ticker"></span>
                     <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
-                    <span class="ticker-pct" x-text="formatPct(p.peso_na_classe)"></span>
+                    <span class="ticker-pct" x-text="formatPctSemSinal(p.peso_na_classe)"></span>
                   </a>
                 </template>
                 <p class="ticker-empty" x-show="tickersComPesos(classe).length === 0">

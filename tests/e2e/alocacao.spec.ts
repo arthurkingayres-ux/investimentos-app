@@ -77,4 +77,25 @@ test.describe("Tela #alocacao", () => {
     const pcts = tickerRows.first().locator(".ticker-pct");
     await expect(pcts).toHaveCount(1);
   });
+
+  test("tela detalhada alocação não prepend '+' em ticker drilldown (todas classes)", async ({ page }) => {
+    await autenticar(page);
+
+    // Iterar pelas 4 classes para cobrir todos os tickers, não só FIIs.
+    for (const classe of ["EUA", "FIIs", "Ações BR", "Cripto"]) {
+      const row = page.locator(`.tela-alocacao .classe-row[data-classe="${classe}"]`);
+      // Algumas classes podem estar fora da fixture; pular se não aparecer.
+      if ((await row.count()) === 0) continue;
+      await row.click();
+      // Aguardar Alpine renderizar; pode haver classe vazia (sem tickers).
+      await page.waitForTimeout(50);
+      const ulSelector = `.tela-alocacao .classe-tickers[data-classe="${classe}"] .ticker-pct`;
+      const tickerPcts = await page.locator(ulSelector).allTextContents();
+      for (const t of tickerPcts) {
+        expect(t.startsWith("+"), `${classe} ticker pct com '+': ${t}`).toBe(false);
+      }
+      // Re-collapse para próxima iteração ficar limpa.
+      await row.click();
+    }
+  });
 });
