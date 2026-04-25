@@ -8,13 +8,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=18">
-  <link rel="stylesheet" href="css/app.css?v=18">
-  <script src="js/vendor/uplot.min.js?v=18"></script>
-  <script src="js/crypto.js?v=18"></script>
-  <script src="js/format.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
-  <script defer src="js/vendor/alpine.min.js?v=18"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=19">
+  <link rel="stylesheet" href="css/app.css?v=19">
+  <script src="js/vendor/uplot.min.js?v=19"></script>
+  <script src="js/crypto.js?v=19"></script>
+  <script src="js/format.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
+  <script defer src="js/vendor/alpine.min.js?v=19"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -108,7 +108,7 @@
                 <div class="rent-benchmark">
                   <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
                   <span class="bench-valor">
-                    <span x-text="formatPct(bench.xirr_espelhado)"></span>
+                    <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
                     <span class="sr-only">janela desde a origem</span>
                   </span>
                 </div>
@@ -240,6 +240,15 @@
               <span class="rent-metrica-valor"
                     x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_origem)"></span>
             </div>
+            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+              <div class="rent-benchmark">
+                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
+                <span class="bench-valor">
+                  <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
+                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.origem)"></span>
+                </span>
+              </div>
+            </template>
           </section>
           <section class="rent-grupo">
             <h3 class="rent-grupo-titulo">Ano (YTD)</h3>
@@ -253,6 +262,15 @@
               <span class="rent-metrica-valor"
                     x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_ytd)"></span>
             </div>
+            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+              <div class="rent-benchmark">
+                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
+                <span class="bench-valor">
+                  <span x-text="formatPct(bench.xirr_espelhado?.ytd)"></span>
+                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.ytd)"></span>
+                </span>
+              </div>
+            </template>
           </section>
           <section class="rent-grupo">
             <h3 class="rent-grupo-titulo">12 meses</h3>
@@ -266,6 +284,15 @@
               <span class="rent-metrica-valor"
                     x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_12m)"></span>
             </div>
+            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+              <div class="rent-benchmark">
+                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
+                <span class="bench-valor">
+                  <span x-text="formatPct(bench.xirr_espelhado?.['12m'])"></span>
+                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.['12m'])"></span>
+                </span>
+              </div>
+            </template>
           </section>
         </div>
 

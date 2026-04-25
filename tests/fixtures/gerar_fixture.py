@@ -7,11 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
-Schema v2.2 (Fase 7a.E): payload mínimo que satisfaz raio-x + 3 telas
+Schema v2.3 (Fase 7a.E.4): payload mínimo que satisfaz raio-x + 3 telas
 de detalhe (#rentabilidade com historico_twr mensal por escopo,
 #alocacao detalhada por classe, #ativo/:ticker com movimentos +
 proventos inline). Inclui 2 tickers em posicoes[] para drill-down:
 HGLG11 (com movimentos+proventos) e VOO (só movimentos).
+Benchmarks aninhados por janela (xirr_espelhado/twr_espelhado dicts).
 """
 from __future__ import annotations
 
@@ -41,7 +42,7 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.2",
+    "versao": "2.3",
     "atualizado_em": "2026-04-24T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -65,8 +66,14 @@ PAYLOAD = {
             "twr_ytd": 0.030,
             "twr_12m": 0.078,
             "benchmarks": {
-                "IBOV": {"xirr_espelhado": 0.021},
-                "S&P 500": {"xirr_espelhado": 0.058},
+                "IBOV": {
+                    "xirr_espelhado": {"origem": 0.021, "ytd": 0.012, "12m": 0.018},
+                    "twr_espelhado":  {"origem": 0.019, "ytd": 0.011, "12m": 0.017},
+                },
+                "S&P 500": {
+                    "xirr_espelhado": {"origem": 0.058, "ytd": 0.022, "12m": 0.041},
+                    "twr_espelhado":  {"origem": 0.052, "ytd": 0.020, "12m": 0.039},
+                },
             },
             "historico_twr": _serie_mensal(0.05, 0.118, 0.04, 0.08),
         },
@@ -78,8 +85,14 @@ PAYLOAD = {
             "twr_ytd": 0.024,
             "twr_12m": 0.055,
             "benchmarks": {
-                "IBOV": {"xirr_espelhado": 0.021},
-                "CDI": {"xirr_espelhado": 0.025},
+                "IBOV": {
+                    "xirr_espelhado": {"origem": 0.021, "ytd": 0.012, "12m": 0.018},
+                    "twr_espelhado":  {"origem": 0.019, "ytd": 0.011, "12m": 0.017},
+                },
+                "CDI": {
+                    "xirr_espelhado": {"origem": 0.025, "ytd": 0.013, "12m": 0.022},
+                    "twr_espelhado":  {"origem": 0.024, "ytd": 0.012, "12m": 0.021},
+                },
             },
             "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
         },
@@ -91,7 +104,10 @@ PAYLOAD = {
             "twr_ytd": 0.051,
             "twr_12m": 0.098,
             "benchmarks": {
-                "S&P 500": {"xirr_espelhado": 0.058},
+                "S&P 500": {
+                    "xirr_espelhado": {"origem": 0.058, "ytd": 0.022, "12m": 0.041},
+                    "twr_espelhado":  {"origem": 0.052, "ytd": 0.020, "12m": 0.039},
+                },
             },
             "historico_twr": _serie_mensal(0.06, 0.118, 0.05, 0.058),
         },
