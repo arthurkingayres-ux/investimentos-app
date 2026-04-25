@@ -60,4 +60,21 @@ test.describe("Tela #alocacao", () => {
       .click();
     expect(await page.evaluate(() => location.hash)).toMatch(/^#ativo\//);
   });
+
+  test("linha do ticker mostra apenas % da classe (7a.E.1 Bloco 5)", async ({ page }) => {
+    await autenticar(page);
+    await page.locator('.tela-alocacao .classe-row[data-classe="FIIs"]').click();
+    const tickerRows = page.locator(
+      '.tela-alocacao .classe-tickers[data-classe="FIIs"] a.ticker-row',
+    );
+    await expect(tickerRows.first()).toBeVisible();
+
+    // Não deve haver "total" após o percentual nas linhas dos tickers
+    const textoLinha = await tickerRows.first().textContent();
+    expect(textoLinha).not.toMatch(/\stotal/);
+
+    // Deve haver exatamente 1 .ticker-pct (não 2)
+    const pcts = tickerRows.first().locator(".ticker-pct");
+    await expect(pcts).toHaveCount(1);
+  });
 });
