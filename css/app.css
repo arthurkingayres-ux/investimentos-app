@@ -1176,6 +1176,35 @@ footer.rodape code {
   background: var(--neutral-100);
 }
 
+/* ── #proventos ───────────────────────────────────────────────────── */
+
+/* 3-column KPI grid override for proventos screen */
+.kpi-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Compact KPI values in 3-col layout to prevent overflow on narrow screens */
+.kpi-grid-3 .kpi-valor {
+  font-size: 14px;
+}
+
+/* Clickable table row */
+.row-link {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.row-link:hover,
+.row-link:focus-visible {
+  background: var(--neutral-50);
+  outline: none;
+}
+
+.row-link:focus-visible {
+  outline: 2px solid var(--g-600);
+  outline-offset: -2px;
+}
+
 /* Accessibility utility */
 .sr-only {
   position: absolute;

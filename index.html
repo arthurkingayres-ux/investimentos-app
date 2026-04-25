@@ -187,8 +187,8 @@
           </template>
         </section>
 
-        <section class="card proventos" aria-labelledby="proventos-titulo">
-          <h2 id="proventos-titulo" class="card-titulo">Proventos recebidos</h2>
+        <a href="#proventos" class="card proventos card-link" aria-label="Abrir proventos detalhados">
+          <h2 class="card-titulo">Proventos recebidos <span class="card-arrow">→</span></h2>
           <div class="proventos-linha">
             <span class="proventos-ytd" x-text="formatBrl(json.proventos.ytd_brl)"></span>
             <span class="pill pill-anterior">
@@ -196,7 +196,7 @@
             </span>
           </div>
           <p class="proventos-subtexto">Recebidos em <span x-text="anoCorrente"></span></p>
-        </section>
+        </a>
 
         <footer class="rodape">
           <p>Fonte: <code>investimentos.db</code> · doc-trail auditável</p>
@@ -471,6 +471,79 @@
           </div>
         </template>
       </section>
+
+      <!-- ── Tela #proventos ──────────────────────────────────────────── -->
+      <section class="tela-detalhes tela-proventos" x-show="rota === 'proventos'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Proventos</h1>
+        </header>
+
+        <div class="kpi-grid kpi-grid-3">
+          <div class="kpi">
+            <span class="kpi-label">YTD <span x-text="anoCorrente"></span></span>
+            <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ytd_brl)"></span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-label"><span x-text="anoAnterior"></span></span>
+            <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ano_anterior_brl)"></span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-label">Total Origem</span>
+            <span class="kpi-valor" x-text="formatBrl(totalProventosOrigem)"></span>
+          </div>
+        </div>
+
+        <div class="escopo-toggle" role="tablist" aria-label="Período">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="proventosToggle === 'anual'"
+            :class="{ active: proventosToggle === 'anual' }"
+            @click="setProventosToggle('anual')">Anual</button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="proventosToggle === 'mensal'"
+            :class="{ active: proventosToggle === 'mensal' }"
+            @click="setProventosToggle('mensal')">Mensal (12m)</button>
+        </div>
+
+        <div id="proventos-grafico" class="chart-rent" aria-label="Evolução de proventos"></div>
+
+        <h3 class="ativo-section-h">Por ativo</h3>
+        <template x-if="tabelaProventosAtual().length === 0">
+          <p class="vazio">Nenhum dado disponível.</p>
+        </template>
+        <template x-if="tabelaProventosAtual().length > 0">
+          <div class="tabela-wrap">
+            <table class="tabela-proventos" aria-label="Proventos por ativo">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="item in tabelaProventosAtual()" :key="item.ticker">
+                  <tr
+                    class="row-link"
+                    tabindex="0"
+                    role="link"
+                    :aria-label="'Ver ativo ' + item.ticker"
+                    @click="location.hash = 'ativo/' + item.ticker"
+                    @keydown.enter="location.hash = 'ativo/' + item.ticker"
+                    @keydown.space.prevent="location.hash = 'ativo/' + item.ticker">
+                    <td x-text="item.ticker"></td>
+                    <td class="num" x-text="formatBrl(item.total)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </section>
+
       </div>
     </template>
   </main>
