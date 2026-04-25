@@ -173,14 +173,23 @@ document.addEventListener("alpine:init", () => {
       if (this.rota !== "rentabilidade" || !this.json) return;
       const target = document.getElementById("chart-rent");
       if (!target || typeof uPlot === "undefined") return;
+
       const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
-      const serie = (rent && rent.historico_twr) || [];
-      // Limpa instância anterior antes de redesenhar.
+      let serie = (rent && rent.historico_twr) || [];
+
+      // 7a.E.1 (F1): drop leading bootstrap outliers (early months where
+      // TWR cumulative anualizado oscila entre +∞ e valores normais).
+      // Mantém a partir do primeiro mês com |twr| < 0.5 (50% a.a. limite
+      // generoso para preservar bull/bear reais e cortar bootstrap absurdo).
+      const firstStable = serie.findIndex(
+        (p) => p.twr !== null && Math.abs(p.twr) < 0.5,
+      );
+      serie = firstStable === -1 ? [] : serie.slice(firstStable);
+
       if (this.uplotInstance) {
         try { this.uplotInstance.destroy(); } catch (_) {}
         this.uplotInstance = null;
       }
-      // Desliga ResizeObserver anterior se existir.
       if (this.resizeObserverChart) {
         try { this.resizeObserverChart.disconnect(); } catch (_) {}
         this.resizeObserverChart = null;
@@ -190,23 +199,50 @@ document.addEventListener("alpine:init", () => {
         target.innerHTML = '<p class="placeholder">Dados insuficientes — aguarde próximo aporte.</p>';
         return;
       }
+
       const xs = serie.map((_, i) => i);
-      const portfolio = serie.map((p) => (p.twr ?? null));
-      const benchmark = serie.map((p) => (p.benchmark ?? null));
-      const datas = serie.map((p) => p.data);
+      const portfolio = serie.map((p) => p.twr);
+      const benchmark = serie.map((p) => p.benchmark);
+      const datas = serie.map((p) => p.data); // "YYYY-MM"
+
+      // 7a.E.1: eixo X em "Mmm/AA". uPlot escolhe quantos ticks por largura.
+      const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+      const formatarMmmAA = (yyyymm) => {
+        if (!yyyymm) return "";
+        const [yy, mm] = yyyymm.split("-");
+        const idx = parseInt(mm, 10) - 1;
+        if (idx < 0 || idx > 11) return yyyymm;
+        return `${meses[idx]}/${yy.slice(2)}`;
+      };
+
+      // Label do benchmark conforme escopo.
+      const benchNomePorEscopo = { Total: "CDI", Brasil: "CDI", EUA: "S&P 500" };
+      const benchNome = benchNomePorEscopo[this.escopoAtivo] || "Benchmark";
+
       const width = Math.max(280, target.clientWidth || 320);
       const opts = {
         width,
         height: 280,
         scales: { x: { time: false }, y: { auto: true } },
         axes: [
-          { values: (_u, vals) => vals.map((v) => datas[Math.round(v)] || "") },
-          { values: (_u, vals) => vals.map((v) => (v * 100).toFixed(1) + "%") },
+          {
+            values: (_u, vals) => vals.map((v) => formatarMmmAA(datas[Math.round(v)])),
+          },
+          {
+            // 7a.E.1 (F2): precision-aware. Valores < 1% mostram 2 casas;
+            // resto mostra 1 casa. Evita "todos 0,0%" em escala automática.
+            values: (_u, vals) => vals.map((v) => {
+              if (v === null || v === undefined) return "";
+              const abs = Math.abs(v);
+              const decimals = abs < 0.01 ? 2 : 1;
+              return (v * 100).toFixed(decimals) + "%";
+            }),
+          },
         ],
         series: [
           {},
           { label: "Portfólio", stroke: "#047857", width: 2 },
-          { label: "Benchmark", stroke: "#9ca3af", width: 1.5, dash: [5, 5] },
+          { label: benchNome, stroke: "#9ca3af", width: 1.5, dash: [5, 5] },
         ],
         legend: { show: true },
       };
@@ -218,7 +254,7 @@ document.addEventListener("alpine:init", () => {
         this.uplotInstance = null;
         return;
       }
-      // ResizeObserver: rotação portrait↔landscape ou split-screen ajusta o canvas.
+
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverChart = new ResizeObserver(() => {
           if (!this.uplotInstance) return;
