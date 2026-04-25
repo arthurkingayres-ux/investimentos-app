@@ -32,12 +32,22 @@ test.describe("Multi-tab sync", () => {
     await pageB.goto("/");
     await expect(pageB.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 
+    // Aba B navega para uma rota não-default antes do bloqueio cross-tab,
+    // para provar que o handler do evento storage também zera `rota`.
+    await pageB.goto("/#alocacao");
+    await expect(pageB.locator(".tela-alocacao")).toBeVisible();
+
     // A clica em Bloquear
     await pageA.getByRole("button", { name: /bloquear/i }).click();
     await expect(pageA.locator(".pin-screen")).toBeVisible();
 
     // B deve cair via evento storage
     await expect(pageB.locator(".pin-screen")).toBeVisible({ timeout: 5_000 });
+    // E rota deve ter zerado (não pode ficar presa em "alocacao")
+    const rotaB = await pageB.evaluate(
+      () => Alpine.$data(document.body).rota,
+    );
+    expect(rotaB).toBe("");
   });
 
   test("race: bloquear() durante auto-resume da aba B -> B respeita logout", async ({
