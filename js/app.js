@@ -117,12 +117,9 @@ document.addEventListener("alpine:init", () => {
         (acc, t) => acc + (t.valor_mercado_brl || 0),
         0,
       );
-      const totalCarteira =
-        (this.json && this.json.patrimonio && this.json.patrimonio.total_brl) || 0;
       return tickers.map((p) => ({
         ...p,
         peso_na_classe: totalClasse > 0 ? (p.valor_mercado_brl || 0) / totalClasse : 0,
-        peso_no_total: totalCarteira > 0 ? (p.valor_mercado_brl || 0) / totalCarteira : 0,
       }));
     },
 

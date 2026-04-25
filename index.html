@@ -336,10 +336,7 @@
                   <a :href="'#ativo/' + p.ticker" class="ticker-row">
                     <span class="ticker-name" x-text="p.ticker"></span>
                     <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
-                    <span class="ticker-pct">
-                      <span x-text="formatPct(p.peso_na_classe)"></span>
-                      · <span x-text="formatPct(p.peso_no_total)"></span> total
-                    </span>
+                    <span class="ticker-pct" x-text="formatPct(p.peso_na_classe)"></span>
                   </a>
                 </template>
                 <p class="ticker-empty" x-show="tickersComPesos(classe).length === 0">
