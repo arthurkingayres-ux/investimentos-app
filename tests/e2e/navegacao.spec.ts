@@ -106,7 +106,6 @@ test.describe("Navegacao hash routing", () => {
 
     const alvos = await page.locator(".raiox .aloc-valores .alvo").allTextContents();
     for (const t of alvos) {
-      // "alvo 15,00%" — não pode aparecer "+" antes do número.
       expect(t.includes("+"), `aloc alvo com '+': ${t}`).toBe(false);
     }
   });
