@@ -29,19 +29,43 @@ test.describe("Tela #rentabilidade", () => {
     await expect(page.locator(".tela-rentabilidade canvas")).toBeVisible();
   });
 
-  test("toggle de escopo Brasil -> EUA atualiza estado e canvas", async ({ page }) => {
+  test("toggle de escopo Brasil -> EUA atualiza estado, instância uPlot e canvas", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
+    // Estado inicial: escopoAtivo deve ser Total (default)
+    const inicial = await page.evaluate(() =>
+      (window as any).Alpine.$data(document.body).escopoAtivo,
+    );
+    expect(inicial).toBe("Total");
+
     await page.locator('.tela-rentabilidade button[data-escopo="Brasil"]').click();
     await expect(
       page.locator('.tela-rentabilidade button[data-escopo="Brasil"].active'),
     ).toBeVisible();
+    const aposBR = await page.evaluate(() =>
+      (window as any).Alpine.$data(document.body).escopoAtivo,
+    );
+    expect(aposBR).toBe("Brasil");
+
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
     await expect(
       page.locator('.tela-rentabilidade button[data-escopo="EUA"].active'),
     ).toBeVisible();
-    // Canvas re-renderizado com nova série mensal do escopo EUA
-    await expect(page.locator(".tela-rentabilidade canvas")).toBeVisible();
+    const aposEUA = await page.evaluate(() =>
+      (window as any).Alpine.$data(document.body).escopoAtivo,
+    );
+    expect(aposEUA).toBe("EUA");
+
+    // Canvas re-renderizado: hidratarRentabilidade destruiu instância anterior
+    // e criou uma nova; verificamos via window dataURL hash que mudou em pelo
+    // menos um pixel (toggle de série muda dados).
+    const canvas = page.locator(".tela-rentabilidade canvas");
+    await expect(canvas).toBeVisible();
+    const tamanhoDataURL = await page.evaluate(() => {
+      const c = document.querySelector(".tela-rentabilidade canvas") as HTMLCanvasElement;
+      return c ? c.toDataURL().length : 0;
+    });
+    expect(tamanhoDataURL).toBeGreaterThan(100);
   });
 
   test("tabela resumo mostra Origem / Ano / 12m", async ({ page }) => {

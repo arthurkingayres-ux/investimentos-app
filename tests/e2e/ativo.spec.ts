@@ -30,15 +30,23 @@ test.describe("Tela #ativo/:ticker", () => {
     await expect(page.locator(".tela-ativo .kpi-grid")).toBeVisible();
   });
 
-  test("HGLG11 renderiza tabelas de movimentos e proventos", async ({ page }) => {
+  test("HGLG11 renderiza tabelas de movimentos e proventos com conteúdo do fixture", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#ativo/HGLG11");
-    await expect(
-      page.locator(".tela-ativo .tabela-movimentos tbody tr").first(),
-    ).toBeVisible();
-    await expect(
-      page.locator(".tela-ativo .tabela-proventos tbody tr").first(),
-    ).toBeVisible();
+
+    // Tabela de movimentos: HGLG11 do fixture tem 2 entradas (2026-04-15, 2026-03-10)
+    const linhasMov = page.locator(".tela-ativo .tabela-movimentos tbody tr");
+    await expect(linhasMov.first()).toBeVisible();
+    await expect(linhasMov.first()).toContainText("2026-04-15");
+    await expect(linhasMov.first()).toContainText("Compra");
+    await expect(linhasMov.nth(1)).toContainText("2026-03-10");
+
+    // Tabela de proventos: 2 entradas (2026-04-05, 2026-03-05) tipo "Rendimento"
+    const linhasProv = page.locator(".tela-ativo .tabela-proventos tbody tr");
+    await expect(linhasProv.first()).toBeVisible();
+    await expect(linhasProv.first()).toContainText("2026-04-05");
+    await expect(linhasProv.first()).toContainText("Rendimento");
+    await expect(linhasProv.nth(1)).toContainText("2026-03-05");
   });
 
   test("ticker desconhecido (FOO3) mostra fallback de não-encontrado", async ({ page }) => {
