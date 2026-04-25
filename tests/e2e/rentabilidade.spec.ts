@@ -119,10 +119,14 @@ test.describe("Tela #rentabilidade", () => {
 
     // Verifica que a legenda NÃO está clipada por overflow:hidden do container.
     // Necessário porque toBeVisible() ignora clipping de ancestrais.
+    // Lança erro nominativo se o DOM não tiver os elementos esperados — assim
+    // a falha é "Container .chart-rent não encontrado" em vez do críptico
+    // "expected false to be true".
     const legendaDentroDoContainer = await page.evaluate(() => {
       const container = document.querySelector(".chart-rent") as HTMLElement;
-      const legend = container?.querySelector(".u-legend") as HTMLElement;
-      if (!container || !legend) return false;
+      if (!container) throw new Error("Container .chart-rent não encontrado no DOM");
+      const legend = container.querySelector(".u-legend") as HTMLElement;
+      if (!legend) throw new Error(".u-legend não encontrado dentro de .chart-rent");
       const cRect = container.getBoundingClientRect();
       const lRect = legend.getBoundingClientRect();
       // Legenda inteira deve caber dentro da área visível do container.

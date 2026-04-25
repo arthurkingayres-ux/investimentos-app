@@ -787,6 +787,9 @@ footer.rodape code {
 
 .chart-rent {
   width: 100%;
+  /* min-height: 320px = padding (24px total) + uPlot canvas (280px, fixo em
+     hidratarRentabilidade) + ~16px reservados para a tabela <u-legend>
+     que o uPlot renderiza abaixo do canvas. Sem isso, a legenda some. */
   min-height: 320px;
   margin: 12px 0 24px;
   background: white;
