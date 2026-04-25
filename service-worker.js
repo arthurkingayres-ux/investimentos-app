@@ -1,7 +1,7 @@
 // Carteira Arthur — service worker
 // Cache-first para o shell estático; network-first (timeout 2s) para portfolio.json.enc.
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
