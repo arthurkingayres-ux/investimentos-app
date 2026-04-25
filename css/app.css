@@ -823,3 +823,115 @@ footer.rodape code {
   line-height: 1.5;
   color: var(--ink);
 }
+
+/* ── #alocacao ────────────────────────────────────────────────────── */
+
+.alocacao-card {
+  background: white;
+  border-radius: 18px;
+  padding: 8px;
+  box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
+}
+
+.classe-bloco + .classe-bloco {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.classe-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto 16px;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.classe-row:hover {
+  background: var(--neutral-50);
+  border-radius: 12px;
+}
+
+.classe-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.classe-dot.dot-eua { background: #0284c7; }
+.classe-dot.dot-fiis { background: var(--amber); }
+.classe-dot.dot-acoes-br { background: var(--g-700); }
+.classe-dot.dot-cripto { background: #a855f7; }
+
+.classe-nome {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.classe-pct {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.classe-pct > span:first-child {
+  font-weight: 600;
+  color: var(--g-700);
+  font-size: 15px;
+}
+
+.alvo-pct {
+  font-size: 11px;
+  color: var(--gray);
+}
+
+.classe-arrow {
+  color: var(--gray);
+  font-size: 14px;
+}
+
+.classe-tickers {
+  padding: 0 16px 16px 28px;
+}
+
+.ticker-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  padding: 10px 0;
+  text-decoration: none;
+  color: var(--ink);
+  align-items: center;
+  border-top: 1px dashed var(--neutral-100);
+}
+
+.ticker-row:hover {
+  background: var(--neutral-50);
+  border-radius: 8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.ticker-name {
+  font-weight: 600;
+}
+
+.ticker-vm {
+  color: var(--g-700);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-pct {
+  font-size: 12px;
+  color: var(--gray);
+}
+
+.ticker-empty {
+  font-size: 13px;
+  color: var(--gray);
+  font-style: italic;
+  padding: 8px 0;
+}

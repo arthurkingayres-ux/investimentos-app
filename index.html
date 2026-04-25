@@ -282,7 +282,48 @@
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Alocação</h1>
         </header>
-        <p class="placeholder">Em construção (Task 10).</p>
+
+        <div class="alocacao-card">
+          <template x-for="classe in ['EUA', 'FIIs', 'Ações BR', 'Cripto']" :key="classe">
+            <div class="classe-bloco">
+              <div
+                class="classe-row"
+                :data-classe="classe"
+                @click="expandirClasse(classe)"
+                role="button"
+                tabindex="0"
+                @keydown.enter.prevent="expandirClasse(classe)"
+                @keydown.space.prevent="expandirClasse(classe)">
+                <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
+                <span class="classe-nome" x-text="classe"></span>
+                <span class="classe-pct">
+                  <span x-text="formatPct(pctAtualClasse(classe))"></span>
+                  <span class="alvo-pct">alvo <span x-text="formatPct(pctAlvoClasse(classe))"></span></span>
+                </span>
+                <span class="classe-arrow" x-text="classeExpandida === classe ? '▾' : '▸'"></span>
+              </div>
+              <div
+                class="classe-tickers"
+                :data-classe="classe"
+                x-show="classeExpandida === classe"
+                x-cloak>
+                <template x-for="p in tickersDaClasse(classe)" :key="p.ticker">
+                  <a :href="'#ativo/' + p.ticker" class="ticker-row">
+                    <span class="ticker-name" x-text="p.ticker"></span>
+                    <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
+                    <span class="ticker-pct">
+                      <span x-text="formatPct(pesoNaClasse(p, classe))"></span>
+                      · <span x-text="formatPct(pesoNoTotal(p))"></span> total
+                    </span>
+                  </a>
+                </template>
+                <p class="ticker-empty" x-show="tickersDaClasse(classe).length === 0">
+                  Nenhum ativo nesta classe.
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
       </section>
 
       <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'" x-cloak>

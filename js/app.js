@@ -79,6 +79,67 @@ document.addEventListener("alpine:init", () => {
       this.hidratarRentabilidade();
     },
 
+    expandirClasse(classe) {
+      this.classeExpandida = this.classeExpandida === classe ? null : classe;
+    },
+
+    tickersDaClasse(classe) {
+      const posicoes = (this.json && this.json.posicoes) || [];
+      const filtroPorClasse = (p) => {
+        if (classe === "EUA") return p.moeda === "USD" && p.classe !== "Cripto";
+        if (classe === "Cripto") return p.classe === "Cripto";
+        if (classe === "FIIs") return p.classe === "FIIs" || p.classe === "FII";
+        if (classe === "Ações BR") {
+          return (
+            p.moeda === "BRL" &&
+            p.classe !== "FIIs" &&
+            p.classe !== "FII" &&
+            p.classe !== "Cripto"
+          );
+        }
+        return false;
+      };
+      return posicoes
+        .filter(filtroPorClasse)
+        .slice()
+        .sort((a, b) => (b.valor_mercado_brl || 0) - (a.valor_mercado_brl || 0));
+    },
+
+    pesoNaClasse(p, classe) {
+      const tickers = this.tickersDaClasse(classe);
+      const totalClasse = tickers.reduce(
+        (acc, t) => acc + (t.valor_mercado_brl || 0),
+        0,
+      );
+      return totalClasse > 0 ? (p.valor_mercado_brl || 0) / totalClasse : 0;
+    },
+
+    pesoNoTotal(p) {
+      const total = (this.json && this.json.patrimonio && this.json.patrimonio.total_brl) || 0;
+      return total > 0 ? (p.valor_mercado_brl || 0) / total : 0;
+    },
+
+    pctAtualClasse(classe) {
+      const a = (this.json && this.json.alocacao && this.json.alocacao.atual) || {};
+      // Tolerância: schema antigo às vezes usa "FII" para FIIs.
+      if (classe === "FIIs" && a.FIIs == null && a.FII != null) return a.FII;
+      return a[classe] != null ? a[classe] : 0;
+    },
+
+    pctAlvoClasse(classe) {
+      const alvo = (this.json && this.json.alocacao && this.json.alocacao.alvo) || {};
+      const aliases = {
+        "FIIs": ["FIIs", "FIIs BR", "FII"],
+        "Ações BR": ["Ações BR", "Ações Brasil", "Ação BR"],
+        "EUA": ["EUA", "Exterior"],
+        "Cripto": ["Cripto"],
+      };
+      for (const k of aliases[classe] || [classe]) {
+        if (alvo[k] != null) return alvo[k];
+      }
+      return 0;
+    },
+
     hidratarRentabilidade() {
       if (this.rota !== "rentabilidade" || !this.json) return;
       const target = document.getElementById("chart-rent");
