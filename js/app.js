@@ -74,6 +74,50 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    selecionarEscopo(escopo) {
+      this.escopoAtivo = escopo;
+      this.hidratarRentabilidade();
+    },
+
+    hidratarRentabilidade() {
+      if (this.rota !== "rentabilidade" || !this.json) return;
+      const target = document.getElementById("chart-rent");
+      if (!target || typeof uPlot === "undefined") return;
+      const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
+      const serie = (rent && rent.historico_twr) || [];
+      // Limpa instância anterior antes de redesenhar.
+      if (this.uplotInstance) {
+        try { this.uplotInstance.destroy(); } catch (_) {}
+        this.uplotInstance = null;
+      }
+      target.innerHTML = "";
+      if (serie.length === 0) {
+        target.innerHTML = '<p class="placeholder">Dados insuficientes — aguarde próximo aporte.</p>';
+        return;
+      }
+      const xs = serie.map((_, i) => i);
+      const portfolio = serie.map((p) => (p.twr ?? null));
+      const benchmark = serie.map((p) => (p.benchmark ?? null));
+      const datas = serie.map((p) => p.data);
+      const width = Math.max(280, target.clientWidth || 320);
+      const opts = {
+        width,
+        height: 280,
+        scales: { x: { time: false }, y: { auto: true } },
+        axes: [
+          { values: (_u, vals) => vals.map((v) => datas[Math.round(v)] || "") },
+          { values: (_u, vals) => vals.map((v) => (v * 100).toFixed(1) + "%") },
+        ],
+        series: [
+          {},
+          { label: "Portfólio", stroke: "#047857", width: 2 },
+          { label: "Benchmark", stroke: "#9ca3af", width: 1.5, dash: [5, 5] },
+        ],
+        legend: { show: true },
+      };
+      this.uplotInstance = new uPlot(opts, [xs, portfolio, benchmark], target);
+    },
+
     limparSessao() {
       // Remove apenas credenciais de sessão. NÃO toca pinBlockUntil/pinFails/pinFirstFailAt
       // — rate-limit persiste intencionalmente (atacante não escapa via bloquear manual).

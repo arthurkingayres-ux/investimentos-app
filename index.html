@@ -230,7 +230,51 @@
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Rentabilidade</h1>
         </header>
-        <p class="placeholder">Em construção (Task 9).</p>
+
+        <div class="escopo-toggle" role="tablist">
+          <button
+            data-escopo="Total" type="button"
+            @click="selecionarEscopo('Total')"
+            :class="{ active: escopoAtivo === 'Total' }">Total</button>
+          <button
+            data-escopo="Brasil" type="button"
+            @click="selecionarEscopo('Brasil')"
+            :class="{ active: escopoAtivo === 'Brasil' }">🇧🇷 Brasil</button>
+          <button
+            data-escopo="EUA" type="button"
+            @click="selecionarEscopo('EUA')"
+            :class="{ active: escopoAtivo === 'EUA' }">🇺🇸 EUA</button>
+        </div>
+
+        <div id="chart-rent" class="chart-rent" aria-label="Histórico TWR"></div>
+
+        <table class="tabela-rent">
+          <thead>
+            <tr><th>Janela</th><th>XIRR</th><th>TWR</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Origem</td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_origem)"></td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_origem)"></td>
+            </tr>
+            <tr>
+              <td>Ano (YTD)</td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_ytd)"></td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_ytd)"></td>
+            </tr>
+            <tr>
+              <td>12m</td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_12m)"></td>
+              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_12m)"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p
+          class="interpretacao"
+          x-show="json?.rentabilidade?.interpretacao?.[escopoAtivo]"
+          x-text="json?.rentabilidade?.interpretacao?.[escopoAtivo]"></p>
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-cloak>
