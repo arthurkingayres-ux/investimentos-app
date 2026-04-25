@@ -935,3 +935,157 @@ footer.rodape code {
   font-style: italic;
   padding: 8px 0;
 }
+
+/* ── #ativo/:ticker ───────────────────────────────────────────────── */
+
+.ativo-corpo {
+  padding-top: 4px;
+}
+
+.ticker-hero {
+  background: white;
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
+  margin-bottom: 16px;
+}
+
+.ticker-hero h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticker-bandeira {
+  font-size: 28px;
+}
+
+.ticker-classe {
+  color: var(--gray);
+  margin: 0;
+  font-size: 13px;
+}
+
+.ticker-vm-grande {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--g-700);
+  margin: 12px 0 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 0 0 24px;
+}
+
+.kpi {
+  background: white;
+  padding: 12px 14px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(6, 78, 59, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpi-valor {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-valor.is-neg {
+  color: #b91c1c;
+}
+
+.ativo-section-h {
+  margin: 22px 0 8px;
+  font-size: 14px;
+  color: var(--g-900);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.tabela-wrap {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(6, 78, 59, 0.05);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tabela-movimentos,
+.tabela-proventos {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-movimentos th,
+.tabela-proventos th {
+  background: var(--neutral-50);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tabela-movimentos th,
+.tabela-movimentos td,
+.tabela-proventos th,
+.tabela-proventos td {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--neutral-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-movimentos th,
+.tabela-proventos th {
+  font-size: 11px;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.vazio {
+  color: var(--gray);
+  font-style: italic;
+  padding: 12px;
+  background: white;
+  border-radius: 12px;
+}
+
+.erro-nao-encontrado {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 18px;
+  border-radius: 12px;
+  color: #991b1b;
+}
+
+.erro-nao-encontrado p {
+  margin: 0 0 8px;
+}
+
+.erro-nao-encontrado a {
+  color: var(--g-700);
+  text-decoration: none;
+  font-weight: 500;
+}

@@ -126,6 +126,18 @@ document.addEventListener("alpine:init", () => {
       return a[classe] != null ? a[classe] : 0;
     },
 
+    get posicaoAtual() {
+      if (!this.json || !this.json.posicoes || !this.tickerAtual) return null;
+      return (
+        this.json.posicoes.find((p) => p.ticker === this.tickerAtual) || null
+      );
+    },
+
+    bandeiraDaPosicao(p) {
+      if (!p) return "";
+      return p.moeda === "USD" ? "🇺🇸" : "🇧🇷";
+    },
+
     pctAlvoClasse(classe) {
       const alvo = (this.json && this.json.alocacao && this.json.alocacao.alvo) || {};
       const aliases = {
