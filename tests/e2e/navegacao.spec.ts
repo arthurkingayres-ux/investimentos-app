@@ -125,4 +125,11 @@ test.describe("Navegacao hash routing", () => {
       expect(t.includes("+"), `aloc alvo com '+': ${t}`).toBe(false);
     }
   });
+
+  test("hash #proventos é rota válida (não cai no fallback do Raio-X)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
+    expect(page.url()).toMatch(/#proventos$/);
+  });
 });
