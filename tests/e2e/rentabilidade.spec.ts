@@ -68,12 +68,12 @@ test.describe("Tela #rentabilidade", () => {
     expect(tamanhoDataURL).toBeGreaterThan(100);
   });
 
-  test("tabela resumo mostra Origem / Ano / 12m", async ({ page }) => {
+  test("resumo mostra grupos Origem / Ano (YTD) / 12 meses", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
     await expect(page.locator(".tela-rentabilidade").getByText("Origem")).toBeVisible();
-    await expect(page.locator(".tela-rentabilidade").getByText("Ano")).toBeVisible();
-    await expect(page.locator(".tela-rentabilidade").getByText("12m")).toBeVisible();
+    await expect(page.locator(".tela-rentabilidade").getByText("Ano (YTD)")).toBeVisible();
+    await expect(page.locator(".tela-rentabilidade").getByText("12 meses")).toBeVisible();
   });
 
   test("interpretacao automática aparece para escopo Total", async ({ page }) => {
@@ -83,5 +83,27 @@ test.describe("Tela #rentabilidade", () => {
     await expect(
       page.locator(".tela-rentabilidade .interpretacao"),
     ).toBeVisible();
+  });
+
+  test("redesign 7a.E.1: 3 grupos por janela + legenda Como ler", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+
+    const grupos = page.locator(".tela-rentabilidade .rent-grupo");
+    await expect(grupos).toHaveCount(3);
+    await expect(grupos.nth(0).locator(".rent-grupo-titulo")).toHaveText("Origem");
+    await expect(grupos.nth(1).locator(".rent-grupo-titulo")).toHaveText("Ano (YTD)");
+    await expect(grupos.nth(2).locator(".rent-grupo-titulo")).toHaveText("12 meses");
+
+    // Cada grupo tem exatamente 2 métricas (XIRR + TWR)
+    for (let i = 0; i < 3; i++) {
+      await expect(grupos.nth(i).locator(".rent-metrica")).toHaveCount(2);
+    }
+
+    const legenda = page.locator(".tela-rentabilidade .rent-legenda");
+    await expect(legenda).toBeVisible();
+    await expect(legenda).toContainText("Como ler");
+    await expect(legenda).toContainText("XIRR");
+    await expect(legenda).toContainText("TWR");
   });
 });

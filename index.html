@@ -8,12 +8,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=14">
-  <link rel="stylesheet" href="css/app.css?v=14">
-  <script src="js/vendor/uplot.min.js?v=14"></script>
-  <script src="js/crypto.js?v=14"></script>
-  <script src="js/format.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=15">
+  <link rel="stylesheet" href="css/app.css?v=15">
+  <script src="js/vendor/uplot.min.js?v=15"></script>
+  <script src="js/crypto.js?v=15"></script>
+  <script src="js/format.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
   <script defer src="js/vendor/alpine.min.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -248,28 +248,53 @@
 
         <div id="chart-rent" class="chart-rent" aria-label="Histórico TWR"></div>
 
-        <table class="tabela-rent">
-          <thead>
-            <tr><th>Janela</th><th>XIRR</th><th>TWR</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Origem</td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_origem)"></td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_origem)"></td>
-            </tr>
-            <tr>
-              <td>Ano (YTD)</td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_ytd)"></td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_ytd)"></td>
-            </tr>
-            <tr>
-              <td>12m</td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_12m)"></td>
-              <td x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_12m)"></td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="rent-grupos">
+          <section class="rent-grupo">
+            <h3 class="rent-grupo-titulo">Origem</h3>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">XIRR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_origem)"></span>
+            </div>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">TWR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_origem)"></span>
+            </div>
+          </section>
+          <section class="rent-grupo">
+            <h3 class="rent-grupo-titulo">Ano (YTD)</h3>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">XIRR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_ytd)"></span>
+            </div>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">TWR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_ytd)"></span>
+            </div>
+          </section>
+          <section class="rent-grupo">
+            <h3 class="rent-grupo-titulo">12 meses</h3>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">XIRR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_12m)"></span>
+            </div>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">TWR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_12m)"></span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="rent-legenda" aria-labelledby="rent-legenda-titulo">
+          <h4 id="rent-legenda-titulo">Como ler</h4>
+          <p><strong>XIRR</strong> — retorno anualizado considerando quando você aportou. Capta o efeito do timing dos aportes.</p>
+          <p><strong>TWR</strong> — retorno anualizado ignorando seus aportes. Mede só a qualidade da seleção e gestão.</p>
+        </aside>
 
         <p
           class="interpretacao"

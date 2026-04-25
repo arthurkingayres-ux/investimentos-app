@@ -779,41 +779,6 @@ footer.rodape code {
   overflow: hidden;
 }
 
-.tabela-rent {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 16px 0;
-  background: white;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.tabela-rent th,
-.tabela-rent td {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--neutral-100);
-}
-
-.tabela-rent th {
-  font-size: 12px;
-  color: var(--gray);
-  font-weight: 500;
-  background: var(--neutral-50);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.tabela-rent td {
-  font-size: 15px;
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.tabela-rent tbody tr:last-child td {
-  border-bottom: none;
-}
-
 .interpretacao {
   font-size: 14px;
   padding: 14px 16px;
@@ -1123,4 +1088,71 @@ footer.rodape code {
 .aporte-item-link:hover {
   background: var(--neutral-50);
   border-radius: 8px;
+}
+
+/* === 7a.E.1: Rentabilidade redesign === */
+.rent-grupos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.rent-grupo {
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.rent-grupo-titulo {
+  margin: 0 0 8px 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+.rent-metrica {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+  border-top: 1px solid var(--neutral-100);
+}
+
+.rent-metrica:first-of-type {
+  border-top: none;
+}
+
+.rent-metrica-label {
+  font-size: 0.92rem;
+  color: var(--gray);
+}
+
+.rent-metrica-valor {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.rent-legenda {
+  background: var(--neutral-100);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.rent-legenda h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.rent-legenda p {
+  margin: 4px 0;
 }
