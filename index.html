@@ -408,7 +408,7 @@
               </div>
             </div>
 
-            <h3 class="ativo-section-h">Movimentos</h3>
+            <h3 class="ativo-section-h">Movimentos · últimos 12 meses</h3>
             <template x-if="(posicaoAtual.movimentos || []).length === 0">
               <p class="vazio">Nenhum movimento registrado.</p>
             </template>
@@ -424,10 +424,16 @@
                       :key="m.data + '-' + m.lado + '-' + idx">
                       <tr>
                         <td x-text="m.data"></td>
-                        <td x-text="m.lado"></td>
-                        <td x-text="m.quantidade"></td>
-                        <td x-text="formatBrl(m.preco_unitario)"></td>
-                        <td x-text="formatBrl(m.total_brl)"></td>
+                        <td>
+                          <span
+                            class="lado-pill"
+                            :class="formatarLado(m.lado).classe"
+                            :title="m.lado"
+                            x-text="formatarLado(m.lado).texto"></span>
+                        </td>
+                        <td class="num" x-text="m.quantidade"></td>
+                        <td class="num" x-text="formatBrl(m.preco_unitario)"></td>
+                        <td class="num" x-text="formatBrl(m.total_brl)"></td>
                       </tr>
                     </template>
                   </tbody>
@@ -435,7 +441,7 @@
               </div>
             </template>
 
-            <h3 class="ativo-section-h">Proventos recebidos</h3>
+            <h3 class="ativo-section-h">Proventos · últimos 12 meses</h3>
             <template x-if="(posicaoAtual.proventos || []).length === 0">
               <p class="vazio">Nenhum provento registrado.</p>
             </template>
@@ -451,7 +457,7 @@
                       :key="pr.data_pagamento + '-' + idx">
                       <tr>
                         <td x-text="pr.data_pagamento"></td>
-                        <td x-text="formatBrl(pr.valor_liquido_brl)"></td>
+                        <td class="num" x-text="formatBrl(pr.valor_liquido_brl)"></td>
                         <td x-text="pr.tipo"></td>
                       </tr>
                     </template>

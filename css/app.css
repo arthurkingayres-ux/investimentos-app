@@ -1156,3 +1156,52 @@ footer.rodape code {
 .rent-legenda p {
   margin: 4px 0;
 }
+
+/* === 7a.E.1: tabela movimentos compacta === */
+.tabela-movimentos td.num,
+.tabela-proventos td.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tabela-movimentos {
+  font-size: 0.92rem;
+}
+
+.tabela-movimentos th,
+.tabela-movimentos td {
+  padding: 6px 8px;
+}
+
+.tabela-movimentos th:nth-child(2),
+.tabela-movimentos td:nth-child(2) {
+  /* coluna Lado: estreita */
+  width: 36px;
+  text-align: center;
+}
+
+.lado-pill {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.lado-B {
+  color: #fff;
+  background: var(--g-700);
+}
+
+.lado-S {
+  color: #fff;
+  background: var(--red);
+}
+
+.lado-neutro {
+  color: var(--ink);
+  background: var(--neutral-100);
+}

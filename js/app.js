@@ -161,6 +161,24 @@ document.addEventListener("alpine:init", () => {
       return p.moeda === "USD" ? "🇺🇸" : "🇧🇷";
     },
 
+    // 7a.E.1: abrevia o lado do movimento para 1-3 chars com semantic class.
+    // B/S são vermelho/verde; demais lados ficam neutros mas legíveis.
+    formatarLado(lado) {
+      const mapa = {
+        "Compra":      { texto: "B",   classe: "lado-B"      },
+        "Venda":       { texto: "S",   classe: "lado-S"      },
+        "Subscrição":  { texto: "Sub", classe: "lado-neutro" },
+        "Direito":     { texto: "Dir", classe: "lado-neutro" },
+        "Desdobro":    { texto: "Spl", classe: "lado-neutro" },
+        "Atualização": { texto: "Atu", classe: "lado-neutro" },
+        "Fração":      { texto: "Fra", classe: "lado-neutro" },
+        "Cessão":      { texto: "Ces", classe: "lado-neutro" },
+        "Exercido":    { texto: "Exe", classe: "lado-neutro" },
+        "Não Exercido":{ texto: "NEx", classe: "lado-neutro" },
+      };
+      return mapa[lado] || { texto: lado, classe: "lado-neutro" };
+    },
+
     pctAlvoClasse(classe) {
       const alvo = (this.json && this.json.alocacao && this.json.alocacao.alvo) || {};
       for (const k of this._aliasesClasse(classe)) {
