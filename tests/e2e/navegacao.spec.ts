@@ -60,25 +60,54 @@ test.describe("Navegacao hash routing", () => {
     await expect(page.locator(".tela-alocacao")).toBeVisible();
   });
 
-  test("raio-x mostra benchmark com prefixo 'vs' e travessão em Ano/12m", async ({ page }) => {
+  test("raio-x mostra benchmark com prefixo 'vs' compactado em 2-col", async ({ page }) => {
     await autenticar(page);
-    // Garantir que estamos no raio-x (rota default).
     await expect(page.locator(".raiox")).toBeVisible();
 
     // Pegar a primeira linha de benchmark do escopo Total.
     const benchmarks = page.locator(".raiox .rent-benchmark");
     await expect(benchmarks.first()).toBeVisible();
 
-    // Label deve começar com "vs " e ser uma string com peso visível.
+    // Label deve começar com "vs ".
     const primeiroLabel = benchmarks.first().locator(".bench-label");
     await expect(primeiroLabel).toContainText("vs ");
 
-    // 4 spans diretos: label, valor (col Origem), travessão (col Ano), travessão (col 12m).
+    // 2 spans diretos: label + bench-valor (sr-only é descendant de bench-valor).
     const spansDaPrimeira = benchmarks.first().locator(":scope > span");
-    await expect(spansDaPrimeira).toHaveCount(4);
+    await expect(spansDaPrimeira).toHaveCount(2);
+  });
 
-    // As duas células finais devem ser travessões.
-    await expect(spansDaPrimeira.nth(2)).toHaveText("—");
-    await expect(spansDaPrimeira.nth(3)).toHaveText("—");
+  test("raio-x não exibe colunas YTD ou 12m no card de Rentabilidade", async ({ page }) => {
+    await autenticar(page);
+    await expect(page.locator(".raiox")).toBeVisible();
+
+    // rent-cols-head foi removido do raio-x.
+    await expect(page.locator(".raiox .rent-cols-head")).toHaveCount(0);
+
+    // .rent-linha do raio-x agora tem só 2 filhos diretos (label + chip).
+    const linhasRaiox = page.locator(".raiox .rent-linha");
+    const count = await linhasRaiox.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(linhasRaiox.nth(i).locator(":scope > span")).toHaveCount(2);
+    }
+  });
+
+  test("raio-x card alocação não prepend '+' em pct atual ou alvo", async ({ page }) => {
+    await autenticar(page);
+    await expect(page.locator(".raiox")).toBeVisible();
+
+    // Card raio-x: percentual atual + alvo de cada classe.
+    const atuais = await page.locator(".raiox .aloc-valores .atual").allTextContents();
+    expect(atuais.length).toBeGreaterThan(0);
+    for (const t of atuais) {
+      expect(t.startsWith("+"), `aloc atual com '+': ${t}`).toBe(false);
+    }
+
+    const alvos = await page.locator(".raiox .aloc-valores .alvo").allTextContents();
+    for (const t of alvos) {
+      // "alvo 15,00%" — não pode aparecer "+" antes do número.
+      expect(t.includes("+"), `aloc alvo com '+': ${t}`).toBe(false);
+    }
   });
 });
