@@ -7,11 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
-Schema v2.3 (Fase 7a.E.4): payload mínimo que satisfaz raio-x + 3 telas
+Schema v2.4 (Fase 7a.E.5): payload mínimo que satisfaz raio-x + 4 telas
 de detalhe (#rentabilidade com historico_twr mensal por escopo,
 #alocacao detalhada por classe, #ativo/:ticker com movimentos +
-proventos inline). Inclui 2 tickers em posicoes[] para drill-down:
-HGLG11 (com movimentos+proventos) e VOO (só movimentos).
+proventos inline, #proventos com mensal_12m + por_ativo_origem +
+por_ativo_12m + evolucao_anual). Inclui 2 tickers em posicoes[] para
+drill-down: HGLG11 (com movimentos+proventos) e VOO (só movimentos).
 Benchmarks aninhados por janela (xirr_espelhado/twr_espelhado dicts).
 """
 from __future__ import annotations
@@ -42,7 +43,7 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.3",
+    "versao": "2.4",
     "atualizado_em": "2026-04-24T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -124,6 +125,39 @@ PAYLOAD = {
             {"mes": "2026-04", "brl": 820.0},
             {"mes": "2026-03", "brl": 790.0},
             {"mes": "2026-02", "brl": 810.0},
+        ],
+        # v2.4 — campos adicionados pela Fase 7a.E.5
+        "evolucao_anual": [
+            {"ano": 2021, "total": 4200.0},
+            {"ano": 2022, "total": 7350.0},
+            {"ano": 2023, "total": 8600.0},
+            {"ano": 2024, "total": 9820.0},
+            {"ano": 2025, "total": 9820.0},
+            {"ano": 2026, "total": 3240.0},
+        ],
+        "mensal_12m": [
+            {"mes": "2025-05", "valor": 810.0},
+            {"mes": "2025-06", "valor": 790.0},
+            {"mes": "2025-07", "valor": 820.0},
+            {"mes": "2025-08", "valor": 800.0},
+            {"mes": "2025-09", "valor": 830.0},
+            {"mes": "2025-10", "valor": 795.0},
+            {"mes": "2025-11", "valor": 815.0},
+            {"mes": "2025-12", "valor": 840.0},
+            {"mes": "2026-01", "valor": 780.0},
+            {"mes": "2026-02", "valor": 810.0},
+            {"mes": "2026-03", "valor": 790.0},
+            {"mes": "2026-04", "valor": 820.0},
+        ],
+        "por_ativo_origem": [
+            {"ticker": "HGLG11", "total": 18540.0},
+            {"ticker": "XPML11", "total": 9320.0},
+            {"ticker": "ITSA4",  "total": 4210.0},
+        ],
+        "por_ativo_12m": [
+            {"ticker": "HGLG11", "total": 4820.0},
+            {"ticker": "XPML11", "total": 2380.0},
+            {"ticker": "ITSA4",  "total": 1020.0},
         ],
     },
     "ultimo_aporte": {

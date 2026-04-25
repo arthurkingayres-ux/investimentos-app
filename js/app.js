@@ -21,6 +21,8 @@ document.addEventListener("alpine:init", () => {
     escopoAtivo: "Total",
     classeExpandida: null,
     uplotInstance: null,
+    uplotProv: null,
+    proventosToggle: "anual",
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -50,6 +52,11 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       if (h === "alocacao") { this.rota = "alocacao"; return; }
+      if (h === "proventos") {
+        this.rota = "proventos";
+        setTimeout(() => this.hidratarProventos(), 0);
+        return;
+      }
       // Limite de 16 chars cobre tickers BR/EUA + sintéticos longos como
       // AVNU_REBATE (Fase 7a.28). Caso surjam tickers com `.` (ex.: BRK.B),
       // expandir a charclass — nenhum ativo da carteira atual usa.
@@ -174,6 +181,117 @@ document.addEventListener("alpine:init", () => {
         if (alvo[k] != null) return alvo[k];
       }
       return 0;
+    },
+
+    // ── #proventos ──────────────────────────────────────────────────
+
+    get totalProventosOrigem() {
+      const evol = this.json?.proventos?.evolucao_anual || [];
+      return evol.reduce((acc, e) => acc + (e.total || 0), 0);
+    },
+
+    tabelaProventosAtual() {
+      const prov = this.json?.proventos || {};
+      return this.proventosToggle === "anual"
+        ? (prov.por_ativo_origem || [])
+        : (prov.por_ativo_12m || []);
+    },
+
+    setProventosToggle(modo) {
+      this.proventosToggle = modo;
+      this.renderProventosGrafico();
+    },
+
+    hidratarProventos() {
+      if (this.rota !== "proventos" || !this.json) return;
+      this.proventosToggle = "anual";
+      this.$nextTick(() => this.renderProventosGrafico());
+    },
+
+    renderProventosGrafico() {
+      const prov = this.json?.proventos || {};
+      const container = document.getElementById("proventos-grafico");
+      if (!container || typeof uPlot === "undefined") return;
+
+      // Destruir instância anterior para evitar canvas orphan.
+      if (this.uplotProv) {
+        try { this.uplotProv.destroy(); } catch (_) {}
+        this.uplotProv = null;
+      }
+      if (this.resizeObserverProv) {
+        try { this.resizeObserverProv.disconnect(); } catch (_) {}
+        this.resizeObserverProv = null;
+      }
+      container.innerHTML = "";
+
+      let labels, valores;
+      if (this.proventosToggle === "anual") {
+        const evol = prov.evolucao_anual || [];
+        labels = evol.map((e) => String(e.ano));
+        valores = evol.map((e) => e.total);
+      } else {
+        const m12 = prov.mensal_12m || [];
+        // Labels abreviados: "YYYY-MM" → "Mmm/AA"
+        const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+        labels = m12.map((e) => {
+          const [yy, mm] = (e.mes || "").split("-");
+          const idx = parseInt(mm, 10) - 1;
+          return (idx >= 0 && idx <= 11) ? `${meses[idx]}/${yy.slice(2)}` : (e.mes || "");
+        });
+        valores = m12.map((e) => e.valor);
+      }
+
+      if (!labels.length) {
+        container.innerHTML = '<p class="placeholder">Sem dados de proventos.</p>';
+        return;
+      }
+
+      const xs = labels.map((_, i) => i);
+      const width = Math.max(280, container.clientWidth || 320);
+      const opts = {
+        width,
+        height: 220,
+        scales: { x: { time: false }, y: { auto: true } },
+        axes: [
+          {
+            values: (_u, splits) => splits.map((i) => labels[Math.round(i)] ?? ""),
+          },
+          {
+            values: (_u, splits) => splits.map((v) => {
+              if (v === null || v === undefined) return "";
+              if (v >= 1000) return "R$" + (v / 1000).toFixed(0) + "k";
+              return "R$" + Math.round(v);
+            }),
+          },
+        ],
+        series: [
+          {},
+          {
+            label: "Proventos (R$)",
+            stroke: "#047857",
+            fill: "#04785720",
+            paths: uPlot.paths.bars({ size: [0.7] }),
+          },
+        ],
+        legend: { show: false },
+      };
+      try {
+        this.uplotProv = new uPlot(opts, [xs, valores], container);
+      } catch (err) {
+        console.warn("uPlot proventos falhou; renderizando placeholder", err);
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        this.uplotProv = null;
+        return;
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserverProv = new ResizeObserver(() => {
+          if (!this.uplotProv) return;
+          const w = Math.max(280, container.clientWidth || 320);
+          try { this.uplotProv.setSize({ width: w, height: 220 }); } catch (_) {}
+        });
+        this.resizeObserverProv.observe(container);
+      }
     },
 
     hidratarRentabilidade() {
