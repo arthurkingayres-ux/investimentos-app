@@ -163,7 +163,7 @@ h1 {
 .hero-link {
   display: block;
   text-decoration: none;
-  color: inherit;
+  color: #fff;
 }
 .hero-link:focus-visible {
   outline: 2px solid var(--teal, #14b8a6);
