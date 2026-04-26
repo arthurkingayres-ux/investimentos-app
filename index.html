@@ -8,13 +8,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=20">
-  <link rel="stylesheet" href="css/app.css?v=20">
-  <script src="js/vendor/uplot.min.js?v=20"></script>
-  <script src="js/crypto.js?v=20"></script>
-  <script src="js/format.js?v=20"></script>
-  <script src="js/app.js?v=20"></script>
-  <script defer src="js/vendor/alpine.min.js?v=20"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=21">
+  <link rel="stylesheet" href="css/app.css?v=21">
+  <script src="js/vendor/uplot.min.js?v=21"></script>
+  <script src="js/crypto.js?v=21"></script>
+  <script src="js/format.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
+  <script defer src="js/vendor/alpine.min.js?v=21"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -72,8 +72,8 @@
       <section class="raiox" x-show="rota === ''" x-cloak>
         <h1>Raio X</h1>
 
-        <section class="hero" aria-label="Patrimônio total">
-          <p class="hero-label">Patrimônio total</p>
+        <a href="#patrimonio" class="hero hero-link" aria-label="Abrir histórico patrimonial">
+          <p class="hero-label">Patrimônio total <span class="card-arrow">→</span></p>
           <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
           <p class="hero-valor" x-text="formatBrl(json.patrimonio.total_brl)"></p>
           <div
@@ -85,7 +85,7 @@
             <span x-text="'(' + formatPct(json.patrimonio.variacao_semanal_pct) + ')'"></span>
             <span class="texto">· 7d</span>
           </div>
-        </section>
+        </a>
 
         <a href="#rentabilidade" class="card rentabilidade card-link" aria-label="Abrir rentabilidade detalhada">
           <h2 class="card-titulo">Rentabilidade <span class="card-arrow">→</span></h2>
@@ -542,6 +542,32 @@
             </table>
           </div>
         </template>
+      </section>
+
+      <!-- ── Tela #patrimonio ─────────────────────────────────────────── -->
+      <section class="tela-detalhes tela-patrimonio" x-show="rota === 'patrimonio'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Histórico patrimonial</h1>
+        </header>
+
+        <div class="kpi-grid kpi-grid-3">
+          <div class="kpi">
+            <span class="kpi-label">Patrimônio atual</span>
+            <span class="kpi-valor" x-text="formatBrl(patrimonioAtual())"></span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-label">Aporte cumulativo</span>
+            <span class="kpi-valor" x-text="formatBrl(aporteCumulativo())"></span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-label">Retorno acumulado</span>
+            <span class="kpi-valor" x-text="formatBrl(retornoAcumuladoBrl())"></span>
+            <span class="kpi-meta" x-text="retornoAcumuladoPctTexto()"></span>
+          </div>
+        </div>
+
+        <div id="patrimonio-grafico" class="chart-rent" aria-label="Evolução de patrimônio e aportes"></div>
       </section>
 
       </div>
