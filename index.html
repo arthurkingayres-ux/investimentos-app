@@ -124,8 +124,8 @@
               <div class="bench-linha">
                 <span class="bench-label" x-text="b.label"></span>
                 <span
-                  class="chip"
-                  :class="(b.valor ?? 0) < 0 ? 'is-neg' : 'chip-bench'"
+                  class="chip chip-bench"
+                  :class="(b.valor ?? 0) < 0 && 'is-neg'"
                   x-text="formatPct(b.valor)"></span>
               </div>
             </template>

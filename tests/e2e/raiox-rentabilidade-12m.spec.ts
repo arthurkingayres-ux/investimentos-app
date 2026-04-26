@@ -70,7 +70,10 @@ test.describe("7a.E.9 — Raio-X rentabilidade 12m", () => {
     expect(texto).not.toContain("vs s&p");
   });
 
-  test("XIRR/TWR null no escopo renderiza fallback sem quebrar", async ({ page }) => {
+  test("chips renderizam texto formatado, não literal 'null'/'undefined'", async ({ page }) => {
+    // Sanity check: garante que formatPct nunca vaza string crua para o DOM.
+    // Cobre o caminho null indiretamente (fixture com xirr_12m=null produziria
+    // o mesmo formato '—' que outros valores ausentes na codebase).
     await autenticar(page);
     const chips = page.locator(".card.rentabilidade .rent-escopo .chip");
     const count = await chips.count();
@@ -80,6 +83,38 @@ test.describe("7a.E.9 — Raio-X rentabilidade 12m", () => {
       expect(txt.toLowerCase()).not.toBe("null");
       expect(txt.toLowerCase()).not.toBe("undefined");
     }
+  });
+
+  test("escopo com xirr_12m null renderiza '—' (route mock)", async ({ page }) => {
+    // Fork da fixture com xirr_12m/twr_12m null no Total para exercitar o branch null.
+    await page.route("**/portfolio.json.enc", async (route) => {
+      await route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" });
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("pin", "123456");
+      localStorage.setItem(
+        "pinTimestamp",
+        String(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      );
+    });
+    // Patch JSON após decifragem via Alpine init: testa formatPct(null)
+    // diretamente forçando o estado.
+    await page.goto("/");
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
+    await page.evaluate(() => {
+      const root = document.querySelector("[x-data]") as HTMLElement & { _x_dataStack?: object[] };
+      const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } })
+        .Alpine.$data(root);
+      const j = data.json as { rentabilidade: Record<string, { xirr_12m: number | null; twr_12m: number | null }> };
+      j.rentabilidade.Total.xirr_12m = null;
+      j.rentabilidade.Total.twr_12m = null;
+    });
+    await page.waitForTimeout(100);
+    const totalEscopo = page.locator(".card.rentabilidade .rent-escopo").first();
+    const xirrChip = totalEscopo.locator(".chip-xirr");
+    const txtXirr = (await xirrChip.innerText()).trim();
+    // formatPct(null) → '—' por convenção da codebase
+    expect(txtXirr).toMatch(/[—–-]/);
   });
 
   test("tela #rentabilidade detalhada permanece intacta (3 grupos Origem/Ano/12m)", async ({ page }) => {
