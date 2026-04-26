@@ -405,13 +405,18 @@ document.addEventListener("alpine:init", () => {
       const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
       let serie = (rent && rent.historico_twr) || [];
 
-      // 7a.E.1 (F1): drop leading bootstrap outliers (early months where
-      // TWR cumulative anualizado oscila entre +∞ e valores normais).
-      // Mantém a partir do primeiro mês com |twr| < 0.5 (50% a.a. limite
-      // generoso para preservar bull/bear reais e cortar bootstrap absurdo).
-      const firstStable = serie.findIndex(
-        (p) => p.twr !== null && Math.abs(p.twr) < 0.5,
-      );
+      // 7a.E.7.3: backend retorna pontos com `anualizado: bool` — pontos
+      // cumulativos (anualizado=false, <365d desde a origem) não explodem
+      // por anualização. Pontos anualizados ainda podem oscilar em janelas
+      // com poucos dias dentro de um mês irregular.
+      // Defesa secundária (CRB 7a.E.7 #9): cap de 200% para cumulativos
+      // (sanity contra bug futuro) e 100% para anualizados (preserva
+      // bull/bear reais). Backend correto, mas frontend não confia cego.
+      const firstStable = serie.findIndex((p) => {
+        if (p.twr === null) return false;
+        const cap = p.anualizado === false ? 2.0 : 1.0;
+        return Math.abs(p.twr) < cap;
+      });
       serie = firstStable === -1 ? [] : serie.slice(firstStable);
 
       if (this.uplotInstance) {
