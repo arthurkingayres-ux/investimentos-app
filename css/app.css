@@ -160,6 +160,16 @@ h1 {
   overflow: hidden;
 }
 
+.hero-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.hero-link:focus-visible {
+  outline: 2px solid var(--teal, #14b8a6);
+  outline-offset: 4px;
+}
+
 .hero::after {
   content: "";
   position: absolute;

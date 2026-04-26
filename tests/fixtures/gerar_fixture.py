@@ -52,7 +52,21 @@ PAYLOAD = {
         "cripto_brl": 20640.0,
         "variacao_semanal_brl": 3100.0,
         "variacao_semanal_pct": 0.012,
-        "evolucao": [],
+        "evolucao": [
+            # Série mensal EOM v2.4 (7a.E.6): {data, total_brl, aportes_acum_brl}
+            {"data": "2024-04-30", "total_brl": 150000.0, "aportes_acum_brl": 140000.0},
+            {"data": "2024-05-31", "total_brl": 158500.0, "aportes_acum_brl": 148000.0},
+            {"data": "2024-06-30", "total_brl": 168200.0, "aportes_acum_brl": 156000.0},
+            {"data": "2024-07-31", "total_brl": 176800.0, "aportes_acum_brl": 164000.0},
+            {"data": "2024-08-31", "total_brl": 185100.0, "aportes_acum_brl": 172000.0},
+            {"data": "2024-09-30", "total_brl": 194600.0, "aportes_acum_brl": 180000.0},
+            {"data": "2024-10-31", "total_brl": 202900.0, "aportes_acum_brl": 188000.0},
+            {"data": "2024-11-30", "total_brl": 212500.0, "aportes_acum_brl": 196000.0},
+            {"data": "2024-12-31", "total_brl": 220300.0, "aportes_acum_brl": 204000.0},
+            {"data": "2025-01-31", "total_brl": 228700.0, "aportes_acum_brl": 212000.0},
+            {"data": "2025-02-28", "total_brl": 238400.0, "aportes_acum_brl": 220000.0},
+            {"data": "2026-04-24", "total_brl": 258000.0, "aportes_acum_brl": 240000.0},
+        ],
     },
     "alocacao": {
         "atual": {"EUA": 0.42, "Ações BR": 0.28, "FII": 0.22, "Cripto": 0.08},
