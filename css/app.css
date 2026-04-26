@@ -396,6 +396,11 @@ h1 {
   margin: 0 0 0.4rem;
 }
 
+.rent-bench-titulo-sep {
+  margin: 0 0.25rem;
+  font-weight: 400;
+}
+
 .bench-linha {
   display: grid;
   grid-template-columns: 1fr auto;
