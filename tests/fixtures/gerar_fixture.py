@@ -7,7 +7,9 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
-Schema v2.4 (Fase 7a.E.5): payload mínimo que satisfaz raio-x + 4 telas
+Schema v2.5 (Fase 7a.E.9): adiciona bloco top-level ``benchmarks_12m``
+com 5 escalares (cdi/ibov/ifix/sp500/usd) consumidos pelo raio-x.
+v2.4 (Fase 7a.E.5): payload mínimo que satisfaz raio-x + 4 telas
 de detalhe (#rentabilidade com historico_twr mensal por escopo,
 #alocacao detalhada por classe, #ativo/:ticker com movimentos +
 proventos inline, #proventos com mensal_12m + por_ativo_origem +
@@ -43,8 +45,8 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.4",
-    "atualizado_em": "2026-04-24T15:00:00",
+    "versao": "2.5",
+    "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
         "br_brl": 149640.0,
@@ -131,6 +133,13 @@ PAYLOAD = {
             "Brasil": "Seleção e timing abaixo do índice",
             "EUA": "Boas escolhas de ativos e timing favorável",
         },
+    },
+    "benchmarks_12m": {
+        "cdi":   0.108,
+        "ibov":  0.064,
+        "ifix":  0.052,
+        "sp500": 0.187,
+        "usd":   0.031,
     },
     "proventos": {
         "ytd_brl": 3240.0,
