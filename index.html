@@ -512,7 +512,7 @@
         <div id="proventos-grafico" class="chart-rent" aria-label="Evolução de proventos"></div>
 
         <h3 class="ativo-section-h">
-          Por ativo · <span x-text="proventosToggle === 'origem' ? 'desde a Origem' : 'últimos 12 meses'"></span>
+          Por ativo · <span x-text="proventosToggle === 'mensal' ? 'últimos 12 meses' : 'desde a Origem'"></span>
         </h3>
         <template x-if="tabelaProventosAtual().length === 0">
           <p class="vazio">Nenhum dado disponível.</p>

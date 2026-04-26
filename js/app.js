@@ -230,6 +230,7 @@ document.addEventListener("alpine:init", () => {
       container.innerHTML = "";
 
       let labels, valores;
+      // 7a.E.8: estado "origem" renderiza buckets anuais de evolucao_anual
       if (this.proventosToggle === "origem") {
         const evol = prov.evolucao_anual || [];
         labels = evol.map((e) => String(e.ano));
