@@ -551,19 +551,22 @@
           <h1>Histórico patrimonial</h1>
         </header>
 
-        <div class="kpi-grid kpi-grid-3">
+        <div class="kpi-grid kpi-stack">
           <div class="kpi">
             <span class="kpi-label">Patrimônio atual</span>
             <span class="kpi-valor" x-text="formatBrl(patrimonioAtual())"></span>
+            <span class="kpi-descricao">Valor de mercado consolidado da carteira (Brasil + EUA) na data mais recente.</span>
           </div>
           <div class="kpi">
             <span class="kpi-label">Aporte cumulativo</span>
             <span class="kpi-valor" x-text="formatBrl(aporteCumulativo())"></span>
+            <span class="kpi-descricao">Soma de todos os aportes desde a Origem (compras de ativos em R$, FX-aplicado para EUA).</span>
           </div>
           <div class="kpi">
             <span class="kpi-label">Retorno acumulado</span>
             <span class="kpi-valor" x-text="formatBrl(retornoAcumuladoBrl())"></span>
             <span class="kpi-meta" x-text="retornoAcumuladoPctTexto()"></span>
+            <span class="kpi-descricao">Diferença entre patrimônio atual e aporte cumulativo. Mede ganho ou perda total da carteira.</span>
           </div>
         </div>
 
