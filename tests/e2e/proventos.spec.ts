@@ -37,22 +37,25 @@ test.describe("7a.E.5 — Tela de Proventos", () => {
     }
   });
 
-  test("toggle Anual default; click Mensal (12m) alterna", async ({ page }) => {
+  test("toggle Origem default; click Mensal (12m) alterna; header reativo", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#proventos");
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
 
-    const anual = page.locator(".tela-proventos .escopo-toggle button", { hasText: /^Anual$/ });
+    const origem = page.locator(".tela-proventos .escopo-toggle button", { hasText: /^Origem$/ });
     const mensal = page.locator(".tela-proventos .escopo-toggle button", { hasText: /Mensal/i });
+    const header = page.locator(".tela-proventos .ativo-section-h");
 
-    // Anual deve ser o tab ativo por default.
-    await expect(anual).toHaveClass(/active/);
+    // Origem deve ser o tab ativo por default; header reflete janela.
+    await expect(origem).toHaveClass(/active/);
     await expect(mensal).not.toHaveClass(/active/);
+    await expect(header).toContainText("desde a Origem");
 
-    // Clicar em Mensal alterna a seleção.
+    // Clicar em Mensal alterna a seleção e o header.
     await mensal.click();
     await expect(mensal).toHaveClass(/active/);
-    await expect(anual).not.toHaveClass(/active/);
+    await expect(origem).not.toHaveClass(/active/);
+    await expect(header).toContainText("últimos 12 meses");
   });
 
   test("tabela 'Por ativo' renderiza linhas e cada linha navega para #ativo/:TICKER", async ({ page }) => {

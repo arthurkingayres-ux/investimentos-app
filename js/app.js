@@ -22,7 +22,7 @@ document.addEventListener("alpine:init", () => {
     classeExpandida: null,
     uplotInstance: null,
     uplotProv: null,
-    proventosToggle: "anual",
+    proventosToggle: "origem",
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -197,7 +197,7 @@ document.addEventListener("alpine:init", () => {
 
     tabelaProventosAtual() {
       const prov = this.json?.proventos || {};
-      return this.proventosToggle === "anual"
+      return this.proventosToggle === "origem"
         ? (prov.por_ativo_origem || [])
         : (prov.por_ativo_12m || []);
     },
@@ -209,7 +209,7 @@ document.addEventListener("alpine:init", () => {
 
     hidratarProventos() {
       if (this.rota !== "proventos" || !this.json) return;
-      this.proventosToggle = "anual";
+      this.proventosToggle = "origem";
       this.$nextTick(() => this.renderProventosGrafico());
     },
 
@@ -230,7 +230,8 @@ document.addEventListener("alpine:init", () => {
       container.innerHTML = "";
 
       let labels, valores;
-      if (this.proventosToggle === "anual") {
+      // 7a.E.8: estado "origem" renderiza buckets anuais de evolucao_anual
+      if (this.proventosToggle === "origem") {
         const evol = prov.evolucao_anual || [];
         labels = evol.map((e) => String(e.ano));
         valores = evol.map((e) => e.total);
