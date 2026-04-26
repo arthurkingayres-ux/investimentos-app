@@ -665,7 +665,33 @@ document.addEventListener("alpine:init", () => {
       this.pinError = "";
     },
 
+    get escoposRentabilidade12m() {
+      // Raio-x (home): apenas janela 12m, sem benchmarks por escopo (usa lista única).
+      const r = (this.json && this.json.rentabilidade) || {};
+      const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
+      return ["Total", "Brasil", "EUA"]
+        .filter((k) => r[k])
+        .map((k) => ({
+          key: k,
+          flag: flags[k],
+          data: { xirr_12m: r[k].xirr_12m, twr_12m: r[k].twr_12m },
+        }));
+    },
+
+    get benchmarks12m() {
+      // Raio-x: lista única de 5 benchmarks 12m (valores de mercado, independem do escopo).
+      const bm = (this.json && this.json.benchmarks_12m) || {};
+      return [
+        { key: "cdi",   label: "CDI",     valor: bm.cdi   ?? null },
+        { key: "ibov",  label: "IBOV",    valor: bm.ibov  ?? null },
+        { key: "ifix",  label: "IFIX",    valor: bm.ifix  ?? null },
+        { key: "sp500", label: "S&P 500", valor: bm.sp500 ?? null },
+        { key: "usd",   label: "USD",     valor: bm.usd   ?? null },
+      ];
+    },
+
     get escoposRentabilidade() {
+      // Mantido para a tela detalhada `#rentabilidade` (lê origem/ytd/12m + benchmarks por escopo).
       const r = (this.json && this.json.rentabilidade) || {};
       const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
       return ["Total", "Brasil", "EUA"]

@@ -88,8 +88,12 @@
         </a>
 
         <a href="#rentabilidade" class="card rentabilidade card-link" aria-label="Abrir rentabilidade detalhada">
-          <h2 class="card-titulo">Rentabilidade <span class="card-arrow">→</span></h2>
-          <template x-for="escopo in escoposRentabilidade" :key="escopo.key">
+          <h2 class="card-titulo">
+            Rentabilidade <span class="card-titulo-sep">·</span> últimos 12 meses
+            <span class="card-arrow">→</span>
+          </h2>
+
+          <template x-for="escopo in escoposRentabilidade12m" :key="escopo.key">
             <div class="rent-escopo">
               <div class="rent-header">
                 <span class="bandeira" x-text="escopo.flag"></span>
@@ -100,29 +104,32 @@
                 <span class="rent-label">XIRR</span>
                 <span
                   class="chip chip-xirr"
-                  :class="(escopo.data.xirr_origem ?? 0) < 0 && 'is-neg'"
-                  x-text="formatPct(escopo.data.xirr_origem)"></span>
+                  :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.xirr_12m)"></span>
               </div>
-
-              <template x-for="[bkey, bench] in escopo.benchmarks" :key="bkey">
-                <div class="rent-benchmark">
-                  <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
-                  <span class="bench-valor">
-                    <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
-                    <span class="sr-only">janela desde a origem</span>
-                  </span>
-                </div>
-              </template>
 
               <div class="rent-linha">
                 <span class="rent-label">TWR</span>
                 <span
                   class="chip chip-twr"
-                  :class="(escopo.data.twr_origem ?? 0) < 0 && 'is-neg'"
-                  x-text="formatPct(escopo.data.twr_origem)"></span>
+                  :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.twr_12m)"></span>
               </div>
             </div>
           </template>
+
+          <div class="rent-benchmarks-12m">
+            <h3 class="rent-bench-titulo">Benchmarks</h3>
+            <template x-for="b in benchmarks12m" :key="b.key">
+              <div class="bench-linha">
+                <span class="bench-label" x-text="b.label"></span>
+                <span
+                  class="chip chip-bench"
+                  :class="(b.valor ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(b.valor)"></span>
+              </div>
+            </template>
+          </div>
         </a>
 
         <a href="#alocacao" class="card alocacao card-link" aria-label="Abrir alocação detalhada">

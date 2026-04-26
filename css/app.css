@@ -379,6 +379,53 @@ h1 {
   color: var(--ink);
 }
 
+/* ── Raio-x: lista de 5 benchmarks 12m (Fase 7a.E.9) ──────────────── */
+
+.rent-benchmarks-12m {
+  margin-top: 0.85rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--neutral-100);
+}
+
+.rent-bench-titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.4rem;
+}
+
+.bench-linha {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.25rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+}
+
+.bench-linha + .bench-linha {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.bench-linha .bench-label {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.chip-bench {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--ink);
+}
+
+.card-titulo-sep {
+  color: var(--gray);
+  margin: 0 0.25rem;
+  font-weight: 400;
+}
+
 .aloc-linha {
   padding: 0.55rem 0;
 }
