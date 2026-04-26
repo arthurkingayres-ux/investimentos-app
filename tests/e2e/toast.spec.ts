@@ -33,7 +33,7 @@ test.describe("Toast de atualizacao", () => {
 
   test("mesmo atualizado_em -> sem toast verde", async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.setItem("atualizadoEm", "2026-04-24T15:00:00");
+      localStorage.setItem("atualizadoEm", "2026-04-26T15:00:00");
     });
     await mockPortfolio(page);
     await page.goto("/");
