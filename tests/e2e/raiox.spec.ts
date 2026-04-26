@@ -32,4 +32,14 @@ test.describe("Raio-X — cards e navegação", () => {
     await expect(page).toHaveURL(/#proventos$/);
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
   });
+
+  test("hero 'Patrimônio total' clicável → #patrimonio", async ({ page }) => {
+    await autenticar(page);
+
+    const hero = page.locator("a.hero-link", { hasText: "Patrimônio total" });
+    await expect(hero).toBeVisible();
+    await hero.click();
+    await expect(page).toHaveURL(/#patrimonio$/);
+    await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
+  });
 });

@@ -132,4 +132,11 @@ test.describe("Navegacao hash routing", () => {
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
     expect(page.url()).toMatch(/#proventos$/);
   });
+
+  test("hash #patrimonio é rota válida (não cai no fallback do Raio-X)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#patrimonio");
+    await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
+    expect(page.url()).toMatch(/#patrimonio$/);
+  });
 });
