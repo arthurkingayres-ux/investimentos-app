@@ -57,6 +57,11 @@ document.addEventListener("alpine:init", () => {
         setTimeout(() => this.hidratarProventos(), 0);
         return;
       }
+      if (h === "patrimonio") {
+        this.rota = "patrimonio";
+        setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
       // Limite de 16 chars cobre tickers BR/EUA + sintéticos longos como
       // AVNU_REBATE (Fase 7a.28). Caso surjam tickers com `.` (ex.: BRK.B),
       // expandir a charclass — nenhum ativo da carteira atual usa.
@@ -291,6 +296,104 @@ document.addEventListener("alpine:init", () => {
           try { this.uplotProv.setSize({ width: w, height: 220 }); } catch (_) {}
         });
         this.resizeObserverProv.observe(container);
+      }
+    },
+
+    // ── 7a.E.6: Histórico patrimonial ─────────────────────────────────
+    patrimonioAtual() {
+      const ev = this.json?.patrimonio?.evolucao || [];
+      if (!ev.length) return 0;
+      return ev[ev.length - 1].total_brl ?? 0;
+    },
+
+    aporteCumulativo() {
+      const ev = this.json?.patrimonio?.evolucao || [];
+      if (!ev.length) return 0;
+      return ev[ev.length - 1].aportes_acum_brl ?? 0;
+    },
+
+    retornoAcumuladoBrl() {
+      return this.patrimonioAtual() - this.aporteCumulativo();
+    },
+
+    retornoAcumuladoPctTexto() {
+      const a = this.aporteCumulativo();
+      if (!a) return "—";
+      const pct = (this.patrimonioAtual() / a) - 1;
+      const sinal = pct >= 0 ? "+" : "";
+      return `${sinal}${(pct * 100).toFixed(1)}%`;
+    },
+
+    hidratarPatrimonio() {
+      if (this.rota !== "patrimonio" || !this.json) return;
+      this.$nextTick(() => this.renderPatrimonioGrafico());
+    },
+
+    renderPatrimonioGrafico() {
+      const ev = this.json?.patrimonio?.evolucao || [];
+      const container = document.getElementById("patrimonio-grafico");
+      if (!container || typeof uPlot === "undefined") return;
+
+      // Destruir instância anterior
+      if (this.uplotPatr) {
+        try { this.uplotPatr.destroy(); } catch (_) {}
+        this.uplotPatr = null;
+      }
+      if (this.resizeObserverPatr) {
+        try { this.resizeObserverPatr.disconnect(); } catch (_) {}
+        this.resizeObserverPatr = null;
+      }
+      container.innerHTML = "";
+
+      if (!ev.length) {
+        container.innerHTML = '<p class="placeholder">Sem histórico de patrimônio.</p>';
+        return;
+      }
+
+      // X = Unix seconds (uPlot time scale)
+      const xs = ev.map((e) => Math.floor(new Date(e.data + "T00:00:00").getTime() / 1000));
+      const totais = ev.map((e) => e.total_brl);
+      const aportes = ev.map((e) => e.aportes_acum_brl);
+
+      const width = Math.max(280, container.clientWidth || 320);
+      const opts = {
+        width,
+        height: 240,
+        scales: { x: { time: true }, y: { auto: true } },
+        axes: [
+          {},
+          {
+            values: (_u, splits) => splits.map((v) => {
+              if (v === null || v === undefined) return "";
+              if (v >= 1_000_000) return "R$" + (v / 1_000_000).toFixed(1) + "M";
+              if (v >= 1000) return "R$" + Math.round(v / 1000) + "k";
+              return "R$" + Math.round(v);
+            }),
+          },
+        ],
+        series: [
+          {},
+          { label: "Patrimônio", stroke: "#047857", width: 2 },
+          { label: "Aporte acum.", stroke: "#1d4ed8", width: 2, dash: [4, 3] },
+        ],
+        legend: { show: true },
+      };
+      try {
+        this.uplotPatr = new uPlot(opts, [xs, totais, aportes], container);
+      } catch (err) {
+        console.warn("uPlot patrimonio falhou; renderizando placeholder", err);
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        this.uplotPatr = null;
+        return;
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserverPatr = new ResizeObserver(() => {
+          if (!this.uplotPatr) return;
+          const w = Math.max(280, container.clientWidth || 320);
+          try { this.uplotPatr.setSize({ width: w, height: 240 }); } catch (_) {}
+        });
+        this.resizeObserverPatr.observe(container);
       }
     },
 
