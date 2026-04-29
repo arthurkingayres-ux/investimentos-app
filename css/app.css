@@ -798,6 +798,33 @@ footer.rodape code {
   border-color: var(--g-700);
 }
 
+/* Sub-toggle moeda (R$/US$) — só aparece em escopo=EUA. Variante secundária
+   menor que .escopo-toggle pra reforçar hierarquia visual: escopo > moeda. */
+.moeda-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 12px;
+}
+
+.moeda-toggle button {
+  flex: 0 0 auto;
+  min-width: 56px;
+  padding: 6px 14px;
+  border: 1px solid var(--neutral-200);
+  background: white;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.moeda-toggle button.active {
+  background: var(--g-700);
+  color: white;
+  border-color: var(--g-700);
+}
+
 .chart-rent {
   width: 100%;
   /* min-height: 320px = padding (24px total) + uPlot canvas (280px, fixo em

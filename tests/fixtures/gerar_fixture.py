@@ -45,7 +45,7 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.5",
+    "versao": "2.6",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -113,17 +113,35 @@ PAYLOAD = {
             },
             "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
         },
+        # Schema v2.6 (Fase 7a.E.13): EUA nested {brl, usd, historico_twr}.
+        # Trilho USD tem só SP500 nos benchmarks (CDI/IBOV/IFIX são BRL-only).
         "EUA": {
-            "xirr_origem": 0.138,
-            "xirr_ytd": 0.058,
-            "xirr_12m": 0.112,
-            "twr_origem": 0.118,
-            "twr_ytd": 0.051,
-            "twr_12m": 0.098,
-            "benchmarks": {
-                "S&P 500": {
-                    "xirr_espelhado": {"origem": 0.058, "ytd": 0.022, "12m": 0.041},
-                    "twr_espelhado":  {"origem": 0.052, "ytd": 0.020, "12m": 0.039},
+            "brl": {
+                "xirr_origem": 0.138,
+                "xirr_ytd": 0.058,
+                "xirr_12m": 0.112,
+                "twr_origem": 0.118,
+                "twr_ytd": 0.051,
+                "twr_12m": 0.098,
+                "benchmarks": {
+                    "SP500": {
+                        "xirr_espelhado": {"origem": 0.058, "ytd": 0.022, "12m": 0.041},
+                        "twr_espelhado":  {"origem": 0.052, "ytd": 0.020, "12m": 0.039},
+                    },
+                },
+            },
+            "usd": {
+                "xirr_origem": 0.155,
+                "xirr_ytd": 0.048,
+                "xirr_12m": 0.275,
+                "twr_origem": 0.142,
+                "twr_ytd": 0.046,
+                "twr_12m": 0.268,
+                "benchmarks": {
+                    "SP500": {
+                        "xirr_espelhado": {"origem": 0.142, "ytd": 0.041, "12m": 0.284},
+                        "twr_espelhado":  {"origem": 0.138, "ytd": 0.040, "12m": 0.281},
+                    },
                 },
             },
             "historico_twr": _serie_mensal(0.06, 0.118, 0.05, 0.058),

@@ -19,6 +19,7 @@ document.addEventListener("alpine:init", () => {
     toast: { visible: false, mensagem: "", tom: "verde", timer: null },
     agoraTimer: null,
     escopoAtivo: "Total",
+    moeda: localStorage.getItem("moedaEUA") || "BRL",
     classeExpandida: null,
     uplotInstance: null,
     uplotProv: null,
@@ -84,6 +85,34 @@ document.addEventListener("alpine:init", () => {
     selecionarEscopo(escopo) {
       this.escopoAtivo = escopo;
       this.hidratarRentabilidade();
+    },
+
+    selecionarMoeda(m) {
+      // Schema v2.6: toggle só ativo em escopo=EUA. Para Total/Brasil é no-op.
+      if (m !== "BRL" && m !== "USD") return;
+      this.moeda = m;
+      try { localStorage.setItem("moedaEUA", m); } catch (_) {}
+    },
+
+    rentabilidadeAtiva() {
+      // Devolve o bloco de métricas + benchmarks adequado ao escopo+moeda.
+      // EUA é nested {brl,usd}; Total e Brasil permanecem flat.
+      const rent = this.json && this.json.rentabilidade;
+      if (!rent) return null;
+      const escopo = rent[this.escopoAtivo];
+      if (!escopo) return null;
+      if (this.escopoAtivo === "EUA") {
+        const chave = this.moeda === "USD" ? "usd" : "brl";
+        return escopo[chave] || null;
+      }
+      return escopo;
+    },
+
+    moedaToggleVisivel() {
+      // Mostra toggle só quando escopo=EUA E o JSON é v2.6+ (tem brl/usd).
+      if (this.escopoAtivo !== "EUA") return false;
+      const eua = this.json && this.json.rentabilidade && this.json.rentabilidade.EUA;
+      return !!(eua && eua.brl && eua.usd);
     },
 
     expandirClasse(classe) {

@@ -232,6 +232,20 @@
             :class="{ active: escopoAtivo === 'EUA' }">🇺🇸 EUA</button>
         </div>
 
+        <div class="moeda-toggle" role="tablist"
+             x-show="moedaToggleVisivel()" x-cloak>
+          <button
+            data-moeda="BRL" type="button"
+            @click="selecionarMoeda('BRL')"
+            :class="{ active: moeda === 'BRL' }"
+            aria-label="Mostrar carteira EUA em reais">R$</button>
+          <button
+            data-moeda="USD" type="button"
+            @click="selecionarMoeda('USD')"
+            :class="{ active: moeda === 'USD' }"
+            aria-label="Mostrar carteira EUA em dólares (paridade Avenue)">US$</button>
+        </div>
+
         <div id="chart-rent" class="chart-rent" aria-label="Histórico TWR"></div>
 
         <div class="rent-grupos">
@@ -240,14 +254,14 @@
             <div class="rent-metrica">
               <span class="rent-metrica-label">XIRR a.a.</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_origem)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.xirr_origem)"></span>
             </div>
             <div class="rent-metrica">
               <span class="rent-metrica-label">TWR a.a.</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_origem)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.twr_origem)"></span>
             </div>
-            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
               <div class="rent-benchmark">
                 <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
                 <span class="bench-valor">
@@ -260,16 +274,16 @@
           <section class="rent-grupo">
             <h3 class="rent-grupo-titulo">Ano (YTD)</h3>
             <div class="rent-metrica">
-              <span class="rent-metrica-label">XIRR a.a.</span>
+              <span class="rent-metrica-label">XIRR</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_ytd)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.xirr_ytd)"></span>
             </div>
             <div class="rent-metrica">
-              <span class="rent-metrica-label">TWR a.a.</span>
+              <span class="rent-metrica-label">TWR</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_ytd)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.twr_ytd)"></span>
             </div>
-            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
               <div class="rent-benchmark">
                 <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
                 <span class="bench-valor">
@@ -284,14 +298,14 @@
             <div class="rent-metrica">
               <span class="rent-metrica-label">XIRR a.a.</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.xirr_12m)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.xirr_12m)"></span>
             </div>
             <div class="rent-metrica">
               <span class="rent-metrica-label">TWR a.a.</span>
               <span class="rent-metrica-valor"
-                    x-text="formatPct(json?.rentabilidade?.[escopoAtivo]?.twr_12m)"></span>
+                    x-text="formatPct(rentabilidadeAtiva()?.twr_12m)"></span>
             </div>
-            <template x-for="[bkey, bench] in Object.entries(json?.rentabilidade?.[escopoAtivo]?.benchmarks || {})" :key="bkey">
+            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
               <div class="rent-benchmark">
                 <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
                 <span class="bench-valor">
