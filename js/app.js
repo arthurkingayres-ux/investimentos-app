@@ -102,8 +102,11 @@ document.addEventListener("alpine:init", () => {
       const escopo = rent[this.escopoAtivo];
       if (!escopo) return null;
       if (this.escopoAtivo === "EUA") {
-        const chave = this.moeda === "USD" ? "usd" : "brl";
-        return escopo[chave] || null;
+        if (escopo.brl || escopo.usd) {
+          const chave = this.moeda === "USD" ? "usd" : "brl";
+          return escopo[chave] || escopo.brl || null;
+        }
+        return escopo;
       }
       return escopo;
     },
