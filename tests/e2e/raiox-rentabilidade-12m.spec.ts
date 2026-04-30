@@ -124,4 +124,38 @@ test.describe("7a.E.9 — Raio-X rentabilidade 12m", () => {
     const grupos = page.locator(".rent-grupo");
     expect(await grupos.count()).toBeGreaterThanOrEqual(3);
   });
+
+  test.describe("7a.E.14 — card EUA inline com 'em BRL'", () => {
+    test("EUA chips não renderizam '—' (lê r.EUA.brl em schema v2.6+)", async ({ page }) => {
+      await autenticar(page);
+      const eua = page.locator(".card.rentabilidade .rent-escopo").nth(2);
+      await expect(eua).toContainText("EUA");
+      const xirr = (await eua.locator(".chip-xirr").innerText()).trim();
+      const twr = (await eua.locator(".chip-twr").innerText()).trim();
+      // Após o fix, devem ser valores numéricos formatados (ex.: "+11,2%"),
+      // nunca o placeholder '—' que o bug v2.6 produz.
+      expect(xirr).not.toMatch(/^[—–-]$/);
+      expect(twr).not.toMatch(/^[—–-]$/);
+      expect(xirr).toMatch(/%/);
+      expect(twr).toMatch(/%/);
+    });
+
+    test("EUA usa layout inline (.rent-linha-inline) com texto 'em BRL'", async ({ page }) => {
+      await autenticar(page);
+      const eua = page.locator(".card.rentabilidade .rent-escopo").nth(2);
+      // Layout inline aplica-se SÓ ao EUA — Total/Brasil mantêm .rent-linha empilhada.
+      await expect(eua.locator(".rent-linha-inline")).toBeVisible();
+      await expect(eua).toContainText("em BRL");
+    });
+
+    test("Total e Brasil mantêm layout empilhado (não inline)", async ({ page }) => {
+      await autenticar(page);
+      const total = page.locator(".card.rentabilidade .rent-escopo").nth(0);
+      const brasil = page.locator(".card.rentabilidade .rent-escopo").nth(1);
+      await expect(total.locator(".rent-linha-inline")).toHaveCount(0);
+      await expect(brasil.locator(".rent-linha-inline")).toHaveCount(0);
+      await expect(total).not.toContainText("em BRL");
+      await expect(brasil).not.toContainText("em BRL");
+    });
+  });
 });
