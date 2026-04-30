@@ -100,21 +100,43 @@
                 <span x-text="escopo.key"></span>
               </div>
 
-              <div class="rent-linha">
-                <span class="rent-label">XIRR</span>
-                <span
-                  class="chip chip-xirr"
-                  :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
-                  x-text="formatPct(escopo.data.xirr_12m)"></span>
-              </div>
+              <template x-if="!escopo.rent_inline">
+                <div>
+                  <div class="rent-linha">
+                    <span class="rent-label">XIRR</span>
+                    <span
+                      class="chip chip-xirr"
+                      :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
+                      x-text="formatPct(escopo.data.xirr_12m)"></span>
+                  </div>
 
-              <div class="rent-linha">
-                <span class="rent-label">TWR</span>
-                <span
-                  class="chip chip-twr"
-                  :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
-                  x-text="formatPct(escopo.data.twr_12m)"></span>
-              </div>
+                  <div class="rent-linha">
+                    <span class="rent-label">TWR</span>
+                    <span
+                      class="chip chip-twr"
+                      :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
+                      x-text="formatPct(escopo.data.twr_12m)"></span>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="escopo.rent_inline">
+                <div class="rent-linha-inline">
+                  <span class="rent-label">XIRR</span>
+                  <span
+                    class="chip chip-xirr"
+                    :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
+                    x-text="formatPct(escopo.data.xirr_12m)"></span>
+                  <span class="rent-sep" aria-hidden="true">·</span>
+                  <span class="rent-label">TWR</span>
+                  <span
+                    class="chip chip-twr"
+                    :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
+                    x-text="formatPct(escopo.data.twr_12m)"></span>
+                  <span class="rent-sep" aria-hidden="true">·</span>
+                  <span class="rent-moeda">em BRL</span>
+                </div>
+              </template>
             </div>
           </template>
 

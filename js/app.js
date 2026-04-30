@@ -92,6 +92,11 @@ document.addEventListener("alpine:init", () => {
       if (m !== "BRL" && m !== "USD") return;
       this.moeda = m;
       try { localStorage.setItem("moedaEUA", m); } catch (_) {}
+      // 7a.E.14: re-renderizar chart histórico com a série da moeda ativa.
+      // hidratarRentabilidade é guardado por (rota === "rentabilidade").
+      if (this.escopoAtivo === "EUA") {
+        this.hidratarRentabilidade();
+      }
     },
 
     rentabilidadeAtiva() {
@@ -436,7 +441,17 @@ document.addEventListener("alpine:init", () => {
       if (!target || typeof uPlot === "undefined") return;
 
       const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
-      let serie = (rent && rent.historico_twr) || [];
+      // 7a.E.14: schema v2.7 aninha EUA.historico_twr em {brl, usd}.
+      // Total/Brasil permanecem flat. Fallback p/ schema antigo (array flat
+      // em EUA) cai sempre como BRL.
+      let serie;
+      const rawHistorico = rent && rent.historico_twr;
+      if (this.escopoAtivo === "EUA" && rawHistorico && !Array.isArray(rawHistorico)) {
+        const chave = this.moeda === "USD" ? "usd" : "brl";
+        serie = rawHistorico[chave] || rawHistorico.brl || [];
+      } else {
+        serie = rawHistorico || [];
+      }
 
       // 7a.E.7.3: backend retorna pontos com `anualizado: bool` — pontos
       // cumulativos (anualizado=false, <365d desde a origem) não explodem
@@ -699,15 +714,22 @@ document.addEventListener("alpine:init", () => {
 
     get escoposRentabilidade12m() {
       // Raio-x (home): apenas janela 12m, sem benchmarks por escopo (usa lista única).
+      // Schema v2.6: EUA é nested {brl,usd}. Raio-x sempre mostra BRL (glance único,
+      // sem toggle); a flag `rent_inline` ativa layout horizontal "XIRR · TWR · em BRL"
+      // só no EUA, deixando explícito que a métrica é em BRL apesar do escopo USD.
       const r = (this.json && this.json.rentabilidade) || {};
       const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
       return ["Total", "Brasil", "EUA"]
         .filter((k) => r[k])
-        .map((k) => ({
-          key: k,
-          flag: flags[k],
-          data: { xirr_12m: r[k].xirr_12m, twr_12m: r[k].twr_12m },
-        }));
+        .map((k) => {
+          const fonte = (k === "EUA" && r.EUA && r.EUA.brl) ? r.EUA.brl : r[k];
+          return {
+            key: k,
+            flag: flags[k],
+            data: { xirr_12m: fonte.xirr_12m, twr_12m: fonte.twr_12m },
+            rent_inline: k === "EUA",
+          };
+        });
     },
 
     get benchmarks12m() {
