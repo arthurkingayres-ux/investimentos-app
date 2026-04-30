@@ -44,8 +44,21 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
     ]
 
 
+def _serie_mensal_sem_bench(start_twr: float, fim_twr: float) -> list[dict]:
+    """Série mensal sem coluna benchmark — usada pelo trilho EUA-USD (7a.E.14)."""
+    meses = ["2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-04"]
+    n = len(meses)
+    return [
+        {
+            "data": meses[i],
+            "twr": round(start_twr + (fim_twr - start_twr) * (i / (n - 1)), 4),
+        }
+        for i in range(n)
+    ]
+
+
 PAYLOAD = {
-    "versao": "2.6",
+    "versao": "2.7",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -113,8 +126,9 @@ PAYLOAD = {
             },
             "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
         },
-        # Schema v2.6 (Fase 7a.E.13): EUA nested {brl, usd, historico_twr}.
+        # Schema v2.7 (Fase 7a.E.14): EUA.historico_twr aninhado {brl, usd}.
         # Trilho USD tem só SP500 nos benchmarks (CDI/IBOV/IFIX são BRL-only).
+        # USD série mensal histórica vem sem coluna benchmark (chart só portfolio).
         "EUA": {
             "brl": {
                 "xirr_origem": 0.138,
@@ -144,7 +158,10 @@ PAYLOAD = {
                     },
                 },
             },
-            "historico_twr": _serie_mensal(0.06, 0.118, 0.05, 0.058),
+            "historico_twr": {
+                "brl": _serie_mensal(0.06, 0.118, 0.05, 0.058),
+                "usd": _serie_mensal_sem_bench(0.04, 0.275),
+            },
         },
         "interpretacao": {
             "Total": "Boas escolhas de ativos e timing favorável",

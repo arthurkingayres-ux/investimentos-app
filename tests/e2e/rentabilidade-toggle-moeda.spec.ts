@@ -132,6 +132,38 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
       page.locator('.tela-rentabilidade .moeda-toggle button[data-moeda="USD"].active'),
     ).toBeVisible();
   });
+
+  test("7a.E.14: chart histórico EUA troca série pelo toggle BRL/USD", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+    await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
+    await page.waitForSelector(".tela-rentabilidade canvas");
+
+    // Captura série BRL via state Alpine (data renderizada em u_.data[1])
+    const brlData = await page.evaluate(() => {
+      const data = (window as unknown as {
+        Alpine: { $data: (el: Element) => Record<string, unknown> };
+      }).Alpine.$data(document.body);
+      const inst = (data as { uplotInstance?: { data?: unknown[] } }).uplotInstance;
+      return inst && inst.data ? JSON.parse(JSON.stringify(inst.data[1])) : null;
+    });
+    expect(brlData).not.toBeNull();
+
+    // Trocar para USD
+    await page.locator('.tela-rentabilidade button[data-moeda="USD"]').click();
+    await page.waitForTimeout(200); // espera re-render
+
+    const usdData = await page.evaluate(() => {
+      const data = (window as unknown as {
+        Alpine: { $data: (el: Element) => Record<string, unknown> };
+      }).Alpine.$data(document.body);
+      const inst = (data as { uplotInstance?: { data?: unknown[] } }).uplotInstance;
+      return inst && inst.data ? JSON.parse(JSON.stringify(inst.data[1])) : null;
+    });
+    expect(usdData).not.toBeNull();
+    // Séries têm valores diferentes (USD diverge de BRL na fixture: BRL 0.06→0.118, USD 0.04→0.275)
+    expect(JSON.stringify(brlData)).not.toEqual(JSON.stringify(usdData));
+  });
 });
 
 test.describe("Rentabilidade — labels YTD periódico (7a.E.13.2)", () => {

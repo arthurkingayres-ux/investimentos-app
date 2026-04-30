@@ -92,6 +92,11 @@ document.addEventListener("alpine:init", () => {
       if (m !== "BRL" && m !== "USD") return;
       this.moeda = m;
       try { localStorage.setItem("moedaEUA", m); } catch (_) {}
+      // 7a.E.14: re-renderizar chart histórico com a série da moeda ativa.
+      // hidratarRentabilidade é guardado por (rota === "rentabilidade").
+      if (this.escopoAtivo === "EUA") {
+        this.hidratarRentabilidade();
+      }
     },
 
     rentabilidadeAtiva() {
@@ -436,7 +441,17 @@ document.addEventListener("alpine:init", () => {
       if (!target || typeof uPlot === "undefined") return;
 
       const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
-      let serie = (rent && rent.historico_twr) || [];
+      // 7a.E.14: schema v2.7 aninha EUA.historico_twr em {brl, usd}.
+      // Total/Brasil permanecem flat. Fallback p/ schema antigo (array flat
+      // em EUA) cai sempre como BRL.
+      let serie;
+      const rawHistorico = rent && rent.historico_twr;
+      if (this.escopoAtivo === "EUA" && rawHistorico && !Array.isArray(rawHistorico)) {
+        const chave = this.moeda === "USD" ? "usd" : "brl";
+        serie = rawHistorico[chave] || rawHistorico.brl || [];
+      } else {
+        serie = rawHistorico || [];
+      }
 
       // 7a.E.7.3: backend retorna pontos com `anualizado: bool` — pontos
       // cumulativos (anualizado=false, <365d desde a origem) não explodem
