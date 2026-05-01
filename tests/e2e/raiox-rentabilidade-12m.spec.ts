@@ -143,17 +143,19 @@ test.describe("7a.E.9 — Raio-X rentabilidade 12m", () => {
     test("EUA usa layout inline (.rent-linha-inline) com texto 'em BRL'", async ({ page }) => {
       await autenticar(page);
       const eua = page.locator(".card.rentabilidade .rent-escopo").nth(2);
-      // Layout inline aplica-se SÓ ao EUA — Total/Brasil mantêm .rent-linha empilhada.
+      // 7a.E.15: layout inline aplica-se aos 3 escopos — sufixo "em BRL" só no EUA.
       await expect(eua.locator(".rent-linha-inline")).toBeVisible();
       await expect(eua).toContainText("em BRL");
     });
 
-    test("Total e Brasil mantêm layout empilhado (não inline)", async ({ page }) => {
+    test("Total e Brasil também usam inline mas sem 'em BRL'", async ({ page }) => {
       await autenticar(page);
       const total = page.locator(".card.rentabilidade .rent-escopo").nth(0);
       const brasil = page.locator(".card.rentabilidade .rent-escopo").nth(1);
-      await expect(total.locator(".rent-linha-inline")).toHaveCount(0);
-      await expect(brasil.locator(".rent-linha-inline")).toHaveCount(0);
+      // 7a.E.15: inline universal nos 3 cards do raio-x.
+      await expect(total.locator(".rent-linha-inline")).toBeVisible();
+      await expect(brasil.locator(".rent-linha-inline")).toBeVisible();
+      // "em BRL" continua exclusivo do EUA (Total/Brasil são BRL nativo).
       await expect(total).not.toContainText("em BRL");
       await expect(brasil).not.toContainText("em BRL");
     });

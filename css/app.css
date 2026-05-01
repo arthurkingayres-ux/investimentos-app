@@ -284,19 +284,10 @@ h1 {
   line-height: 1;
 }
 
-.rent-linha {
-  display: grid;
-  grid-template-columns: 2.5rem 1fr;   /* era: 2.5rem 1fr 1fr 1fr */
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.35rem 0.25rem;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9375rem;
-}
-
-/* 7a.E.14: layout inline horizontal usado só no card EUA do raio-x — XIRR e TWR
-   ficam lado a lado e o sufixo "em BRL" deixa explícito que os valores estão
-   convertidos pra reais (escopo USD não tem toggle nessa tela). */
+/* 7a.E.15: layout inline horizontal universal nos 3 cards do raio-x — XIRR e TWR
+   lado a lado, separados por "·". O sufixo "em BRL" só aparece no card EUA via
+   wrapper .rent-suffix-em-brl com display:contents (Alpine x-if precisa de
+   nó-raiz único, mas os filhos seguem participando do flex-gap do pai). */
 .rent-linha-inline {
   display: flex;
   flex-wrap: wrap;
@@ -309,6 +300,10 @@ h1 {
 
 .rent-linha-inline .chip {
   justify-self: auto;
+}
+
+.rent-suffix-em-brl {
+  display: contents;
 }
 
 .rent-sep {
@@ -866,16 +861,6 @@ footer.rodape code {
   border-radius: 14px;
   padding: 12px;
   box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
-}
-
-.interpretacao {
-  font-size: 14px;
-  padding: 14px 16px;
-  background: var(--neutral-100);
-  border-radius: 12px;
-  margin-top: 16px;
-  line-height: 1.5;
-  color: var(--ink);
 }
 
 /* ── #alocacao ────────────────────────────────────────────────────── */

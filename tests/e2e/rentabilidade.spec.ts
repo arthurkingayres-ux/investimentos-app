@@ -76,15 +76,6 @@ test.describe("Tela #rentabilidade", () => {
     await expect(page.locator(".tela-rentabilidade").getByText("12 meses")).toBeVisible();
   });
 
-  test("interpretacao automática aparece para escopo Total", async ({ page }) => {
-    await autenticar(page);
-    await page.goto("/#rentabilidade");
-    await page.locator('.tela-rentabilidade button[data-escopo="Total"]').click();
-    await expect(
-      page.locator(".tela-rentabilidade .interpretacao"),
-    ).toBeVisible();
-  });
-
   test("redesign 7a.E.1: 3 grupos por janela + legenda Como ler", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");

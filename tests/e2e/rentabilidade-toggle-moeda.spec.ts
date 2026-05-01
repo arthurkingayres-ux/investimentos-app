@@ -133,6 +133,30 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
     ).toBeVisible();
   });
 
+  test("7a.E.15: chart USD inclui linha S&P 500 (benchmark populado)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+    await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
+    await page.waitForSelector(".tela-rentabilidade canvas");
+
+    // Trocar para USD
+    await page.locator('.tela-rentabilidade button[data-moeda="USD"]').click();
+    await page.waitForTimeout(200);
+
+    // 7a.E.15: USD agora também emite coluna `benchmark` (S&P 500 USD-nativo).
+    // uPlot data[2] = benchmark series; deve ter pelo menos um valor não-null.
+    const benchUsd = await page.evaluate(() => {
+      const data = (window as unknown as {
+        Alpine: { $data: (el: Element) => Record<string, unknown> };
+      }).Alpine.$data(document.body);
+      const inst = (data as { uplotInstance?: { data?: unknown[][] } }).uplotInstance;
+      return inst && inst.data && inst.data[2]
+        ? (inst.data[2] as Array<number | null>).filter((v) => v !== null && v !== undefined)
+        : [];
+    });
+    expect(benchUsd.length).toBeGreaterThan(0);
+  });
+
   test("7a.E.14: chart histórico EUA troca série pelo toggle BRL/USD", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");

@@ -100,43 +100,25 @@
                 <span x-text="escopo.key"></span>
               </div>
 
-              <template x-if="!escopo.rent_inline">
-                <div>
-                  <div class="rent-linha">
-                    <span class="rent-label">XIRR</span>
-                    <span
-                      class="chip chip-xirr"
-                      :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
-                      x-text="formatPct(escopo.data.xirr_12m)"></span>
-                  </div>
-
-                  <div class="rent-linha">
-                    <span class="rent-label">TWR</span>
-                    <span
-                      class="chip chip-twr"
-                      :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
-                      x-text="formatPct(escopo.data.twr_12m)"></span>
-                  </div>
-                </div>
-              </template>
-
-              <template x-if="escopo.rent_inline">
-                <div class="rent-linha-inline">
-                  <span class="rent-label">XIRR</span>
-                  <span
-                    class="chip chip-xirr"
-                    :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
-                    x-text="formatPct(escopo.data.xirr_12m)"></span>
-                  <span class="rent-sep" aria-hidden="true">·</span>
-                  <span class="rent-label">TWR</span>
-                  <span
-                    class="chip chip-twr"
-                    :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
-                    x-text="formatPct(escopo.data.twr_12m)"></span>
-                  <span class="rent-sep" aria-hidden="true">·</span>
-                  <span class="rent-moeda">em BRL</span>
-                </div>
-              </template>
+              <div class="rent-linha-inline">
+                <span class="rent-label">XIRR</span>
+                <span
+                  class="chip chip-xirr"
+                  :class="(escopo.data.xirr_12m ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.xirr_12m)"></span>
+                <span class="rent-sep" aria-hidden="true">·</span>
+                <span class="rent-label">TWR</span>
+                <span
+                  class="chip chip-twr"
+                  :class="(escopo.data.twr_12m ?? 0) < 0 && 'is-neg'"
+                  x-text="formatPct(escopo.data.twr_12m)"></span>
+                <template x-if="escopo.mostrar_em_brl">
+                  <span class="rent-suffix-em-brl">
+                    <span class="rent-sep" aria-hidden="true">·</span>
+                    <span class="rent-moeda">em BRL</span>
+                  </span>
+                </template>
+              </div>
             </div>
           </template>
 
@@ -344,11 +326,6 @@
           <p><strong>XIRR</strong> — retorno anualizado considerando quando você aportou. Capta o efeito do timing dos aportes.</p>
           <p><strong>TWR</strong> — retorno anualizado ignorando seus aportes. Mede só a qualidade da seleção e gestão.</p>
         </aside>
-
-        <p
-          class="interpretacao"
-          x-show="json?.rentabilidade?.interpretacao?.[escopoAtivo]"
-          x-text="json?.rentabilidade?.interpretacao?.[escopoAtivo]"></p>
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-cloak>

@@ -713,10 +713,10 @@ document.addEventListener("alpine:init", () => {
     },
 
     get escoposRentabilidade12m() {
-      // Raio-x (home): apenas janela 12m, sem benchmarks por escopo (usa lista única).
-      // Schema v2.6: EUA é nested {brl,usd}. Raio-x sempre mostra BRL (glance único,
-      // sem toggle); a flag `rent_inline` ativa layout horizontal "XIRR · TWR · em BRL"
-      // só no EUA, deixando explícito que a métrica é em BRL apesar do escopo USD.
+      // 7a.E.15: layout inline ("XIRR · TWR") aplicado aos 3 escopos para uniformidade.
+      // Sufixo "· em BRL" preservado só em EUA via flag mostrar_em_brl — Total/Brasil
+      // são BRL nativo, explicitar é ruído. Schema v2.6+ aninha EUA em {brl,usd};
+      // raio-x sempre lê BRL (glance único, sem toggle).
       const r = (this.json && this.json.rentabilidade) || {};
       const flags = { Total: "🌍", Brasil: "🇧🇷", EUA: "🇺🇸" };
       return ["Total", "Brasil", "EUA"]
@@ -727,7 +727,8 @@ document.addEventListener("alpine:init", () => {
             key: k,
             flag: flags[k],
             data: { xirr_12m: fonte.xirr_12m, twr_12m: fonte.twr_12m },
-            rent_inline: k === "EUA",
+            rent_inline: true,
+            mostrar_em_brl: k === "EUA",
           };
         });
     },

@@ -23,9 +23,10 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Hotfix 2026-04-25", () => {
-  test("Raio X não exibe interpretação seleção/timing (já consta na tela de Rentabilidade)", async ({ page }) => {
+  test("Raio X não exibe interpretação seleção/timing (removida da tela de Rentabilidade na 7a.E.15)", async ({ page }) => {
     await autenticar(page);
     await expect(page.locator(".raiox .rent-interpretacao")).toHaveCount(0);
+    await expect(page.locator(".interpretacao")).toHaveCount(0);
   });
 
   test("Alocação aplica classe dot-acoes-br à classe Ações BR", async ({ page }) => {

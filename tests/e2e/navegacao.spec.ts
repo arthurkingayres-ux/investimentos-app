@@ -71,13 +71,10 @@ test.describe("Navegacao hash routing", () => {
     // rent-cols-head foi removido do raio-x.
     await expect(page.locator(".raiox .rent-cols-head")).toHaveCount(0);
 
-    // .rent-linha do raio-x agora tem só 2 filhos diretos (label + chip).
-    const linhasRaiox = page.locator(".raiox .rent-linha");
+    // 7a.E.15: .rent-linha-inline universal nos 3 cards (XIRR · TWR · em BRL no EUA).
+    const linhasRaiox = page.locator(".raiox .rent-linha-inline");
     const count = await linhasRaiox.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(linhasRaiox.nth(i).locator(":scope > span")).toHaveCount(2);
-    }
+    expect(count).toBeGreaterThanOrEqual(3);  // Total + Brasil + EUA
   });
 
   // 7a.E.9: removida a "proteção Origem-only" — o raio-x agora mostra
