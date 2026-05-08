@@ -24,6 +24,7 @@ document.addEventListener("alpine:init", () => {
     uplotInstance: null,
     uplotProv: null,
     proventosToggle: "origem",
+    collapsedPolitica: {},
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -53,6 +54,11 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       if (h === "alocacao") { this.rota = "alocacao"; return; }
+      if (h === "politica") {
+        this.rota = "politica";
+        this.hidratarColapsoPolitica();
+        return;
+      }
       if (h === "proventos") {
         this.rota = "proventos";
         setTimeout(() => this.hidratarProventos(), 0);
@@ -85,6 +91,49 @@ document.addEventListener("alpine:init", () => {
     selecionarEscopo(escopo) {
       this.escopoAtivo = escopo;
       this.hidratarRentabilidade();
+    },
+
+    hidratarColapsoPolitica() {
+      // Carrega estado collapse de cada categoria de localStorage. Default
+      // (sem chave persistida) é "expandido" — Dr. Arthur vê dados primeiro.
+      if (!this.json || !this.json.politica) return;
+      const out = {};
+      for (const cat of this.json.politica.categorias) {
+        const v = localStorage.getItem("politica.collapsed." + cat.nome);
+        out[cat.nome] = v === "true";
+      }
+      this.collapsedPolitica = out;
+    },
+
+    togglePolitica(nome) {
+      this.collapsedPolitica = {
+        ...this.collapsedPolitica,
+        [nome]: !this.collapsedPolitica[nome],
+      };
+      try {
+        localStorage.setItem(
+          "politica.collapsed." + nome,
+          this.collapsedPolitica[nome] ? "true" : "false"
+        );
+      } catch (_) {}
+    },
+
+    labelStatusPolitica(s) {
+      return {
+        aportar: "↑ aportar",
+        no_alvo: "no alvo",
+        pausar: "↓ pausar",
+        fora_da_politica: "fora da política",
+      }[s] || s;
+    },
+
+    // Drift em pontos percentuais com sinal explícito (ex: "+0.34pp" / "−1.20pp").
+    // Não usa Intl.NumberFormat porque o sufixo "pp" não é parte do locale.
+    formatPctSinalPP(v) {
+      if (v === null || v === undefined || Number.isNaN(v)) return "—";
+      const pp = v * 100;
+      const sign = pp > 0 ? "+" : pp < 0 ? "−" : "±";
+      return sign + Math.abs(pp).toFixed(2) + "pp";
     },
 
     selecionarMoeda(m) {

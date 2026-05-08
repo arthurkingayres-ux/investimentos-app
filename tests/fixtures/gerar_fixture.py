@@ -45,7 +45,7 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.8",
+    "versao": "2.9",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -280,6 +280,63 @@ PAYLOAD = {
             "proventos": [],
         },
     ],
+    "politica": {
+        "escala_max": 3,
+        "categorias": [
+            {
+                "nome": "Ações BR",
+                "peso_alvo": 0.30,
+                "peso_atual": 0.27,
+                "drift": -0.03,
+                "ativos": [
+                    {
+                        "ticker": "BBAS3",
+                        "nota": 2,
+                        "peso_intra": 0.5,
+                        "peso_alvo": 0.15,
+                        "peso_atual": 0.10,
+                        "drift": -0.05,
+                        "status": "aportar",
+                    },
+                    {
+                        "ticker": "ITSA4",
+                        "nota": 2,
+                        "peso_intra": 0.5,
+                        "peso_alvo": 0.15,
+                        "peso_atual": 0.17,
+                        "drift": 0.02,
+                        "status": "no_alvo",
+                    },
+                    {
+                        "ticker": "GRND3",
+                        "nota": 0,
+                        "peso_intra": 0.0,
+                        "peso_alvo": 0.0,
+                        "peso_atual": 0.005,
+                        "drift": 0.005,
+                        "status": "fora_da_politica",
+                    },
+                ],
+            },
+            {
+                "nome": "EUA",
+                "peso_alvo": 0.70,
+                "peso_atual": 0.73,
+                "drift": 0.03,
+                "ativos": [
+                    {
+                        "ticker": "VOO",
+                        "nota": 3,
+                        "peso_intra": 1.0,
+                        "peso_alvo": 0.70,
+                        "peso_atual": 0.73,
+                        "drift": 0.03,
+                        "status": "no_alvo",
+                    },
+                ],
+            },
+        ],
+    },
 }
 
 

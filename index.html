@@ -8,13 +8,13 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=21">
-  <link rel="stylesheet" href="css/app.css?v=21">
-  <script src="js/vendor/uplot.min.js?v=21"></script>
-  <script src="js/crypto.js?v=21"></script>
-  <script src="js/format.js?v=21"></script>
-  <script src="js/app.js?v=21"></script>
-  <script defer src="js/vendor/alpine.min.js?v=21"></script>
+  <link rel="stylesheet" href="js/vendor/uplot.min.css?v=22">
+  <link rel="stylesheet" href="css/app.css?v=22">
+  <script src="js/vendor/uplot.min.js?v=22"></script>
+  <script src="js/crypto.js?v=22"></script>
+  <script src="js/format.js?v=22"></script>
+  <script src="js/app.js?v=22"></script>
+  <script defer src="js/vendor/alpine.min.js?v=22"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -372,6 +372,74 @@
             </div>
           </template>
         </div>
+
+        <a href="#politica" class="alocacao-politica-link">
+          Ver política de alocação <span aria-hidden="true">→</span>
+        </a>
+      </section>
+
+      <section class="tela-detalhes tela-politica" x-show="rota === 'politica'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Política</h1>
+        </header>
+
+        <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
+          Política não publicada ainda.
+        </p>
+
+        <template x-for="cat in (json && json.politica && json.politica.categorias) || []" :key="cat.nome">
+          <article class="politica-card" :data-collapsed="collapsedPolitica[cat.nome] ? 'true' : 'false'">
+            <button
+              class="politica-header"
+              type="button"
+              :aria-expanded="!collapsedPolitica[cat.nome]"
+              :aria-controls="'politica-body-' + cat.nome"
+              @click="togglePolitica(cat.nome)">
+              <span class="politica-categoria-nome" x-text="cat.nome"></span>
+              <span class="politica-categoria-peso" x-text="formatPctSemSinal(cat.peso_alvo)"></span>
+              <span class="politica-categoria-sub">
+                <span x-text="'atual ' + formatPctSemSinal(cat.peso_atual)"></span>
+                <span class="sep">·</span>
+                <span :class="cat.drift >= 0 ? 'drift-pos' : 'drift-neg'"
+                  x-text="'drift ' + formatPctSinalPP(cat.drift)"></span>
+              </span>
+              <svg class="politica-chevron" aria-hidden="true" viewBox="0 0 12 12">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"
+                      fill="none" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+            <ul class="politica-ativos"
+                :id="'politica-body-' + cat.nome"
+                x-show="!collapsedPolitica[cat.nome]"
+                x-cloak>
+              <template x-for="ativo in cat.ativos" :key="ativo.ticker">
+                <li class="politica-ativo">
+                  <div class="politica-ativo-linha1">
+                    <span class="politica-ticker" x-text="ativo.ticker"></span>
+                    <span class="politica-bullets"
+                          :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max">
+                      <template x-for="i in json.politica.escala_max" :key="i">
+                        <span :class="i <= ativo.nota ? 'bullet-on' : 'bullet-off'">●</span>
+                      </template>
+                    </span>
+                    <span class="politica-pill" :class="'pill-' + ativo.status"
+                          x-text="labelStatusPolitica(ativo.status)"></span>
+                  </div>
+                  <div class="politica-ativo-linha2">
+                    <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_alvo)"></span>
+                    <span class="sep">·</span>
+                    <span x-text="'atual ' + formatPctSemSinal(ativo.peso_atual)"></span>
+                    <span class="sep">·</span>
+                    <span :class="ativo.drift >= 0 ? 'drift-pos' : 'drift-neg'"
+                          x-text="formatPctSinalPP(ativo.drift)"></span>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </article>
+        </template>
       </section>
 
       <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'" x-cloak>
