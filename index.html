@@ -425,12 +425,12 @@
                           x-text="labelStatusPolitica(ativo.status)"></span>
                   </div>
                   <div class="politica-ativo-linha2">
-                    <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_alvo)"></span>
+                    <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_intra)"></span>
                     <span class="sep">·</span>
-                    <span x-text="'atual ' + formatPctSemSinal(ativo.peso_atual)"></span>
+                    <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
                     <span class="sep">·</span>
-                    <span :class="ativo.drift >= 0 ? 'drift-pos' : 'drift-neg'"
-                          x-text="formatPctSinalPP(ativo.drift)"></span>
+                    <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
+                          x-text="formatPctSinalPP(ativo.drift_intra)"></span>
                   </div>
                 </li>
               </template>

@@ -45,7 +45,7 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
 
 
 PAYLOAD = {
-    "versao": "2.9",
+    "versao": "2.10",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -280,8 +280,9 @@ PAYLOAD = {
             "proventos": [],
         },
     ],
+    # 7a.E.16.3: ativo.peso_intra_atual + drift_intra; status binário usa drift_intra.
     "politica": {
-        "escala_max": 3,
+        "escala_max": 10,
         "categorias": [
             {
                 "nome": "Ações BR",
@@ -289,31 +290,41 @@ PAYLOAD = {
                 "peso_atual": 0.27,
                 "drift": -0.03,
                 "ativos": [
+                    # cat_atual = 0.27. BBAS3 atual=0.10 → intra_atual=0.3704, intra_alvo=0.5
+                    # → drift_intra=-0.1296 → aportar.
                     {
                         "ticker": "BBAS3",
                         "nota": 2,
                         "peso_intra": 0.5,
+                        "peso_intra_atual": 0.3704,
                         "peso_alvo": 0.15,
                         "peso_atual": 0.10,
                         "drift": -0.05,
+                        "drift_intra": -0.1296,
                         "status": "aportar",
                     },
+                    # ITSA4 atual=0.17 → intra_atual=0.6296, intra_alvo=0.5
+                    # → drift_intra=+0.1296 → pausar.
                     {
                         "ticker": "ITSA4",
                         "nota": 2,
                         "peso_intra": 0.5,
+                        "peso_intra_atual": 0.6296,
                         "peso_alvo": 0.15,
                         "peso_atual": 0.17,
                         "drift": 0.02,
-                        "status": "no_alvo",
+                        "drift_intra": 0.1296,
+                        "status": "pausar",
                     },
                     {
                         "ticker": "GRND3",
                         "nota": 0,
                         "peso_intra": 0.0,
+                        "peso_intra_atual": 0.0185,
                         "peso_alvo": 0.0,
                         "peso_atual": 0.005,
                         "drift": 0.005,
+                        "drift_intra": 0.0185,
                         "status": "fora_da_politica",
                     },
                 ],
@@ -328,9 +339,11 @@ PAYLOAD = {
                         "ticker": "VOO",
                         "nota": 3,
                         "peso_intra": 1.0,
+                        "peso_intra_atual": 1.0,
                         "peso_alvo": 0.70,
                         "peso_atual": 0.73,
                         "drift": 0.03,
+                        "drift_intra": 0.0,
                         "status": "no_alvo",
                     },
                 ],

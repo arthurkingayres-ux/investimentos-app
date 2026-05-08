@@ -60,8 +60,11 @@ test.describe("Tela #politica", () => {
     await abrirPolitica(page);
     const labels = await page.locator(".politica-pill").allTextContents();
     const matches = labels.filter((t) =>
-      /aportar|esperar|fora da política|no alvo/i.test(t)
+      /aportar|pausar|fora da política|no alvo/i.test(t)
     );
+    // 7a.E.16.3: confirma que pill "pausar" não traz seta para baixo.
+    const comSetaBaixo = labels.filter((t) => /↓/.test(t));
+    expect(comSetaBaixo).toHaveLength(0);
     expect(matches.length).toBeGreaterThan(0);
   });
 

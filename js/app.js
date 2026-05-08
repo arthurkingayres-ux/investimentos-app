@@ -119,13 +119,12 @@ document.addEventListener("alpine:init", () => {
     },
 
     labelStatusPolitica(s) {
-      // Drift binário: aportar (drift<0) e pausar (drift>0) substituem a banda.
-      // "esperar" reflete a filosofia buy-and-hold do Dr. Arthur — não vendemos
-      // quando o ativo valoriza, só pausamos novos aportes.
+      // Drift binário intra-categoria (7a.E.16.3): "aportar" leva seta pra cima
+      // (drift<0 → comprar); "pausar" é só texto (não vendemos quando valoriza).
       return {
         aportar: "↑ aportar",
         no_alvo: "no alvo",
-        pausar: "esperar",
+        pausar: "pausar",
         fora_da_politica: "fora da política",
       }[s] || s;
     },
