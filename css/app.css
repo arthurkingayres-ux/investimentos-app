@@ -1461,14 +1461,13 @@ footer.rodape code {
   color: var(--ink);
 }
 
-.politica-bullets {
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-align: center;
-  color: var(--gray);
+.politica-nota {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.politica-bullets .bullet-on { color: var(--ink); }
-.politica-bullets .bullet-off { opacity: 0.25; }
 
 .politica-pill {
   font-size: 11px;

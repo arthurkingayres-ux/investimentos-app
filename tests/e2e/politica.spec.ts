@@ -60,9 +60,17 @@ test.describe("Tela #politica", () => {
     await abrirPolitica(page);
     const labels = await page.locator(".politica-pill").allTextContents();
     const matches = labels.filter((t) =>
-      /aportar|pausar|fora da política|no alvo/i.test(t)
+      /aportar|esperar|fora da política|no alvo/i.test(t)
     );
     expect(matches.length).toBeGreaterThan(0);
+  });
+
+  test("nota aparece como 'Nota X/N' numérico nos ativos", async ({ page }) => {
+    await abrirPolitica(page);
+    // Pelo menos um ativo da grade deve mostrar a nota numericamente.
+    const notaTexts = await page.locator(".politica-nota").allTextContents();
+    expect(notaTexts.length).toBeGreaterThan(0);
+    expect(notaTexts.some((t) => /Nota \d+\/\d+/.test(t))).toBe(true);
   });
 
   test("link 'Ver política' em #alocacao navega para #politica", async ({ page }) => {

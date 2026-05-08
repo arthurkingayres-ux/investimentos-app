@@ -418,12 +418,9 @@
                 <li class="politica-ativo">
                   <div class="politica-ativo-linha1">
                     <span class="politica-ticker" x-text="ativo.ticker"></span>
-                    <span class="politica-bullets"
-                          :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max">
-                      <template x-for="i in json.politica.escala_max" :key="i">
-                        <span :class="i <= ativo.nota ? 'bullet-on' : 'bullet-off'">●</span>
-                      </template>
-                    </span>
+                    <span class="politica-nota"
+                          :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max"
+                          x-text="'Nota ' + ativo.nota + '/' + json.politica.escala_max"></span>
                     <span class="politica-pill" :class="'pill-' + ativo.status"
                           x-text="labelStatusPolitica(ativo.status)"></span>
                   </div>
