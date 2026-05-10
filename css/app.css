@@ -10,12 +10,30 @@
   --amber-light: #fbbf24;
   --red: #b91c1c;
   --ink: #1a1d1c;
-  --gray: #6b7065;
+  --gray: #5b605a;
   --neutral-50: #fafaf7;
   --neutral-100: #f5f5f0;
   --neutral-200: #e7e5de;
   --neutral-300: #d4d4d0;
-  --card-shadow: 0 1px 2px rgba(6, 78, 59, 0.04), 0 4px 16px rgba(6, 78, 59, 0.07);
+
+  /* === Tokens adicionados em 7a.G.2 (cores secundárias por classe + erro PIN + alphas) === */
+  --blue-500: #0284c7;       /* EUA dot, chart aporte secondary */
+  --blue-700: #1d4ed8;       /* chart aporte primary */
+  --purple-500: #a855f7;     /* Cripto dot */
+  --red-50:  #fef2f2;        /* PIN error background */
+  --red-200: #fecaca;        /* PIN error border */
+  --red-800: #991b1b;        /* PIN error text */
+  --amber-700: #b45309;      /* warning text */
+  --amber-900: #8a5a00;      /* warning text dark */
+  --teal-700: #0d7377;       /* chip-twr text */
+
+  /* Alphas nomeados */
+  --g-700-12: rgba(4, 120, 87, 0.12);
+  --teal-14:  rgba(20, 184, 166, 0.14);
+  --g-900-04: rgba(6, 78, 59, 0.04);
+  --g-900-07: rgba(6, 78, 59, 0.07);
+
+  --card-shadow: 0 1px 2px var(--g-900-04), 0 4px 16px var(--g-900-07);
 }
 
 *, *::before, *::after {
@@ -49,11 +67,11 @@ h1 {
   font-size: 1.75rem;
   font-weight: 700;
   margin: 0 0 0.25rem;
-  color: #064e3b;
+  color: var(--g-900);
 }
 
 .subtitle {
-  color: #64706c;
+  color: var(--gray);
   margin: 0 0 1.5rem;
 }
 
@@ -73,16 +91,16 @@ h1 {
   width: 100%;
   max-width: 280px;
   padding: 0.75rem 1rem;
-  border: 2px solid #e5e5e0;
+  border: 2px solid var(--neutral-200);
   border-radius: 14px;
   background: #fff;
-  color: #1a1d1c;
+  color: var(--ink);
   outline: none;
   transition: border-color 160ms ease;
 }
 
 .pin-input:focus {
-  border-color: #047857;
+  border-color: var(--g-700);
 }
 
 .pin-submit {
@@ -92,7 +110,7 @@ h1 {
   min-height: 48px;
   border: none;
   border-radius: 14px;
-  background: #064e3b;
+  background: var(--g-900);
   color: #fff;
   font-size: 1rem;
   font-weight: 600;
@@ -106,17 +124,17 @@ h1 {
 }
 
 .pin-submit:not(:disabled):active {
-  background: #047857;
+  background: var(--g-700);
 }
 
 .pin-error {
-  color: #b91c1c;
+  color: var(--red);
   margin-top: 0.75rem;
   font-size: 0.875rem;
 }
 
 .pin-block-msg {
-  color: #b45309;
+  color: var(--amber-700);
   font-weight: 600;
 }
 
@@ -149,15 +167,12 @@ h1 {
 }
 
 .hero {
-  position: relative;
-  border-radius: 22px;
-  padding: 1.5rem 1.25rem 1.75rem;
+  background: var(--g-900);
+  border-radius: 18px;
+  padding: 1.25rem 1.125rem 1.5rem;
   color: #fff;
-  background:
-    radial-gradient(120% 180% at 0% 0%, rgba(20, 184, 166, 0.35) 0%, transparent 55%),
-    linear-gradient(145deg, var(--g-900) 0%, var(--g-700) 55%, var(--teal) 140%);
-  box-shadow: 0 12px 32px rgba(6, 78, 59, 0.22), 0 2px 6px rgba(6, 78, 59, 0.12);
-  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  position: relative;
 }
 
 .hero-link {
@@ -166,69 +181,57 @@ h1 {
   color: #fff;
 }
 .hero-link:focus-visible {
-  outline: 2px solid var(--teal, #14b8a6);
-  outline-offset: 4px;
-}
-
-.hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(80% 60% at 100% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
-  pointer-events: none;
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 18px;
 }
 
 .hero-label {
-  position: relative;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.6875rem;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.78;
+  color: rgba(255, 255, 255, 0.78);
   margin: 0 0 0.25rem;
 }
 
 .hero-updated {
-  position: relative;
   font-size: 0.75rem;
-  opacity: 0.7;
+  opacity: 0.6;
   margin: 0 0 1rem;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-valor {
-  position: relative;
-  font-size: 2.625rem;
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.025em;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
   margin: 0;
+  margin-top: 0.25rem;
 }
 
 .hero-delta {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-  padding: 0.4rem 0.75rem;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .hero-delta.is-positive {
-  color: #d1fae5;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .hero-delta.is-negative {
-  color: #fecaca;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .hero-delta .seta {
@@ -353,13 +356,13 @@ h1 {
 }
 
 .chip-xirr {
-  background: rgba(4, 120, 87, 0.12);
+  background: var(--g-700-12);
   color: var(--g-700);
 }
 
 .chip-twr {
-  background: rgba(20, 184, 166, 0.14);
-  color: #0d7377;
+  background: var(--teal-14);
+  color: var(--teal-700);
 }
 
 .chip.is-neg {
@@ -573,15 +576,15 @@ h1 {
 .aporte-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.75rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(135deg, var(--g-700), var(--g-500));
+  background: var(--g-700);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.25);
   letter-spacing: -0.01em;
+  /* REMOVIDO: linear-gradient, box-shadow elevada (anti-celebratório, PRODUCT.md) */
 }
 
 .aporte-item {
@@ -710,7 +713,7 @@ footer.rodape code {
 }
 
 .btn-bloquear:hover {
-  background: #000;
+  background: var(--ink);
 }
 
 .btn-bloquear:active {
@@ -738,9 +741,10 @@ footer.rodape code {
   pointer-events: none;
   color: #fff;
   background: var(--g-700);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.3;
+  max-height: 4rem;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .toast-verde {
@@ -771,11 +775,17 @@ footer.rodape code {
 .breadcrumb button {
   background: none;
   border: none;
-  font-size: 26px;
+  font-size: 1.625rem;
   cursor: pointer;
   padding: 4px 12px;
   color: var(--g-900);
   line-height: 1;
+  /* WCAG 2.5.5 — touch target mínimo 44×44 (7a.G.2) */
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .breadcrumb button:hover {
@@ -784,7 +794,7 @@ footer.rodape code {
 }
 
 .breadcrumb h1 {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   margin: 0;
   color: var(--g-900);
@@ -811,7 +821,7 @@ footer.rodape code {
   border: 1px solid var(--neutral-200);
   background: white;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 0.875rem;
   cursor: pointer;
   color: var(--ink);
   font-weight: 500;
@@ -838,7 +848,7 @@ footer.rodape code {
   border: 1px solid var(--neutral-200);
   background: white;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   color: var(--ink);
   font-weight: 500;
@@ -852,6 +862,7 @@ footer.rodape code {
 
 .chart-rent {
   width: 100%;
+  max-width: 100%;
   /* min-height: 320px = padding (24px total) + uPlot canvas (280px, fixo em
      hidratarRentabilidade) + ~16px reservados para a tabela <u-legend>
      que o uPlot renderiza abaixo do canvas. Sem isso, a legenda some. */
@@ -860,7 +871,18 @@ footer.rodape code {
   background: white;
   border-radius: 14px;
   padding: 12px;
-  box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
+  /* overflow guard: clipa flash do canvas uPlot durante navigate em viewport
+     estreito (canvas mantém width antiga até ResizeObserver disparar).
+     overflow-y: visible preserva a tabela <u-legend> que o uPlot renderiza
+     abaixo do canvas (CRB 7a.G.2 Suggestion #5). */
+  overflow-x: hidden;
+  overflow-y: visible;
+  box-shadow: 0 2px 6px var(--g-900-07);
+}
+
+.chart-rent .uplot,
+.chart-rent .u-wrap {
+  max-width: 100%;
 }
 
 /* ── #alocacao ────────────────────────────────────────────────────── */
@@ -869,7 +891,7 @@ footer.rodape code {
   background: white;
   border-radius: 18px;
   padding: 8px;
-  box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
+  box-shadow: 0 2px 6px var(--g-900-07);
 }
 
 .classe-bloco + .classe-bloco {
@@ -884,10 +906,18 @@ footer.rodape code {
   padding: 16px 12px;
   cursor: pointer;
   user-select: none;
+  transition: background 120ms ease;
 }
 
-.classe-row:hover {
-  background: var(--neutral-50);
+@media (hover: hover) {
+  .classe-row:hover {
+    background: var(--neutral-50);
+    border-radius: 12px;
+  }
+}
+
+.classe-row:active {
+  background: var(--neutral-100);
   border-radius: 12px;
 }
 
@@ -898,10 +928,10 @@ footer.rodape code {
   display: inline-block;
 }
 
-.classe-dot.dot-eua { background: #0284c7; }
+.classe-dot.dot-eua { background: var(--blue-500); }
 .classe-dot.dot-fiis { background: var(--amber); }
 .classe-dot.dot-acoes-br { background: var(--g-700); }
-.classe-dot.dot-cripto { background: #a855f7; }
+.classe-dot.dot-cripto { background: var(--purple-500); }
 
 .classe-nome {
   font-weight: 600;
@@ -918,17 +948,17 @@ footer.rodape code {
 .classe-pct > span:first-child {
   font-weight: 600;
   color: var(--g-700);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .alvo-pct {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--gray);
 }
 
 .classe-arrow {
   color: var(--gray);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .classe-tickers {
@@ -944,13 +974,18 @@ footer.rodape code {
   color: var(--ink);
   align-items: center;
   border-top: 1px dashed var(--neutral-100);
+  border-radius: 8px;
+  transition: background 150ms ease, transform 150ms ease;
 }
 
 .ticker-row:hover {
   background: var(--neutral-50);
-  border-radius: 8px;
-  padding-left: 8px;
-  padding-right: 8px;
+  transform: translateX(2px);
+}
+
+.ticker-row:active {
+  background: var(--neutral-100);
+  transform: translateX(2px) scale(0.99);
 }
 
 .ticker-name {
@@ -964,12 +999,12 @@ footer.rodape code {
 }
 
 .ticker-pct {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--gray);
 }
 
 .ticker-empty {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--gray);
   font-style: italic;
   padding: 8px 0;
@@ -985,12 +1020,12 @@ footer.rodape code {
   background: white;
   border-radius: 18px;
   padding: 18px 20px;
-  box-shadow: 0 2px 6px rgba(6, 78, 59, 0.07);
+  box-shadow: 0 2px 6px var(--g-900-07);
   margin-bottom: 16px;
 }
 
 .ticker-hero h2 {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 4px;
   display: flex;
@@ -999,17 +1034,17 @@ footer.rodape code {
 }
 
 .ticker-bandeira {
-  font-size: 28px;
+  font-size: 1.75rem;
 }
 
 .ticker-classe {
   color: var(--gray);
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .ticker-vm-grande {
-  font-size: 32px;
+  font-size: 2rem;
   font-weight: 800;
   color: var(--g-700);
   margin: 12px 0 0;
@@ -1035,26 +1070,26 @@ footer.rodape code {
 }
 
 .kpi-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--gray);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .kpi-valor {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
 .kpi-valor.is-neg {
-  color: #b91c1c;
+  color: var(--red);
 }
 
 .ativo-section-h {
   margin: 22px 0 8px;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--g-900);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1090,14 +1125,14 @@ footer.rodape code {
 .tabela-proventos td {
   text-align: left;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   border-bottom: 1px solid var(--neutral-100);
   font-variant-numeric: tabular-nums;
 }
 
 .tabela-movimentos th,
 .tabela-proventos th {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--gray);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -1112,11 +1147,11 @@ footer.rodape code {
 }
 
 .erro-nao-encontrado {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--red-50);
+  border: 1px solid var(--red-200);
   padding: 18px;
   border-radius: 12px;
-  color: #991b1b;
+  color: var(--red-800);
 }
 
 .erro-nao-encontrado p {
@@ -1146,7 +1181,7 @@ footer.rodape code {
 
 .card-arrow {
   float: right;
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--gray);
   font-weight: 400;
 }
@@ -1289,7 +1324,7 @@ footer.rodape code {
 
 /* Compact KPI values in 3-col layout to prevent overflow on narrow screens */
 .kpi-grid-3 .kpi-valor {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 /* Clickable table row */
@@ -1315,7 +1350,7 @@ footer.rodape code {
 }
 
 .kpi-descricao {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--gray);
   line-height: 1.35;
   margin-top: 4px;
@@ -1332,7 +1367,7 @@ footer.rodape code {
   border-radius: 12px;
   background: var(--neutral-100);
   color: var(--g-800);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
   border: 1px solid var(--neutral-200);
@@ -1343,13 +1378,13 @@ footer.rodape code {
 }
 
 .tela-politica {
-  padding: 0 16px 32px;
+  padding: 16px 20px 80px;
 }
 
 .politica-intro {
   margin: 24px 0;
   color: var(--gray);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .politica-card {
@@ -1385,7 +1420,7 @@ footer.rodape code {
 .politica-categoria-nome {
   grid-row: 1;
   grid-column: 1;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1393,7 +1428,7 @@ footer.rodape code {
 .politica-categoria-peso {
   grid-row: 1;
   grid-column: 2;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -1402,7 +1437,7 @@ footer.rodape code {
 .politica-categoria-sub {
   grid-row: 2;
   grid-column: 1 / span 2;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--gray);
   font-variant-numeric: tabular-nums;
   display: flex;
@@ -1456,13 +1491,13 @@ footer.rodape code {
 }
 
 .politica-ticker {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink);
 }
 
 .politica-nota {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1470,7 +1505,7 @@ footer.rodape code {
 }
 
 .politica-pill {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
   padding: 4px 8px;
   border-radius: 999px;
@@ -1483,7 +1518,7 @@ footer.rodape code {
   background: rgba(4, 117, 74, 0.10);
 }
 .pill-pausar {
-  color: #8a5a00;
+  color: var(--amber-900);
   background: rgba(245, 158, 11, 0.12);
 }
 .pill-no_alvo {
@@ -1496,7 +1531,7 @@ footer.rodape code {
 }
 
 .politica-ativo-linha2 {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--gray);
   font-variant-numeric: tabular-nums;
   display: flex;
@@ -1506,8 +1541,19 @@ footer.rodape code {
 }
 .politica-ativo-linha2 .sep { opacity: 0.5; }
 
-.drift-pos { color: #8a5a00; }
+.drift-pos { color: var(--amber-900); }
 .drift-neg { color: var(--g-700); }
+
+/* Focus rings consistentes para controles interativos sem padrão prévio
+   (WCAG 2.4.7 — 7a.G.2 pass 2 harden) */
+.escopo-toggle button:focus-visible,
+.moeda-toggle button:focus-visible,
+.classe-row:focus-visible,
+.breadcrumb button:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
 
 /* Accessibility utility */
 .sr-only {
@@ -1521,3 +1567,14 @@ footer.rodape code {
   white-space: nowrap;
   border: 0;
 }
+
+/* kpi-grid-3 stack em viewports estreitos (7a.G.2 finding #3) */
+@media (max-width: 380px) {
+  .kpi-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .kpi-grid-3 .kpi-valor {
+    font-size: 1rem;
+  }
+}
+

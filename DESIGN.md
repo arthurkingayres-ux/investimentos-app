@@ -40,7 +40,7 @@ Teal-quente como protagonista, neutros warm como base. Saturação contida (<60%
 
 ### Neutrals (warm-tinted)
 - `--ink: #1a1d1c` — Primary text. Levemente tintado pra warm (não pure black).
-- `--gray: #6b7065` — Secondary text. Greenish-neutral pra harmonizar com teal.
+- `--gray: #5b605a` — Secondary text. Greenish-neutral pra harmonizar com teal (escurecido em 7a.G.2 Pass 1 para WCAG AA contrast).
 - `--neutral-50: #fafaf7` — Background body. Off-white quente, não pure white.
 - `--neutral-100: #f5f5f0` — Subtle dividers, hover states em política.
 - `--neutral-200: #e7e5de` — Card borders, separadores principais.
@@ -48,8 +48,8 @@ Teal-quente como protagonista, neutros warm como base. Saturação contida (<60%
 
 ### Shadows (tintadas)
 - `--card-shadow: 0 1px 2px rgba(6, 78, 59, 0.04), 0 4px 16px rgba(6, 78, 59, 0.07)` — Sombra padrão de cards. Tintada para `--g-900` (não preto cru).
-- Hero shadow: `0 12px 32px rgba(6, 78, 59, 0.22), 0 2px 6px rgba(6, 78, 59, 0.12)` — Mesma família, mais densa.
-- Aporte-pill shadow: `0 2px 8px rgba(4, 120, 87, 0.25)` — Tintada para `--g-700`.
+- Hero shadow: same as `--card-shadow` (pós-7a.G.2 distill — hero não tem mais sombra densa própria).
+- ~~Aporte-pill shadow: `0 2px 8px rgba(4, 120, 87, 0.25)`~~ — Removido em 7a.G.2 Pass 7 (quieter, sem shadow no aporte-pill).
 - Toast shadow: `0 6px 24px rgba(6, 78, 59, 0.18)` — Tintada para `--g-900`.
 
 **Color strategy:** Restrained → Committed pontual. Neutros + 1 hue dominante (teal) carregam ~90% da superfície. Amber e red entram como semantic accent (≤10% do uso). Nunca mais de uma família de gray (warm-tinted, jamais cool gray).
@@ -78,7 +78,7 @@ Renderização nativa por OS:
 
 | Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
 |---|---|---|---|---|---|
-| Hero valor | 2.625rem (42px) | 800 | 1.05 | -0.025em | `.hero-valor` |
+| Hero valor | 2rem (32px) | 700 | 1.1 | -0.015em | `.hero-valor` (post-7a.G.2 Pass 4 distill) |
 | Proventos YTD | 1.875rem (30px) | 800 | — | -0.01em | `.proventos-ytd` |
 | Ticker hero VM | 2rem (32px) | 800 | — | -0.5px | `.ticker-vm-grande` |
 | Ticker hero h2 | 1.5rem (24px) | 700 | — | — | `.ticker-hero h2` |
@@ -151,19 +151,19 @@ Todos os layouts assumem 320-375px de largura como ponto de partida. NÃO há br
 ## Components
 
 ### Hero (raio-x)
-Gradient teal escuro com radial highlight + box-shadow tintada. Conteúdo em camadas: label uppercase, valor grande tabular-nums, delta-pill com backdrop-blur.
+Card sólido `var(--g-900)` (teal escuro), sombra padrão de cards, sem gradient radial/linear. Conteúdo: label uppercase 0.6875rem, valor 2rem peso 700 com tabular-nums, delta-pill flat com tint `rgba(255,255,255,0.12)` (sem `backdrop-filter`), updated label 0.75rem opacity 0.6.
 
 ```css
 .hero {
-  background:
-    radial-gradient(120% 180% at 0% 0%, rgba(20, 184, 166, 0.35) 0%, transparent 55%),
-    linear-gradient(145deg, var(--g-900) 0%, var(--g-700) 55%, var(--teal) 140%);
-  border-radius: 22px;
-  padding: 1.5rem 1.25rem 1.75rem;
+  background: var(--g-900);
+  border-radius: 18px;
+  padding: 1.25rem 1.125rem 1.5rem;
   color: #fff;
+  box-shadow: var(--card-shadow);
 }
 ```
-Delta-pill é o ÚNICO uso intencional de glassmorphism (`backdrop-filter: blur(10px)` + `border: 1px solid rgba(255,255,255,0.22)`).
+
+Distill 7a.G.2 removeu o `radial-gradient + linear-gradient + ::after`, reduziu `.hero-valor` de 2.625rem peso 800 → 2rem peso 700, e tornou `.hero-delta` flat (sem glassmorphism). DESIGN.md ↔ implementação reconciliados (sem mais "hero metric template" banido).
 
 ### Card (padrão)
 Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
@@ -257,10 +257,10 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 2. **Pure white** em backgrounds amplos. Use `--neutral-50` ou `--neutral-100`. Branco puro só em elementos pequenos (cards, inputs).
 3. **Cool gray** (azul/violeta tintado). Toda escala neutral é warm-tinted.
 4. **Inter, Roboto, Geist, Satoshi** ou qualquer custom font. System fonts são suficientes.
-5. **Glassmorphism decorativo.** O único uso aceito é hero-delta pill (`.hero-delta` com backdrop-blur). Cartões com blur "porque fica bonito" são banidos.
+5. **Glassmorphism decorativo.** Banido em todo o app. (Exceção pré-7a.G.2 do `hero-delta` foi removida na distill — chip agora é flat tint rgba sem `backdrop-filter`.) Sem exceções vigentes; qualquer reintrodução exige justificativa explícita em PR.
 6. **Gradient text decorativo.** O único `background-clip: text` aceito é `.proventos-ytd` (intencional, semantic green→amber).
 7. **AI-purple/blue glow shadow.** Toda sombra é tintada para teal `--g-900`.
-8. **Hero metric template** (big number + label + supporting stats + gradient accent). Hero do app já é deliberadamente diferente: gradient teal + radial highlight + delta pill, NÃO o template SaaS genérico.
+8. **Hero metric template** (big number + label + supporting stats + gradient accent). Hero do app pós-7a.G.2 distill é card sólido `var(--g-900)` flat: label uppercase, valor 2rem peso 700, delta-pill flat. Sem gradients, sem `::after`, sem glassmorphism — explicitamente NÃO o template SaaS genérico.
 9. **3-equal-cards horizontal grid.** O app não tem isso. Se feature row for necessária, usar zig-zag ou stack vertical.
 10. **Cards-inside-cards-inside-cards.** Nesting máximo é 2: `.card > .conteúdo`. Política accordion é `.politica-card > .politica-ativos > .politica-ativo` mas os filhos não são cards visualmente (sem border, sem shadow, só padding).
 11. **Animação celebratória** (confetti, glow, badge unlock). Banido por design principle (calma sob qualquer condição de mercado).
@@ -290,10 +290,23 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --g-600 #059669  --g-500 #10b981  --g-400 #34d399
                      --teal  #14b8a6
 /* Semantic */       --amber #f59e0b  --amber-light #fbbf24  --red #b91c1c
-/* Text */           --ink   #1a1d1c  --gray   #6b7065
+/* Text */           --ink   #1a1d1c  --gray   #5b605a
 /* Surfaces */       --neutral-50 #fafaf7  --neutral-100 #f5f5f0
                      --neutral-200 #e7e5de  --neutral-300 #d4d4d0
 /* Shadow */         --card-shadow: tinted to --g-900
+
+/* Cores semânticas adicionais (7a.G.2) */
+/* Blues   */        --blue-500 #0284c7  --blue-700 #1d4ed8
+/* Purple  */        --purple-500 #a855f7
+/* Reds    */        --red-50 #fef2f2  --red-200 #fecaca  --red-800 #991b1b
+/* Ambers  */        --amber-700 #b45309  --amber-900 #8a5a00
+/* Teal    */        --teal-700 #0d7377
+
+/* Alphas nomeados (7a.G.2) */
+/* Greens  */        --g-700-12 rgba(4,120,87,0.12)
+/* Teal    */        --teal-14  rgba(20,184,166,0.14)
+/* G-900   */        --g-900-04 rgba(6,78,59,0.04)
+                     --g-900-07 rgba(6,78,59,0.07)
 
 /* Class dots */     EUA #0284c7  FIIs #f59e0b  Ações BR #047857  Cripto #a855f7
 

@@ -38,11 +38,12 @@
     <template x-if="fase === 'pin'">
       <section class="pin-screen" :class="{ 'is-shaking': shake }">
         <h1>Carteira</h1>
-        <p class="subtitle" x-show="!estaBloqueado">Digite o PIN para visualizar</p>
+        <label for="pin-input" class="subtitle" x-show="!estaBloqueado">Digite o PIN para visualizar</label>
         <p class="subtitle pin-block-msg" x-show="estaBloqueado"
            x-text="'Muitas tentativas. Aguarde ' + bloqueioRestanteMin + ' min'"></p>
         <form @submit.prevent="submitPin">
           <input
+            id="pin-input"
             type="tel"
             inputmode="numeric"
             pattern="\d{6}"
@@ -52,7 +53,6 @@
             :disabled="carregando || estaBloqueado"
             placeholder="••••••"
             class="pin-input"
-            aria-label="PIN de 6 dígitos"
             autofocus>
           <button type="submit"
             :disabled="carregando || estaBloqueado || pin.length !== 6"
@@ -73,7 +73,7 @@
         <h1>Raio X</h1>
 
         <a href="#patrimonio" class="hero hero-link" aria-label="Abrir histórico patrimonial">
-          <p class="hero-label">Patrimônio total <span class="card-arrow">→</span></p>
+          <p class="hero-label">Patrimônio total <span class="card-arrow" aria-hidden="true">→</span></p>
           <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
           <p class="hero-valor" x-text="formatBrl(json.patrimonio.total_brl)"></p>
           <div
@@ -90,13 +90,13 @@
         <a href="#rentabilidade" class="card rentabilidade card-link" aria-label="Abrir rentabilidade detalhada">
           <h2 class="card-titulo">
             Rentabilidade <span class="card-titulo-sep">·</span> últimos 12 meses
-            <span class="card-arrow">→</span>
+            <span class="card-arrow" aria-hidden="true">→</span>
           </h2>
 
           <template x-for="escopo in escoposRentabilidade12m" :key="escopo.key">
             <div class="rent-escopo">
               <div class="rent-header">
-                <span class="bandeira" x-text="escopo.flag"></span>
+                <span class="bandeira" aria-hidden="true" x-text="escopo.flag"></span>
                 <span x-text="escopo.key"></span>
               </div>
 
@@ -137,7 +137,7 @@
         </a>
 
         <a href="#alocacao" class="card alocacao card-link" aria-label="Abrir alocação detalhada">
-          <h2 class="card-titulo">Alocação <span class="card-arrow">→</span></h2>
+          <h2 class="card-titulo">Alocação <span class="card-arrow" aria-hidden="true">→</span></h2>
           <template x-for="linha in linhasAlocacao" :key="linha.nome">
             <div class="aloc-linha">
               <div class="aloc-header">
@@ -181,7 +181,7 @@
               </div>
               <template x-for="item in json.ultimo_aporte.itens" :key="item.ticker">
                 <a class="aporte-item aporte-item-link" :href="'#ativo/' + item.ticker">
-                  <span class="aporte-bandeira" x-text="item.bandeira"></span>
+                  <span class="aporte-bandeira" aria-hidden="true" x-text="item.bandeira"></span>
                   <div class="aporte-detalhes">
                     <span class="aporte-ticker" x-text="item.ticker"></span>
                     <span class="aporte-meta"
@@ -199,7 +199,7 @@
         </section>
 
         <a href="#proventos" class="card proventos card-link" aria-label="Abrir proventos detalhados">
-          <h2 class="card-titulo">Proventos recebidos <span class="card-arrow">→</span></h2>
+          <h2 class="card-titulo">Proventos recebidos <span class="card-arrow" aria-hidden="true">→</span></h2>
           <div class="proventos-linha">
             <span class="proventos-ytd" x-text="formatBrl(json.proventos.ytd_brl)"></span>
             <span class="pill pill-anterior">
@@ -228,12 +228,14 @@
             :class="{ active: escopoAtivo === 'Total' }">Total</button>
           <button
             data-escopo="Brasil" type="button"
+            aria-label="Brasil"
             @click="selecionarEscopo('Brasil')"
-            :class="{ active: escopoAtivo === 'Brasil' }">🇧🇷 Brasil</button>
+            :class="{ active: escopoAtivo === 'Brasil' }"><span aria-hidden="true">🇧🇷</span> Brasil</button>
           <button
             data-escopo="EUA" type="button"
+            aria-label="EUA"
             @click="selecionarEscopo('EUA')"
-            :class="{ active: escopoAtivo === 'EUA' }">🇺🇸 EUA</button>
+            :class="{ active: escopoAtivo === 'EUA' }"><span aria-hidden="true">🇺🇸</span> EUA</button>
         </div>
 
         <div class="moeda-toggle" role="tablist"
@@ -456,7 +458,7 @@
           <div class="ativo-corpo">
             <div class="ticker-hero">
               <h2>
-                <span class="ticker-bandeira" x-text="bandeiraDaPosicao(posicaoAtual)"></span>
+                <span class="ticker-bandeira" aria-hidden="true" x-text="bandeiraDaPosicao(posicaoAtual)"></span>
                 <span x-text="posicaoAtual.ticker"></span>
               </h2>
               <p class="ticker-classe" x-text="posicaoAtual.classe"></p>
@@ -504,7 +506,7 @@
               <div class="tabela-wrap">
                 <table class="tabela-movimentos">
                   <thead>
-                    <tr><th>Data</th><th>Lado</th><th>Qty</th><th>Preço</th><th>Total</th></tr>
+                    <tr><th scope="col">Data</th><th scope="col">Lado</th><th scope="col">Qty</th><th scope="col">Preço</th><th scope="col">Total</th></tr>
                   </thead>
                   <tbody>
                     <template
@@ -537,7 +539,7 @@
               <div class="tabela-wrap">
                 <table class="tabela-proventos">
                   <thead>
-                    <tr><th>Data</th><th>Valor</th><th>Tipo</th></tr>
+                    <tr><th scope="col">Data</th><th scope="col">Valor</th><th scope="col">Tipo</th></tr>
                   </thead>
                   <tbody>
                     <template
@@ -607,8 +609,8 @@
             <table class="tabela-proventos" aria-label="Proventos por ativo">
               <thead>
                 <tr>
-                  <th>Ticker</th>
-                  <th class="num">Total</th>
+                  <th scope="col">Ticker</th>
+                  <th scope="col" class="num">Total</th>
                 </tr>
               </thead>
               <tbody>

@@ -4,6 +4,24 @@ const BLOCK_5_MS = 5 * 60 * 1000;
 const BLOCK_15_MS = 15 * 60 * 1000;
 const BLOCK_60_MS = 60 * 60 * 1000;
 
+// 7a.G.2 Pass 1 (colorize): cores resolvidas a partir dos tokens CSS em :root.
+// Lê via getComputedStyle pra que o JS consuma a mesma source-of-truth do CSS.
+const css = (token, fallback = "") =>
+  getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
+
+const COLORS = {
+  g700:      () => css("--g-700", "#047857"),
+  g700a12:   () => css("--g-700-12", "rgba(4, 120, 87, 0.12)"),
+  blue700:   () => css("--blue-700", "#1d4ed8"),
+  blue500:   () => css("--blue-500", "#0284c7"),
+  purple500: () => css("--purple-500", "#a855f7"),
+  amber:     () => css("--amber", "#f59e0b"),
+  amber700:  () => css("--amber-700", "#b45309"),
+  red:       () => css("--red", "#b91c1c"),
+  ink:       () => css("--ink", "#1a1d1c"),
+  gray:      () => css("--gray", "#5b605a"),
+};
+
 document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     fase: "pin",
@@ -362,8 +380,8 @@ document.addEventListener("alpine:init", () => {
           {},
           {
             label: "Proventos (R$)",
-            stroke: "#047857",
-            fill: "#04785720",
+            stroke: COLORS.g700(),
+            fill: COLORS.g700a12(),
             paths: uPlot.paths.bars({ size: [0.7] }),
           },
         ],
@@ -462,8 +480,8 @@ document.addEventListener("alpine:init", () => {
         ],
         series: [
           {},
-          { label: "Patrimônio", stroke: "#047857", width: 2 },
-          { label: "Aporte acum.", stroke: "#1d4ed8", width: 2, dash: [4, 3] },
+          { label: "Patrimônio", stroke: COLORS.g700(), width: 2 },
+          { label: "Aporte acum.", stroke: COLORS.blue700(), width: 2, dash: [4, 3] },
         ],
         legend: { show: true },
       };
@@ -573,8 +591,8 @@ document.addEventListener("alpine:init", () => {
         ],
         series: [
           {},
-          { label: "Portfólio", stroke: "#047857", width: 2 },
-          { label: benchNome, stroke: "#9ca3af", width: 1.5, dash: [5, 5] },
+          { label: "Portfólio", stroke: COLORS.g700(), width: 2 },
+          { label: benchNome, stroke: COLORS.gray(), width: 1.5, dash: [5, 5] },
         ],
         legend: { show: true },
       };
@@ -719,13 +737,13 @@ document.addEventListener("alpine:init", () => {
       const alvo = a.alvo || {};
       const aliases = { "FIIs BR": "FII", "Ações Brasil": "Ações BR" };
       const grad = {
-        "EUA": "linear-gradient(90deg, #0b3a5a 0%, #0284c7 100%)",
+        "EUA": `linear-gradient(90deg, #0b3a5a 0%, ${COLORS.blue500()} 100%)`,
         "Ações BR": "linear-gradient(90deg, var(--g-700) 0%, var(--g-500) 100%)",
-        "FII": "linear-gradient(90deg, #b45309 0%, var(--amber) 100%)",
-        "Cripto": "linear-gradient(90deg, #6d28d9 0%, #a855f7 100%)",
+        "FII": `linear-gradient(90deg, ${COLORS.amber700()} 0%, var(--amber) 100%)`,
+        "Cripto": `linear-gradient(90deg, #6d28d9 0%, ${COLORS.purple500()} 100%)`,
       };
       const dot = {
-        "EUA": "#0284c7", "Ações BR": "var(--g-600)", "FII": "var(--amber)", "Cripto": "#a855f7",
+        "EUA": COLORS.blue500(), "Ações BR": "var(--g-600)", "FII": "var(--amber)", "Cripto": COLORS.purple500(),
       };
       return Object.keys(atual)
         .sort((x, y) => (atual[y] || 0) - (atual[x] || 0))
