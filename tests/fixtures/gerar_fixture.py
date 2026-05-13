@@ -71,8 +71,8 @@ PAYLOAD = {
         ],
     },
     "alocacao": {
-        "atual": {"EUA": 0.42, "Ações BR": 0.28, "FII": 0.22, "Cripto": 0.08},
-        "alvo": {"EUA": 0.40, "Ações Brasil": 0.30, "FIIs BR": 0.20, "Cripto": 0.10},
+        "atual": {"EUA": 0.42, "Ações BR": 0.28, "FIIs": 0.22, "Cripto": 0.08},
+        "alvo": {"EUA": 0.40, "Ações BR": 0.30, "FIIs": 0.20, "Cripto": 0.10},
     },
     "rentabilidade": {
         "Total": {
