@@ -144,15 +144,14 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
     await page.waitForTimeout(200);
 
     // 7a.E.15: USD agora também emite coluna `benchmark` (S&P 500 USD-nativo).
-    // uPlot data[2] = benchmark series; deve ter pelo menos um valor não-null.
+    // ECharts: série 1 (índice 1) é o benchmark (série 0 = Portfólio).
     const benchUsd = await page.evaluate(() => {
       const data = (window as unknown as {
         Alpine: { $data: (el: Element) => Record<string, unknown> };
       }).Alpine.$data(document.body);
-      const inst = (data as { uplotInstance?: { data?: unknown[][] } }).uplotInstance;
-      return inst && inst.data && inst.data[2]
-        ? (inst.data[2] as Array<number | null>).filter((v) => v !== null && v !== undefined)
-        : [];
+      const chart = (data as { echartsRent?: { getOption: () => { series: Array<{ data: Array<number | null> }> } } }).echartsRent;
+      const arr = chart?.getOption().series?.[1]?.data ?? [];
+      return arr.filter((v) => v !== null && v !== undefined);
     });
     expect(benchUsd.length).toBeGreaterThan(0);
   });
@@ -163,13 +162,13 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
     await page.waitForSelector(".tela-rentabilidade canvas");
 
-    // Captura série BRL via state Alpine (data renderizada em u_.data[1])
+    // Captura série Portfólio BRL via state Alpine (ECharts series[0].data)
     const brlData = await page.evaluate(() => {
       const data = (window as unknown as {
         Alpine: { $data: (el: Element) => Record<string, unknown> };
       }).Alpine.$data(document.body);
-      const inst = (data as { uplotInstance?: { data?: unknown[] } }).uplotInstance;
-      return inst && inst.data ? JSON.parse(JSON.stringify(inst.data[1])) : null;
+      const chart = (data as { echartsRent?: { getOption: () => { series: Array<{ data: unknown }> } } }).echartsRent;
+      return chart ? JSON.parse(JSON.stringify(chart.getOption().series[0].data)) : null;
     });
     expect(brlData).not.toBeNull();
 
@@ -181,8 +180,8 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
       const data = (window as unknown as {
         Alpine: { $data: (el: Element) => Record<string, unknown> };
       }).Alpine.$data(document.body);
-      const inst = (data as { uplotInstance?: { data?: unknown[] } }).uplotInstance;
-      return inst && inst.data ? JSON.parse(JSON.stringify(inst.data[1])) : null;
+      const chart = (data as { echartsRent?: { getOption: () => { series: Array<{ data: unknown }> } } }).echartsRent;
+      return chart ? JSON.parse(JSON.stringify(chart.getOption().series[0].data)) : null;
     });
     expect(usdData).not.toBeNull();
     // Séries têm valores diferentes (USD diverge de BRL na fixture: BRL 0.06→0.118, USD 0.04→0.275)

@@ -23,10 +23,10 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Tela #rentabilidade", () => {
-  test("renderiza canvas uPlot ao navegar para #rentabilidade", async ({ page }) => {
+  test("renderiza canvas ECharts ao navegar para #rentabilidade", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
-    await expect(page.locator(".tela-rentabilidade canvas")).toBeVisible();
+    await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible();
   });
 
   test("toggle de escopo Brasil -> EUA atualiza estado, instância uPlot e canvas", async ({ page }) => {
@@ -56,13 +56,11 @@ test.describe("Tela #rentabilidade", () => {
     );
     expect(aposEUA).toBe("EUA");
 
-    // Canvas re-renderizado: hidratarRentabilidade destruiu instância anterior
-    // e criou uma nova; verificamos via window dataURL hash que mudou em pelo
-    // menos um pixel (toggle de série muda dados).
-    const canvas = page.locator(".tela-rentabilidade canvas");
+    // Canvas re-renderizado (ECharts): verificamos via dataURL length não-trivial
+    const canvas = page.locator(".tela-rentabilidade canvas[data-zr-dom-id]").first();
     await expect(canvas).toBeVisible();
     const tamanhoDataURL = await page.evaluate(() => {
-      const c = document.querySelector(".tela-rentabilidade canvas") as HTMLCanvasElement;
+      const c = document.querySelector(".tela-rentabilidade canvas[data-zr-dom-id]") as HTMLCanvasElement;
       return c ? c.toDataURL().length : 0;
     });
     expect(tamanhoDataURL).toBeGreaterThan(100);
@@ -98,35 +96,28 @@ test.describe("Tela #rentabilidade", () => {
     await expect(legenda).toContainText("TWR");
   });
 
-  test("legenda do gráfico mostra Portfólio + benchmark do escopo", async ({ page }) => {
+  test("legenda do gráfico (ECharts) mostra Portfólio + benchmark do escopo", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
+    await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
 
-    // Legenda do uPlot é uma <table class="u-legend"> dentro do container .chart-rent.
-    const legenda = page.locator(".chart-rent .u-legend");
-    await expect(legenda).toBeVisible();
-    await expect(legenda).toContainText("Portfólio");
-    await expect(legenda).toContainText("CDI");
-
-    // Verifica que a legenda NÃO está clipada por overflow:hidden do container.
-    // Necessário porque toBeVisible() ignora clipping de ancestrais.
-    // Lança erro nominativo se o DOM não tiver os elementos esperados — assim
-    // a falha é "Container .chart-rent não encontrado" em vez do críptico
-    // "expected false to be true".
-    const legendaDentroDoContainer = await page.evaluate(() => {
-      const container = document.querySelector(".chart-rent") as HTMLElement;
-      if (!container) throw new Error("Container .chart-rent não encontrado no DOM");
-      const legend = container.querySelector(".u-legend") as HTMLElement;
-      if (!legend) throw new Error(".u-legend não encontrado dentro de .chart-rent");
-      const cRect = container.getBoundingClientRect();
-      const lRect = legend.getBoundingClientRect();
-      // Legenda inteira deve caber dentro da área visível do container.
-      return lRect.bottom <= cRect.bottom + 1 && lRect.top >= cRect.top - 1;
+    // ECharts: legenda é parte do canvas — verificamos via getOption() do chart instance
+    const legendaTotal = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { legend: Array<{ data: string[] }> } } }).echartsRent;
+      return chart ? chart.getOption().legend[0].data : [];
     });
-    expect(legendaDentroDoContainer).toBe(true);
+    expect(legendaTotal).toContain("Portfólio");
+    expect(legendaTotal).toContain("CDI");
 
-    // Trocar para EUA: legenda deve atualizar para S&P 500.
+    // Trocar para EUA: legenda deve atualizar para S&P 500
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
-    await expect(legenda).toContainText("S&P 500");
+    await page.waitForTimeout(200);
+    const legendaEUA = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { legend: Array<{ data: string[] }> } } }).echartsRent;
+      return chart ? chart.getOption().legend[0].data : [];
+    });
+    expect(legendaEUA).toContain("S&P 500");
   });
 });

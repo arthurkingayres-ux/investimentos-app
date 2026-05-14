@@ -39,7 +39,6 @@ document.addEventListener("alpine:init", () => {
     escopoAtivo: "Total",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     classeExpandida: null,
-    uplotInstance: null,
     uplotProv: null,
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
@@ -703,12 +702,10 @@ document.addEventListener("alpine:init", () => {
     hidratarRentabilidade() {
       if (this.rota !== "rentabilidade" || !this.json) return;
       const target = document.getElementById("chart-rent");
-      if (!target || typeof uPlot === "undefined") return;
+      if (!target) return;
 
       const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
       // 7a.E.14: schema v2.7 aninha EUA.historico_twr em {brl, usd}.
-      // Total/Brasil permanecem flat. Fallback p/ schema antigo (array flat
-      // em EUA) cai sempre como BRL.
       let serie;
       const rawHistorico = rent && rent.historico_twr;
       if (this.escopoAtivo === "EUA" && rawHistorico && !Array.isArray(rawHistorico)) {
@@ -718,13 +715,7 @@ document.addEventListener("alpine:init", () => {
         serie = rawHistorico || [];
       }
 
-      // 7a.E.7.3: backend retorna pontos com `anualizado: bool` — pontos
-      // cumulativos (anualizado=false, <365d desde a origem) não explodem
-      // por anualização. Pontos anualizados ainda podem oscilar em janelas
-      // com poucos dias dentro de um mês irregular.
-      // Defesa secundária (CRB 7a.E.7 #9): cap de 200% para cumulativos
-      // (sanity contra bug futuro) e 100% para anualizados (preserva
-      // bull/bear reais). Backend correto, mas frontend não confia cego.
+      // 7a.E.7.3: filtro firstStable preserva pontos não-cumulativos sãos
       const firstStable = serie.findIndex((p) => {
         if (p.twr === null) return false;
         const cap = p.anualizado === false ? 2.0 : 1.0;
@@ -732,83 +723,110 @@ document.addEventListener("alpine:init", () => {
       });
       serie = firstStable === -1 ? [] : serie.slice(firstStable);
 
-      if (this.uplotInstance) {
-        try { this.uplotInstance.destroy(); } catch (_) {}
-        this.uplotInstance = null;
-      }
-      if (this.resizeObserverChart) {
-        try { this.resizeObserverChart.disconnect(); } catch (_) {}
-        this.resizeObserverChart = null;
-      }
+      // Cleanup
+      if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
+      if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
       target.innerHTML = "";
       if (serie.length === 0) {
         target.innerHTML = '<p class="placeholder">Dados insuficientes — aguarde próximo aporte.</p>';
         return;
       }
+      if (typeof echarts === "undefined" || !window.drarthurChart) {
+        target.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        return;
+      }
 
-      const xs = serie.map((_, i) => i);
-      const portfolio = serie.map((p) => p.twr);
-      const benchmark = serie.map((p) => p.benchmark);
-      const datas = serie.map((p) => p.data); // "YYYY-MM"
-
-      // 7a.E.1: eixo X em "Mmm/AA". uPlot escolhe quantos ticks por largura.
-      const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+      // 7a.E.1: eixo X em "Mmm/AA"
+      const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
       const formatarMmmAA = (yyyymm) => {
         if (!yyyymm) return "";
         const [yy, mm] = yyyymm.split("-");
         const idx = parseInt(mm, 10) - 1;
         if (idx < 0 || idx > 11) return yyyymm;
-        return `${meses[idx]}/${yy.slice(2)}`;
+        return MESES[idx] + "/" + yy.slice(2);
       };
 
-      // Label do benchmark conforme escopo.
+      const portfolio = serie.map((p) => p.twr);
+      const benchmark = serie.map((p) => p.benchmark);
+      const xLabels = serie.map((p) => formatarMmmAA(p.data));
+
       const benchNomePorEscopo = { Total: "CDI", Brasil: "CDI", EUA: "S&P 500" };
       const benchNome = benchNomePorEscopo[this.escopoAtivo] || "Benchmark";
 
-      const width = Math.max(280, target.clientWidth || 320);
-      const opts = {
-        width,
-        height: 280,
-        scales: { x: { time: false }, y: { auto: true } },
-        axes: [
+      // 7a.E.1 (F2): precision-aware. <1% mostra 2 casas; resto 1 casa.
+      const formatPct = (v) => {
+        if (v == null) return "—";
+        const abs = Math.abs(v);
+        const decimals = abs < 0.01 ? 2 : 1;
+        return (v * 100).toFixed(decimals) + "%";
+      };
+
+      const dc = window.drarthurChart;
+      const chart = echarts.init(target, "drarthur", { renderer: "canvas" });
+
+      const option = {
+        grid: { top: 12, right: 12, bottom: 60, left: 8, containLabel: true },
+        tooltip: Object.assign({}, dc.tooltipBase, {
+          trigger: "axis",
+          formatter: (params) => dc.tooltipFormatterAxis(params, formatPct),
+        }),
+        legend: {
+          data: ["Portfólio", benchNome],
+          bottom: 28,
+          icon: "circle",
+          itemWidth: 8,
+          itemHeight: 8,
+          textStyle: { color: dc.tokens.gray, fontSize: 12, fontFamily: dc.fontFamily },
+        },
+        xAxis: {
+          type: "category",
+          data: xLabels,
+          boundaryGap: false,
+          axisLabel: { interval: Math.max(0, Math.floor(xLabels.length / 6) - 1) },
+        },
+        yAxis: { type: "value", axisLabel: { formatter: formatPct } },
+        dataZoom: [
+          { type: "inside", start: 0, end: 100 },
           {
-            values: (_u, vals) => vals.map((v) => formatarMmmAA(datas[Math.round(v)])),
-          },
-          {
-            // 7a.E.1 (F2): precision-aware. Valores < 1% mostram 2 casas;
-            // resto mostra 1 casa. Evita "todos 0,0%" em escala automática.
-            values: (_u, vals) => vals.map((v) => {
-              if (v === null || v === undefined) return "";
-              const abs = Math.abs(v);
-              const decimals = abs < 0.01 ? 2 : 1;
-              return (v * 100).toFixed(decimals) + "%";
-            }),
+            type: "slider",
+            height: 14,
+            bottom: 6,
+            start: 0,
+            end: 100,
+            backgroundColor: "rgba(4,120,87,0.06)",
+            fillerColor: "rgba(4,120,87,0.12)",
+            borderColor: "transparent",
+            handleStyle: { color: dc.tokens.g700 },
+            moveHandleStyle: { color: dc.tokens.g700 },
+            textStyle: { color: dc.tokens.gray, fontSize: 10 },
+            handleSize: 24,
           },
         ],
         series: [
-          {},
-          { label: "Portfólio", stroke: COLORS.g700(), width: 2 },
-          { label: benchNome, stroke: COLORS.gray(), width: 1.5, dash: [5, 5] },
+          { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
+          { name: benchNome, type: "line", data: benchmark, smooth: false, lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false },
         ],
-        legend: { show: true },
+        aria: { enabled: true },
       };
+      Object.assign(option, dc.motionConfig);
+
       try {
-        this.uplotInstance = new uPlot(opts, [xs, portfolio, benchmark], target);
+        chart.setOption(option);
       } catch (err) {
-        console.warn("uPlot falhou; renderizando placeholder", err);
+        console.warn("ECharts rentabilidade falhou; placeholder", err);
+        chart.dispose();
         target.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-        this.uplotInstance = null;
         return;
       }
 
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverChart = new ResizeObserver(() => {
-          if (!this.uplotInstance) return;
-          const w = Math.max(280, target.clientWidth || 320);
-          try { this.uplotInstance.setSize({ width: w, height: 280 }); } catch (_) {}
+          try { chart.resize(); } catch (_) {}
         });
         this.resizeObserverChart.observe(target);
       }
+
+      this.echartsRent = chart;
     },
 
     limparSessao() {
