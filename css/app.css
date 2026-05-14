@@ -885,6 +885,13 @@ footer.rodape code {
   max-width: 100%;
 }
 
+/* 7a.E.19.2: container do gráfico patrimônio (ECharts). Override do
+   .chart-rent: ECharts não renderiza <u-legend> abaixo do canvas (legenda
+   é interna via bottom:28), então não precisa do extra 320px do uPlot. */
+#patrimonio-grafico {
+  min-height: 280px;
+}
+
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
 .alocacao-card {

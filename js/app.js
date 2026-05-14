@@ -600,69 +600,104 @@ document.addEventListener("alpine:init", () => {
     renderPatrimonioGrafico() {
       const ev = this.json?.patrimonio?.evolucao || [];
       const container = document.getElementById("patrimonio-grafico");
-      if (!container || typeof uPlot === "undefined") return;
+      if (!container) return;
 
-      // Destruir instância anterior
-      if (this.uplotPatr) {
-        try { this.uplotPatr.destroy(); } catch (_) {}
-        this.uplotPatr = null;
-      }
-      if (this.resizeObserverPatr) {
-        try { this.resizeObserverPatr.disconnect(); } catch (_) {}
-        this.resizeObserverPatr = null;
-      }
+      // Cleanup
+      if (this.echartsPatr) { try { this.echartsPatr.dispose(); } catch (_) {} this.echartsPatr = null; }
+      if (this.resizeObserverPatr) { try { this.resizeObserverPatr.disconnect(); } catch (_) {} this.resizeObserverPatr = null; }
       container.innerHTML = "";
 
       if (!ev.length) {
         container.innerHTML = '<p class="placeholder">Sem histórico de patrimônio.</p>';
         return;
       }
+      if (typeof echarts === "undefined" || !window.drarthurChart) {
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        return;
+      }
 
-      // X = Unix seconds (uPlot time scale)
-      const xs = ev.map((e) => Math.floor(new Date(e.data + "T00:00:00").getTime() / 1000));
+      const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+      const xLabels = ev.map((e) => {
+        const d = new Date(e.data + "T00:00:00");
+        return MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2);
+      });
       const totais = ev.map((e) => e.total_brl);
       const aportes = ev.map((e) => e.aportes_acum_brl);
 
-      const width = Math.max(280, container.clientWidth || 320);
-      const opts = {
-        width,
-        height: 240,
-        scales: { x: { time: true }, y: { auto: true } },
-        axes: [
-          {},
+      const formatBRL = (v) => {
+        if (v == null) return "—";
+        const a = Math.abs(v);
+        if (a >= 1_000_000) return "R$ " + (v / 1_000_000).toFixed(1) + "M";
+        if (a >= 1000) return "R$ " + Math.round(v / 1000) + "k";
+        return "R$ " + Math.round(v);
+      };
+
+      const dc = window.drarthurChart;
+      const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
+
+      const option = {
+        grid: { top: 10, right: 8, bottom: 60, left: 8, containLabel: true },
+        tooltip: Object.assign({}, dc.tooltipBase, {
+          trigger: "axis",
+          formatter: (params) => dc.tooltipFormatterAxis(params, formatBRL),
+        }),
+        legend: {
+          data: ["Patrimônio", "Aporte acum."],
+          bottom: 28,
+          icon: "circle",
+          itemWidth: 8,
+          itemHeight: 8,
+          textStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },
+        },
+        xAxis: {
+          type: "category",
+          data: xLabels,
+          boundaryGap: false,
+          axisLabel: { interval: Math.max(0, Math.floor(xLabels.length / 6) - 1) },
+        },
+        yAxis: { type: "value", axisLabel: { formatter: formatBRL } },
+        dataZoom: [
+          { type: "inside", start: 0, end: 100 },
           {
-            values: (_u, splits) => splits.map((v) => {
-              if (v === null || v === undefined) return "";
-              if (v >= 1_000_000) return "R$" + (v / 1_000_000).toFixed(1) + "M";
-              if (v >= 1000) return "R$" + Math.round(v / 1000) + "k";
-              return "R$" + Math.round(v);
-            }),
+            type: "slider",
+            height: 14,
+            bottom: 6,
+            start: 0,
+            end: 100,
+            backgroundColor: "rgba(4,120,87,0.06)",
+            fillerColor: "rgba(4,120,87,0.12)",
+            borderColor: "transparent",
+            handleStyle: { color: dc.tokens.g700 },
+            moveHandleStyle: { color: dc.tokens.g700 },
+            textStyle: { color: dc.tokens.gray, fontSize: 10 },
+            handleSize: 24,
           },
         ],
         series: [
-          {},
-          { label: "Patrimônio", stroke: COLORS.g700(), width: 2 },
-          { label: "Aporte acum.", stroke: COLORS.blue700(), width: 2, dash: [4, 3] },
+          { name: "Patrimônio", type: "line", data: totais, smooth: false, lineStyle: { width: 2.5 } },
+          { name: "Aporte acum.", type: "line", data: aportes, smooth: false, lineStyle: { type: [6, 4], width: 1.8 } },
         ],
-        legend: { show: true },
+        aria: { enabled: true },
       };
+      Object.assign(option, dc.motionConfig);
+
       try {
-        this.uplotPatr = new uPlot(opts, [xs, totais, aportes], container);
+        chart.setOption(option);
       } catch (err) {
-        console.warn("uPlot patrimonio falhou; renderizando placeholder", err);
+        console.warn("ECharts patrimonio falhou; placeholder", err);
+        chart.dispose();
         container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-        this.uplotPatr = null;
         return;
       }
 
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverPatr = new ResizeObserver(() => {
-          if (!this.uplotPatr) return;
-          const w = Math.max(280, container.clientWidth || 320);
-          try { this.uplotPatr.setSize({ width: w, height: 240 }); } catch (_) {}
+          try { chart.resize(); } catch (_) {}
         });
         this.resizeObserverPatr.observe(container);
       }
+
+      this.echartsPatr = chart;
     },
 
     hidratarRentabilidade() {

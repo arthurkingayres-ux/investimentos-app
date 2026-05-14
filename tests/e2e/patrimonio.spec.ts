@@ -48,13 +48,32 @@ test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
     expect(txt).toMatch(/[+\-—]/);
   });
 
-  test("gráfico patrimonio renderiza com canvas (uPlot)", async ({ page }) => {
+  test("gráfico patrimonio renderiza com canvas (ECharts)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#patrimonio");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
 
-    const canvas = page.locator("#patrimonio-grafico canvas").first();
+    const canvas = page.locator("#patrimonio-grafico canvas[data-zr-dom-id]").first();
     await expect(canvas).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("hover no gráfico patrimonio mostra tooltip custom drarthur", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#patrimonio");
+    await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#patrimonio-grafico canvas[data-zr-dom-id]").first()).toBeVisible({ timeout: 5_000 });
+
+    const box = await page.locator("#patrimonio-grafico").boundingBox();
+    if (!box) throw new Error("container sem boundingBox");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(150);
+
+    // Tooltip ECharts custom: container injetado em document.body com border-radius:8px
+    const hasTooltip = await page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll<HTMLElement>("div"));
+      return els.some((el) => /border-radius:\s*8px/.test(el.style.cssText) && el.offsetParent !== null);
+    });
+    expect(hasTooltip).toBe(true);
   });
 
   test("aporte cumulativo é monotônico (consistência da fixture)", async ({ page }) => {
