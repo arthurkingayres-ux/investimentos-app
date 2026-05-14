@@ -42,6 +42,8 @@ document.addEventListener("alpine:init", () => {
     uplotInstance: null,
     uplotProv: null,
     proventosToggle: "origem",
+    proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
+    _escListenerProventos: null,
     collapsedPolitica: {},
 
     async init() {
@@ -303,19 +305,66 @@ document.addEventListener("alpine:init", () => {
 
     tabelaProventosAtual() {
       const prov = this.json?.proventos || {};
+      // 7a.E.18: quando Mensal + mês selecionado, filtra para por_ativo do mês.
+      if (
+        this.proventosToggle === "mensal" &&
+        this.proventosMesSelecionado !== null
+      ) {
+        const m12 = prov.mensal_12m || [];
+        const entry = m12[this.proventosMesSelecionado];
+        if (!entry) return [];
+        // Normaliza shape {ticker, valor} → {ticker, total} pra colar com o
+        // template existente que usa item.total.
+        return (entry.por_ativo || []).map((a) => ({
+          ticker: a.ticker,
+          total: a.valor,
+        }));
+      }
       return this.proventosToggle === "origem"
         ? (prov.por_ativo_origem || [])
         : (prov.por_ativo_12m || []);
     },
 
+    // 7a.E.18: rótulo "Maio/2026" do mês selecionado.
+    proventosMesLabel() {
+      const idx = this.proventosMesSelecionado;
+      if (idx === null) return "";
+      const m12 = this.json?.proventos?.mensal_12m || [];
+      const entry = m12[idx];
+      if (!entry || !entry.mes) return "";
+      const [ano, mes] = entry.mes.split("-");
+      const nomes = [
+        "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+        "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+      ];
+      const nomeMes = nomes[parseInt(mes, 10) - 1] || "";
+      return `${nomeMes}/${ano}`;
+    },
+
     setProventosToggle(modo) {
       this.proventosToggle = modo;
+      this.proventosMesSelecionado = null; // 7a.E.18: troca de modo limpa drill
       this.renderProventosGrafico();
     },
 
     hidratarProventos() {
       if (this.rota !== "proventos" || !this.json) return;
       this.proventosToggle = "origem";
+      this.proventosMesSelecionado = null;
+      // 7a.E.18: Esc limpa o drill enquanto a tela #proventos está visível.
+      if (!this._escListenerProventos) {
+        this._escListenerProventos = (evt) => {
+          if (
+            evt.key === "Escape" &&
+            this.rota === "proventos" &&
+            this.proventosMesSelecionado !== null
+          ) {
+            this.proventosMesSelecionado = null;
+            this.renderProventosGrafico();
+          }
+        };
+        document.addEventListener("keydown", this._escListenerProventos);
+      }
       this.$nextTick(() => this.renderProventosGrafico());
     },
 
@@ -360,6 +409,9 @@ document.addEventListener("alpine:init", () => {
 
       const xs = labels.map((_, i) => i);
       const width = Math.max(280, container.clientWidth || 320);
+      const ehMensal = this.proventosToggle === "mensal";
+      const mesSelecionado = ehMensal ? this.proventosMesSelecionado : null;
+      const self = this;
       const opts = {
         width,
         height: 220,
@@ -386,6 +438,46 @@ document.addEventListener("alpine:init", () => {
           },
         ],
         legend: { show: false },
+        hooks: {
+          // 7a.E.18: hit-test via uPlot posToIdx só no modo Mensal.
+          ready: [
+            (u) => {
+              if (!ehMensal) return;
+              u.over.style.cursor = "pointer";
+              u.over.addEventListener("click", (evt) => {
+                self._handleClickBarraMes(u, evt);
+              });
+            },
+          ],
+          // 7a.E.18: overlay de fade nas barras não-selecionadas + destaque.
+          draw: [
+            (u) => {
+              if (!ehMensal || mesSelecionado === null) return;
+              const ctx = u.ctx;
+              const plotLeft = u.bbox.left;
+              const plotWidth = u.bbox.width;
+              const plotTop = u.bbox.top;
+              const plotHeight = u.bbox.height;
+              const n = u.data[0].length;
+              if (!n) return;
+              const barSlot = plotWidth / n;
+              ctx.save();
+              // Fade nas demais (overlay branco translúcido).
+              ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+              for (let i = 0; i < n; i++) {
+                if (i === mesSelecionado) continue;
+                const x = plotLeft + i * barSlot;
+                ctx.fillRect(x, plotTop, barSlot, plotHeight);
+              }
+              // Sublinha a barra selecionada com a cor g-900.
+              const g900 = css("--g-900", "#064e3b");
+              ctx.fillStyle = g900;
+              const xSel = plotLeft + mesSelecionado * barSlot;
+              ctx.fillRect(xSel, plotTop + plotHeight, barSlot, 2);
+              ctx.restore();
+            },
+          ],
+        },
       };
       try {
         this.uplotProv = new uPlot(opts, [xs, valores], container);
@@ -396,6 +488,13 @@ document.addEventListener("alpine:init", () => {
         return;
       }
 
+      // 7a.E.18: hint "Toque na mesma barra ou Esc para limpar".
+      const hint = document.getElementById("proventosHintLimpar");
+      if (hint) hint.hidden = !(ehMensal && mesSelecionado !== null);
+
+      // 7a.E.18: companion buttons a11y (focáveis ao tab) — só no modo Mensal.
+      this._renderCompanionMesesA11y();
+
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverProv = new ResizeObserver(() => {
           if (!this.uplotProv) return;
@@ -404,6 +503,68 @@ document.addEventListener("alpine:init", () => {
         });
         this.resizeObserverProv.observe(container);
       }
+    },
+
+    // 7a.E.18: handler de click no canvas — usa uPlot posToIdx pra hit-test.
+    _handleClickBarraMes(u, evt) {
+      const rect = u.over.getBoundingClientRect();
+      const offsetX = evt.clientX - rect.left;
+      // posToIdx mapeia X em pixels relativo ao canvas para índice no eixo X.
+      let idx;
+      try {
+        idx = u.posToIdx(offsetX);
+      } catch (_) {
+        return;
+      }
+      const n = (u.data && u.data[0]) ? u.data[0].length : 0;
+      if (idx === null || idx === undefined || idx < 0 || idx >= n) return;
+      if (this.proventosMesSelecionado === idx) {
+        this.proventosMesSelecionado = null;
+      } else {
+        this.proventosMesSelecionado = idx;
+      }
+      this.renderProventosGrafico();
+    },
+
+    // 7a.E.18: lista de <button> visualmente oculta com 12 meses; foco visível.
+    _renderCompanionMesesA11y() {
+      const ul = document.getElementById("proventosMesesA11y");
+      if (!ul) return;
+      if (this.proventosToggle !== "mensal") {
+        ul.innerHTML = "";
+        return;
+      }
+      const m12 = this.json?.proventos?.mensal_12m || [];
+      const nomes = [
+        "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+        "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+      ];
+      ul.innerHTML = m12
+        .map((entry, idx) => {
+          const [ano, mes] = (entry.mes || "").split("-");
+          const nome = nomes[parseInt(mes, 10) - 1] || "";
+          const valor = (entry.valor || 0).toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+          const label = (entry.valor || 0) > 0
+            ? `${nome} de ${ano}, R$ ${valor}, toque para detalhar`
+            : `${nome} de ${ano}, sem proventos, toque para detalhar`;
+          return `<li><button type="button" data-idx="${idx}" aria-label="${label}">${nome}</button></li>`;
+        })
+        .join("");
+      const self = this;
+      ul.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.idx, 10);
+          if (self.proventosMesSelecionado === idx) {
+            self.proventosMesSelecionado = null;
+          } else {
+            self.proventosMesSelecionado = idx;
+          }
+          self.renderProventosGrafico();
+        });
+      });
     },
 
     // ── 7a.E.6: Histórico patrimonial ─────────────────────────────────

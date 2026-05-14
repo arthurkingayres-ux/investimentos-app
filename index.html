@@ -598,8 +598,21 @@
 
         <div id="proventos-grafico" class="chart-rent" aria-label="Evolução de proventos"></div>
 
-        <h3 class="ativo-section-h">
-          Por ativo · <span x-text="proventosToggle === 'mensal' ? 'últimos 12 meses' : 'desde a Origem'"></span>
+        <!-- 7a.E.18: hint quando há mês selecionado -->
+        <div class="proventos-hint-limpar" id="proventosHintLimpar" hidden>
+          Toque na mesma barra ou pressione Esc para limpar
+        </div>
+
+        <!-- 7a.E.18: lista a11y visualmente oculta com 12 botões focáveis -->
+        <ul class="proventos-meses-a11y" id="proventosMesesA11y" role="list" aria-label="Meses dos últimos 12 meses"></ul>
+
+        <h3 class="ativo-section-h" :class="{ filtrada: proventosToggle === 'mensal' && proventosMesSelecionado !== null }">
+          <template x-if="proventosToggle === 'mensal' && proventosMesSelecionado !== null">
+            <span>Por ativo · <strong x-text="proventosMesLabel()"></strong></span>
+          </template>
+          <template x-if="!(proventosToggle === 'mensal' && proventosMesSelecionado !== null)">
+            <span>Por ativo · <span x-text="proventosToggle === 'mensal' ? 'últimos 12 meses' : 'desde a Origem'"></span></span>
+          </template>
         </h3>
         <template x-if="tabelaProventosAtual().length === 0">
           <p class="vazio">Nenhum dado disponível.</p>
