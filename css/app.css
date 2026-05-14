@@ -892,6 +892,13 @@ footer.rodape code {
   min-height: 280px;
 }
 
+/* 7a.E.19.4: cursor pointer no container do gráfico proventos em modo
+   Mensal (click → drilldown). Aplicado no container (não no canvas)
+   porque ECharts pode trocar o <canvas> em resize, perdendo inline style. */
+#proventos-grafico.is-clickable {
+  cursor: pointer;
+}
+
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
 .alocacao-card {

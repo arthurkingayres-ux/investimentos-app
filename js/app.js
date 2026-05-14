@@ -39,7 +39,6 @@ document.addEventListener("alpine:init", () => {
     escopoAtivo: "Total",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     classeExpandida: null,
-    uplotProv: null,
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
@@ -370,28 +369,20 @@ document.addEventListener("alpine:init", () => {
     renderProventosGrafico() {
       const prov = this.json?.proventos || {};
       const container = document.getElementById("proventos-grafico");
-      if (!container || typeof uPlot === "undefined") return;
+      if (!container) return;
 
-      // Destruir instância anterior para evitar canvas orphan.
-      if (this.uplotProv) {
-        try { this.uplotProv.destroy(); } catch (_) {}
-        this.uplotProv = null;
-      }
-      if (this.resizeObserverProv) {
-        try { this.resizeObserverProv.disconnect(); } catch (_) {}
-        this.resizeObserverProv = null;
-      }
+      // Cleanup
+      if (this.echartsProv) { try { this.echartsProv.dispose(); } catch (_) {} this.echartsProv = null; }
+      if (this.resizeObserverProv) { try { this.resizeObserverProv.disconnect(); } catch (_) {} this.resizeObserverProv = null; }
       container.innerHTML = "";
 
       let labels, valores;
-      // 7a.E.8: estado "origem" renderiza buckets anuais de evolucao_anual
       if (this.proventosToggle === "origem") {
         const evol = prov.evolucao_anual || [];
         labels = evol.map((e) => String(e.ano));
         valores = evol.map((e) => e.total);
       } else {
         const m12 = prov.mensal_12m || [];
-        // Labels abreviados: "YYYY-MM" → "Mmm/AA"
         const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
         labels = m12.map((e) => {
           const [yy, mm] = (e.mes || "").split("-");
@@ -405,118 +396,101 @@ document.addEventListener("alpine:init", () => {
         container.innerHTML = '<p class="placeholder">Sem dados de proventos.</p>';
         return;
       }
-
-      const xs = labels.map((_, i) => i);
-      const width = Math.max(280, container.clientWidth || 320);
-      const ehMensal = this.proventosToggle === "mensal";
-      const mesSelecionado = ehMensal ? this.proventosMesSelecionado : null;
-      const self = this;
-      const opts = {
-        width,
-        height: 220,
-        scales: { x: { time: false }, y: { auto: true } },
-        axes: [
-          {
-            values: (_u, splits) => splits.map((i) => labels[Math.round(i)] ?? ""),
-          },
-          {
-            values: (_u, splits) => splits.map((v) => {
-              if (v === null || v === undefined) return "";
-              if (v >= 1000) return "R$" + (v / 1000).toFixed(0) + "k";
-              return "R$" + Math.round(v);
-            }),
-          },
-        ],
-        series: [
-          {},
-          {
-            label: "Proventos (R$)",
-            stroke: COLORS.g700(),
-            fill: COLORS.g700a12(),
-            paths: uPlot.paths.bars({ size: [0.7] }),
-          },
-        ],
-        legend: { show: false },
-        hooks: {
-          // 7a.E.18: hit-test via uPlot posToIdx só no modo Mensal.
-          ready: [
-            (u) => {
-              if (!ehMensal) return;
-              u.over.style.cursor = "pointer";
-              u.over.addEventListener("click", (evt) => {
-                self._handleClickBarraMes(u, evt);
-              });
-            },
-          ],
-          // 7a.E.18: overlay de fade nas barras não-selecionadas + destaque.
-          draw: [
-            (u) => {
-              if (!ehMensal || mesSelecionado === null) return;
-              const ctx = u.ctx;
-              const plotLeft = u.bbox.left;
-              const plotWidth = u.bbox.width;
-              const plotTop = u.bbox.top;
-              const plotHeight = u.bbox.height;
-              const n = u.data[0].length;
-              if (!n) return;
-              const barSlot = plotWidth / n;
-              ctx.save();
-              // Fade nas demais (overlay branco translúcido).
-              ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-              for (let i = 0; i < n; i++) {
-                if (i === mesSelecionado) continue;
-                const x = plotLeft + i * barSlot;
-                ctx.fillRect(x, plotTop, barSlot, plotHeight);
-              }
-              // Sublinha a barra selecionada com a cor g-900.
-              const g900 = css("--g-900", "#064e3b");
-              ctx.fillStyle = g900;
-              const xSel = plotLeft + mesSelecionado * barSlot;
-              ctx.fillRect(xSel, plotTop + plotHeight, barSlot, 2);
-              ctx.restore();
-            },
-          ],
-        },
-      };
-      try {
-        this.uplotProv = new uPlot(opts, [xs, valores], container);
-      } catch (err) {
-        console.warn("uPlot proventos falhou; renderizando placeholder", err);
+      if (typeof echarts === "undefined" || !window.drarthurChart) {
         container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-        this.uplotProv = null;
         return;
       }
 
-      // 7a.E.18: hint "Toque na mesma barra ou Esc para limpar".
+      const ehMensal = this.proventosToggle === "mensal";
+      const mesSelecionado = ehMensal ? this.proventosMesSelecionado : null;
+
+      const dc = window.drarthurChart;
+      const formatBRL = (v) => {
+        if (v == null) return "—";
+        if (v >= 1000) return "R$ " + (v / 1000).toFixed(0) + "k";
+        return "R$ " + Math.round(v);
+      };
+
+      // barData: aplica fade + destaque quando há seleção
+      const barData = valores.map((v, i) => {
+        const item = { value: v };
+        if (mesSelecionado !== null && i !== mesSelecionado) {
+          item.itemStyle = { color: dc.tokens.g700, opacity: 0.55 };
+        } else if (mesSelecionado !== null && i === mesSelecionado) {
+          item.itemStyle = { color: dc.tokens.g900, opacity: 1.0 };
+        }
+        return item;
+      });
+
+      const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
+      const self = this;
+
+      const option = {
+        grid: { top: 10, right: 8, bottom: 24, left: 8, containLabel: true },
+        tooltip: Object.assign({}, dc.tooltipBase, {
+          trigger: "item",
+          formatter: (p) => dc.tooltipFormatterAxis([{
+            axisValueLabel: p.name,
+            seriesName: "Proventos",
+            color: dc.tokens.g700,
+            value: p.value,
+          }], formatBRL),
+        }),
+        xAxis: { type: "category", data: labels },
+        yAxis: { type: "value", axisLabel: { formatter: formatBRL } },
+        series: [{
+          name: "Proventos",
+          type: "bar",
+          data: barData,
+          barWidth: "60%",
+          itemStyle: { color: dc.tokens.g700 },
+        }],
+        aria: { enabled: true },
+      };
+      Object.assign(option, dc.motionConfig);
+
+      try {
+        chart.setOption(option);
+      } catch (err) {
+        console.warn("ECharts proventos falhou; placeholder", err);
+        chart.dispose();
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        return;
+      }
+
+      // 7a.E.18: handler de click — só no modo Mensal
+      container.classList.remove("is-clickable");
+      if (ehMensal) {
+        chart.on("click", function (params) {
+          if (params && params.componentType === "series") {
+            self._handleClickBarraMes(params.dataIndex);
+          }
+        });
+        // Cursor pointer no container (não no canvas — ECharts pode trocar canvas no resize)
+        container.classList.add("is-clickable");
+      }
+
+      // 7a.E.18: hint "Toque na mesma barra ou Esc para limpar"
       const hint = document.getElementById("proventosHintLimpar");
       if (hint) hint.hidden = !(ehMensal && mesSelecionado !== null);
 
-      // 7a.E.18: companion buttons a11y (focáveis ao tab) — só no modo Mensal.
+      // 7a.E.18: companion buttons a11y
       this._renderCompanionMesesA11y();
 
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverProv = new ResizeObserver(() => {
-          if (!this.uplotProv) return;
-          const w = Math.max(280, container.clientWidth || 320);
-          try { this.uplotProv.setSize({ width: w, height: 220 }); } catch (_) {}
+          try { chart.resize(); } catch (_) {}
         });
         this.resizeObserverProv.observe(container);
       }
+
+      this.echartsProv = chart;
     },
 
-    // 7a.E.18: handler de click no canvas — usa uPlot posToIdx pra hit-test.
-    _handleClickBarraMes(u, evt) {
-      const rect = u.over.getBoundingClientRect();
-      const offsetX = evt.clientX - rect.left;
-      // posToIdx mapeia X em pixels relativo ao canvas para índice no eixo X.
-      let idx;
-      try {
-        idx = u.posToIdx(offsetX);
-      } catch (_) {
-        return;
-      }
-      const n = (u.data && u.data[0]) ? u.data[0].length : 0;
-      if (idx === null || idx === undefined || idx < 0 || idx >= n) return;
+    // 7a.E.18: handler de click no gráfico — agora recebe dataIndex direto do ECharts
+    _handleClickBarraMes(idx) {
+      const m12 = this.json?.proventos?.mensal_12m || [];
+      if (idx === null || idx === undefined || idx < 0 || idx >= m12.length) return;
       if (this.proventosMesSelecionado === idx) {
         this.proventosMesSelecionado = null;
       } else {

@@ -34,23 +34,21 @@ async function abrirProventosMensal(page: Page) {
   await page
     .locator(".tela-proventos .escopo-toggle button", { hasText: /Mensal/i })
     .click();
-  // Espera uPlot existir (renderProventosGrafico injeta dentro do div).
-  await page.waitForSelector("#proventos-grafico .u-over", { timeout: 5_000 });
-  // Pequena espera para Alpine reagir ao state change.
-  await page.waitForTimeout(150);
+  // 7a.E.19.4: ECharts agora — canvas com data-zr-dom-id em vez de .u-over.
+  await page.waitForSelector("#proventos-grafico canvas[data-zr-dom-id]", { timeout: 5_000 });
+  // Espera animação de entrada (600ms) + Alpine settle.
+  await page.waitForTimeout(700);
 }
 
-// Helper: click no overlay u-over (que cobre o canvas e captura pointer events).
+// Helper: click no canvas ECharts via Alpine handler direto (mais robusto que
+// computar pixels do canvas — grid padding muda entre uPlot e ECharts).
 async function clicarBarraIdx(page: Page, idx: number) {
-  const over = page.locator("#proventos-grafico .u-over").first();
-  const box = await over.boundingBox();
-  if (!box) throw new Error("u-over sem bounding box");
-  // posToIdx do uPlot mapeia X em pixels do canvas para índice. Como o
-  // u-over cobre a plot area, a fração (idx+0.5)/n cai no meio do slot idx.
-  const n = 12;
-  const slotX = box.width * ((idx + 0.5) / n);
-  await over.click({ position: { x: slotX, y: box.height / 2 } });
-  await page.waitForTimeout(150);
+  await page.evaluate((i) => {
+    const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } }).Alpine.$data(document.body);
+    const handler = (data as { _handleClickBarraMes?: (idx: number) => void })._handleClickBarraMes;
+    if (handler) handler.call(data, i);
+  }, idx);
+  await page.waitForTimeout(200);
 }
 
 test.describe("7a.E.18 — Proventos · drilldown mês×ativo", () => {
@@ -113,5 +111,31 @@ test.describe("7a.E.18 — Proventos · drilldown mês×ativo", () => {
     const headerStrong = page.locator(".tela-proventos .ativo-section-h strong");
     await expect(headerStrong).toBeVisible();
     await expect(headerStrong).toHaveText(/\w+\/\d{4}/);
+  });
+
+  // 7a.E.19.4: smoke real do event wiring ECharts. Os outros testes usam
+  // clicarBarraIdx via Alpine helper para robustez. Este aqui faz click
+  // pixel real no canvas após calcular as coordenadas reais via ECharts
+  // `convertToPixel` — exercita chart.on("click") → params.componentType
+  // → params.dataIndex → _handleClickBarraMes completo.
+  test("ECharts click event no canvas dispara drilldown (smoke event wiring)", async ({ page }) => {
+    await abrirProventosMensal(page);
+    const coords = await page.evaluate(() => {
+      const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } }).Alpine.$data(document.body);
+      const chart = (data as { echartsProv?: { convertToPixel: (finder: Record<string, unknown>, value: unknown[]) => [number, number] } }).echartsProv;
+      if (!chart) throw new Error("echartsProv não encontrado");
+      // Converte (xCategory idx 11, yValue qualquer) para pixels do canvas
+      const [x, y] = chart.convertToPixel({ seriesIndex: 0 }, [11, 0]);
+      return { x, y };
+    });
+    const container = page.locator("#proventos-grafico");
+    const box = await container.boundingBox();
+    if (!box) throw new Error("container sem boundingBox");
+    // Click absoluto na coordenada (boundingBox.x + coords.x, ... + coords.y - 20)
+    // y-20 puxa pra dentro da barra (acima do baseline)
+    await page.mouse.click(box.x + coords.x, box.y + coords.y - 20);
+    await page.waitForTimeout(300);
+    const headerStrong = page.locator(".tela-proventos .ativo-section-h strong");
+    await expect(headerStrong).toBeVisible();
   });
 });
