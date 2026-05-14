@@ -863,31 +863,24 @@ footer.rodape code {
 .chart-rent {
   width: 100%;
   max-width: 100%;
-  /* min-height: 320px = padding (24px total) + uPlot canvas (280px, fixo em
-     hidratarRentabilidade) + ~16px reservados para a tabela <u-legend>
-     que o uPlot renderiza abaixo do canvas. Sem isso, a legenda some. */
+  /* 7a.E.19: container ECharts. min-height 320px = altura total do card
+     (ECharts ocupa o espaço interno após padding 12px; legenda fica
+     dentro do chart via bottom: 28). */
   min-height: 320px;
   margin: 12px 0 24px;
   background: white;
   border-radius: 14px;
   padding: 12px;
-  /* overflow guard: clipa flash do canvas uPlot durante navigate em viewport
-     estreito (canvas mantém width antiga até ResizeObserver disparar).
-     overflow-y: visible preserva a tabela <u-legend> que o uPlot renderiza
-     abaixo do canvas (CRB 7a.G.2 Suggestion #5). */
+  /* overflow-x: hidden clipa flash de canvas durante navigate em viewport
+     estreito (resize do ECharts ainda não disparou). */
   overflow-x: hidden;
   overflow-y: visible;
   box-shadow: 0 2px 6px var(--g-900-07);
 }
 
-.chart-rent .uplot,
-.chart-rent .u-wrap {
-  max-width: 100%;
-}
-
 /* 7a.E.19.2: container do gráfico patrimônio (ECharts). Override do
-   .chart-rent: ECharts não renderiza <u-legend> abaixo do canvas (legenda
-   é interna via bottom:28), então não precisa do extra 320px do uPlot. */
+   .chart-rent: legenda ECharts é interna ao chart (bottom: 28), então
+   esse container precisa só da área do gráfico (~280px). */
 #patrimonio-grafico {
   min-height: 280px;
 }

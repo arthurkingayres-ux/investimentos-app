@@ -247,6 +247,17 @@ Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y inte
 ### prefers-reduced-motion
 Respeitado em PIN shake (envelope `@media`) e chevron (override transition: none). Demais transitions são curtas o suficiente (≤300ms) para não causar problema, mas idealmente futuras animações também deveriam respeitar.
 
+### Motion em gráficos (ECharts, Fase 7a.E.19)
+
+Gráficos do PWA usam motion calibrada — mais expressiva que o resto do app, mas dentro de "calmo médico" (sem celebrar, sem bounce, sem stagger pesado):
+
+1. **Entrada (1º render):** 600ms cubic-out. Lines: path drawing L→R. Bars: growth from baseline com stagger 30ms por barra.
+2. **Hover:** 100ms. Tooltip fade-in. Point ring 1.0 → 1.1. Bars não-hover opacity 1.0 → 0.85.
+3. **Mode transition:** 400ms cubic-out. `setOption` merge → morph automático (datasets + eixos animados juntos).
+4. **Drilldown selection:** 200ms cubic-out. Fade não-selecionadas opacity 1.0 → 0.55 (proventos modo Mensal).
+
+Todas as 4 regras zeram via `prefers-reduced-motion: reduce`. Single source of truth: `js/echarts-theme.js` exporta `window.drarthurChart.motionConfig` (rebuilds on MediaQueryList change).
+
 ---
 
 ## Anti-patterns banidos
@@ -263,11 +274,19 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 8. **Hero metric template** (big number + label + supporting stats + gradient accent). Hero do app pós-7a.G.2 distill é card sólido `var(--g-900)` flat: label uppercase, valor 2rem peso 700, delta-pill flat. Sem gradients, sem `::after`, sem glassmorphism — explicitamente NÃO o template SaaS genérico.
 9. **3-equal-cards horizontal grid.** O app não tem isso. Se feature row for necessária, usar zig-zag ou stack vertical.
 10. **Cards-inside-cards-inside-cards.** Nesting máximo é 2: `.card > .conteúdo`. Política accordion é `.politica-card > .politica-ativos > .politica-ativo` mas os filhos não são cards visualmente (sem border, sem shadow, só padding).
-11. **Animação celebratória** (confetti, glow, badge unlock). Banido por design principle (calma sob qualquer condição de mercado).
+11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
 14. **Side-stripe borders** (`border-left: 4px solid` em alerts/cards). Não usados.
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
+16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
+17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
+18. **3D charts.** O PWA é 2D plano, mobile-first.
+19. **Animação bounce / elastic / scale > 1.1** em gráficos. Apenas `cubicOut` / `cubicInOut`, durações ≤600ms.
+20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos.
+21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
+22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
+23. **Stagger entre elementos > 50ms.** Default em barras é 30ms.
 
 ---
 

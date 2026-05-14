@@ -29,7 +29,7 @@ test.describe("Tela #rentabilidade", () => {
     await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible();
   });
 
-  test("toggle de escopo Brasil -> EUA atualiza estado, instância uPlot e canvas", async ({ page }) => {
+  test("toggle de escopo Brasil -> EUA atualiza estado, instância ECharts e canvas", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
     // Estado inicial: escopoAtivo deve ser Total (default)

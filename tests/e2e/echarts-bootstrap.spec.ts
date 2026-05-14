@@ -75,9 +75,9 @@ test.describe("7a.E.19.1 — Bootstrap ECharts + tema 'drarthur'", () => {
     expect(motion.easing).toBe("cubicOut");
   });
 
-  test("uPlot continua disponível (charts atuais não quebram)", async ({ page }) => {
+  test("uPlot foi removido (7a.E.19.5)", async ({ page }) => {
     await autenticar(page);
     const hasUPlot = await page.evaluate(() => typeof (window as any).uPlot);
-    expect(hasUPlot).toBe("function");
+    expect(hasUPlot).toBe("undefined");
   });
 });
