@@ -40,20 +40,47 @@ test.describe("Tela #politica", () => {
     expect(overflow).toBe(false);
   });
 
-  test("toggle expande/colapsa e persiste em localStorage", async ({ page }) => {
+  test("default ao entrar em #politica: todas as seções fechadas", async ({ page }) => {
+    await abrirPolitica(page);
+    const cards = page.locator(".politica-card");
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(cards.nth(i)).toHaveAttribute("data-collapsed", "true");
+    }
+    const keys = await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith("politica.collapsed."))
+    );
+    expect(keys).toHaveLength(0);
+  });
+
+  test("toggle abre e fecha sem persistir em localStorage", async ({ page }) => {
     await abrirPolitica(page);
     const firstCard = page.locator(".politica-card").first();
     const firstHeader = firstCard.locator(".politica-header");
+    await expect(firstCard).toHaveAttribute("data-collapsed", "true");
+    await firstHeader.click();
     await expect(firstCard).toHaveAttribute("data-collapsed", "false");
+    const storedAfterOpen = await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => k.startsWith("politica.collapsed.")).length
+    );
+    expect(storedAfterOpen).toBe(0);
     await firstHeader.click();
     await expect(firstCard).toHaveAttribute("data-collapsed", "true");
-    const stored = await page.evaluate(() => {
-      const keys = Object.keys(localStorage).filter((k) =>
-        k.startsWith("politica.collapsed.")
-      );
-      return keys.length > 0 ? localStorage.getItem(keys[0]) : null;
-    });
-    expect(stored).toBe("true");
+  });
+
+  test("re-navegar para #politica reseta tudo para fechado", async ({ page }) => {
+    await abrirPolitica(page);
+    const firstCard = page.locator(".politica-card").first();
+    await firstCard.locator(".politica-header").click();
+    await expect(firstCard).toHaveAttribute("data-collapsed", "false");
+    // Mudança via location.hash dispara `hashchange` interno do SPA (sem
+    // reload), exercitando atualizarRota → hidratarColapsoPolitica.
+    await page.evaluate(() => { location.hash = "#alocacao"; });
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
+    await page.evaluate(() => { location.hash = "#politica"; });
+    await expect(page.locator(".tela-politica")).toBeVisible();
+    await expect(page.locator(".politica-card").first()).toHaveAttribute("data-collapsed", "true");
   });
 
   test("status pills usam texto + ícone direcional", async ({ page }) => {

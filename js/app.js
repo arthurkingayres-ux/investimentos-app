@@ -47,6 +47,13 @@ document.addEventListener("alpine:init", () => {
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
       this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
+      // 7a.E.17: cleanup de chaves legadas do toggle de #politica (versões
+      // anteriores persistiam o estado collapsed por categoria).
+      try {
+        ["Ações BR", "Cripto", "EUA", "FIIs"].forEach((cat) =>
+          localStorage.removeItem("politica.collapsed." + cat)
+        );
+      } catch (_) {}
       window.addEventListener("storage", (e) => {
         // Multi-tab sync: se outra aba limpou a sessão, esta aba cai para PIN.
         if (e.key === "pin" && e.newValue === null && this.fase === "raiox") {
@@ -112,13 +119,12 @@ document.addEventListener("alpine:init", () => {
     },
 
     hidratarColapsoPolitica() {
-      // Carrega estado collapse de cada categoria de localStorage. Default
-      // (sem chave persistida) é "expandido" — Dr. Arthur vê dados primeiro.
+      // 7a.E.17: cada navegação para #politica reseta todas as seções para
+      // fechado. Ignora localStorage; estado vive só em memória Alpine.
       if (!this.json || !this.json.politica) return;
       const out = {};
       for (const cat of this.json.politica.categorias) {
-        const v = localStorage.getItem("politica.collapsed." + cat.nome);
-        out[cat.nome] = v === "true";
+        out[cat.nome] = true;
       }
       this.collapsedPolitica = out;
     },
@@ -128,12 +134,6 @@ document.addEventListener("alpine:init", () => {
         ...this.collapsedPolitica,
         [nome]: !this.collapsedPolitica[nome],
       };
-      try {
-        localStorage.setItem(
-          "politica.collapsed." + nome,
-          this.collapsedPolitica[nome] ? "true" : "false"
-        );
-      } catch (_) {}
     },
 
     labelStatusPolitica(s) {
