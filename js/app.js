@@ -232,8 +232,12 @@ document.addEventListener("alpine:init", () => {
       // numa aba com histórico prévio, history.back() saída do PWA.
       // Sempre limpamos o hash via replaceState e zeramos a rota; mais
       // previsível e mantém o usuário dentro do app.
+      // 7a.I.7: sincroniza `tab` com `rota` — sem isso, breadcrumb back de
+      // #ativo (push) deixava a tab bar destacando a tab de origem (ex.: aloca)
+      // enquanto a tela renderizada já era a Raio-X.
       history.replaceState(null, "", location.pathname);
       this.rota = "";
+      this.tab = "raiox";
     },
 
     selecionarEscopo(escopo) {
