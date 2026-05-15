@@ -316,7 +316,10 @@
           ? "Aporte concentrado no ativo mais subexposto."
           : `Aporte distribuído entre os ${nPicks} ativos mais subexpostos (cap de ${PICKS_MAX} por aporte).`;
     } else {
-      banner = `Carteira dentro da política. Aporte distribuído entre ${nPicks} ${nPicks === 1 ? "ativo" : "ativos"} alinhados aos pesos-alvo.`;
+      banner =
+        nPicks === 1
+          ? "Carteira dentro da política. Aporte concentrado no único ativo alinhado aos pesos-alvo."
+          : `Carteira dentro da política. Aporte distribuído entre ${nPicks} ativos alinhados aos pesos-alvo.`;
     }
 
     return {

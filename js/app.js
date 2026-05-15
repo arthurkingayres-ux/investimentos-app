@@ -688,8 +688,7 @@ document.addEventListener("alpine:init", () => {
       const a = this.aporteCumulativo();
       if (!a) return "—";
       const pct = (this.patrimonioAtual() / a) - 1;
-      const sinal = pct >= 0 ? "+" : "";
-      return `${sinal}${(pct * 100).toFixed(1)}%`;
+      return window.formatPct(pct, 1);
     },
 
     hidratarPatrimonio() {
@@ -736,7 +735,7 @@ document.addEventListener("alpine:init", () => {
       const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
 
       const option = {
-        grid: { top: 10, right: 8, bottom: 60, left: 8, containLabel: true },
+        grid: { top: 10, right: 24, bottom: 60, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, {
           trigger: "axis",
           formatter: (params) => dc.tooltipFormatterAxis(params, formatBRL),
@@ -753,7 +752,10 @@ document.addEventListener("alpine:init", () => {
           type: "category",
           data: xLabels,
           boundaryGap: false,
-          axisLabel: { interval: Math.max(0, Math.floor(xLabels.length / 6) - 1) },
+          axisLabel: {
+            interval: Math.max(0, Math.floor(xLabels.length / 6) - 1),
+            hideOverlap: true,
+          },
         },
         yAxis: { type: "value", axisLabel: { formatter: formatBRL } },
         dataZoom: [
@@ -829,7 +831,7 @@ document.addEventListener("alpine:init", () => {
       if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
       target.innerHTML = "";
       if (serie.length === 0) {
-        target.innerHTML = '<p class="placeholder">Dados insuficientes — aguarde próximo aporte.</p>';
+        target.innerHTML = '<p class="placeholder">Dados insuficientes. Aguarde próximo aporte.</p>';
         return;
       }
       if (typeof echarts === "undefined" || !window.drarthurChart) {
@@ -866,7 +868,7 @@ document.addEventListener("alpine:init", () => {
       const chart = echarts.init(target, "drarthur", { renderer: "canvas" });
 
       const option = {
-        grid: { top: 12, right: 12, bottom: 60, left: 8, containLabel: true },
+        grid: { top: 12, right: 24, bottom: 60, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, {
           trigger: "axis",
           formatter: (params) => dc.tooltipFormatterAxis(params, formatPct),
@@ -883,7 +885,10 @@ document.addEventListener("alpine:init", () => {
           type: "category",
           data: xLabels,
           boundaryGap: false,
-          axisLabel: { interval: Math.max(0, Math.floor(xLabels.length / 6) - 1) },
+          axisLabel: {
+            interval: Math.max(0, Math.floor(xLabels.length / 6) - 1),
+            hideOverlap: true,
+          },
         },
         yAxis: { type: "value", axisLabel: { formatter: formatPct } },
         dataZoom: [
@@ -955,7 +960,15 @@ document.addEventListener("alpine:init", () => {
       if (!this.aporteValor || String(this.aporteValor).trim() === "") {
         return "Digite quanto você tem disponível para investir.";
       }
-      return `Com R$ ${this.aporteValor} você compraria:`;
+      const limpo = String(this.aporteValor)
+        .replace(/[^\d.,]/g, "")
+        .replace(/\./g, "")
+        .replace(",", ".");
+      const valor = parseFloat(limpo);
+      if (!isFinite(valor) || valor <= 0) {
+        return "Digite quanto você tem disponível para investir.";
+      }
+      return `Com ${window.formatBrl(valor)} você compraria:`;
     },
 
     recalcularAporte() {

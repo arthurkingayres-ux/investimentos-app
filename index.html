@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=30">
-  <script src="js/vendor/echarts.min.js?v=30"></script>
-  <script src="js/echarts-theme.js?v=30"></script>
-  <script src="js/crypto.js?v=30"></script>
-  <script src="js/format.js?v=30"></script>
-  <script src="js/transitions.js?v=30"></script>
-  <script src="js/aportar.js?v=30"></script>
-  <script src="js/app.js?v=30"></script>
-  <script defer src="js/vendor/alpine.min.js?v=30"></script>
+  <link rel="stylesheet" href="css/app.css?v=31">
+  <script src="js/vendor/echarts.min.js?v=31"></script>
+  <script src="js/echarts-theme.js?v=31"></script>
+  <script src="js/crypto.js?v=31"></script>
+  <script src="js/format.js?v=31"></script>
+  <script src="js/transitions.js?v=31"></script>
+  <script src="js/aportar.js?v=31"></script>
+  <script src="js/app.js?v=31"></script>
+  <script defer src="js/vendor/alpine.min.js?v=31"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -239,11 +239,11 @@
           </section>
         </div>
 
-        <aside class="rent-legenda" aria-labelledby="rent-legenda-titulo">
-          <h4 id="rent-legenda-titulo">Como ler</h4>
-          <p><strong>XIRR</strong> — retorno anualizado considerando quando você aportou. Capta o efeito do timing dos aportes.</p>
-          <p><strong>TWR</strong> — retorno anualizado ignorando seus aportes. Mede só a qualidade da seleção e gestão.</p>
-        </aside>
+        <details class="rent-legenda">
+          <summary>Como ler</summary>
+          <p><strong>XIRR:</strong> retorno anualizado considerando quando você aportou. Capta o efeito do timing dos aportes.</p>
+          <p><strong>TWR:</strong> retorno anualizado ignorando seus aportes. Mede só a qualidade da seleção e gestão.</p>
+        </details>
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
@@ -649,8 +649,8 @@
                    :style="`left: ${Math.min(Math.max(cat.alvoPct, 0), 100)}%`"></div>
             </div>
             <p class="aporte-trilha-line">
-              <span x-text="`${cat.atualPct.toFixed(1)}% → ${cat.posPct.toFixed(1)}%`"></span>
-              <span x-text="`alvo ${cat.alvoPct}% · fecha ${cat.deltaPct.toFixed(1)}pp`"></span>
+              <span x-text="`${cat.atualPct.toFixed(1).replace('.', ',')}% → ${cat.posPct.toFixed(1).replace('.', ',')}%`"></span>
+              <span x-text="`alvo ${cat.alvoPct}% · fecha ${cat.deltaPct.toFixed(1).replace('.', ',')}pp`"></span>
             </p>
             <ul class="aporte-compras">
               <template x-for="row in cat.compras" :key="row.ticker">
@@ -675,7 +675,7 @@
           <template x-for="cat in aporteCategoriasNaoRecebedoras" :key="cat.nome">
             <p class="aporte-outras-row">
               <span x-text="`▸ ${cat.nome}`"></span>
-              <span x-text="`${cat.atualPct.toFixed(1)}% · alvo ${cat.alvoPct}% (${cat.label})`"></span>
+              <span x-text="`${cat.atualPct.toFixed(1).replace('.', ',')}% · alvo ${cat.alvoPct}% (${cat.label})`"></span>
             </p>
           </template>
         </section>
@@ -693,7 +693,7 @@
         </section>
 
         <p class="aporte-sem-posicao" x-show="aporteTickersSemPosicao.length > 0" x-cloak>
-          <span>Tickers da política sem posição vigente — sem cotação para incluir no cálculo: </span>
+          <span>Tickers da política sem posição vigente (sem cotação para incluir no cálculo): </span>
           <span x-text="aporteTickersSemPosicao.join(', ')"></span>
         </p>
       </section>

@@ -711,20 +711,23 @@ footer.rodape code {
 }
 
 .btn-bloquear {
-  background: var(--ink);
-  border: 1px solid var(--ink);
+  background: transparent;
+  border: 1px solid var(--neutral-200);
   border-radius: 12px;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1.125rem;
   min-height: 44px;
-  color: #fff;
+  color: var(--gray);
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .btn-bloquear:hover {
-  background: var(--ink);
+  background: var(--neutral-100);
+  border-color: var(--neutral-300);
+  color: var(--ink);
 }
 
 .btn-bloquear:active {
@@ -1267,21 +1270,54 @@ footer.rodape code {
 .rent-legenda {
   background: var(--neutral-100);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 0;
   margin: 12px 0 16px 0;
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--ink);
 }
 
-.rent-legenda h4 {
-  margin: 0 0 6px 0;
-  font-size: 0.92rem;
+.rent-legenda summary {
+  padding: 10px 14px;
+  font-size: 0.85rem;
   font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gray);
+}
+
+.rent-legenda summary::-webkit-details-marker { display: none; }
+
+.rent-legenda summary::after {
+  content: "▸";
+  font-size: 0.75rem;
+  color: var(--gray);
+  transition: transform 150ms ease;
+}
+
+.rent-legenda[open] summary::after {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rent-legenda summary::after { transition: none; }
+}
+
+.rent-legenda[open] summary {
+  color: var(--ink);
+  padding-bottom: 4px;
 }
 
 .rent-legenda p {
   margin: 4px 0;
+  padding: 0 14px;
+}
+
+.rent-legenda p:last-child {
+  padding-bottom: 10px;
 }
 
 /* === 7a.E.1: tabela movimentos compacta === */
