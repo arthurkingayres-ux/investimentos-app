@@ -60,14 +60,7 @@
     const a = (json && json.alocacao) || {};
     const atual = a.atual || {};
     const alvo = a.alvo || {};
-    const aliases = {
-      "FIIs BR": "FIIs",
-      "Ações Brasil": "Ações BR",
-      "Exterior": "EUA",
-    };
-    const cats = new Set();
-    Object.keys(atual).forEach((k) => cats.add(aliases[k] || k));
-    Object.keys(alvo).forEach((k) => cats.add(aliases[k] || k));
+    const cats = new Set([...Object.keys(atual), ...Object.keys(alvo)]);
     let maxAbs = 0;
     let nDesvio = 0;
     for (const cat of cats) {

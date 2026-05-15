@@ -60,14 +60,11 @@ test.describe("Navegacao hash routing", () => {
     await expect(page.locator(".tela-alocacao")).toBeVisible();
   });
 
-  // 7a.E.9: removido o teste "raio-x mostra benchmark com prefixo 'vs'" — o
-  // layout comparativo "vs CDI/IBOV/SP500" foi substituído por lista única
-  // de 5 benchmarks 12m. Cobertura nova vive em `raiox-rentabilidade-12m.spec.ts`.
-
-  // 7a.I.3: cards embed de Rentabilidade e Alocação no raio-x foram substituídos
-  // por chip-stat inline. As protections legadas ("raio-x sem colunas YTD/12m"
-  // e "raio-x aloca sem '+'") foram removidas: o estado que elas protegiam não
-  // existe mais. Cobertura do chip-stat vive em raiox-viewport.spec.ts.
+  // 7a.I.3: o raio-x perdeu os cards embed de Rentabilidade/Alocação/Proventos
+  // (substituídos por chip-stats inline + sparkline + CTA pill). Protections
+  // legadas — "raio-x sem coluna vs", "raio-x sem YTD/12m", "raio-x aloca
+  // sem '+'" — removidas: o estado que elas protegiam não existe mais.
+  // Cobertura nova do chip-stat vive em raiox-viewport.spec.ts.
 
   test("hash #proventos é rota válida (não cai no fallback do Raio-X)", async ({ page }) => {
     await autenticar(page);
