@@ -941,10 +941,10 @@ footer.rodape code {
   display: inline-block;
 }
 
-.classe-dot.dot-eua { background: var(--blue-500); }
-.classe-dot.dot-fiis { background: var(--amber); }
-.classe-dot.dot-acoes-br { background: var(--g-700); }
-.classe-dot.dot-cripto { background: var(--purple-500); }
+.classe-dot.dot-eua { background: var(--cat-eua); }
+.classe-dot.dot-fiis { background: var(--cat-fii); }
+.classe-dot.dot-acoes-br { background: var(--cat-acoes-br); }
+.classe-dot.dot-cripto { background: var(--cat-cripto); }
 
 .classe-nome {
   font-weight: 600;
