@@ -1970,3 +1970,121 @@ body:has(.tab-bar) main {
   padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px) + 1rem);
 }
 
+/* === Raio-X 1-viewport (sub-fase 7a.I.3) ================================ */
+
+.raiox-sparkline {
+  height: 110px;
+  margin: 0.75rem 0 1.5rem;
+}
+
+.aporte-bloco {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.aporte-bloco .aporte-label {
+  margin: 0 0 0.5rem;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray);
+  font-weight: 600;
+}
+
+.aporte-bloco .aporte-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.aporte-bloco .aporte-item {
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.aporte-bloco .aporte-item:last-child {
+  border-bottom: 0;
+}
+
+.chips-stat-bloco {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 1rem;
+  border-top: 1px solid var(--neutral-200);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.chip-stat {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.875rem 0;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.chip-stat:last-child {
+  border-bottom: 0;
+}
+
+.chip-stat:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.chip-stat-key {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray);
+  font-weight: 600;
+}
+
+.chip-stat-val {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--g-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-stat-val.is-neg {
+  color: var(--red);
+}
+
+.chip-stat-arrow {
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+
+/* CTA pill outline (override de .aporte-cta da linha 1853+) */
+.aporte-cta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  margin: 0.5rem 0 1.5rem;
+  background: transparent;
+  border: 1px solid var(--g-700);
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--g-700);
+  text-decoration: none;
+}
+
+.aporte-cta:hover,
+.aporte-cta:focus-visible {
+  background: var(--g-700-12);
+  outline: none;
+}
+
+.aporte-cta .aporte-cta-arrow {
+  color: var(--g-700);
+}
+

@@ -64,39 +64,10 @@ test.describe("Navegacao hash routing", () => {
   // layout comparativo "vs CDI/IBOV/SP500" foi substituído por lista única
   // de 5 benchmarks 12m. Cobertura nova vive em `raiox-rentabilidade-12m.spec.ts`.
 
-  test("raio-x não exibe colunas YTD ou 12m no card de Rentabilidade", async ({ page }) => {
-    await autenticar(page);
-    await expect(page.locator(".raiox")).toBeVisible();
-
-    // rent-cols-head foi removido do raio-x.
-    await expect(page.locator(".raiox .rent-cols-head")).toHaveCount(0);
-
-    // 7a.E.15: .rent-linha-inline universal nos 3 cards (XIRR · TWR · em BRL no EUA).
-    const linhasRaiox = page.locator(".raiox .rent-linha-inline");
-    const count = await linhasRaiox.count();
-    expect(count).toBeGreaterThanOrEqual(3);  // Total + Brasil + EUA
-  });
-
-  // 7a.E.9: removida a "proteção Origem-only" — o raio-x agora mostra
-  // apenas 12m (lista única de 5 benchmarks), o oposto do que essa proteção
-  // garantia para 7a.E.3+7a.E.4. Cobertura nova em `raiox-rentabilidade-12m.spec.ts`.
-
-  test("raio-x card alocação não prepend '+' em pct atual ou alvo", async ({ page }) => {
-    await autenticar(page);
-    await expect(page.locator(".raiox")).toBeVisible();
-
-    // Card raio-x: percentual atual + alvo de cada classe.
-    const atuais = await page.locator(".raiox .aloc-valores .atual").allTextContents();
-    expect(atuais.length).toBeGreaterThan(0);
-    for (const t of atuais) {
-      expect(t.startsWith("+"), `aloc atual com '+': ${t}`).toBe(false);
-    }
-
-    const alvos = await page.locator(".raiox .aloc-valores .alvo").allTextContents();
-    for (const t of alvos) {
-      expect(t.includes("+"), `aloc alvo com '+': ${t}`).toBe(false);
-    }
-  });
+  // 7a.I.3: cards embed de Rentabilidade e Alocação no raio-x foram substituídos
+  // por chip-stat inline. As protections legadas ("raio-x sem colunas YTD/12m"
+  // e "raio-x aloca sem '+'") foram removidas: o estado que elas protegiam não
+  // existe mais. Cobertura do chip-stat vive em raiox-viewport.spec.ts.
 
   test("hash #proventos é rota válida (não cai no fallback do Raio-X)", async ({ page }) => {
     await autenticar(page);
