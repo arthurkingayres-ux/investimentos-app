@@ -1994,6 +1994,20 @@ body:has(.tab-bar) main {
 .raiox-sparkline {
   height: 110px;
   margin: 0.75rem 0 1.5rem;
+  /* 7a.I.5: sparkline vira tap-target para push #/raiox/chart */
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.raiox-sparkline:hover {
+  background: var(--neutral-100);
+}
+.raiox-sparkline:focus-visible {
+  outline: 2px solid var(--g-700);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .raiox-sparkline { transition: none; }
 }
 
 .aporte-bloco {

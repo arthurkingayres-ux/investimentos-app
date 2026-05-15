@@ -125,7 +125,17 @@ document.addEventListener("alpine:init", () => {
         setTimeout(() => this.hidratarProventos(), 0);
         return;
       }
+      if (path === "/raiox/chart") {
+        // 7a.I.5: chart full é push child da tab Raio-X. URL canônica.
+        this.rota = "patrimonio";
+        this.tab = "raiox";
+        setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
       if (path === "patrimonio") {
+        // 7a.I.5 shim: rota legada `#patrimonio` virou push child de raiox.
+        // replaceState não dispara hashchange — sem loop.
+        history.replaceState(null, "", "#/raiox/chart");
         this.rota = "patrimonio";
         this.tab = "raiox";
         setTimeout(() => this.hidratarPatrimonio(), 0);

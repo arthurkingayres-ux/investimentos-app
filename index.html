@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=28">
-  <script src="js/vendor/echarts.min.js?v=28"></script>
-  <script src="js/echarts-theme.js?v=28"></script>
-  <script src="js/crypto.js?v=28"></script>
-  <script src="js/format.js?v=28"></script>
-  <script src="js/aportar.js?v=28"></script>
-  <script src="js/raiox.js?v=28"></script>
-  <script src="js/app.js?v=28"></script>
-  <script defer src="js/vendor/alpine.min.js?v=28"></script>
+  <link rel="stylesheet" href="css/app.css?v=29">
+  <script src="js/vendor/echarts.min.js?v=29"></script>
+  <script src="js/echarts-theme.js?v=29"></script>
+  <script src="js/crypto.js?v=29"></script>
+  <script src="js/format.js?v=29"></script>
+  <script src="js/aportar.js?v=29"></script>
+  <script src="js/raiox.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
+  <script defer src="js/vendor/alpine.min.js?v=29"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -74,7 +74,7 @@
       <section class="raiox" x-show="rota === ''" x-cloak>
         <h1>Raio X</h1>
 
-        <a href="#patrimonio" class="hero hero-link" aria-label="Abrir histórico patrimonial">
+        <a href="#/raiox/chart" class="hero hero-link" aria-label="Abrir histórico patrimonial">
           <div class="hero-meta">
             <p class="hero-label">Patrimônio total</p>
             <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
@@ -94,7 +94,12 @@
         <div
           id="raiox-sparkline"
           class="raiox-sparkline"
-          aria-hidden="true"
+          role="button"
+          tabindex="0"
+          aria-label="Ver histórico patrimonial completo"
+          @click="location.hash = '#/raiox/chart'"
+          @keydown.enter.prevent="location.hash = '#/raiox/chart'"
+          @keydown.space.prevent="location.hash = '#/raiox/chart'"
           x-effect="if (json) renderRaioxSparkline('raiox-sparkline', json)"></div>
 
         <section class="aporte-bloco" aria-label="Último aporte">

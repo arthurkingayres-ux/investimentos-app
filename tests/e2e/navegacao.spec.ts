@@ -74,9 +74,10 @@ test.describe("Navegacao hash routing", () => {
   });
 
   test("hash #patrimonio é rota válida (não cai no fallback do Raio-X)", async ({ page }) => {
+    // 7a.I.5: `#patrimonio` virou shim push child de raiox; URL final é `#/raiox/chart`.
     await autenticar(page);
     await page.goto("/#patrimonio");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
-    expect(page.url()).toMatch(/#patrimonio$/);
+    expect(page.url()).toMatch(/#\/raiox\/chart$/);
   });
 });

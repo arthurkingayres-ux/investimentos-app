@@ -33,13 +33,14 @@ test.describe("Raio-X — cards e navegação", () => {
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
   });
 
-  test("hero 'Patrimônio total' clicável → #patrimonio", async ({ page }) => {
+  test("hero 'Patrimônio total' clicável → #/raiox/chart", async ({ page }) => {
+    // 7a.I.5: hero link agora aponta para o push child `#/raiox/chart`.
     await autenticar(page);
 
     const hero = page.locator("a.hero-link", { hasText: "Patrimônio total" });
     await expect(hero).toBeVisible();
     await hero.click();
-    await expect(page).toHaveURL(/#patrimonio$/);
+    await expect(page).toHaveURL(/#\/raiox\/chart$/);
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
   });
 });
