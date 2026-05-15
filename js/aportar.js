@@ -71,6 +71,7 @@
           nota: a.nota,
           peso_intra: a.peso_intra || 0,
           categoria: cat.nome,
+          bandeira: a.bandeira,            // schema v2.12: emoji vem do pipeline
           fracionario: cat.nome === "EUA",
           preco: preco,
           peso_alvo_efetivo: (cat.peso_alvo || 0) * (a.peso_intra || 0),
@@ -156,9 +157,11 @@
 
   // ── Montagem de linha de compra ───────────────────────────────────────
   function _montarLinha(pick, cotas, valor_real) {
-    // 7a.E.20.3: emoji nativo (paleta unificada do PWA), em vez do pill texto "BR"/"US".
-    const bandeira = pick.categoria === "EUA" ? "🇺🇸" : "🇧🇷";
-    const bandeiraLabel = pick.categoria === "EUA" ? "Estados Unidos" : "Brasil";
+    // 7a.E.20.3 CRB fix: bandeira vem do pipeline (pick.bandeira via schema v2.12).
+    // Fallback via categoria preserva compat com mocks legados que não trazem
+    // o campo; em produção `pick.bandeira` é sempre populado pelo pipeline.
+    const bandeira = pick.bandeira || (pick.categoria === "EUA" ? "🇺🇸" : "🇧🇷");
+    const bandeiraLabel = bandeira === "🇺🇸" ? "Estados Unidos" : "Brasil";
     return {
       ticker: pick.ticker,
       cotas: cotas,
