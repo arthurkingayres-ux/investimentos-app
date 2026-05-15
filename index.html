@@ -99,7 +99,7 @@
           <template x-for="escopo in escoposRentabilidade12m" :key="escopo.key">
             <div class="rent-escopo">
               <div class="rent-header">
-                <span class="bandeira" aria-hidden="true" x-text="escopo.flag"></span>
+                <span class="flag" aria-hidden="true" x-text="escopo.flag"></span>
                 <span x-text="escopo.key"></span>
               </div>
 
@@ -184,7 +184,7 @@
               </div>
               <template x-for="item in json.ultimo_aporte.itens" :key="item.ticker">
                 <a class="aporte-item aporte-item-link" :href="'#ativo/' + item.ticker">
-                  <span class="aporte-bandeira" aria-hidden="true" x-text="item.bandeira"></span>
+                  <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
                   <div class="aporte-detalhes">
                     <span class="aporte-ticker" x-text="item.ticker"></span>
                     <span class="aporte-meta"
@@ -466,7 +466,7 @@
           <div class="ativo-corpo">
             <div class="ticker-hero">
               <h2>
-                <span class="ticker-bandeira" aria-hidden="true" x-text="bandeiraDaPosicao(posicaoAtual)"></span>
+                <span class="flag" aria-hidden="true" x-text="bandeiraDaPosicao(posicaoAtual)"></span>
                 <span x-text="posicaoAtual.ticker"></span>
               </h2>
               <p class="ticker-classe" x-text="posicaoAtual.classe"></p>
@@ -730,7 +730,7 @@
             <ul class="aporte-compras">
               <template x-for="row in cat.compras" :key="row.ticker">
                 <li class="aporte-compra-row">
-                  <span class="aporte-compra-flag" :aria-label="row.bandeiraLabel" x-text="row.bandeira"></span>
+                  <span class="flag" :aria-label="row.bandeiraLabel" x-text="row.bandeira"></span>
                   <span class="aporte-compra-main">
                     <span class="aporte-compra-tk" x-text="row.ticker"></span>
                     <span class="aporte-compra-sub" x-text="`Nota ${row.nota}/10 · ${row.pesoIntraPct}% da categoria`"></span>

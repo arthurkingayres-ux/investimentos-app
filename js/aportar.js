@@ -156,7 +156,8 @@
 
   // ── Montagem de linha de compra ───────────────────────────────────────
   function _montarLinha(pick, cotas, valor_real) {
-    const bandeira = pick.categoria === "EUA" ? "US" : "BR";
+    // 7a.E.20.3: emoji nativo (paleta unificada do PWA), em vez do pill texto "BR"/"US".
+    const bandeira = pick.categoria === "EUA" ? "🇺🇸" : "🇧🇷";
     const bandeiraLabel = pick.categoria === "EUA" ? "Estados Unidos" : "Brasil";
     return {
       ticker: pick.ticker,

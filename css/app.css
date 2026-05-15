@@ -288,9 +288,19 @@ h1 {
   margin-bottom: 0.6rem;
 }
 
-.rent-header .bandeira {
-  font-size: 1.05rem;
+/* Bandeira de origem — classe única em toda lista de ativo (7a.E.20.3).
+   Tamanho padrão é o do raio-x (~17px). Telas que precisam de tamanho diferente
+   (drilldown #ativo, card "último aporte") sobrescrevem via seletor contextual. */
+.flag {
+  font-size: 1.0625rem;       /* 17px */
   line-height: 1;
+  display: inline-block;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.rent-header .flag {
+  font-size: 1.05rem;
 }
 
 /* 7a.E.15: layout inline horizontal universal nos 3 cards do raio-x — XIRR e TWR
@@ -603,11 +613,6 @@ h1 {
 
 .aporte-item + .aporte-item {
   border-top: 1px solid var(--neutral-100);
-}
-
-.aporte-bandeira {
-  font-size: 1rem;
-  line-height: 1;
 }
 
 .aporte-detalhes {
@@ -1046,7 +1051,7 @@ footer.rodape code {
   gap: 8px;
 }
 
-.ticker-bandeira {
+.ticker-hero .flag {
   font-size: 1.75rem;
 }
 
@@ -1769,19 +1774,6 @@ footer.rodape code {
 }
 .aporte-compra-row:last-child { border-bottom: none; }
 
-.aporte-compra-flag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--neutral-200);
-  color: var(--ink);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 .aporte-compra-main {
   display: flex;
   flex-direction: column;
