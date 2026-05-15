@@ -20,14 +20,20 @@ PWA mobile-first como projeção read-only da carteira de investimentos do usuá
 
 Sucesso = **confiança absoluta nos números** (todo dado rastreável ao documento-fonte) + **acesso instantâneo** (mobile, offline-first, PIN-gated) + **mínimo esforço de manutenção** (ingestão automatizada via Drive Inbox PWA + skills do Claude Code que orquestram o pipeline). Não é um aplicativo de trading, não é um broker, não é um agregador SaaS multi-conta — é o raio-X privado de uma carteira específica, otimizado para clareza de leitura sob restrição de tempo.
 
-O PWA carrega 7 telas via hash routing:
-- `#` — Raio-X consolidado (KPIs, alocação resumida, últimos movimentos)
-- `#patrimonio` — Curva de equity histórica + decomposição aporte × retorno
-- `#rentabilidade` — TWR/XIRR vs benchmarks por janela (Origem/YTD/12m), com toggle BRL/USD para EUA
-- `#alocacao` — Breakdown por classe (BR/EUA/FII/Cripto)
-- `#politica` — Política de alocação (notas + pesos derivados, ver `config/alocacao.yaml`)
-- `#proventos` — Rendimentos por ano/mês com drilldown por ticker
-- `#ativo/:ticker` — Drilldown por ativo (KPIs, movimentos, proventos, posição)
+**Nav model: bottom tab bar fixa, 5 destinos top-level.** Indicator 2px no topo da tab ativa; safe-area iOS honored. Tab bar persiste em telas de push (`#ativo/:ticker`, `#/raiox/chart`); some apenas na PIN screen.
+
+Tabs (top-level):
+- **Raio-X** (`#`) — hero patrimônio + sparkline 12m + último aporte + 4 chips inline (rent / aloca / provent / política) + CTA aportar. Cabe em 1 viewport (~520px de conteúdo em 722px úteis em 375×812).
+- **Rentabilidade** (`#rentabilidade`) — XIRR/TWR vs benchmarks por janela (Origem · 12m · YTD) com toggle BRL/USD para grupo EUA. 3 grupos (Brasil · EUA · Cripto).
+- **Alocação** (`#alocacao`) — segmented `Atual · Alvo`. Atual: classes (BR/EUA/FII/Cripto) com trilha + drilldown por ticker. Alvo: política (notas 0-10 + pesos derivados, ver `config/alocacao.yaml`).
+- **Proventos** (`#proventos`) — toggle Mensal / Anual + chart ECharts + drilldown mês × ativo.
+- **Aportar** (`#aportar`) — executor de política: valor → cotas (cap-5 picks, zero sobra).
+
+Push (não-tab, mantém tab bar):
+- `#/raiox/chart` — patrimônio full-screen (curva de equity + decomposição aporte × retorno). Acessado via tap na sparkline / hero do Raio-X.
+- `#ativo/:ticker` — drilldown por ativo (KPIs, movimentos, proventos, posição). Acessado de qualquer lista (Alocação, Proventos, Aportar).
+
+Legacy shims (rotas antigas redirecionam, `history.replaceState`): `#patrimonio` → `#/raiox/chart`; `#politica` → `#alocacao?v=alvo`.
 
 ## Brand Personality
 

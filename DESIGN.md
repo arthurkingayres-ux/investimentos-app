@@ -8,7 +8,7 @@
 
 **Calmo, denso, médico.** Layout flat com hierarquia tipográfica clara, paleta teal-quente sobre warm-neutral (não cool gray, não pure white), sombras suavemente tintadas para a cor do brand, motion mínimo (pin shake + chevron rotation + card lift sutil). Densidade calibrada por contexto: raio-X home é airy (cards generosos, ≤5 elementos por viewport); telas de drilldown (#ativo, #proventos) são densas (tabelas com tabular-nums, KPIs em grid 2-col ou 3-col).
 
-Variance baseline: **5/10** (assimetria pontual, não cinemática). Motion: **3/10** (estática + microtransições funcionais, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
+Variance baseline: **6.5/10** (assimetria pontual + tipografia Monument no hero + tab bar como elemento de identidade). Motion: **4.5/10** (cross-fade tabs + indicator slide + count-up hero + push slides + segmented; tudo gated por `prefers-reduced-motion`, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
 
 ---
 
@@ -183,6 +183,62 @@ Card sólido `var(--g-900)` (teal escuro), sombra padrão de cards, sem gradient
 
 Distill 7a.G.2 removeu o `radial-gradient + linear-gradient + ::after`, reduziu `.hero-valor` de 2.625rem peso 800 → 2rem peso 700, e tornou `.hero-delta` flat (sem glassmorphism). DESIGN.md ↔ implementação reconciliados (sem mais "hero metric template" banido).
 
+### Hero Monument (raio-x, 7a.I.2)
+
+Variant tipográfica do hero quando renderizado dentro do shell de tab bar. Mantém o card sólido `--g-900` flat (sem gradient/glassmorphism — anti-pattern #8 vigente); a diferença vs hero padrão é apenas a fonte mono + escala + tracking. Escolha de identidade ("Monument"), não decoração.
+
+```css
+.hero-valor-monument {
+  font-family: var(--mono);            /* ui-monospace stack — não custom font */
+  font-size: var(--hero-mono-size);    /* 3.25rem */
+  font-weight: 800;
+  letter-spacing: var(--hero-mono-tracking);  /* -0.025em */
+  font-variant-numeric: tabular-nums;
+  line-height: 1.0;
+  color: #fff;
+}
+```
+
+Sparkline 12m sob o hero (canvas ECharts 110px alt) usa setup inline em `js/raiox.js` (não preset de `js/echarts-theme.js`): grid colado às bordas, eixos ocultos, linha 1.5px `--g-700` + areaStyle `--g-700-12`, `animation: false` (o motion da entrada é o count-up do hero, não a sparkline). Caller único — extrair preset seria YAGNI; cor + área lêem tokens do `:root` via `readToken`, então drift contra a paleta é impossível.
+
+### Tab bar (Monument)
+
+Bottom nav fixa, 5 destinos text-only (sem ícones), indicator 2px no **topo** da tab ativa que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todas as tabs — não é pseudo `::before` por tab.
+
+```css
+.tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--tab-bar-bg);
+  border-top: 1px solid var(--tab-bar-border);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  z-index: 100;
+}
+.tab-bar a {
+  font-size: 13px; font-weight: 600;
+  color: var(--tab-inactive);
+  letter-spacing: 0.02em;
+  min-height: 44px;
+}
+.tab-bar a[aria-current="page"] { color: var(--tab-active); }
+.tab-bar-indicator {
+  position: absolute; top: 0;
+  height: var(--tab-indicator-height);
+  background: var(--tab-active);
+  transform: translateX(var(--tab-indicator-x, 0px));
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+```
+
+**Tokens:** `--tab-bar-height: 56px`, `--tab-bar-bg: var(--neutral-50)`, `--tab-bar-border: var(--neutral-200)`, `--tab-active: var(--g-900)`, `--tab-inactive: var(--gray)`, `--tab-indicator-height: 2px`.
+
+**Persistência:** visível nas 5 tabs e nas telas de push (`#ativo/:ticker`, `#/raiox/chart`). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
+
+**Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 ativa / 400 inativa, color shift `--gray` → `--g-900`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + tracking + indicator.
+
 ### Card (padrão)
 Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
 
@@ -319,6 +375,8 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
 22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
 23. **Stagger entre elementos > 50ms.** Default em barras é 30ms.
+24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600/400 + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
+25. **Bottom-underline cliché** em tab ativa (linha grossa colorida abaixo do label, padrão Material/Bootstrap). O app usa indicator 2px no **topo** da tab — escolha estética + reduz competição visual com border-top da própria tab bar.
 
 ---
 
@@ -358,6 +416,13 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Teal    */        --teal-14  rgba(20,184,166,0.14)
 /* G-900   */        --g-900-04 rgba(6,78,59,0.04)
                      --g-900-07 rgba(6,78,59,0.07)
+
+/* Mono (Monument) */ --mono ui-monospace, SF Mono, Cascadia Mono, JetBrains Mono, Menlo, Consolas
+                      --hero-mono-size 3.25rem  --hero-mono-tracking -0.025em
+
+/* Tab bar */        --tab-bar-height 56px  --tab-bar-bg var(--neutral-50)
+                     --tab-bar-border var(--neutral-200)  --tab-active var(--g-900)
+                     --tab-inactive var(--gray)  --tab-indicator-height 2px
 
 /* Class dots */     EUA #0284c7  FIIs #f59e0b  Ações BR #047857  Cripto #a855f7
 
