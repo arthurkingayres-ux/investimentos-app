@@ -9,6 +9,10 @@ const FIXTURE = fs.readFileSync(
 
 test.use({ viewport: { width: 390, height: 844 } });
 
+// 7a.I.4: a antiga `tela-politica` foi fundida na tab Aloca via segmented
+// toggle Atual/Alvo. Os testes abaixo navegam por `#politica` (shim legado)
+// que redireciona para `#alocacao?v=alvo` e expõe os mesmos `politica-card`
+// dentro de `.tela-alocacao`.
 async function abrirPolitica(page: Page) {
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
@@ -23,14 +27,14 @@ async function abrirPolitica(page: Page) {
   await page.goto("/");
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#politica");
-  await expect(page.locator(".tela-politica")).toBeVisible();
-  await expect(page.locator(".politica-card").first()).toBeVisible();
+  await expect(page.locator(".tela-alocacao")).toBeVisible();
+  await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
 }
 
-test.describe("Tela #politica", () => {
+test.describe("Política (view Alvo dentro de #alocacao)", () => {
   test("renderiza cards das categorias sem horizontal scroll em iPhone retrato", async ({ page }) => {
     await abrirPolitica(page);
-    const cards = await page.locator(".politica-card").count();
+    const cards = await page.locator(".tela-alocacao .politica-card").count();
     expect(cards).toBeGreaterThan(0);
     const overflow = await page.evaluate(
       () =>
@@ -40,9 +44,9 @@ test.describe("Tela #politica", () => {
     expect(overflow).toBe(false);
   });
 
-  test("default ao entrar em #politica: todas as seções fechadas", async ({ page }) => {
+  test("default ao entrar em política: todas as seções fechadas", async ({ page }) => {
     await abrirPolitica(page);
-    const cards = page.locator(".politica-card");
+    const cards = page.locator(".tela-alocacao .politica-card");
     const count = await cards.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {
@@ -56,7 +60,7 @@ test.describe("Tela #politica", () => {
 
   test("toggle abre e fecha sem persistir em localStorage", async ({ page }) => {
     await abrirPolitica(page);
-    const firstCard = page.locator(".politica-card").first();
+    const firstCard = page.locator(".tela-alocacao .politica-card").first();
     const firstHeader = firstCard.locator(".politica-header");
     await expect(firstCard).toHaveAttribute("data-collapsed", "true");
     await firstHeader.click();
@@ -69,23 +73,21 @@ test.describe("Tela #politica", () => {
     await expect(firstCard).toHaveAttribute("data-collapsed", "true");
   });
 
-  test("re-navegar para #politica reseta tudo para fechado", async ({ page }) => {
+  test("re-entrar em Alvo (via toggle) reseta tudo para fechado", async ({ page }) => {
     await abrirPolitica(page);
-    const firstCard = page.locator(".politica-card").first();
+    const firstCard = page.locator(".tela-alocacao .politica-card").first();
     await firstCard.locator(".politica-header").click();
     await expect(firstCard).toHaveAttribute("data-collapsed", "false");
-    // Mudança via location.hash dispara `hashchange` interno do SPA (sem
-    // reload), exercitando atualizarRota → hidratarColapsoPolitica.
-    await page.evaluate(() => { location.hash = "#alocacao"; });
-    await expect(page.locator(".tela-alocacao")).toBeVisible();
-    await page.evaluate(() => { location.hash = "#politica"; });
-    await expect(page.locator(".tela-politica")).toBeVisible();
-    await expect(page.locator(".politica-card").first()).toHaveAttribute("data-collapsed", "true");
+    // Toggle Atual → Alvo deve re-hidratar collapsedPolitica (todos fechados).
+    await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+    await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
+    await expect(page.locator(".tela-alocacao .politica-card").first()).toHaveAttribute("data-collapsed", "true");
   });
 
   test("status pills usam texto + ícone direcional", async ({ page }) => {
     await abrirPolitica(page);
-    const labels = await page.locator(".politica-pill").allTextContents();
+    const labels = await page.locator(".tela-alocacao .politica-pill").allTextContents();
     const matches = labels.filter((t) =>
       /aportar|pausar|fora da política|no alvo/i.test(t)
     );
@@ -97,26 +99,8 @@ test.describe("Tela #politica", () => {
 
   test("nota aparece como 'Nota X/N' numérico nos ativos", async ({ page }) => {
     await abrirPolitica(page);
-    // Pelo menos um ativo da grade deve mostrar a nota numericamente.
-    const notaTexts = await page.locator(".politica-nota").allTextContents();
+    const notaTexts = await page.locator(".tela-alocacao .politica-nota").allTextContents();
     expect(notaTexts.length).toBeGreaterThan(0);
     expect(notaTexts.some((t) => /Nota \d+\/\d+/.test(t))).toBe(true);
-  });
-
-  test("link 'Ver política' em #alocacao navega para #politica", async ({ page }) => {
-    await page.route("**/portfolio.json.enc", (route) =>
-      route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
-    );
-    await page.addInitScript(() => {
-      localStorage.setItem("pin", "123456");
-      localStorage.setItem(
-        "pinTimestamp",
-        String(Date.now() - 1 * 24 * 60 * 60 * 1000),
-      );
-    });
-    await page.goto("/#alocacao");
-    await expect(page.locator(".tela-alocacao")).toBeVisible();
-    await page.locator(".alocacao-politica-link").click();
-    await expect(page.locator(".tela-politica")).toBeVisible();
   });
 });

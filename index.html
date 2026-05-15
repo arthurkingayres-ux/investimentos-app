@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=27">
-  <script src="js/vendor/echarts.min.js?v=27"></script>
-  <script src="js/echarts-theme.js?v=27"></script>
-  <script src="js/crypto.js?v=27"></script>
-  <script src="js/format.js?v=27"></script>
-  <script src="js/aportar.js?v=27"></script>
-  <script src="js/raiox.js?v=27"></script>
-  <script src="js/app.js?v=27"></script>
-  <script defer src="js/vendor/alpine.min.js?v=27"></script>
+  <link rel="stylesheet" href="css/app.css?v=28">
+  <script src="js/vendor/echarts.min.js?v=28"></script>
+  <script src="js/echarts-theme.js?v=28"></script>
+  <script src="js/crypto.js?v=28"></script>
+  <script src="js/format.js?v=28"></script>
+  <script src="js/aportar.js?v=28"></script>
+  <script src="js/raiox.js?v=28"></script>
+  <script src="js/app.js?v=28"></script>
+  <script defer src="js/vendor/alpine.min.js?v=28"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -148,7 +148,7 @@
               x-text="formatBrl(json.proventos && json.proventos.ytd_brl) + ' ytd'"></span>
             <span class="chip-stat-arrow" aria-hidden="true">→</span>
           </a>
-          <a href="#politica" class="chip-stat" aria-label="Política de alocação">
+          <a href="#alocacao?v=alvo" class="chip-stat" aria-label="Política de alocação">
             <span class="chip-stat-key">política</span>
             <span class="chip-stat-val" x-text="chipPolitica(json).valor"></span>
             <span class="chip-stat-arrow" aria-hidden="true">→</span>
@@ -287,111 +287,115 @@
           <h1>Alocação</h1>
         </header>
 
-        <div class="alocacao-card">
-          <template x-for="classe in ['EUA', 'FIIs', 'Ações BR', 'Cripto']" :key="classe">
-            <div class="classe-bloco">
-              <div
-                class="classe-row"
-                :data-classe="classe"
-                @click="expandirClasse(classe)"
-                role="button"
-                tabindex="0"
-                @keydown.enter.prevent="expandirClasse(classe)"
-                @keydown.space.prevent="expandirClasse(classe)">
-                <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
-                <span class="classe-nome" x-text="classe"></span>
-                <span class="classe-pct">
-                  <span x-text="formatPctSemSinal(pctAtualClasse(classe))"></span>
-                  <span class="alvo-pct">alvo <span x-text="formatPctSemSinal(pctAlvoClasse(classe))"></span></span>
-                </span>
-                <span class="classe-arrow" x-text="classeExpandida === classe ? '▾' : '▸'"></span>
-              </div>
-              <div
-                class="classe-tickers"
-                :data-classe="classe"
-                x-show="classeExpandida === classe"
-                x-cloak>
-                <template x-for="p in tickersComPesos(classe)" :key="p.ticker">
-                  <a :href="'#ativo/' + p.ticker" class="ticker-row">
-                    <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
-                    <span class="ticker-name" x-text="p.ticker"></span>
-                    <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
-                    <span class="ticker-pct" x-text="formatPctSemSinal(p.peso_na_classe)"></span>
-                  </a>
-                </template>
-                <p class="ticker-empty" x-show="tickersComPesos(classe).length === 0">
-                  Nenhum ativo nesta classe.
-                </p>
-              </div>
-            </div>
-          </template>
+        <div class="aloca-segmented" role="tablist" aria-label="Vista de alocação">
+          <button type="button" role="tab"
+                  :aria-pressed="vAloca === 'atual'"
+                  :class="vAloca === 'atual' ? 'is-ativo' : ''"
+                  @click="selecionarVistaAloca('atual')">Atual</button>
+          <button type="button" role="tab"
+                  :aria-pressed="vAloca === 'alvo'"
+                  :class="vAloca === 'alvo' ? 'is-ativo' : ''"
+                  @click="selecionarVistaAloca('alvo')">Alvo</button>
         </div>
 
-        <a href="#politica" class="alocacao-politica-link">
-          Ver política de alocação <span aria-hidden="true">→</span>
-        </a>
-      </section>
+        <div class="aloca-vista" x-show="vAloca === 'atual'" x-transition.opacity.duration.280ms x-cloak>
+          <div class="alocacao-card">
+            <template x-for="classe in ['EUA', 'FIIs', 'Ações BR', 'Cripto']" :key="classe">
+              <div class="classe-bloco">
+                <div
+                  class="classe-row"
+                  :data-classe="classe"
+                  @click="expandirClasse(classe)"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter.prevent="expandirClasse(classe)"
+                  @keydown.space.prevent="expandirClasse(classe)">
+                  <span class="classe-dot" :class="'dot-' + classe.toLowerCase().replace(/\s+/g, '-').replace(/ç/g, 'c').replace(/õ/g, 'o').replace(/é/g, 'e')"></span>
+                  <span class="classe-nome" x-text="classe"></span>
+                  <span class="classe-pct">
+                    <span x-text="formatPctSemSinal(pctAtualClasse(classe))"></span>
+                    <span class="alvo-pct">alvo <span x-text="formatPctSemSinal(pctAlvoClasse(classe))"></span></span>
+                  </span>
+                  <span class="classe-arrow" x-text="classeExpandida === classe ? '▾' : '▸'"></span>
+                </div>
+                <div
+                  class="classe-tickers"
+                  :data-classe="classe"
+                  x-show="classeExpandida === classe"
+                  x-cloak>
+                  <template x-for="p in tickersComPesos(classe)" :key="p.ticker">
+                    <a :href="'#ativo/' + p.ticker" class="ticker-row">
+                      <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
+                      <span class="ticker-name" x-text="p.ticker"></span>
+                      <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
+                      <span class="ticker-pct" x-text="formatPctSemSinal(p.peso_na_classe)"></span>
+                    </a>
+                  </template>
+                  <p class="ticker-empty" x-show="tickersComPesos(classe).length === 0">
+                    Nenhum ativo nesta classe.
+                  </p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
 
-      <section class="tela-detalhes tela-politica" x-show="rota === 'politica'" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1>Política</h1>
-        </header>
+        <div class="aloca-vista" x-show="vAloca === 'alvo'" x-transition.opacity.duration.280ms x-cloak>
+          <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
+            Política não publicada ainda.
+          </p>
 
-        <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
-          Política não publicada ainda.
-        </p>
+          <template x-for="cat in (json && json.politica && json.politica.categorias) || []" :key="cat.nome">
+            <article class="politica-card" :data-collapsed="collapsedPolitica[cat.nome] ? 'true' : 'false'">
+              <button
+                class="politica-header"
+                type="button"
+                :aria-expanded="!collapsedPolitica[cat.nome]"
+                :aria-controls="'politica-body-' + cat.nome"
+                @click="togglePolitica(cat.nome)">
+                <span class="politica-categoria-nome" x-text="cat.nome"></span>
+                <span class="politica-categoria-peso" x-text="formatPctSemSinal(cat.peso_alvo)"></span>
+                <span class="politica-categoria-sub">
+                  <span x-text="'atual ' + formatPctSemSinal(cat.peso_atual)"></span>
+                  <span class="sep">·</span>
+                  <span :class="cat.drift >= 0 ? 'drift-pos' : 'drift-neg'"
+                    x-text="'drift ' + formatPctSinalPP(cat.drift)"></span>
+                </span>
+                <svg class="politica-chevron" aria-hidden="true" viewBox="0 0 12 12">
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"
+                        fill="none" stroke-linecap="round"/>
+                </svg>
+              </button>
 
-        <template x-for="cat in (json && json.politica && json.politica.categorias) || []" :key="cat.nome">
-          <article class="politica-card" :data-collapsed="collapsedPolitica[cat.nome] ? 'true' : 'false'">
-            <button
-              class="politica-header"
-              type="button"
-              :aria-expanded="!collapsedPolitica[cat.nome]"
-              :aria-controls="'politica-body-' + cat.nome"
-              @click="togglePolitica(cat.nome)">
-              <span class="politica-categoria-nome" x-text="cat.nome"></span>
-              <span class="politica-categoria-peso" x-text="formatPctSemSinal(cat.peso_alvo)"></span>
-              <span class="politica-categoria-sub">
-                <span x-text="'atual ' + formatPctSemSinal(cat.peso_atual)"></span>
-                <span class="sep">·</span>
-                <span :class="cat.drift >= 0 ? 'drift-pos' : 'drift-neg'"
-                  x-text="'drift ' + formatPctSinalPP(cat.drift)"></span>
-              </span>
-              <svg class="politica-chevron" aria-hidden="true" viewBox="0 0 12 12">
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"
-                      fill="none" stroke-linecap="round"/>
-              </svg>
-            </button>
-
-            <ul class="politica-ativos"
-                :id="'politica-body-' + cat.nome"
-                x-show="!collapsedPolitica[cat.nome]"
-                x-cloak>
-              <template x-for="ativo in cat.ativos" :key="ativo.ticker">
-                <li class="politica-ativo">
-                  <div class="politica-ativo-linha1">
-                    <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
-                    <span class="politica-ticker" x-text="ativo.ticker"></span>
-                    <span class="politica-nota"
-                          :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max"
-                          x-text="'Nota ' + ativo.nota + '/' + json.politica.escala_max"></span>
-                    <span class="politica-pill" :class="'pill-' + ativo.status"
-                          x-text="labelStatusPolitica(ativo.status)"></span>
-                  </div>
-                  <div class="politica-ativo-linha2">
-                    <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_intra)"></span>
-                    <span class="sep">·</span>
-                    <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
-                    <span class="sep">·</span>
-                    <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
-                          x-text="formatPctSinalPP(ativo.drift_intra)"></span>
-                  </div>
-                </li>
-              </template>
-            </ul>
-          </article>
-        </template>
+              <ul class="politica-ativos"
+                  :id="'politica-body-' + cat.nome"
+                  x-show="!collapsedPolitica[cat.nome]"
+                  x-cloak>
+                <template x-for="ativo in cat.ativos" :key="ativo.ticker">
+                  <li class="politica-ativo">
+                    <div class="politica-ativo-linha1">
+                      <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
+                      <span class="politica-ticker" x-text="ativo.ticker"></span>
+                      <span class="politica-nota"
+                            :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max"
+                            x-text="'Nota ' + ativo.nota + '/' + json.politica.escala_max"></span>
+                      <span class="politica-pill" :class="'pill-' + ativo.status"
+                            x-text="labelStatusPolitica(ativo.status)"></span>
+                    </div>
+                    <div class="politica-ativo-linha2">
+                      <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_intra)"></span>
+                      <span class="sep">·</span>
+                      <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
+                      <span class="sep">·</span>
+                      <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
+                            x-text="formatPctSinalPP(ativo.drift_intra)"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </article>
+          </template>
+        </div>
       </section>
 
       <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'" x-cloak>

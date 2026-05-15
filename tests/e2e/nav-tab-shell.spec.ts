@@ -62,9 +62,13 @@ test.describe("Tab bar shell (7a.I.1)", () => {
   });
 
   test("rota legada #politica mantem tab aloca ativa", async ({ page }) => {
+    // 7a.I.4: `#politica` foi fundida em `#alocacao?v=alvo`. O shim em
+    // `atualizarRota` faz `replaceState`, então a URL termina em
+    // `#alocacao?v=alvo` e a tab ativa continua sendo `aloca`.
     await autenticar(page);
     await page.goto("/#politica");
-    await expect(page.locator(".tela-politica")).toBeVisible();
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
+    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="aloca"]'),
     ).toHaveAttribute("aria-current", "page");

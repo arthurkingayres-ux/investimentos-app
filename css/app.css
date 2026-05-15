@@ -1374,30 +1374,49 @@ footer.rodape code {
   margin-top: 4px;
 }
 
-/* ── #politica (Fase 7a.E.16) ──────────────────────────────────────── */
+/* ── Aloca segmented Atual/Alvo (7a.I.4) ───────────────────────────── */
 
-.alocacao-politica-link {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 16px 16px 32px;
-  padding: 14px 16px;
-  border-radius: 12px;
+.aloca-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 16px 0 20px;
+  padding: 4px;
   background: var(--neutral-100);
-  color: var(--g-800);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
   border: 1px solid var(--neutral-200);
-}
-.alocacao-politica-link:hover,
-.alocacao-politica-link:focus-visible {
-  background: var(--neutral-200);
+  border-radius: 999px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.tela-politica {
-  padding: 16px 20px 80px;
+.aloca-segmented button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--gray);
+  cursor: pointer;
+  min-height: 36px;
+  transition: background 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              color 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.aloca-segmented button.is-ativo {
+  background: var(--neutral-50);
+  color: var(--g-900);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aloca-segmented button { transition: none; }
+}
+
+/* ── Política (view Alvo dentro de #alocacao, Fase 7a.E.16) ────────── */
 
 .politica-intro {
   margin: 24px 0;

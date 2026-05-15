@@ -45,6 +45,9 @@ document.addEventListener("alpine:init", () => {
     escopoAtivo: "Total",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     classeExpandida: null,
+    // 7a.I.4: vista corrente da tab Aloca (segmented Atual/Alvo).
+    // "alvo" expõe o conteúdo migrado da antiga tela `#politica`.
+    vAloca: "atual",
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
@@ -83,39 +86,52 @@ document.addEventListener("alpine:init", () => {
     },
 
     atualizarRota() {
-      // 7a.I.1: deriva tab top-level (1 de 5) de rota — tab fica visível na
-      // bottom tab bar. Mapping inclui rotas legadas (politica → tab aloca,
-      // patrimonio → tab raiox) que serão migradas em sub-fases posteriores.
+      // 7a.I.1/7a.I.4: deriva tab top-level (1 de 5) de rota. Hash pode trazer
+      // querystring (ex.: `#alocacao?v=alvo`) — separamos `path` e `params`.
       // #ativo/:ticker é push e PRESERVA a tab anterior (não reseta).
-      const h = (location.hash || "").replace(/^#/, "");
-      if (h === "") { this.rota = ""; this.tab = "raiox"; return; }
-      if (h === "rentabilidade") {
+      const raw = (location.hash || "").replace(/^#/, "");
+      const qIdx = raw.indexOf("?");
+      const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
+      const params = new URLSearchParams(qIdx === -1 ? "" : raw.slice(qIdx + 1));
+      if (path === "") { this.rota = ""; this.tab = "raiox"; return; }
+      if (path === "rentabilidade") {
         this.rota = "rentabilidade";
         this.tab = "rentab";
         // Hidrata o gráfico após Alpine renderizar a section.
         setTimeout(() => this.hidratarRentabilidade(), 0);
         return;
       }
-      if (h === "alocacao") { this.rota = "alocacao"; this.tab = "aloca"; return; }
-      if (h === "politica") {
-        this.rota = "politica";
+      if (path === "alocacao") {
+        this.rota = "alocacao";
         this.tab = "aloca";
+        const v = params.get("v") === "alvo" ? "alvo" : "atual";
+        this.vAloca = v;
+        if (v === "alvo") this.hidratarColapsoPolitica();
+        return;
+      }
+      if (path === "politica") {
+        // 7a.I.4 shim: `#politica` foi fundida em `#alocacao?v=alvo`.
+        // replaceState não dispara hashchange — sem loop com este handler.
+        history.replaceState(null, "", "#alocacao?v=alvo");
+        this.rota = "alocacao";
+        this.tab = "aloca";
+        this.vAloca = "alvo";
         this.hidratarColapsoPolitica();
         return;
       }
-      if (h === "proventos") {
+      if (path === "proventos") {
         this.rota = "proventos";
         this.tab = "provent";
         setTimeout(() => this.hidratarProventos(), 0);
         return;
       }
-      if (h === "patrimonio") {
+      if (path === "patrimonio") {
         this.rota = "patrimonio";
         this.tab = "raiox";
         setTimeout(() => this.hidratarPatrimonio(), 0);
         return;
       }
-      if (h === "aportar") {
+      if (path === "aportar") {
         this.rota = "aportar";
         this.tab = "aportar";
         this.hidratarAportar();
@@ -124,12 +140,22 @@ document.addEventListener("alpine:init", () => {
       // Limite de 16 chars cobre tickers BR/EUA + sintéticos longos como
       // AVNU_REBATE (Fase 7a.28). Caso surjam tickers com `.` (ex.: BRK.B),
       // expandir a charclass — nenhum ativo da carteira atual usa.
-      const m = h.match(/^ativo\/([A-Z0-9_-]{2,16})$/);
+      const m = path.match(/^ativo\/([A-Z0-9_-]{2,16})$/);
       if (m) { this.rota = "ativo"; this.tickerAtual = m[1]; return; /* tab preserva valor anterior */ }
       // Fallback: hash inválido vira raio-x sem entrar no histórico.
       history.replaceState(null, "", location.pathname + location.search);
       this.rota = "";
       this.tab = "raiox";
+    },
+
+    selecionarVistaAloca(v) {
+      // 7a.I.4: troca a view do segmented Atual/Alvo. replaceState mantém
+      // a entry atual no histórico (back-button volta para a tela anterior,
+      // não para a outra vista).
+      if (v !== "atual" && v !== "alvo") return;
+      this.vAloca = v;
+      history.replaceState(null, "", "#alocacao?v=" + v);
+      if (v === "alvo") this.hidratarColapsoPolitica();
     },
 
     voltar() {
