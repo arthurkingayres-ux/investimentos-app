@@ -28,15 +28,33 @@ Teal-quente como protagonista, neutros warm como base. Saturação contida (<60%
 - `--teal: #14b8a6` — Accent teal puro. Usado em hero radial highlight e outline focus de hero-link/política.
 
 ### Semantic
-- `--amber: #f59e0b` — Warning. Cripto-related, drift positivo, classe-dot.dot-fiis, gradient end de proventos-ytd.
+- `--amber: #f59e0b` — Warning. Drift positivo, gradient end de proventos-ytd. (Não é mais a cor de FII desde 7a.E.20.)
 - `--amber-light: #fbbf24` — Reserva (não em uso atual).
 - `--red: #b91c1c` — Danger / perda. PIN error, chip.is-neg, lado-S, kpi-valor.is-neg, drift-neg.
 
-### Cores secundárias por classe (alocação)
-- EUA: `#0284c7` (sky blue) — `.classe-dot.dot-eua`
-- FIIs: `var(--amber)` — `.classe-dot.dot-fiis`
-- Ações BR: `var(--g-700)` — `.classe-dot.dot-acoes-br`
-- Cripto: `#a855f7` (purple) — `.classe-dot.dot-cripto`
+### Identidade — Paleta oficial de categorias (7a.E.20)
+
+Cada categoria de ativo tem um token semântico em `:root` que é a **fonte única**. CSS, JS e o tema ECharts derivam dali (via `var(--cat-*)` no CSS e `getComputedStyle` no JS) — drift impossível por construção.
+
+| Categoria | Hex | Token semântico |
+|---|---|---|
+| Ações BR | `#047857` | `--cat-acoes-br` |
+| EUA | `#1e6091` | `--cat-eua` |
+| FIIs | `#b8731f` | `--cat-fii` |
+| Cripto | `#6d4ea8` | `--cat-cripto` |
+
+Regras:
+- Hex hardcoded fora de `:root` para essas 4 cores é proibido. Sempre `var(--cat-*)` em CSS ou `getComputedStyle(...).getPropertyValue('--cat-*')` em JS.
+- Tema ECharts `drarthur` deriva o array `color` via helper `readToken` (`js/echarts-theme.js`). Slots 0-3 são as 4 categorias na ordem [Ações BR, EUA, FII, Cripto]; slots 4+ são tokens secundários.
+- Intensidade: cor aparece em **dot 8-12px** (`.classe-dot.dot-*`) e nas séries de gráfico do PWA. **Texto nunca é colorido por categoria** — hierarquia tipográfica carrega o peso.
+
+### Bandeira de origem (7a.E.20)
+
+- Forma: emoji nativo `🇧🇷` / `🇺🇸`, classe global `.flag` (17px default, com overrides contextuais para hero/raio-x).
+- Posição: primeiro elemento da row de ativo (`.flag` antes do ticker).
+- Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes: posicoes, politica.categorias[].ativos, proventos.por_ativo_origem, proventos.por_ativo_12m, proventos.mensal_12m[].por_ativo).
+- Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, #rentabilidade card hero, card "último aporte", #ativo/:ticker header).
+- Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs / Cripto) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
 
 ### Neutrals (warm-tinted)
 - `--ink: #1a1d1c` — Primary text. Levemente tintado pra warm (não pure black).

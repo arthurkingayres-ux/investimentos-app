@@ -70,6 +70,8 @@ Emoções que o app deve EVITAR:
 
 5. **PWA como projeção, não fonte.** O app NUNCA escreve no SQLite. Se um dado parece errado no PWA, a correção é no pipeline backend, não no JSON exibido. Essa restrição protege a integridade da fonte de verdade.
 
+6. **Cor e bandeira codificam taxonomias ortogonais.** Cor = categoria contábil (Ações BR / EUA / FIIs / Cripto), aparece em dots e séries de gráfico. Bandeira = país de listagem do ativo (BR / EUA), aparece em toda linha de ativo individual. As duas convivem porque respondem perguntas diferentes ("a que classe isso pertence?" vs "onde isso é negociado?") — não substituem uma à outra.
+
 ## Accessibility & Inclusion
 
 - **Toques de 44px+** em todos os elementos interativos.
