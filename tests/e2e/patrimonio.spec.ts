@@ -25,7 +25,7 @@ async function autenticar(page: Page) {
 test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
   test("rota #patrimonio mostra 3 KPIs com valores em BRL", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
+    await page.goto("/#/raiox/chart");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
 
     const kpis = page.locator(".tela-patrimonio .kpi");
@@ -39,7 +39,7 @@ test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
 
   test("KPI 'Retorno acumulado' mostra percentual com sinal", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
+    await page.goto("/#/raiox/chart");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
 
     const meta = page.locator(".tela-patrimonio .kpi-meta").first();
@@ -50,7 +50,7 @@ test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
 
   test("gráfico patrimonio renderiza com canvas (ECharts)", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
+    await page.goto("/#/raiox/chart");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
 
     const canvas = page.locator("#patrimonio-grafico canvas[data-zr-dom-id]").first();
@@ -59,7 +59,7 @@ test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
 
   test("hover no gráfico patrimonio mostra tooltip custom drarthur", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
+    await page.goto("/#/raiox/chart");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator("#patrimonio-grafico canvas[data-zr-dom-id]").first()).toBeVisible({ timeout: 5_000 });
 
@@ -78,7 +78,7 @@ test.describe("7a.E.6 — Tela Histórico Patrimonial", () => {
 
   test("aporte cumulativo é monotônico (consistência da fixture)", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
+    await page.goto("/#/raiox/chart");
     await expect(page.locator(".tela-patrimonio")).toBeVisible({ timeout: 10_000 });
 
     const monotonico = await page.evaluate(() => {

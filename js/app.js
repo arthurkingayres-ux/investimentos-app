@@ -89,6 +89,8 @@ document.addEventListener("alpine:init", () => {
       // 7a.I.1/7a.I.4: deriva tab top-level (1 de 5) de rota. Hash pode trazer
       // querystring (ex.: `#alocacao?v=alvo`) — separamos `path` e `params`.
       // #ativo/:ticker é push e PRESERVA a tab anterior (não reseta).
+      // 7a.I.5: rotas push-child usam `/` líder no path (ex.: `/raiox/chart`)
+      // — `replace(/^#/, "")` mantém a barra. Rotas top-level são sem barra.
       const raw = (location.hash || "").replace(/^#/, "");
       const qIdx = raw.indexOf("?");
       const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
@@ -1003,6 +1005,11 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "alocacao" && this.vAloca === "alvo") {
           this.hidratarColapsoPolitica();
         }
+        // 7a.I.5: cold-start em `#/raiox/chart` chamou hidratarPatrimonio
+        // antes do json — gráfico ECharts não renderiza no primeiro tick.
+        if (this.rota === "patrimonio") {
+          this.hidratarPatrimonio();
+        }
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
         this.limparSessao();
@@ -1191,6 +1198,11 @@ document.addEventListener("alpine:init", () => {
         // json null. Re-hidrata pra zerar collapsedPolitica (default todas fechadas).
         if (this.rota === "alocacao" && this.vAloca === "alvo") {
           this.hidratarColapsoPolitica();
+        }
+        // 7a.I.5: mesmo padrão — bookmark direto de `#/raiox/chart` precisa
+        // re-hidratar o gráfico depois que `json` chegou via submitPin.
+        if (this.rota === "patrimonio") {
+          this.hidratarPatrimonio();
         }
       } catch (err) {
         console.error("decifra falhou", err);
