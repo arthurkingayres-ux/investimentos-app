@@ -127,13 +127,20 @@
   }
 
   // ── Modo balanceado / sobra: distribui proporcional aos pesos-alvo ────
+  // Renormaliza pelos pesos-alvo presentes — se a soma for < 1.0 (YAML
+  // mal-calibrado ou cats filtradas), o valor residual não é descartado.
   function distribuirProporcionalPesoAlvo(valor, portfolio, preco_brl_por_ticker) {
     const resultado = [];
     const cats = (portfolio.politica && portfolio.politica.categorias) || [];
+    const total_peso = cats.reduce(
+      (acc, c) => acc + Math.max(0, c.peso_alvo || 0),
+      0,
+    );
+    if (total_peso <= 0) return resultado;
     for (const cat of cats) {
       const peso = cat.peso_alvo || 0;
       if (peso <= 0) continue;
-      const valor_cat = valor * peso;
+      const valor_cat = valor * (peso / total_peso);
       const ativos_validos = _ativosValidos(cat, preco_brl_por_ticker);
       if (ativos_validos.length === 0) continue;
       const compras =
@@ -178,15 +185,20 @@
     const cats = portfolio.politica.categorias;
     const preco_brl_por_ticker = derivarPrecoBrlPorTicker(portfolio);
 
-    // Quarentena: tickers com nota==0 OU status "pausar". Ambos significam
-    // "não comprar agora". `fora_da_politica` (nota==0) é permanente;
-    // `pausar` é temporário (drift_intra > +0.10).
+    // Quarentena: tickers com nota==0 OU status "pausar" OU status
+    // "fora_da_politica". Os três significam "não comprar agora".
+    // `fora_da_politica` (nota==0) é permanente; `pausar` é temporário
+    // (drift_intra > +0.10). Predicado simétrico ao de `_ativosValidos`.
     const quarentena = [];
     const tickersSemPosicao = [];
     for (const cat of cats) {
       const ativos = cat.ativos || [];
       for (const a of ativos) {
-        if ((a.nota || 0) === 0 || a.status === "pausar") {
+        if (
+          (a.nota || 0) === 0 ||
+          a.status === "pausar" ||
+          a.status === "fora_da_politica"
+        ) {
           quarentena.push(a.ticker);
         } else if (preco_brl_por_ticker[a.ticker] == null) {
           tickersSemPosicao.push(a.ticker);
@@ -293,7 +305,7 @@
 
     // Sobra: capital restante após fechar todos os gaps
     let banner = null;
-    if (capital_restante > 0.5) {
+    if (capital_restante > 0) {
       const distribuicao = distribuirProporcionalPesoAlvo(
         capital_restante,
         portfolio,
