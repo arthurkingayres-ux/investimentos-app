@@ -44,12 +44,22 @@ async function abrirAportarComMock(page: Page, override: any) {
   await page.goto("/");
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   // Aplica override no estado Alpine usando a referência exposta via x-data.
+  // Throw se Alpine.$data não devolver o componente — evita falha silenciosa
+  // do mock (testes passariam com fixture default em vez do override).
   await page.evaluate(() => {
     const root = document.body;
     const $data = (window as any).Alpine?.$data?.(root);
-    if ($data && (window as any).__aporteOverride) {
-      Object.assign($data.json, (window as any).__aporteOverride);
+    if (!$data) {
+      throw new Error(
+        "abrirAportarComMock: Alpine.$data(document.body) é undefined — override não aplicado",
+      );
     }
+    if (!(window as any).__aporteOverride) {
+      throw new Error(
+        "abrirAportarComMock: window.__aporteOverride ausente",
+      );
+    }
+    Object.assign($data.json, (window as any).__aporteOverride);
   });
   await page.goto("/#aportar");
   await expect(page.locator(".tela-aportar")).toBeVisible();
@@ -221,8 +231,62 @@ test.describe("Tela #aportar", () => {
   test("quarentena lista tickers com nota 0 ou status pausar", async ({
     page,
   }) => {
-    // Fixture padrão tem GRND3 (nota=0) e ITSA4 (status="pausar")
-    await abrirAportar(page);
+    // Cenário explícito: GRND3 com nota=0 e ITSA4 com status="pausar" —
+    // independente de evolução da fixture default.
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: [
+        { ticker: "BBAS3", quantidade: 100, valor_mercado_brl: 2500 },
+        { ticker: "GRND3", quantidade: 50, valor_mercado_brl: 1500 },
+        { ticker: "ITSA4", quantidade: 200, valor_mercado_brl: 2000 },
+      ],
+      politica: {
+        escala_max: 10,
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 1.0,
+            peso_atual: 0.06,
+            drift: -0.94,
+            ativos: [
+              {
+                ticker: "BBAS3",
+                nota: 4,
+                peso_intra: 1.0,
+                peso_intra_atual: 0.42,
+                peso_alvo: 1.0,
+                peso_atual: 0.025,
+                drift: -0.975,
+                drift_intra: -0.58,
+                status: "aportar",
+              },
+              {
+                ticker: "GRND3",
+                nota: 0,
+                peso_intra: 0.0,
+                peso_intra_atual: 0.25,
+                peso_alvo: 0.0,
+                peso_atual: 0.015,
+                drift: 0.015,
+                drift_intra: 0.25,
+                status: "fora_da_politica",
+              },
+              {
+                ticker: "ITSA4",
+                nota: 3,
+                peso_intra: 0.0,
+                peso_intra_atual: 0.33,
+                peso_alvo: 0.0,
+                peso_atual: 0.02,
+                drift: 0.02,
+                drift_intra: 0.33,
+                status: "pausar",
+              },
+            ],
+          },
+        ],
+      },
+    });
     await page.locator(".aporte-input").fill("1000");
     await page.waitForTimeout(300);
     const quarentenaText = await page
