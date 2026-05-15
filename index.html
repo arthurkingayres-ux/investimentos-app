@@ -289,16 +289,16 @@
 
         <div class="aloca-segmented" role="tablist" aria-label="Vista de alocação">
           <button type="button" role="tab"
-                  :aria-pressed="vAloca === 'atual'"
+                  :aria-selected="vAloca === 'atual'"
                   :class="vAloca === 'atual' ? 'is-ativo' : ''"
                   @click="selecionarVistaAloca('atual')">Atual</button>
           <button type="button" role="tab"
-                  :aria-pressed="vAloca === 'alvo'"
+                  :aria-selected="vAloca === 'alvo'"
                   :class="vAloca === 'alvo' ? 'is-ativo' : ''"
                   @click="selecionarVistaAloca('alvo')">Alvo</button>
         </div>
 
-        <div class="aloca-vista" x-show="vAloca === 'atual'" x-transition.opacity.duration.280ms x-cloak>
+        <div class="aloca-vista" x-show="vAloca === 'atual'" x-cloak>
           <div class="alocacao-card">
             <template x-for="classe in ['EUA', 'FIIs', 'Ações BR', 'Cripto']" :key="classe">
               <div class="classe-bloco">
@@ -340,7 +340,7 @@
           </div>
         </div>
 
-        <div class="aloca-vista" x-show="vAloca === 'alvo'" x-transition.opacity.duration.280ms x-cloak>
+        <div class="aloca-vista" x-show="vAloca === 'alvo'" x-cloak>
           <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
             Política não publicada ainda.
           </p>

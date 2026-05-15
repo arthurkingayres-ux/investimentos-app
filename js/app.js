@@ -987,6 +987,12 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "aportar") {
           this.hidratarAportar();
         }
+        // 7a.I.4: cold-start em `#alocacao?v=alvo` chamou hidratarColapsoPolitica
+        // antes de `json` carregar (atualizarRota foi disparado em init pré-resume).
+        // Re-hidrata agora pra zerar collapsedPolitica (default todas fechadas).
+        if (this.rota === "alocacao" && this.vAloca === "alvo") {
+          this.hidratarColapsoPolitica();
+        }
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
         this.limparSessao();
@@ -1170,6 +1176,12 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         this.resetarFalhas();
         this.fase = "raiox";
+        // 7a.I.4: cold-start em `#alocacao?v=alvo` (sem PIN em localStorage) chega
+        // aqui após o usuário digitar PIN; atualizarRota pré-resume já rodou com
+        // json null. Re-hidrata pra zerar collapsedPolitica (default todas fechadas).
+        if (this.rota === "alocacao" && this.vAloca === "alvo") {
+          this.hidratarColapsoPolitica();
+        }
       } catch (err) {
         console.error("decifra falhou", err);
         this.registrarFalha();
