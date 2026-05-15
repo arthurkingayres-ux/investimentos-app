@@ -276,6 +276,20 @@ Gráficos do PWA usam motion calibrada — mais expressiva que o resto do app, m
 
 Todas as 4 regras zeram via `prefers-reduced-motion: reduce`. Single source of truth: `js/echarts-theme.js` exporta `window.drarthurChart.motionConfig` (rebuilds on MediaQueryList change).
 
+### Motion de navegação (app shell, Fase 7a.I.6)
+
+App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo médico" — sem slide cliché iOS, sem swoosh:
+
+| Animação | Duração | Curva | Property | Reduced-motion |
+|---|---|---|---|---|
+| Tab cross-fade (conteúdo) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
+| Tab indicator slide | 220ms | cubic-bezier(0.16,1,0.3,1) | transform translateX | zera |
+| Hero count-up (Raio-X) | 700ms | cubic-out via RAF | textContent | reveal instantâneo; flag em sessionStorage limita a 1×/sessão |
+| Push #ativo / #/raiox/chart | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
+| Segmented Aloca (Atual/Alvo) | 280ms | cubic-bezier(0.16,1,0.3,1) | opacity + transform | zera |
+
+**Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
+
 ---
 
 ## Anti-patterns banidos

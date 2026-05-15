@@ -81,13 +81,13 @@ test.describe("Tab bar shell (7a.I.1)", () => {
     await expect(page.locator(".tab-bar")).toHaveCount(0);
   });
 
-  test("tab bar tem indicator 2px no topo da tab ativa", async ({ page }) => {
+  test("tab bar tem indicator 2px no topo (elemento único compartilhado, 7a.I.6)", async ({ page }) => {
     await autenticar(page);
-    const tabRaiox = page.locator('.tab-bar a[data-tab="raiox"]');
-    const indicatorHeight = await tabRaiox.evaluate((el) => {
-      const style = window.getComputedStyle(el, "::before");
-      return style.height;
-    });
-    expect(indicatorHeight).toBe("2px");
+    // 7a.I.6: pseudo ::before por-tab foi trocado por um único .tab-bar-indicator
+    // que desliza via transform translateX. A regra estética (2px no topo) continua.
+    const indicator = page.locator(".tab-bar-indicator");
+    await expect(indicator).toHaveCount(1);
+    const height = await indicator.evaluate((el) => window.getComputedStyle(el).height);
+    expect(height).toBe("2px");
   });
 });

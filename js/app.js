@@ -82,6 +82,21 @@ document.addEventListener("alpine:init", () => {
       });
       window.addEventListener("hashchange", () => this.atualizarRota());
       this.atualizarRota();
+      // 7a.I.6: posiciona indicator. A tab-bar só vira DOM quando fase virar
+      // 'raiox' (template x-if), então também observamos `fase`.
+      this.$nextTick(() => this.updateTabIndicator());
+      this.$watch("fase", () => this.$nextTick(() => this.updateTabIndicator()));
+      this.$watch("tab", () => this.$nextTick(() => this.updateTabIndicator()));
+      // Resize debounce via rAF: teclado virtual mobile dispara dezenas de eventos
+      // — coalesce em 1 update por frame evita layout thrashing.
+      let resizeRaf = 0;
+      window.addEventListener("resize", () => {
+        if (resizeRaf) return;
+        resizeRaf = requestAnimationFrame(() => {
+          resizeRaf = 0;
+          this.updateTabIndicator();
+        });
+      });
       await this.tentarAutoResume();
     },
 
@@ -158,6 +173,48 @@ document.addEventListener("alpine:init", () => {
       history.replaceState(null, "", location.pathname + location.search);
       this.rota = "";
       this.tab = "raiox";
+    },
+
+    tabIndex() {
+      // 7a.I.6: mapa tab → índice (0..4) usado pelo indicator slide.
+      const ordem = ["raiox", "rentab", "aloca", "provent", "aportar"];
+      const i = ordem.indexOf(this.tab);
+      return i === -1 ? 0 : i;
+    },
+
+    updateTabIndicator() {
+      // 7a.I.6: posiciona .tab-bar-indicator via translateX baseado no índice.
+      // Grid 5 colunas iguais → cada tab = 20% do nav; indicator tem width 10%
+      // → para centralizá-lo: offset = índice*tabWidth + (tabWidth - indicatorWidth)/2.
+      const nav = document.querySelector(".tab-bar");
+      if (!nav) return;
+      const navWidth = nav.getBoundingClientRect().width;
+      if (navWidth === 0) return;
+      const tabWidth = navWidth / 5;
+      const indicatorWidth = navWidth * 0.10;
+      const x = this.tabIndex() * tabWidth + (tabWidth - indicatorWidth) / 2;
+      nav.style.setProperty("--tab-indicator-x", x + "px");
+    },
+
+    ativarCountUpHero() {
+      // 7a.I.6: dono exclusivo do textContent de #hero-patrimonio. Removido o
+      // x-text para não disputar com o RAF (Alpine re-renderiza no meio dos
+      // 700ms reverteria o frame intermediário para o valor final).
+      if (!this.json || !this.json.patrimonio) return;
+      const target = this.json.patrimonio.total_brl;
+      if (typeof target !== "number" || !isFinite(target)) return;
+      const el = document.getElementById("hero-patrimonio");
+      if (!el) return;
+      // Refresh dentro da mesma sessão (heroCountUpDone=1) = valor final direto,
+      // sem animação. Primeira load por sessão = count-up 700ms via RAF.
+      // transitions.js carrega síncrono antes de app.js em index.html, então
+      // drarthurNav está sempre definido nesse ponto — sem fallback redundante.
+      if (sessionStorage.getItem("heroCountUpDone") === "1") {
+        el.textContent = window.formatBrl(target);
+        return;
+      }
+      window.drarthurNav.applyCountUp(el, target, (n) => window.formatBrl(n));
+      sessionStorage.setItem("heroCountUpDone", "1");
     },
 
     selecionarVistaAloca(v) {

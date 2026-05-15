@@ -1968,20 +1968,47 @@ footer.rodape code {
   color: var(--tab-active);
 }
 
-.tab-bar a[aria-current="page"]::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 25%;
-  right: 25%;
-  height: var(--tab-indicator-height);
-  background: var(--tab-active);
-  border-radius: 0 0 2px 2px;
-}
-
 .tab-bar a:focus-visible {
   outline: 2px solid var(--teal);
   outline-offset: -2px;
+}
+
+/* 7a.I.6: indicator único que desliza entre tabs em vez de pseudo ::before por-tab.
+   Posição em px setada via --tab-indicator-x pelo JS (updateTabIndicator). */
+.tab-bar-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: var(--tab-indicator-height);
+  width: 10%; /* 50% da largura de uma tab (= 10% do nav, já que são 5 tabs) */
+  background: var(--tab-active);
+  border-radius: 0 0 2px 2px;
+  transform: translateX(var(--tab-indicator-x, 0px));
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-bar-indicator { transition: none; }
+  /* Alpine seta inline transition-duration durante x-transition; força 0 nas tab sections. */
+  main section[x-show] { transition-duration: 0ms !important; }
+}
+
+/* 7a.I.6: push transitions — slide-in da direita 280ms para telas push (#ativo, #/raiox/chart) */
+.push-enter {
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.push-from-right {
+  transform: translateX(16px);
+  opacity: 0;
+}
+.push-at-rest {
+  transform: translateX(0);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .push-enter { transition: none; }
+  .push-from-right { transform: none; opacity: 1; }
 }
 
 /* Garantir que conteúdo das tabs não fique escondido sob a barra */

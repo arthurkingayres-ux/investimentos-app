@@ -8,15 +8,16 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=29">
-  <script src="js/vendor/echarts.min.js?v=29"></script>
-  <script src="js/echarts-theme.js?v=29"></script>
-  <script src="js/crypto.js?v=29"></script>
-  <script src="js/format.js?v=29"></script>
-  <script src="js/aportar.js?v=29"></script>
-  <script src="js/raiox.js?v=29"></script>
-  <script src="js/app.js?v=29"></script>
-  <script defer src="js/vendor/alpine.min.js?v=29"></script>
+  <link rel="stylesheet" href="css/app.css?v=30">
+  <script src="js/vendor/echarts.min.js?v=30"></script>
+  <script src="js/echarts-theme.js?v=30"></script>
+  <script src="js/crypto.js?v=30"></script>
+  <script src="js/format.js?v=30"></script>
+  <script src="js/transitions.js?v=30"></script>
+  <script src="js/aportar.js?v=30"></script>
+  <script src="js/raiox.js?v=30"></script>
+  <script src="js/app.js?v=30"></script>
+  <script defer src="js/vendor/alpine.min.js?v=30"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -71,7 +72,7 @@
 
     <template x-if="fase === 'raiox'">
       <div>
-      <section class="raiox" x-show="rota === ''" x-cloak>
+      <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak>
         <h1>Raio X</h1>
 
         <a href="#/raiox/chart" class="hero hero-link" aria-label="Abrir histórico patrimonial">
@@ -79,7 +80,9 @@
             <p class="hero-label">Patrimônio total</p>
             <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
           </div>
-          <p class="hero-valor" x-text="formatBrl(json.patrimonio.total_brl)"></p>
+          <p class="hero-valor"
+             id="hero-patrimonio"
+             x-init="ativarCountUpHero()"></p>
           <div
             class="hero-delta"
             :class="json.patrimonio.variacao_semanal_brl >= 0 ? 'is-positive' : 'is-negative'"
@@ -171,7 +174,7 @@
         </footer>
       </section>
 
-      <section class="tela-detalhes tela-rentabilidade" x-show="rota === 'rentabilidade'" x-cloak>
+      <section class="tela-detalhes tela-rentabilidade" x-show="rota === 'rentabilidade'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Rentabilidade</h1>
@@ -286,7 +289,7 @@
         </aside>
       </section>
 
-      <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-cloak>
+      <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Alocação</h1>
@@ -403,7 +406,11 @@
         </div>
       </section>
 
-      <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'" x-cloak>
+      <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1 x-text="tickerAtual"></h1>
@@ -522,7 +529,7 @@
       </section>
 
       <!-- ── Tela #proventos ──────────────────────────────────────────── -->
-      <section class="tela-detalhes tela-proventos" x-show="rota === 'proventos'" x-cloak>
+      <section class="tela-detalhes tela-proventos" x-show="rota === 'proventos'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Proventos</h1>
@@ -612,7 +619,11 @@
       </section>
 
       <!-- ── Tela #patrimonio ─────────────────────────────────────────── -->
-      <section class="tela-detalhes tela-patrimonio" x-show="rota === 'patrimonio'" x-cloak>
+      <section class="tela-detalhes tela-patrimonio" x-show="rota === 'patrimonio'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Histórico patrimonial</h1>
@@ -641,7 +652,7 @@
       </section>
 
       <!-- ── Tela #aportar (Fase 7a.H.1) ──────────────────────────────── -->
-      <section class="tela-detalhes tela-aportar" x-show="rota === 'aportar'" x-cloak>
+      <section class="tela-detalhes tela-aportar" x-show="rota === 'aportar'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1>Próximo aporte</h1>
@@ -735,6 +746,7 @@
 
     <template x-if="fase === 'raiox'">
       <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
+        <span class="tab-bar-indicator" aria-hidden="true"></span>
         <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname)">raio-x</a>
         <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">rent</a>
         <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">aloca</a>
