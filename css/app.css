@@ -1888,8 +1888,6 @@ footer.rodape code {
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
-/* Hero Monument override (7a.I.2): hero-valor em mono real, escala dramática.
-   Override de .hero-valor da linha 205+ via cascata. */
 .hero-valor {
   font-family: var(--mono);
   font-size: 3.25rem;

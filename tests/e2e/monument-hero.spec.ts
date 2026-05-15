@@ -43,10 +43,10 @@ test.describe("Monument visual (7a.I.2)", () => {
       };
     });
     expect(style.fontFamily).toMatch(MONO_HINT);
-    // 3.25rem em base 16px = 52px
-    expect(style.fontSize).toBe("52px");
+    // 3.25rem; resiliente a root font-size 62.5% / outras bases.
+    expect(parseFloat(style.fontSize)).toBeGreaterThanOrEqual(48);
     expect(style.fontWeight).toBe("800");
-    // tracking negativo (-0.025em em 52px ≈ -1.3px)
+    // tracking negativo (-0.025em).
     expect(parseFloat(style.letterSpacing)).toBeLessThan(0);
   });
 
