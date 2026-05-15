@@ -56,11 +56,11 @@ test.describe("A11y: focus-visible em controles secundários (7a.G.2)", () => {
     page,
   }) => {
     await autenticar(page);
-    await page.goto("/#rentabilidade");
-    await expect(page.locator(".breadcrumb button").first()).toBeVisible({
+    await page.goto("/#patrimonio");
+    await expect(page.locator(".tela-patrimonio .breadcrumb button")).toBeVisible({
       timeout: 5_000,
     });
-    const el = page.locator(".breadcrumb button").first();
+    const el = page.locator(".tela-patrimonio .breadcrumb button");
     // Ativa input modality "keyboard" antes do focus programático
     await page.keyboard.press("Tab");
     await el.focus();

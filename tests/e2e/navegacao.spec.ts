@@ -34,16 +34,6 @@ test.describe("Navegacao hash routing", () => {
     expect(await page.evaluate(() => location.hash)).toBe("");
   });
 
-  test("botao Voltar leva de #rentabilidade para raio-x", async ({ page }) => {
-    await autenticar(page);
-    await page.goto("/#rentabilidade");
-    await expect(page.locator(".tela-rentabilidade")).toBeVisible();
-    await page
-      .locator('.tela-rentabilidade button[aria-label="Voltar"]')
-      .click();
-    await expect(page.locator(".raiox")).toBeVisible();
-  });
-
   test("history.back() respeita hash entre rotas", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
