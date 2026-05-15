@@ -8,13 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=22">
-  <script src="js/vendor/echarts.min.js?v=22"></script>
-  <script src="js/echarts-theme.js?v=22"></script>
-  <script src="js/crypto.js?v=22"></script>
-  <script src="js/format.js?v=22"></script>
-  <script src="js/app.js?v=22"></script>
-  <script defer src="js/vendor/alpine.min.js?v=22"></script>
+  <link rel="stylesheet" href="css/app.css?v=23">
+  <script src="js/vendor/echarts.min.js?v=23"></script>
+  <script src="js/echarts-theme.js?v=23"></script>
+  <script src="js/crypto.js?v=23"></script>
+  <script src="js/format.js?v=23"></script>
+  <script src="js/aportar.js?v=23"></script>
+  <script src="js/app.js?v=23"></script>
+  <script defer src="js/vendor/alpine.min.js?v=23"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -197,6 +198,11 @@
             <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
+
+        <a href="#aportar" class="row-link aporte-cta" aria-label="Planejar próximo aporte">
+          <span>Planejar próximo aporte</span>
+          <span class="aporte-cta-arrow" aria-hidden="true">→</span>
+        </a>
 
         <a href="#proventos" class="card proventos card-link" aria-label="Abrir proventos detalhados">
           <h2 class="card-titulo">Proventos recebidos <span class="card-arrow" aria-hidden="true">→</span></h2>
@@ -673,6 +679,96 @@
         </div>
 
         <div id="patrimonio-grafico" class="chart-rent" aria-label="Evolução de patrimônio e aportes"></div>
+      </section>
+
+      <!-- ── Tela #aportar (Fase 7a.H.1) ──────────────────────────────── -->
+      <section class="tela-detalhes tela-aportar" x-show="rota === 'aportar'" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1>Próximo aporte</h1>
+        </header>
+
+        <div class="aporte-input-block">
+          <label for="aporte-valor" class="aporte-label">Valor disponível</label>
+          <input
+            id="aporte-valor"
+            type="text"
+            inputmode="decimal"
+            class="aporte-input"
+            placeholder="R$ 0,00"
+            x-model="aporteValor"
+            @input.debounce.150ms="recalcularAporte"
+            autocomplete="off">
+          <p class="aporte-helper" x-text="aporteHelperText()"></p>
+        </div>
+
+        <div class="aporte-banner" x-show="aporteBanner" x-cloak>
+          <p x-text="aporteBanner"></p>
+        </div>
+
+        <template x-for="cat in aporteCategoriasRecebedoras" :key="cat.nome">
+          <article class="card aporte-card">
+            <header class="aporte-cat-head">
+              <span class="aporte-cat-name" x-text="cat.nome"></span>
+              <span class="aporte-cat-tag" x-text="cat.tag"></span>
+            </header>
+            <div class="aloc-trilha aporte-trilha">
+              <div class="aloc-preenchimento"
+                   :style="`width: ${Math.min(Math.max(cat.atualPct, 0), 100)}%; background: var(--g-700)`"></div>
+              <div class="aporte-trilha-delta"
+                   :style="`left: ${Math.min(Math.max(cat.atualPct, 0), 100)}%; width: ${Math.min(cat.deltaPct, 100 - cat.atualPct)}%`"></div>
+              <div class="aloc-alvo"
+                   x-show="cat.alvoPct > 0"
+                   :style="`left: ${Math.min(Math.max(cat.alvoPct, 0), 100)}%`"></div>
+            </div>
+            <p class="aporte-trilha-line">
+              <span x-text="`${cat.atualPct.toFixed(1)}% → ${cat.posPct.toFixed(1)}%`"></span>
+              <span x-text="`alvo ${cat.alvoPct}% · fecha ${cat.deltaPct.toFixed(1)}pp`"></span>
+            </p>
+            <ul class="aporte-compras">
+              <template x-for="row in cat.compras" :key="row.ticker">
+                <li class="aporte-compra-row">
+                  <span class="aporte-compra-flag" :aria-label="row.bandeiraLabel" x-text="row.bandeira"></span>
+                  <span class="aporte-compra-main">
+                    <span class="aporte-compra-tk" x-text="row.ticker"></span>
+                    <span class="aporte-compra-sub" x-text="`Nota ${row.nota}/10 · ${row.pesoIntraPct}% da categoria`"></span>
+                  </span>
+                  <span class="aporte-compra-qty-block">
+                    <span class="aporte-compra-qty" x-text="row.cotasFormatadas"></span>
+                    <span class="aporte-compra-qty-sub" x-text="row.valorFormatado"></span>
+                  </span>
+                </li>
+              </template>
+            </ul>
+          </article>
+        </template>
+
+        <section class="aporte-outras" x-show="aporteCategoriasNaoRecebedoras.length > 0" x-cloak>
+          <h2 class="aporte-section-label">Outras categorias (sem aporte)</h2>
+          <template x-for="cat in aporteCategoriasNaoRecebedoras" :key="cat.nome">
+            <p class="aporte-outras-row">
+              <span x-text="`▸ ${cat.nome}`"></span>
+              <span x-text="`${cat.atualPct.toFixed(1)}% · alvo ${cat.alvoPct}% (${cat.label})`"></span>
+            </p>
+          </template>
+        </section>
+
+        <section class="aporte-quarentena" x-show="aporteQuarentena.length > 0" x-cloak>
+          <p>
+            <strong>Quarentena (não aporta)</strong><br>
+            <template x-for="(ticker, i) in aporteQuarentena" :key="ticker">
+              <span>
+                <span class="aporte-quarentena-tk" x-text="ticker"></span>
+                <span x-show="i < aporteQuarentena.length - 1"> · </span>
+              </span>
+            </template>
+          </p>
+        </section>
+
+        <p class="aporte-sem-posicao" x-show="aporteTickersSemPosicao.length > 0" x-cloak>
+          <span>Tickers da política sem posição vigente — sem cotação para incluir no cálculo: </span>
+          <span x-text="aporteTickersSemPosicao.join(', ')"></span>
+        </p>
       </section>
 
       </div>
