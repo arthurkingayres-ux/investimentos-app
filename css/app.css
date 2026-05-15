@@ -34,6 +34,12 @@
   --g-900-07: rgba(6, 78, 59, 0.07);
 
   --card-shadow: 0 1px 2px var(--g-900-04), 0 4px 16px var(--g-900-07);
+
+  /* === Identidade — categorias de ativos (7a.E.20, FONTE ÚNICA, NÃO DUPLICAR) === */
+  --cat-acoes-br: #047857;  /* teal âncora (mantém #047857 do --g-700) */
+  --cat-eua:      #1e6091;  /* azul profundo (paleta refinada B; fecha drift 0284c7 vs 1d4ed8) */
+  --cat-fii:      #b8731f;  /* ocre/curry (calibrado em luminância) */
+  --cat-cripto:   #6d4ea8;  /* ametista escuro (calibrado em luminância) */
 }
 
 *, *::before, *::after {
