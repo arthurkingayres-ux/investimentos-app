@@ -43,6 +43,13 @@ document.addEventListener("alpine:init", () => {
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
     collapsedPolitica: {},
+    // 7a.H.1: estado da tela #aportar
+    aporteValor: "",
+    aporteBanner: null,
+    aporteCategoriasRecebedoras: [],
+    aporteCategoriasNaoRecebedoras: [],
+    aporteQuarentena: [],
+    aporteTickersSemPosicao: [],
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -92,6 +99,11 @@ document.addEventListener("alpine:init", () => {
       if (h === "patrimonio") {
         this.rota = "patrimonio";
         setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
+      if (h === "aportar") {
+        this.rota = "aportar";
+        this.hidratarAportar();
         return;
       }
       // Limite de 16 chars cobre tickers BR/EUA + sintéticos longos como
@@ -803,6 +815,62 @@ document.addEventListener("alpine:init", () => {
       this.echartsRent = chart;
     },
 
+    // ── 7a.H.1: Tela #aportar ─────────────────────────────────────────
+    hidratarAportar() {
+      if (!this.json) return;
+      // Restaurar valor persistido se dentro da janela TTL 24h
+      try {
+        const ts = parseInt(localStorage.getItem("aporte.ts") || "0", 10);
+        const TTL_MS = 24 * 60 * 60 * 1000;
+        if (ts > 0 && Date.now() - ts < TTL_MS) {
+          const v = localStorage.getItem("aporte.valor") || "";
+          if (v && !this.aporteValor) {
+            this.aporteValor = v;
+          }
+        } else if (ts > 0) {
+          // Janela expirou — limpa pra não restaurar ao próximo entrar
+          localStorage.removeItem("aporte.valor");
+          localStorage.removeItem("aporte.ts");
+        }
+      } catch (_) {}
+      this.recalcularAporte();
+    },
+
+    aporteHelperText() {
+      if (!this.aporteValor || String(this.aporteValor).trim() === "") {
+        return "Digite quanto você tem disponível para investir.";
+      }
+      return `Com R$ ${this.aporteValor} você compraria:`;
+    },
+
+    recalcularAporte() {
+      const limpo = String(this.aporteValor || "")
+        .replace(/[^\d.,]/g, "")
+        .replace(/\./g, "")
+        .replace(",", ".");
+      const valor = parseFloat(limpo) || 0;
+      try {
+        if (valor > 0) {
+          localStorage.setItem("aporte.valor", this.aporteValor);
+          localStorage.setItem("aporte.ts", String(Date.now()));
+        }
+      } catch (_) {}
+      if (!window.aporteCalculo || !this.json) {
+        this.aporteBanner = null;
+        this.aporteCategoriasRecebedoras = [];
+        this.aporteCategoriasNaoRecebedoras = [];
+        this.aporteQuarentena = [];
+        this.aporteTickersSemPosicao = [];
+        return;
+      }
+      const r = window.aporteCalculo.calcularAporte(valor, this.json);
+      this.aporteBanner = r.banner;
+      this.aporteCategoriasRecebedoras = r.categorias || [];
+      this.aporteCategoriasNaoRecebedoras = r.categoriasNaoRecebedoras || [];
+      this.aporteQuarentena = r.quarentena || [];
+      this.aporteTickersSemPosicao = r.tickersSemPosicao || [];
+    },
+
     limparSessao() {
       // Remove apenas credenciais de sessão. NÃO toca pinBlockUntil/pinFails/pinFirstFailAt
       // — rate-limit persiste intencionalmente (atacante não escapa via bloquear manual).
@@ -867,6 +935,10 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("pinTimestamp", String(Date.now()));
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        // 7a.H.1: se a rota já é #aportar (reload), hidratar agora que temos json.
+        if (this.rota === "aportar") {
+          this.hidratarAportar();
+        }
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
         this.limparSessao();
