@@ -415,11 +415,11 @@ test.describe("Tela #aportar", () => {
     await expect(page.locator(".aporte-card")).toHaveCount(0);
   });
 
-  test("aporte grande mostra banner de sobra", async ({ page }) => {
-    // patrimonio=10000. EUA: peso_alvo=0.3, peso_atual=0.1 → gap=0.3*pos-1000.
-    // BR: peso_alvo=0.3, peso_atual=0.1 → gap=0.3*pos-1000. Cripto 0.4 fica "cash" fora.
-    // Aporte=15000 → pos=25000. gap_EUA=0.3*25000-1000=6500. gap_BR=6500. Soma=13000.
-    // restante = 15000-13000 = 2000 → SOBRA.
+  test("aporte distribuído sem sobra (cap-5 + residual em fracionário)", async ({ page }) => {
+    // patrimonio=10000. EUA + BR ambos subexpostos. Aporte=15000.
+    // Algoritmo cap-5: 2 candidatos válidos → distribui proporcional ao gap.
+    // VOO (gap=6500) e BBAS3 (gap=6500) recebem 7500 cada. VOO fracionário
+    // absorve qualquer resíduo → ZERO sobra. Banner não menciona "Sobrou R$".
     await abrirAportarComMock(page, {
       patrimonio: { total_brl: 10000 },
       posicoes: [
@@ -477,7 +477,55 @@ test.describe("Tela #aportar", () => {
     });
     await page.locator(".aporte-input").fill("15000");
     await page.waitForTimeout(300);
-    await expect(page.locator(".aporte-banner")).toContainText("Sobrou R$");
+    await expect(page.locator(".aporte-banner")).not.toContainText("Sobrou R$");
+    await expect(page.locator(".aporte-banner")).toContainText("subexpostos");
+    expect(await page.locator(".aporte-card").count()).toBeGreaterThanOrEqual(2);
+  });
+
+  test("cap de 5 picks: ≥6 ativos válidos resulta em ≤5 compras", async ({ page }) => {
+    // 6 ativos BR válidos, todos com gap positivo. Esperado: top 5 por gap_brl.
+    const bbas = { ticker: "BBAS3", preco: 25, peso_intra: 0.20, peso_intra_atual: 0.05 };
+    const itsa = { ticker: "ITSA4", preco: 10, peso_intra: 0.20, peso_intra_atual: 0.10 };
+    const grnd = { ticker: "WEGE3", preco: 30, peso_intra: 0.20, peso_intra_atual: 0.05 };
+    const radl = { ticker: "RADL3", preco: 25, peso_intra: 0.20, peso_intra_atual: 0.10 };
+    const flry = { ticker: "FLRY3", preco: 15, peso_intra: 0.10, peso_intra_atual: 0.05 };
+    const pssa = { ticker: "PSSA3", preco: 50, peso_intra: 0.10, peso_intra_atual: 0.05 };
+    const all = [bbas, itsa, grnd, radl, flry, pssa];
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: all.map((a) => ({
+        ticker: a.ticker,
+        quantidade: 100,
+        valor_mercado_brl: a.preco * 100,
+      })),
+      politica: {
+        escala_max: 10,
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 1.0,
+            peso_atual: 0.60,
+            drift: -0.40,
+            ativos: all.map((a) => ({
+              ticker: a.ticker,
+              nota: 5,
+              peso_intra: a.peso_intra,
+              peso_intra_atual: a.peso_intra_atual,
+              peso_alvo: a.peso_intra,
+              peso_atual: a.peso_intra_atual * 0.60,
+              drift: -0.05,
+              drift_intra: a.peso_intra_atual - a.peso_intra,
+              status: "aportar",
+            })),
+          },
+        ],
+      },
+    });
+    await page.locator(".aporte-input").fill("5000");
+    await page.waitForTimeout(300);
+    const rows = await page.locator(".aporte-compra-row").count();
+    expect(rows).toBeLessThanOrEqual(5);
+    expect(rows).toBe(5);
   });
 
   test("link na home leva a #aportar", async ({ page }) => {
