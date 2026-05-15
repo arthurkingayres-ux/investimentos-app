@@ -10,18 +10,32 @@
     return;
   }
 
+  // 7a.E.20.1: tokens semânticos de categoria lidos do :root (single source of truth).
+  // Mantemos `tokens.*` para acentos/handles que não são "categoria"; cat-* só viajam
+  // pelo array `color` do tema, que é o que cicla por série.
+  function readToken(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
   var tokens = {
     g700: '#047857', g900: '#064e3b',
     blue700: '#1d4ed8', teal700: '#0d7377',
     amber: '#f59e0b', red: '#b91c1c', green: '#047857',
     gray: '#5b605a', ink: '#1a1d1c',
-    neutral200: '#e7e5de', neutral300: '#d4d4d0', neutral50: '#fafaf7'
+    neutral200: '#e7e5de', neutral300: '#d4d4d0', neutral50: '#fafaf7',
+    // 4 cores semânticas — sempre derivadas de :root, nunca hardcoded aqui:
+    catAcoesBr: readToken('--cat-acoes-br'),
+    catEua:     readToken('--cat-eua'),
+    catFii:     readToken('--cat-fii'),
+    catCripto:  readToken('--cat-cripto')
   };
 
   var fontFamily = '-apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif';
 
   var theme = {
-    color: [tokens.g700, tokens.blue700, tokens.amber, tokens.teal700, tokens.g900],
+    // Slots 0-3 são as 4 categorias na ordem [Ações BR, EUA, FII, Cripto].
+    // Slots 4+ são tokens secundários para séries não-categoria (benchmarks etc).
+    color: [tokens.catAcoesBr, tokens.catEua, tokens.catFii, tokens.catCripto, tokens.teal700, tokens.g900],
     backgroundColor: 'transparent',
     textStyle: { fontFamily: fontFamily, color: tokens.ink },
     title: { textStyle: { color: tokens.ink, fontWeight: 600, fontFamily: fontFamily } },
