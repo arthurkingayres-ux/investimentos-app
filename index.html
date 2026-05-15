@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=25">
-  <script src="js/vendor/echarts.min.js?v=25"></script>
-  <script src="js/echarts-theme.js?v=25"></script>
-  <script src="js/crypto.js?v=25"></script>
-  <script src="js/format.js?v=25"></script>
-  <script src="js/aportar.js?v=25"></script>
-  <script src="js/app.js?v=25"></script>
-  <script defer src="js/vendor/alpine.min.js?v=25"></script>
+  <link rel="stylesheet" href="css/app.css?v=26">
+  <script src="js/vendor/echarts.min.js?v=26"></script>
+  <script src="js/echarts-theme.js?v=26"></script>
+  <script src="js/crypto.js?v=26"></script>
+  <script src="js/format.js?v=26"></script>
+  <script src="js/aportar.js?v=26"></script>
+  <script src="js/app.js?v=26"></script>
+  <script defer src="js/vendor/alpine.min.js?v=26"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -74,8 +74,10 @@
         <h1>Raio X</h1>
 
         <a href="#patrimonio" class="hero hero-link" aria-label="Abrir histórico patrimonial">
-          <p class="hero-label">Patrimônio total <span class="card-arrow" aria-hidden="true">→</span></p>
-          <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
+          <div class="hero-meta">
+            <p class="hero-label">Patrimônio total</p>
+            <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
+          </div>
           <p class="hero-valor" x-text="formatBrl(json.patrimonio.total_brl)"></p>
           <div
             class="hero-delta"

@@ -1877,7 +1877,7 @@ footer.rodape code {
   color: var(--g-700);
 }
 
-/* === Tab bar (sub-fase 7a.I.1 — Monument shell) ============================ */
+/* === Tab bar + Monument typography (sub-fases 7a.I.1 + 7a.I.2) ============= */
 :root {
   --tab-bar-height: 56px;
   --tab-bar-bg: var(--neutral-50);
@@ -1885,6 +1885,40 @@ footer.rodape code {
   --tab-active: var(--g-900);
   --tab-inactive: var(--gray);
   --tab-indicator-height: 2px;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+/* Hero Monument override (7a.I.2): hero-valor em mono real, escala dramática.
+   Override de .hero-valor da linha 205+ via cascata. */
+.hero-valor {
+  font-family: var(--mono);
+  font-size: 3.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.0;
+  margin-top: 0.5rem;
+}
+
+.hero-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.hero-meta .hero-label {
+  margin: 0;
+}
+
+.hero-meta .hero-updated {
+  margin: 0;
+}
+
+.ticker-vm-grande {
+  font-family: var(--mono);
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 
 .tab-bar {
