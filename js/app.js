@@ -849,10 +849,16 @@ document.addEventListener("alpine:init", () => {
         .replace(/\./g, "")
         .replace(",", ".");
       const valor = parseFloat(limpo) || 0;
+      const aporteValorStr = String(this.aporteValor || "").trim();
       try {
         if (valor > 0) {
           localStorage.setItem("aporte.valor", this.aporteValor);
           localStorage.setItem("aporte.ts", String(Date.now()));
+        } else if (valor === 0 || aporteValorStr === "") {
+          // Input limpo pelo usuário — remove valor stale do localStorage
+          // pra não restaurar fantasma na próxima entrada da tela.
+          localStorage.removeItem("aporte.valor");
+          localStorage.removeItem("aporte.ts");
         }
       } catch (_) {}
       if (!window.aporteCalculo || !this.json) {
