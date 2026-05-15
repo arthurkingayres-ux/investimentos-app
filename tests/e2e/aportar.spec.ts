@@ -528,11 +528,11 @@ test.describe("Tela #aportar", () => {
     expect(rows).toBe(5);
   });
 
-  test("link na home leva a #aportar", async ({ page }) => {
+  test("tab bar 'apt' leva a #aportar", async ({ page }) => {
     await abrirAportar(page);
     await page.goto("/");
     await expect(page.locator(".raiox")).toBeVisible();
-    await page.locator(".aporte-cta").click();
+    await page.locator('.tab-bar a[data-tab="aportar"]').click();
     expect(page.url()).toContain("#aportar");
     await expect(page.locator(".tela-aportar")).toBeVisible();
   });

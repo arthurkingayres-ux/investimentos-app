@@ -29,7 +29,7 @@ async function autenticar(page: Page) {
 const MONO_HINT = /SF Mono|Cascadia|JetBrains|Menlo|Consolas|ui-monospace|monospace/i;
 
 test.describe("Monument visual (7a.I.2)", () => {
-  test("hero-valor usa mono stack + escala 3.25rem peso 800", async ({ page }) => {
+  test("hero-valor usa mono stack + escala 2.5rem peso 800", async ({ page }) => {
     await autenticar(page);
     const heroValor = page.locator(".hero-valor");
     await expect(heroValor).toBeVisible();
@@ -43,8 +43,9 @@ test.describe("Monument visual (7a.I.2)", () => {
       };
     });
     expect(style.fontFamily).toMatch(MONO_HINT);
-    // 3.25rem; resiliente a root font-size 62.5% / outras bases.
-    expect(parseFloat(style.fontSize)).toBeGreaterThanOrEqual(48);
+    // 2.5rem ≈ 40px com root 16px; resiliente a bases diferentes.
+    expect(parseFloat(style.fontSize)).toBeGreaterThanOrEqual(36);
+    expect(parseFloat(style.fontSize)).toBeLessThanOrEqual(44);
     expect(style.fontWeight).toBe("800");
     // tracking negativo (-0.025em).
     expect(parseFloat(style.letterSpacing)).toBeLessThan(0);

@@ -26,38 +26,33 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
-test.describe("Raio-X 1-viewport (7a.I.3)", () => {
-  test("sparkline 12m renderiza sob o hero", async ({ page }) => {
+test.describe("Raio-X enxuto (apenas hero + último aporte)", () => {
+  test("hero patrimônio visível com valor", async ({ page }) => {
     await autenticar(page);
-    const spark = page.locator(".raiox-sparkline");
-    await expect(spark).toBeVisible();
-    // ECharts injeta um <canvas> ou <svg> dentro do container.
-    const hasCanvas = await spark.locator("canvas, svg").count();
-    expect(hasCanvas).toBeGreaterThan(0);
+    const hero = page.locator(".hero.hero-link");
+    await expect(hero).toBeVisible();
+    await expect(page.locator("#hero-patrimonio")).toBeVisible();
   });
 
-  test("4 chips (rent/aloca/prov/política) presentes na ordem", async ({ page }) => {
-    await autenticar(page);
-    const chips = page.locator(".chips-stat-bloco .chip-stat");
-    await expect(chips).toHaveCount(4);
-    await expect(chips.nth(0)).toContainText(/rent/i);
-    await expect(chips.nth(1)).toContainText(/aloca/i);
-    await expect(chips.nth(2)).toContainText(/prov/i);
-    await expect(chips.nth(3)).toContainText(/pol[ií]tica/i);
-  });
-
-  test("bloco Último aporte continua visível", async ({ page }) => {
+  test("bloco Último aporte visível", async ({ page }) => {
     await autenticar(page);
     const aporte = page.locator(".aporte-bloco");
     await expect(aporte).toBeVisible();
-    // Label uppercase em vez de h2 grande.
     await expect(aporte.locator(".aporte-label")).toBeVisible();
   });
 
-  test("CTA pill 'Planejar próximo aporte' linka para #aportar", async ({ page }) => {
+  test("sparkline removido", async ({ page }) => {
     await autenticar(page);
-    const cta = page.locator(".aporte-cta");
-    await expect(cta).toBeVisible();
-    await expect(cta).toHaveAttribute("href", "#aportar");
+    await expect(page.locator(".raiox-sparkline")).toHaveCount(0);
+  });
+
+  test("chips-stat-bloco removido", async ({ page }) => {
+    await autenticar(page);
+    await expect(page.locator(".chips-stat-bloco")).toHaveCount(0);
+  });
+
+  test("CTA 'Planejar próximo aporte' removido", async ({ page }) => {
+    await autenticar(page);
+    await expect(page.locator(".aporte-cta")).toHaveCount(0);
   });
 });

@@ -15,7 +15,6 @@
   <script src="js/format.js?v=30"></script>
   <script src="js/transitions.js?v=30"></script>
   <script src="js/aportar.js?v=30"></script>
-  <script src="js/raiox.js?v=30"></script>
   <script src="js/app.js?v=30"></script>
   <script defer src="js/vendor/alpine.min.js?v=30"></script>
   <script>
@@ -94,17 +93,6 @@
           </div>
         </a>
 
-        <div
-          id="raiox-sparkline"
-          class="raiox-sparkline"
-          role="button"
-          tabindex="0"
-          aria-label="Ver histórico patrimonial completo"
-          @click="location.hash = '#/raiox/chart'"
-          @keydown.enter.prevent="location.hash = '#/raiox/chart'"
-          @keydown.space.prevent="location.hash = '#/raiox/chart'"
-          x-effect="if (json) renderRaioxSparkline('raiox-sparkline', json)"></div>
-
         <section class="aporte-bloco" aria-label="Último aporte">
           <p class="aporte-label">Último aporte</p>
           <template x-if="json.ultimo_aporte">
@@ -136,37 +124,6 @@
             <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
-
-        <nav class="chips-stat-bloco" aria-label="Atalhos por dimensão">
-          <a href="#rentabilidade" class="chip-stat" aria-label="Rentabilidade 12 meses">
-            <span class="chip-stat-key">rent</span>
-            <span class="chip-stat-val"
-              :class="(json.rentabilidade && json.rentabilidade.xirr_12m ?? 0) < 0 && 'is-neg'"
-              x-text="formatPct(json.rentabilidade && json.rentabilidade.xirr_12m)"></span>
-            <span class="chip-stat-arrow" aria-hidden="true">→</span>
-          </a>
-          <a href="#alocacao" class="chip-stat" aria-label="Alocação">
-            <span class="chip-stat-key">aloca</span>
-            <span class="chip-stat-val" x-text="chipAloca(json).valor"></span>
-            <span class="chip-stat-arrow" aria-hidden="true">→</span>
-          </a>
-          <a href="#proventos" class="chip-stat" aria-label="Proventos ano corrente">
-            <span class="chip-stat-key">prov</span>
-            <span class="chip-stat-val"
-              x-text="formatBrl(json.proventos && json.proventos.ytd_brl) + ' ytd'"></span>
-            <span class="chip-stat-arrow" aria-hidden="true">→</span>
-          </a>
-          <a href="#alocacao?v=alvo" class="chip-stat" aria-label="Política de alocação">
-            <span class="chip-stat-key">política</span>
-            <span class="chip-stat-val" x-text="chipPolitica(json).valor"></span>
-            <span class="chip-stat-arrow" aria-hidden="true">→</span>
-          </a>
-        </nav>
-
-        <a href="#aportar" class="aporte-cta" aria-label="Planejar próximo aporte">
-          <span>Planejar próximo aporte</span>
-          <span class="aporte-cta-arrow" aria-hidden="true">→</span>
-        </a>
 
         <footer class="rodape">
           <p>Fonte: <code>investimentos.db</code> · doc-trail auditável</p>

@@ -61,13 +61,6 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
   });
 
-  test("chip 'política' do raio-x leva para Alvo", async ({ page }) => {
-    await autenticar(page);
-    await page.locator('.chip-stat[aria-label="Política de alocação"]').click();
-    await expect(page).toHaveURL(/#alocacao\?v=alvo$/);
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
-  });
-
   test("cold-start submitPin em #alocacao?v=alvo abre tudo fechado", async ({ page }) => {
     // 7a.I.4 finding iter 3: mesmo bug de cold-start, mas no caminho submitPin
     // (sem PIN em localStorage; usuário digita PIN após landing em #alocacao?v=alvo).

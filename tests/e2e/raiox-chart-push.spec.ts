@@ -25,34 +25,16 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
-  test("tap na sparkline empurra para chart full + tab raiox persiste", async ({ page }) => {
+  test("tap no hero empurra para chart full + tab raiox persiste", async ({ page }) => {
     await autenticar(page);
-    const spark = page.locator("#raiox-sparkline");
-    await expect(spark).toBeVisible();
-    await spark.click();
+    const hero = page.locator(".hero.hero-link");
+    await expect(hero).toBeVisible();
+    await hero.click();
     await expect(page).toHaveURL(/#\/raiox\/chart$/);
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="raiox"]'),
     ).toHaveAttribute("aria-current", "page");
-  });
-
-  test("hero link aponta para #/raiox/chart", async ({ page }) => {
-    await autenticar(page);
-    const hero = page.locator(".hero.hero-link");
-    await expect(hero).toHaveAttribute("href", "#/raiox/chart");
-    await hero.click();
-    await expect(page).toHaveURL(/#\/raiox\/chart$/);
-    await expect(page.locator(".tela-patrimonio")).toBeVisible();
-  });
-
-  test("keydown Enter na sparkline navega para chart full", async ({ page }) => {
-    await autenticar(page);
-    const spark = page.locator("#raiox-sparkline");
-    await spark.focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/#\/raiox\/chart$/);
-    await expect(page.locator(".tela-patrimonio")).toBeVisible();
   });
 
   test("legacy #patrimonio redireciona para #/raiox/chart", async ({ page }) => {
@@ -64,7 +46,7 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
 
   test("voltar do chart full retorna para Raio-X", async ({ page }) => {
     await autenticar(page);
-    await page.locator("#raiox-sparkline").click();
+    await page.locator(".hero.hero-link").click();
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
     await page.locator(".tela-patrimonio .breadcrumb button").click();
     await expect(page.locator(".raiox")).toBeVisible();

@@ -23,12 +23,12 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Raio-X — cards e navegação", () => {
-  test("chip 'prov' clicável → #proventos", async ({ page }) => {
+  test("tab 'prov' navega para #proventos", async ({ page }) => {
     await autenticar(page);
 
-    const chip = page.locator(".chip-stat[href='#proventos']");
-    await expect(chip).toBeVisible();
-    await chip.click();
+    const tab = page.locator('.tab-bar a[data-tab="provent"]');
+    await expect(tab).toBeVisible();
+    await tab.click();
     await expect(page).toHaveURL(/#proventos$/);
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
   });
