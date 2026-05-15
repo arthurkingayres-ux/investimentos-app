@@ -776,7 +776,7 @@
 
     <template x-if="fase === 'raiox'">
       <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
-        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null">raio-x</a>
+        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname)">raio-x</a>
         <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">rent</a>
         <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">aloca</a>
         <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">prov</a>
