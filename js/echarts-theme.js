@@ -17,17 +17,27 @@
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
+  // 7a.E.20.1 CRB fix: tudo que tem contraparte em :root passa a derivar via readToken.
+  // Elimina divergência silenciosa se um token CSS for ajustado (mesmo problema que
+  // os --cat-* resolvem; aplicamos a mesma regra aos paleta tokens consumidos pelo tema).
   var tokens = {
-    g700: '#047857', g900: '#064e3b',
-    blue700: '#1d4ed8', teal700: '#0d7377',
-    amber: '#f59e0b', red: '#b91c1c', green: '#047857',
-    gray: '#5b605a', ink: '#1a1d1c',
-    neutral200: '#e7e5de', neutral300: '#d4d4d0', neutral50: '#fafaf7',
-    // 4 cores semânticas — sempre derivadas de :root, nunca hardcoded aqui:
-    catAcoesBr: readToken('--cat-acoes-br'),
-    catEua:     readToken('--cat-eua'),
-    catFii:     readToken('--cat-fii'),
-    catCripto:  readToken('--cat-cripto')
+    g700:        readToken('--g-700'),
+    g900:        readToken('--g-900'),
+    blue700:     readToken('--blue-700'),
+    teal700:     readToken('--teal-700'),
+    amber:       readToken('--amber'),
+    red:         readToken('--red'),
+    green:       readToken('--g-700'),  // alias semântico (mesma hex que g700)
+    gray:        readToken('--gray'),
+    ink:         readToken('--ink'),
+    neutral200:  readToken('--neutral-200'),
+    neutral300:  readToken('--neutral-300'),
+    neutral50:   readToken('--neutral-50'),
+    // 4 cores semânticas de categoria:
+    catAcoesBr:  readToken('--cat-acoes-br'),
+    catEua:      readToken('--cat-eua'),
+    catFii:      readToken('--cat-fii'),
+    catCripto:   readToken('--cat-cripto')
   };
 
   var fontFamily = '-apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif';

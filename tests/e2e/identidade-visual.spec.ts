@@ -106,4 +106,25 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     expect(rgbs.fii).toBe("rgb(184, 115, 31)");
     expect(rgbs.cripto).toBe("rgb(109, 78, 168)");
   });
+
+  test("chart #patrimonio renderizado cicla --cat-eua no slot 1 (CRB Suggestion #2)", async ({ page }) => {
+    // Fechamento end-to-end do drift EUA: tokens -> tema -> chart real renderizado.
+    await autenticar(page);
+    await page.goto("/#patrimonio");
+    // Esperar o canvas do ECharts existir e o instance estar registrado.
+    await page.waitForFunction(() => {
+      const el = document.getElementById("patrimonio-grafico");
+      const w = window as any;
+      return el && w.echarts && w.echarts.getInstanceByDom && !!w.echarts.getInstanceByDom(el);
+    }, { timeout: 10_000 });
+    const color1 = await page.evaluate(() => {
+      const el = document.getElementById("patrimonio-grafico");
+      const w = window as any;
+      const inst = w.echarts.getInstanceByDom(el);
+      const colorArr = inst?.getOption?.()?.color;
+      return Array.isArray(colorArr) ? (colorArr[1] || "").toLowerCase() : null;
+    });
+    // Slot 1 do tema é EUA — deve bater hex do --cat-eua.
+    expect(color1).toBe(PALETA.catEua);
+  });
 });
