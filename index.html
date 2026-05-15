@@ -370,6 +370,7 @@
                 x-cloak>
                 <template x-for="p in tickersComPesos(classe)" :key="p.ticker">
                   <a :href="'#ativo/' + p.ticker" class="ticker-row">
+                    <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
                     <span class="ticker-name" x-text="p.ticker"></span>
                     <span class="ticker-vm" x-text="formatBrl(p.valor_mercado_brl)"></span>
                     <span class="ticker-pct" x-text="formatPctSemSinal(p.peso_na_classe)"></span>
@@ -427,6 +428,7 @@
               <template x-for="ativo in cat.ativos" :key="ativo.ticker">
                 <li class="politica-ativo">
                   <div class="politica-ativo-linha1">
+                    <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
                     <span class="politica-ticker" x-text="ativo.ticker"></span>
                     <span class="politica-nota"
                           :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max"
@@ -644,7 +646,10 @@
                     @click="location.hash = 'ativo/' + item.ticker"
                     @keydown.enter="location.hash = 'ativo/' + item.ticker"
                     @keydown.space.prevent="location.hash = 'ativo/' + item.ticker">
-                    <td x-text="item.ticker"></td>
+                    <td>
+                      <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
+                      <span x-text="item.ticker"></span>
+                    </td>
                     <td class="num" x-text="formatBrl(item.total)"></td>
                   </tr>
                 </template>

@@ -107,6 +107,44 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     expect(rgbs.cripto).toBe("rgb(109, 78, 168)");
   });
 
+  // Os 3 testes abaixo verificam estrutura — `.flag` renderiza, e quando o backend
+  // emite schema v2.12 (production) o emoji aparece. A fixture `portfolio.test.json.enc`
+  // ainda é pré-v2.12 e não traz `bandeira` propagado em todos os shapes; conteúdo do
+  // emoji em produção é verificado pelos integration tests Python (TestFase7aE20BandeiraPropagation
+  // em tests/test_json_pwa.py do main repo).
+
+  test(".flag estrutural em #alocacao expandido — 1 .flag por ticker da classe", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await page.locator(".classe-row").first().click();
+    await page.locator(".ticker-row").first().waitFor({ state: "attached", timeout: 5000 });
+    const rowsCount = await page.locator(".ticker-row").count();
+    const flagsCount = await page.locator(".ticker-row .flag").count();
+    expect(rowsCount).toBeGreaterThan(0);
+    expect(flagsCount).toBe(rowsCount);
+  });
+
+  test(".flag estrutural em #politica — 1 .flag por ativo de cada categoria", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#politica");
+    await page.locator(".politica-header").first().click();
+    await page.locator(".politica-ativo").first().waitFor({ state: "attached", timeout: 5000 });
+    const ativosCount = await page.locator(".politica-ativo").count();
+    const flagsCount = await page.locator(".politica-ativo .flag").count();
+    expect(ativosCount).toBeGreaterThan(0);
+    expect(flagsCount).toBe(ativosCount);
+  });
+
+  test(".flag estrutural em #proventos drilldown por ativo — 1 .flag por linha", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await page.locator(".tabela-proventos tbody tr").first().waitFor({ state: "attached", timeout: 5000 });
+    const rowsCount = await page.locator(".tabela-proventos tbody tr").count();
+    const flagsCount = await page.locator(".tabela-proventos .flag").count();
+    expect(rowsCount).toBeGreaterThan(0);
+    expect(flagsCount).toBe(rowsCount);
+  });
+
   test("chart #patrimonio renderizado cicla --cat-eua no slot 1 (CRB Suggestion #2)", async ({ page }) => {
     // Fechamento end-to-end do drift EUA: tokens -> tema -> chart real renderizado.
     await autenticar(page);
