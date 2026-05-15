@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=24">
-  <script src="js/vendor/echarts.min.js?v=24"></script>
-  <script src="js/echarts-theme.js?v=24"></script>
-  <script src="js/crypto.js?v=24"></script>
-  <script src="js/format.js?v=24"></script>
-  <script src="js/aportar.js?v=24"></script>
-  <script src="js/app.js?v=24"></script>
-  <script defer src="js/vendor/alpine.min.js?v=24"></script>
+  <link rel="stylesheet" href="css/app.css?v=25">
+  <script src="js/vendor/echarts.min.js?v=25"></script>
+  <script src="js/echarts-theme.js?v=25"></script>
+  <script src="js/crypto.js?v=25"></script>
+  <script src="js/format.js?v=25"></script>
+  <script src="js/aportar.js?v=25"></script>
+  <script src="js/app.js?v=25"></script>
+  <script defer src="js/vendor/alpine.min.js?v=25"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -772,6 +772,16 @@
       </section>
 
       </div>
+    </template>
+
+    <template x-if="fase === 'raiox'">
+      <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
+        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null">raio-x</a>
+        <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">rent</a>
+        <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">aloca</a>
+        <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">prov</a>
+        <a href="#aportar" data-tab="aportar" :aria-current="tab === 'aportar' ? 'page' : null">apt</a>
+      </nav>
     </template>
   </main>
 </body>

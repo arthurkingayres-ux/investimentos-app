@@ -26,6 +26,7 @@ document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     fase: "pin",
     rota: "",
+    tab: "raiox",
     tickerAtual: "",
     pin: "",
     pinError: "",
@@ -77,32 +78,41 @@ document.addEventListener("alpine:init", () => {
     },
 
     atualizarRota() {
+      // 7a.I.1: deriva tab top-level (1 de 5) de rota — tab fica visível na
+      // bottom tab bar. Mapping inclui rotas legadas (politica → tab aloca,
+      // patrimonio → tab raiox) que serão migradas em sub-fases posteriores.
+      // #ativo/:ticker é push e PRESERVA a tab anterior (não reseta).
       const h = (location.hash || "").replace(/^#/, "");
-      if (h === "") { this.rota = ""; return; }
+      if (h === "") { this.rota = ""; this.tab = "raiox"; return; }
       if (h === "rentabilidade") {
         this.rota = "rentabilidade";
+        this.tab = "rentab";
         // Hidrata o gráfico após Alpine renderizar a section.
         setTimeout(() => this.hidratarRentabilidade(), 0);
         return;
       }
-      if (h === "alocacao") { this.rota = "alocacao"; return; }
+      if (h === "alocacao") { this.rota = "alocacao"; this.tab = "aloca"; return; }
       if (h === "politica") {
         this.rota = "politica";
+        this.tab = "aloca";
         this.hidratarColapsoPolitica();
         return;
       }
       if (h === "proventos") {
         this.rota = "proventos";
+        this.tab = "provent";
         setTimeout(() => this.hidratarProventos(), 0);
         return;
       }
       if (h === "patrimonio") {
         this.rota = "patrimonio";
+        this.tab = "raiox";
         setTimeout(() => this.hidratarPatrimonio(), 0);
         return;
       }
       if (h === "aportar") {
         this.rota = "aportar";
+        this.tab = "aportar";
         this.hidratarAportar();
         return;
       }
@@ -110,10 +120,11 @@ document.addEventListener("alpine:init", () => {
       // AVNU_REBATE (Fase 7a.28). Caso surjam tickers com `.` (ex.: BRK.B),
       // expandir a charclass — nenhum ativo da carteira atual usa.
       const m = h.match(/^ativo\/([A-Z0-9_-]{2,16})$/);
-      if (m) { this.rota = "ativo"; this.tickerAtual = m[1]; return; }
+      if (m) { this.rota = "ativo"; this.tickerAtual = m[1]; return; /* tab preserva valor anterior */ }
       // Fallback: hash inválido vira raio-x sem entrar no histórico.
       history.replaceState(null, "", location.pathname + location.search);
       this.rota = "";
+      this.tab = "raiox";
     },
 
     voltar() {

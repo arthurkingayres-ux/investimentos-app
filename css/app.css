@@ -1877,3 +1877,66 @@ footer.rodape code {
   color: var(--g-700);
 }
 
+/* === Tab bar (sub-fase 7a.I.1 — Monument shell) ============================ */
+:root {
+  --tab-bar-height: 56px;
+  --tab-bar-bg: var(--neutral-50);
+  --tab-bar-border: var(--neutral-200);
+  --tab-active: var(--g-900);
+  --tab-inactive: var(--gray);
+  --tab-indicator-height: 2px;
+}
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--tab-bar-bg);
+  border-top: 1px solid var(--tab-bar-border);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  z-index: 100;
+}
+
+.tab-bar a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tab-inactive);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  min-height: 44px;
+  text-transform: lowercase;
+}
+
+.tab-bar a[aria-current="page"] {
+  color: var(--tab-active);
+}
+
+.tab-bar a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: var(--tab-indicator-height);
+  background: var(--tab-active);
+  border-radius: 0 0 2px 2px;
+}
+
+.tab-bar a:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+
+/* Garantir que conteúdo das tabs não fique escondido sob a barra */
+body:has(.tab-bar) main {
+  padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
