@@ -20,6 +20,11 @@ const COLORS = {
   red:       () => css("--red", "#b91c1c"),
   ink:       () => css("--ink", "#1a1d1c"),
   gray:      () => css("--gray", "#5b605a"),
+  // 7a.E.20.1: tokens semânticos de categoria (fonte única em :root).
+  catAcoesBr: () => css("--cat-acoes-br", "#047857"),
+  catEua:     () => css("--cat-eua",      "#1e6091"),
+  catFii:     () => css("--cat-fii",      "#b8731f"),
+  catCripto:  () => css("--cat-cripto",   "#6d4ea8"),
 };
 
 document.addEventListener("alpine:init", () => {
@@ -1013,14 +1018,19 @@ document.addEventListener("alpine:init", () => {
       const atual = a.atual || {};
       const alvo = a.alvo || {};
       const aliases = { "FIIs BR": "FII", "Ações Brasil": "Ações BR" };
+      // 7a.E.20.1: gradiente e dot derivam de var(--cat-*) (single source).
+      // Stops escuros das gradientes são tonais; ficam inline (não são "a cor da categoria").
       const grad = {
-        "EUA": `linear-gradient(90deg, #0b3a5a 0%, ${COLORS.blue500()} 100%)`,
-        "Ações BR": "linear-gradient(90deg, var(--g-700) 0%, var(--g-500) 100%)",
-        "FII": `linear-gradient(90deg, ${COLORS.amber700()} 0%, var(--amber) 100%)`,
-        "Cripto": `linear-gradient(90deg, #6d28d9 0%, ${COLORS.purple500()} 100%)`,
+        "EUA":      `linear-gradient(90deg, #133e5d 0%, ${COLORS.catEua()} 100%)`,
+        "Ações BR": `linear-gradient(90deg, var(--g-900) 0%, ${COLORS.catAcoesBr()} 100%)`,
+        "FII":      `linear-gradient(90deg, #8a5418 0%, ${COLORS.catFii()} 100%)`,
+        "Cripto":   `linear-gradient(90deg, #4e3979 0%, ${COLORS.catCripto()} 100%)`,
       };
       const dot = {
-        "EUA": COLORS.blue500(), "Ações BR": "var(--g-600)", "FII": "var(--amber)", "Cripto": COLORS.purple500(),
+        "EUA":      COLORS.catEua(),
+        "Ações BR": COLORS.catAcoesBr(),
+        "FII":      COLORS.catFii(),
+        "Cripto":   COLORS.catCripto(),
       };
       return Object.keys(atual)
         .sort((x, y) => (atual[y] || 0) - (atual[x] || 0))
