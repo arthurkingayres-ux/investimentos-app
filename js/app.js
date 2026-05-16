@@ -283,6 +283,59 @@ document.addEventListener("alpine:init", () => {
       return sign + Math.abs(pp).toFixed(2) + "pp";
     },
 
+    // ── Últimos 7 dias (Fase 7a.J.1) ────────────────────────────────────
+    // Bloco invisível quando schema v<2.13 (sem ultimos_7d) ou em DB
+    // recém-bootstrapped sem snapshot ≥7d E sem movs/proventos na janela.
+    ultimos7dVisivel() {
+      const u = this.json && this.json.ultimos_7d;
+      if (!u) return false;
+      const temDelta = u.delta_patrim_brl !== null && u.delta_patrim_brl !== undefined;
+      const temListas =
+        (u.compras || []).length > 0 ||
+        (u.vendas || []).length > 0 ||
+        (u.proventos || []).length > 0;
+      return temDelta || temListas;
+    },
+
+    // Headline "+R$ 4.270  +1,6%" / "−R$ 1.200  −0,5%" / "—"
+    formatDeltaR7d(brl, pct) {
+      if (brl === null || brl === undefined) return "—";
+      const partes = [window.formatBrl(brl)];
+      if (pct !== null && pct !== undefined) partes.push(window.formatPct(pct));
+      return partes.join("  ");
+    },
+
+    // Linha de decomposicao: "+R$ 11.300" / "−R$ 7.530" / "R$ 0" / "—"
+    formatDecompR7d(brl) {
+      if (brl === null || brl === undefined) return "—";
+      return window.formatBrl(brl);
+    },
+
+    // Classe semântica para colorir delta/decomp.
+    sinalClasse(brl) {
+      if (brl === null || brl === undefined) return "";
+      if (brl > 0) return "is-positive";
+      if (brl < 0) return "is-negative";
+      return "";
+    },
+
+    // Quantidade pt-BR com tabular-nums; ações inteiras, ETF/cripto podem ter casas.
+    formatQtyR7d(q) {
+      if (q === null || q === undefined || Number.isNaN(q)) return "";
+      const digits = Number.isInteger(q) ? 0 : Math.min(4, q.toString().split(".")[1]?.length || 0);
+      return new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      }).format(q);
+    },
+
+    // Tipo de provento abreviado: "Dividendo" → "Div"; "Rendimento" → "Rend"; "JCP" → "JCP".
+    abreviarTipoR7d(tipo) {
+      if (!tipo) return "";
+      const abrev = { "Dividendo": "Div", "Rendimento": "Rend", "JCP": "JCP" };
+      return abrev[tipo] || tipo;
+    },
+
     selecionarMoeda(m) {
       // Schema v2.6: toggle só ativo em escopo=EUA. Para Total/Brasil é no-op.
       if (m !== "BRL" && m !== "USD") return;

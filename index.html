@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=31">
-  <script src="js/vendor/echarts.min.js?v=31"></script>
-  <script src="js/echarts-theme.js?v=31"></script>
-  <script src="js/crypto.js?v=31"></script>
-  <script src="js/format.js?v=31"></script>
-  <script src="js/transitions.js?v=31"></script>
-  <script src="js/aportar.js?v=31"></script>
-  <script src="js/app.js?v=31"></script>
-  <script defer src="js/vendor/alpine.min.js?v=31"></script>
+  <link rel="stylesheet" href="css/app.css?v=32">
+  <script src="js/vendor/echarts.min.js?v=32"></script>
+  <script src="js/echarts-theme.js?v=32"></script>
+  <script src="js/crypto.js?v=32"></script>
+  <script src="js/format.js?v=32"></script>
+  <script src="js/transitions.js?v=32"></script>
+  <script src="js/aportar.js?v=32"></script>
+  <script src="js/app.js?v=32"></script>
+  <script defer src="js/vendor/alpine.min.js?v=32"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -92,6 +92,83 @@
             <span class="texto">· 7d</span>
           </div>
         </a>
+
+        <section
+          class="raiox-7d"
+          aria-label="Últimos 7 dias"
+          x-show="ultimos7dVisivel()"
+          x-cloak>
+          <header class="r7d-head">
+            <span class="r7d-label">Últimos 7 dias</span>
+            <span
+              class="r7d-delta"
+              :class="sinalClasse(json.ultimos_7d?.delta_patrim_brl)"
+              x-text="formatDeltaR7d(json.ultimos_7d?.delta_patrim_brl, json.ultimos_7d?.delta_patrim_pct)"></span>
+          </header>
+
+          <div class="r7d-decomp">
+            <div class="r7d-row">
+              <span>Aportes líq.</span>
+              <span
+                :class="sinalClasse(json.ultimos_7d?.decomposicao?.aportes_liq_brl)"
+                x-text="formatDecompR7d(json.ultimos_7d?.decomposicao?.aportes_liq_brl)"></span>
+            </div>
+            <div class="r7d-row">
+              <span>Proventos</span>
+              <span
+                :class="sinalClasse(json.ultimos_7d?.decomposicao?.proventos_brl)"
+                x-text="formatDecompR7d(json.ultimos_7d?.decomposicao?.proventos_brl)"></span>
+            </div>
+            <div class="r7d-row">
+              <span>Mercado</span>
+              <span
+                :class="sinalClasse(json.ultimos_7d?.decomposicao?.mercado_brl)"
+                x-text="formatDecompR7d(json.ultimos_7d?.decomposicao?.mercado_brl)"></span>
+            </div>
+          </div>
+
+          <div class="r7d-listas">
+            <div class="r7d-lista" data-list="compras" x-show="(json.ultimos_7d?.compras || []).length > 0">
+              <h3>Compras</h3>
+              <ul>
+                <template x-for="(item, idx) in (json.ultimos_7d?.compras || [])" :key="'c-' + item.ticker + '-' + item.moeda + '-' + idx">
+                  <li>
+                    <span class="ticker" x-text="item.ticker"></span>
+                    <span class="qty" x-text="formatQtyR7d(item.quantidade)"></span>
+                    <span class="valor" x-text="formatBrl(item.valor_brl)"></span>
+                    <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+            <div class="r7d-lista" data-list="vendas" x-show="(json.ultimos_7d?.vendas || []).length > 0">
+              <h3>Vendas</h3>
+              <ul>
+                <template x-for="(item, idx) in (json.ultimos_7d?.vendas || [])" :key="'v-' + item.ticker + '-' + item.moeda + '-' + idx">
+                  <li>
+                    <span class="ticker" x-text="item.ticker"></span>
+                    <span class="qty" x-text="formatQtyR7d(item.quantidade)"></span>
+                    <span class="valor" x-text="formatBrl(item.valor_brl)"></span>
+                    <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+            <div class="r7d-lista" data-list="proventos" x-show="(json.ultimos_7d?.proventos || []).length > 0">
+              <h3>Proventos</h3>
+              <ul>
+                <template x-for="(item, idx) in (json.ultimos_7d?.proventos || [])" :key="'p-' + item.ticker + '-' + item.tipo + '-' + idx">
+                  <li>
+                    <span class="ticker" x-text="item.ticker"></span>
+                    <span class="qty" x-text="abreviarTipoR7d(item.tipo)"></span>
+                    <span class="valor" x-text="formatBrl(item.valor_brl)"></span>
+                    <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </div>
+        </section>
 
         <section class="aporte-bloco" aria-label="Último aporte">
           <p class="aporte-label">Último aporte</p>

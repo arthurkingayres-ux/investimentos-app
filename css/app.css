@@ -2059,3 +2059,120 @@ body:has(.tab-bar) main {
   border-bottom: 0;
 }
 
+/* ── Últimos 7 dias (Fase 7a.J.1) — Monument text-only ────────────────── */
+.raiox-7d {
+  margin: 1rem 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.r7d-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--neutral-200);
+  gap: 0.75rem;
+}
+
+.r7d-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray);
+}
+
+.r7d-delta {
+  font-family: var(--mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.r7d-delta.is-positive { color: var(--g-700); }
+.r7d-delta.is-negative { color: var(--red); }
+
+.r7d-decomp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.r7d-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.r7d-row > span:first-child {
+  color: var(--gray);
+  font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.r7d-row > span:last-child { color: var(--ink); }
+.r7d-row > span:last-child.is-positive { color: var(--g-700); }
+.r7d-row > span:last-child.is-negative { color: var(--red); }
+
+.r7d-listas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+.r7d-lista h3 {
+  margin: 0 0 0.4rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray);
+}
+
+.r7d-lista ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.r7d-lista li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.r7d-lista li + li {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.r7d-lista li .ticker {
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.r7d-lista li .qty { color: var(--gray); }
+
+.r7d-lista li .valor {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
