@@ -23,7 +23,7 @@ Sucesso = **confiança absoluta nos números** (todo dado rastreável ao documen
 **Nav model: bottom tab bar fixa, 5 destinos top-level.** Indicator 2px no topo da tab ativa; safe-area iOS honored. Tab bar persiste em telas de push (`#ativo/:ticker`, `#/raiox/chart`); some apenas na PIN screen.
 
 Tabs (top-level):
-- **Raio-X** (`#`) — hero patrimônio + sparkline 12m + último aporte + 4 chips inline (rent / aloca / provent / política) + CTA aportar. Cabe em 1 viewport (~520px de conteúdo em 722px úteis em 375×812).
+- **Raio-X** (`#`) — hero patrimônio Monument + bloco "Últimos 7 dias" (delta Δ + decomposição contábil Aportes/Proventos/Mercado + listas de compras/vendas/proventos da semana) + bloco "Último aporte". Glance airy de 3 blocos: estado (quanto), delta (o que mudou em 7d), evento (última compra). Sem charts no home — sparkline/chips removidos no raio-x enxuto (7a.I pós-fechamento); chart histórico full vive em `#/raiox/chart` (push).
 - **Rentabilidade** (`#rentabilidade`) — XIRR/TWR vs benchmarks por janela (Origem · 12m · YTD) com toggle BRL/USD para grupo EUA. 3 grupos (Brasil · EUA · Cripto).
 - **Alocação** (`#alocacao`) — segmented `Atual · Alvo`. Atual: classes (BR/EUA/FII/Cripto) com trilha + drilldown por ticker. Alvo: política (notas 0-10 + pesos derivados, ver `config/alocacao.yaml`).
 - **Proventos** (`#proventos`) — toggle Mensal / Anual + chart ECharts + drilldown mês × ativo.

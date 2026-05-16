@@ -199,7 +199,21 @@ Variant tipográfica do hero quando renderizado dentro do shell de tab bar. Mant
 }
 ```
 
-Sparkline 12m sob o hero (canvas ECharts 110px alt) usa setup inline em `js/raiox.js` (não preset de `js/echarts-theme.js`): grid colado às bordas, eixos ocultos, linha 1.5px `--g-700` + areaStyle `--g-700-12`, `animation: false` (o motion da entrada é o count-up do hero, não a sparkline). Caller único — extrair preset seria YAGNI; cor + área lêem tokens do `:root` via `readToken`, então drift contra a paleta é impossível.
+Hero size foi calibrada para `2.5rem` no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, que foram removidos como parte do enxuto).
+
+### Bloco "Últimos 7 dias" (raio-x, 7a.J.1)
+
+Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 dias em três componentes contábeis: **aportes líquidos** (compras − vendas), **proventos** (dividendos + JCP + rendimentos), **mercado** (residual = delta − aportes − proventos). Identidade contábil garantida no backend (`_build_ultimos_7d`, schema v2.13): `delta_patrim_brl ≡ aportes_liq + proventos + mercado` (até 1 centavo).
+
+```css
+.r7d-head    { /* label small-caps 11px + delta mono 1.125rem 700 (--ink/--g-700/--red) */ }
+.r7d-row     { /* sans label gray + valor mono 0.9375rem colorido por sinal */ }
+.r7d-lista li{ /* grid 1fr auto auto auto: ticker · qty · valor · .flag */ }
+```
+
+**Pattern de render:** pure Alpine (sem helper JS externo). `x-show="ultimos7dVisivel()"` esconde o bloco quando schema é v<2.13 (sem `ultimos_7d`) ou quando DB recém-bootstrapped não tem snapshot ≥7d E listas vazias. Cada `.r7d-lista` aparece via `x-show` apenas quando array é não-vazio (semana calma fica só com headline + decomp). Sem ECharts (Monument text-only); sem motion individual (segue regra global do shell — entrada via `x-transition.opacity.duration.220ms` herdada da tab raio-x).
+
+**Tokens reusados (zero novo):** `--mono` (headline + valores), `--g-700` (sinais positivos), `--red` (sinais negativos), `--gray` (labels secundários), `--ink` (texto principal), `--neutral-100/200` (borders), classe global `.flag` (bandeiras BR/EUA).
 
 ### Tab bar (Monument)
 
