@@ -9,6 +9,130 @@ const BLOCK_60_MS = 60 * 60 * 1000;
 const css = (token, fallback = "") =>
   getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
 
+// 7a.L.2.b: utilitárias puras (top-level, fora do Alpine.data) para o card
+// "Período" do #rentabilidade. Newton-Raphson XIRR é fechado em ~5ms para
+// janelas mensais típicas (84 anchors). Convenção de sinal igual a
+// calcular_xirr_from_flows do backend: aporte = negativo, retirada = positiva.
+function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7) {
+  if (!Array.isArray(flows) || flows.length < 2) return null;
+  const d0 = flows[0][0];
+  // Requer pelo menos um valor negativo E um positivo, senão XIRR é indefinida.
+  let temNeg = false, temPos = false;
+  for (const [, v] of flows) {
+    if (v < 0) temNeg = true;
+    if (v > 0) temPos = true;
+  }
+  if (!temNeg || !temPos) return null;
+  let rate = (typeof guess === "number" && isFinite(guess)) ? guess : 0.10;
+  for (let i = 0; i < maxIter; i++) {
+    let npv = 0, dnpv = 0;
+    for (const [d, v] of flows) {
+      const dt = (d - d0) / (1000 * 60 * 60 * 24) / 365.25;
+      const base = 1 + rate;
+      if (base <= 0) return null;
+      const denom = Math.pow(base, dt);
+      npv += v / denom;
+      dnpv += -dt * v / Math.pow(base, dt + 1);
+    }
+    if (Math.abs(dnpv) < 1e-12) return null;
+    const newRate = rate - npv / dnpv;
+    if (!isFinite(newRate)) return null;
+    if (Math.abs(newRate - rate) < tol) return newRate;
+    rate = newRate;
+    if (Math.abs(rate) > 10) return null;
+  }
+  return null;
+}
+
+function parseMesData(yyyymm) {
+  if (!yyyymm || typeof yyyymm !== "string") return null;
+  const [ano, mes] = yyyymm.split("-").map(Number);
+  if (!ano || !mes) return null;
+  // new Date(y, m, 0) = último dia do mês m (1-indexed) — espelha
+  // parseAnchor de hidratarRentabilidade. Garante consistência com L.1.
+  return new Date(ano, mes, 0);
+}
+
+function construirFlows(hist, iA, iB) {
+  // Constrói série de fluxos para XIRR: nav inicial negativo (preço pago pra
+  // "comprar" a posição no anchor A), cashflows intermediários (aporte=neg,
+  // retirada=pos — convenção já vinda do backend), nav final positivo
+  // (resgate hipotético no anchor B).
+  if (!hist || iB <= iA) return [];
+  const flows = [];
+  const dA = parseMesData(hist[iA].data);
+  if (!dA) return [];
+  flows.push([dA, -(hist[iA].nav || 0)]);
+  for (let i = iA + 1; i < iB; i++) {
+    const cf = hist[i].cashflow;
+    if (cf && cf !== 0) {
+      const d = parseMesData(hist[i].data);
+      if (d) flows.push([d, cf]);
+    }
+  }
+  const dB = parseMesData(hist[iB].data);
+  if (!dB) return [];
+  flows.push([dB, hist[iB].nav || 0]);
+  return flows;
+}
+
+function flowsBenchmark(hist, iA, iB) {
+  // Flows do benchmark: substitui nav portfolio por "nav hipotético se cada
+  // aporte tivesse sido investido no índice na data do aporte". Escala o nav
+  // inicial pelo crescimento do índice de iA→iB, e cashflows intermediários
+  // pelo crescimento do índice de cada mês→iB.
+  if (!hist || iB <= iA) return [];
+  const growthA = hist[iA].benchmark_growth;
+  const growthB = hist[iB].benchmark_growth;
+  if (!growthA || !growthB) return [];
+
+  const flows = [];
+  const dA = parseMesData(hist[iA].data);
+  if (!dA) return [];
+  // Investimento inicial — mesmo nav portfolio (capital aplicado no início).
+  flows.push([dA, -(hist[iA].nav || 0)]);
+  // Cashflows intermediários: aporte real (mantém sinal/magnitude).
+  for (let i = iA + 1; i < iB; i++) {
+    const cf = hist[i].cashflow;
+    if (cf && cf !== 0) {
+      const d = parseMesData(hist[i].data);
+      if (d) flows.push([d, cf]);
+    }
+  }
+  // Terminal: nav inicial cresce a growthB/growthA; cada aporte intermediário
+  // cresce a growthB/growth[i]. Soma e injeta como flow positivo em iB.
+  const dB = parseMesData(hist[iB].data);
+  if (!dB) return [];
+  let terminal = (hist[iA].nav || 0) * (growthB / growthA);
+  for (let i = iA + 1; i < iB; i++) {
+    const cf = hist[i].cashflow;
+    if (cf && cf !== 0) {
+      const gi = hist[i].benchmark_growth;
+      if (gi) {
+        // cashflow já vem com convenção "aporte=neg" → inverte sinal para
+        // "valor investido" (positivo) antes de escalar.
+        terminal += (-cf) * (growthB / gi);
+      }
+    }
+  }
+  flows.push([dB, terminal]);
+  return flows;
+}
+
+function gerarTituloPeriodo(hist, iA, iB) {
+  if (!hist || hist.length === 0) return "Origem";
+  if (iA === 0 && iB === hist.length - 1) return "Origem";
+  const fmt = (yyyymm) => {
+    if (!yyyymm) return "";
+    const [ano, mes] = yyyymm.split("-");
+    const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+    const idx = parseInt(mes, 10) - 1;
+    if (idx < 0 || idx > 11) return yyyymm;
+    return `${meses[idx]}/${ano.slice(2)}`;
+  };
+  return `Período · ${fmt(hist[iA].data)} → ${fmt(hist[iB].data)}`;
+}
+
 const COLORS = {
   g700:      () => css("--g-700", "#047857"),
   g700a12:   () => css("--g-700-12", "rgba(4, 120, 87, 0.12)"),
@@ -54,6 +178,18 @@ document.addEventListener("alpine:init", () => {
     collapsedPolitica: {},
     // 7a.L.1: sub-título do chart #rentabilidade (atualizado por dataZoom)
     rentabilidadeSubtitulo: "",
+    // 7a.L.2.b: estado do 4º card "Período" sob #rentabilidade. fimIdx=null
+    // = card oculto (default). Populado por recomputarPeriodo a cada datazoom
+    // ou após hidratarRentabilidade.
+    periodoCustom: {
+      iniIdx: 0,
+      fimIdx: null,
+      twr: null,
+      xirr: null,
+      benchTwr: null,
+      benchXirr: null,
+      titulo: "Origem",
+    },
     // 7a.H.1: estado da tela #aportar
     aporteValor: "",
     aporteBanner: null,
