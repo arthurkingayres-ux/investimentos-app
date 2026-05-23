@@ -360,6 +360,14 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 
 **Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
 
+### Chart #rentabilidade — period-relative reanchoring (Fase 7a.L.1)
+
+Chart histórico do #rentabilidade reanchora dinamicamente conforme o `dataZoom` é movido. Sem zoom (range 100%), Y mostra **cumulativo desde origem** (1 + crescimento_total − 1). Com zoom em `[startIdx, endIdx]`, Y vira **cumulativo desde primeiro ponto visível** via chain rule: `y[i] = growth[i] / growth[startIdx] − 1`. Benchmark recebe o mesmo tratamento. Sub-título `<p class="chart-rent-subtitulo">` acima do chart explicita a âncora ("Cresceu desde Mmm/AA") e atualiza via Alpine state `rentabilidadeSubtitulo`.
+
+Implementação: `hidratarRentabilidade` em `js/app.js` computa `growthPortfolio[]` e `growthBenchmark[]` em init (reconciliando `anualizado=true` → cum via `(1+aa)^(days/365.25)` com `anualizado=false` já cum). Listener `chart.on('datazoom', ...)` lê `getOption().dataZoom[0]` (startValue/endValue em category mode, startValue/endValue ou start/end fallback), mapeia para índices, chama `reancorar(growthArr, startIdx, endIdx)` e atualiza séries via `setOption({series: [...]})`. ECharts faz diff implícito + animação morph via `motionConfig`.
+
+Os 3 cards de métrica abaixo do chart (Origem/YTD/12m) **mantêm valores anualizados** — o chart e os cards medem coisas diferentes propositalmente.
+
 ---
 
 ## Anti-patterns banidos

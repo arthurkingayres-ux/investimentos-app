@@ -52,6 +52,8 @@ document.addEventListener("alpine:init", () => {
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
     collapsedPolitica: {},
+    // 7a.L.1: sub-título do chart #rentabilidade (atualizado por dataZoom)
+    rentabilidadeSubtitulo: "",
     // 7a.H.1: estado da tela #aportar
     aporteValor: "",
     aporteBanner: null,
@@ -902,9 +904,65 @@ document.addEventListener("alpine:init", () => {
         return MESES[idx] + "/" + yy.slice(2);
       };
 
-      const portfolio = serie.map((p) => p.twr);
-      const benchmark = serie.map((p) => p.benchmark);
+      // 7a.L.1: chart period-relative. Converte cada ponto para "growth factor"
+      // = (1 + cumulativo_desde_origem). Reconcilia anualizado=true (twr é aa,
+      // converte via (1+aa)^(days/365.25)) e anualizado=false (twr já é cum).
+      // Pontos com twr=null herdam o growth anterior (last-known).
+      const parseAnchor = (yyyymm) => {
+        if (!yyyymm) return null;
+        const [yy, mm] = yyyymm.split("-").map(Number);
+        if (!yy || !mm) return null;
+        // new Date(y, m, 0) = último dia do mês m (1-indexed)
+        return new Date(yy, mm, 0);
+      };
+      const primeiraAnchor = parseAnchor(serie[0].data);
+      const computeGrowth = (p) => {
+        if (p.twr === null || p.twr === undefined) return null;
+        if (p.anualizado === false) return 1 + p.twr;
+        const anchor = parseAnchor(p.data);
+        if (!anchor || !primeiraAnchor) return 1 + p.twr;
+        const days = Math.max(0, (anchor - primeiraAnchor) / 86400000);
+        if (days < 1) return 1.0;
+        return Math.pow(1 + p.twr, days / 365.25);
+      };
+      const buildGrowthArray = (key) => {
+        const out = [];
+        let last = 1.0;
+        for (const p of serie) {
+          const g =
+            key === "twr"
+              ? computeGrowth(p)
+              : p.benchmark === null || p.benchmark === undefined
+                ? null
+                : computeGrowth({
+                    twr: p.benchmark,
+                    anualizado: p.anualizado,
+                    data: p.data,
+                  });
+          if (g !== null) last = g;
+          out.push(g === null ? last : g);
+        }
+        return out;
+      };
+      const growthPortfolio = buildGrowthArray("twr");
+      const growthBenchmark = buildGrowthArray("benchmark");
+
+      // Devolve a série Y reanchorada para [startIdx, endIdx]. Fora do range
+      // emite null (linha some) — preserva o comportamento esperado de zoom.
+      const reancorar = (growthArr, startIdx, endIdx) => {
+        const base = growthArr[startIdx] || 1.0;
+        return growthArr.map((g, i) => {
+          if (i < startIdx || i > endIdx) return null;
+          if (g === null) return null;
+          return g / base - 1;
+        });
+      };
+
       const xLabels = serie.map((p) => formatarMmmAA(p.data));
+      const totalIdx = serie.length - 1;
+      const portfolio = reancorar(growthPortfolio, 0, totalIdx);
+      const benchmark = reancorar(growthBenchmark, 0, totalIdx);
+      this.rentabilidadeSubtitulo = "Cresceu desde " + formatarMmmAA(serie[0].data);
 
       const benchNomePorEscopo = { Total: "CDI", Brasil: "CDI", EUA: "S&P 500" };
       const benchNome = benchNomePorEscopo[this.escopoAtivo] || "Benchmark";
@@ -984,6 +1042,38 @@ document.addEventListener("alpine:init", () => {
         });
         this.resizeObserverChart.observe(target);
       }
+
+      // 7a.L.1: listener dataZoom — reancora Y para [startIdx, endIdx] visível
+      // e atualiza sub-título. Closure sobre `serie`, growthPortfolio, growthBenchmark.
+      const self = this;
+      const aoMoverZoom = () => {
+        let startIdx = 0;
+        let endIdx = totalIdx;
+        try {
+          const opt = chart.getOption();
+          const dz = opt.dataZoom && opt.dataZoom[0];
+          if (dz) {
+            if (typeof dz.startValue === "number") startIdx = Math.max(0, Math.floor(dz.startValue));
+            else if (typeof dz.start === "number") startIdx = Math.max(0, Math.floor((dz.start / 100) * totalIdx));
+            if (typeof dz.endValue === "number") endIdx = Math.min(totalIdx, Math.ceil(dz.endValue));
+            else if (typeof dz.end === "number") endIdx = Math.min(totalIdx, Math.ceil((dz.end / 100) * totalIdx));
+          }
+        } catch (_) {}
+        if (endIdx <= startIdx) endIdx = Math.min(totalIdx, startIdx + 1);
+        const novaP = reancorar(growthPortfolio, startIdx, endIdx);
+        const novaB = reancorar(growthBenchmark, startIdx, endIdx);
+        try {
+          chart.setOption({
+            series: [
+              { name: "Portfólio", data: novaP },
+              { name: benchNome, data: novaB },
+            ],
+          });
+        } catch (_) {}
+        self.rentabilidadeSubtitulo =
+          "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
+      };
+      chart.on("datazoom", aoMoverZoom);
 
       this.echartsRent = chart;
     },

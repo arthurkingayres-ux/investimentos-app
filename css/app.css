@@ -874,6 +874,19 @@ footer.rodape code {
   border-color: var(--g-700);
 }
 
+/* 7a.L.1: sub-título acima do chart de rentabilidade — explicita métrica
+   e âncora temporal (cresceu desde X). Atualiza dinamicamente conforme
+   dataZoom. Estilo Monument (mono caps, color gray). */
+.chart-rent-subtitulo {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-medium, #6b7280);
+  margin: 8px 0 4px;
+  text-align: center;
+}
+
 .chart-rent {
   width: 100%;
   max-width: 100%;
@@ -881,7 +894,7 @@ footer.rodape code {
      (ECharts ocupa o espaço interno após padding 12px; legenda fica
      dentro do chart via bottom: 28). */
   min-height: 320px;
-  margin: 12px 0 24px;
+  margin: 4px 0 24px;
   background: white;
   border-radius: 14px;
   padding: 12px;
