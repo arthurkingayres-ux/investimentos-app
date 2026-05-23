@@ -65,7 +65,7 @@ function construirFlows(hist, iA, iB) {
   flows.push([dA, -(hist[iA].nav || 0)]);
   for (let i = iA + 1; i < iB; i++) {
     const cf = hist[i].cashflow;
-    if (cf && cf !== 0) {
+    if (cf) {
       const d = parseMesData(hist[i].data);
       if (d) flows.push([d, cf]);
     }
@@ -94,7 +94,7 @@ function flowsBenchmark(hist, iA, iB) {
   // Cashflows intermediários: aporte real (mantém sinal/magnitude).
   for (let i = iA + 1; i < iB; i++) {
     const cf = hist[i].cashflow;
-    if (cf && cf !== 0) {
+    if (cf) {
       const d = parseMesData(hist[i].data);
       if (d) flows.push([d, cf]);
     }
@@ -106,7 +106,7 @@ function flowsBenchmark(hist, iA, iB) {
   let terminal = (hist[iA].nav || 0) * (growthB / growthA);
   for (let i = iA + 1; i < iB; i++) {
     const cf = hist[i].cashflow;
-    if (cf && cf !== 0) {
+    if (cf) {
       const gi = hist[i].benchmark_growth;
       if (gi) {
         // cashflow já vem com convenção "aporte=neg" → inverte sinal para
@@ -1278,6 +1278,11 @@ document.addEventListener("alpine:init", () => {
       let iA = Math.max(0, Math.min(maxIdx, Math.floor(startIdx || 0)));
       let iB = Math.max(0, Math.min(maxIdx, Math.floor(endIdx || 0)));
       if (iB < iA) iB = iA;
+      // CRB 7a.L.2.b finding (general-swe #4): caller passa endIdx baseado
+      // na length da TWR series, que pode ser ≠ hist.length se firstStable
+      // filtrou pontos iniciais. Capturamos intenção "full range" pelo caller
+      // (startIdx=0 + endIdx>=N-1 implícito antes do clamp).
+      const fullRangeIntent = (startIdx || 0) === 0 && (endIdx || 0) >= maxIdx;
 
       // Janela zero (single point) → métricas indefinidas mas mantém título.
       if (iA === iB) {
@@ -1288,7 +1293,7 @@ document.addEventListener("alpine:init", () => {
           xirr: null,
           benchTwr: null,
           benchXirr: null,
-          titulo: gerarTituloPeriodo(hist, iA, iB),
+          titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
         };
         return;
       }
@@ -1342,7 +1347,7 @@ document.addEventListener("alpine:init", () => {
         xirr: xirr_aa,
         benchTwr,
         benchXirr,
-        titulo: gerarTituloPeriodo(hist, iA, iB),
+        titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
       };
     },
 

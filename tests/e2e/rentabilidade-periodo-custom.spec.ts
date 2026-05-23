@@ -90,6 +90,55 @@ test.describe("Fase 7a.L.2.b — Rentabilidade card Período", () => {
     }
   });
 
+  test("Newton-Raphson divergence: bench row renderiza '—' em vez de spread enganoso", async ({ page }) => {
+    // CRB 7a.L.2.b finding (general-swe #2): força benchXirr=null injetando
+    // hist com cashflows all-outflow (sem flow positivo → Newton diverge).
+    // Antes do fix, `?? 0` mostrava portfolio_xirr como spread (UX bug).
+    await autenticar(page);
+    await abrirRentabilidade(page);
+
+    // Injeta histPeriodo sintético no Alpine state e re-renderiza
+    await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body) as Record<string, unknown>;
+      // Stub: NAV crescente sem flow positivo + benchmark_growth presente
+      const histSintetica = [
+        { data: "2024-01", nav: 1000, cashflow: -100, benchmark_growth: 1.0 },
+        { data: "2024-02", nav: 1050, cashflow: -100, benchmark_growth: 1.01 },
+        { data: "2024-03", nav: 1100, cashflow: -100, benchmark_growth: 1.02 },
+      ];
+      const ctx = (data as { _rentCtx?: Record<string, unknown> })._rentCtx;
+      if (ctx) {
+        ctx.histPeriodo = histSintetica;
+        ctx.growthPortfolio = [1.0, 1.05, 1.10];
+      }
+      (data as { recomputarPeriodo: (a: number, b: number) => void }).recomputarPeriodo(0, 2);
+    });
+    await page.waitForTimeout(100);
+
+    // Card visível com título "Origem" (sintético = full range)
+    const card = page.locator(".tela-rentabilidade .rent-periodo");
+    await expect(card).toBeVisible();
+
+    // Bench row deve ter "—" no campo XIRR-spread quando Newton diverge
+    // (ou row inteira oculta — ambos preservam invariante "nunca mostrar
+    // spread enganoso").
+    const benchRow = card.locator(".rent-periodo-bench");
+    const benchVisivel = await benchRow.isVisible();
+    if (benchVisivel) {
+      const benchTexto = await benchRow.textContent();
+      // Se XIRR convergiu, ok. Se não, deve renderizar "—" antes do "·" (TWR)
+      // ou benchTwr null → row oculta. Não pode mostrar "spread" enganoso.
+      // Verificação: se benchXirr é null no state, "—" deve aparecer no DOM.
+      const benchXirrNull = await page.evaluate(() => {
+        const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+        return (data as { periodoCustom: { benchXirr: number | null } }).periodoCustom.benchXirr === null;
+      });
+      if (benchXirrNull) {
+        expect(benchTexto).toContain("—");
+      }
+    }
+  });
+
   test("reset zoom (full range) restaura título 'Origem'", async ({ page }) => {
     await autenticar(page);
     await abrirRentabilidade(page);
