@@ -368,6 +368,19 @@ Implementação: `hidratarRentabilidade` em `js/app.js` computa `growthPortfolio
 
 Os 3 cards de métrica abaixo do chart (Origem/YTD/12m) **mantêm valores anualizados** — o chart e os cards medem coisas diferentes propositalmente.
 
+### Card "Período" (Fase 7a.L.2)
+
+Acima dos 3 cards fixos (Origem/YTD/12m) aparece um 4º card `.rent-periodo` que reflete a janela atual do `dataZoom`:
+
+- **Título dinâmico**: `Origem` quando full range (startIdx=0 + endIdx≥maxIdx); `Período · mai/2025 → mai/2026` quando handles arrastados (português, mês abreviado minúsculo).
+- **Métricas**: XIRR a.a. + TWR a.a. + linha `vs {CDI|S&P 500}` (label segue escopo ativo).
+- **Cálculo**: TWR a.a. via chain rule sobre `growthPortfolio[]` que L.1 já calcula; XIRR a.a. via **Newton-Raphson em JS puro** sobre flows da janela (`construirFlows(hist, iA, iB)` = `[-nav[iA], ...cashflows[iA+1..iB-1], +nav[iB]]`). Benchmark simétrico (TWR via `benchmark_growth` ratio; XIRR via `flowsBenchmark` escalado pelo crescimento do índice).
+- **Schema dependency**: consome `rentabilidade.{escopo}[.moeda].historico_periodo` (mensal `[{data, nav, cashflow, benchmark_growth}]`, schema v2.14).
+- **Edge cases**: Newton-Raphson não converge (janela muito curta, all-outflows) → `benchXirr = null` → bench row renderiza `'—'` em vez de spread enganoso (`?? 0` mostraria `portfolio_xirr` como diferença).
+- **Motion**: zero transição — atualização on-drag direto via Alpine. Mesma diretriz de L.1 sobre subtítulo. (Anti-pattern explícito: animar valores num card que muda em tempo real durante drag é distractor.)
+- **Implementação**: hook `this.recomputarPeriodo(startIdx, endIdx)` chamado por (a) final de `hidratarRentabilidade`, (b) `aoMoverZoom(chart)` (mesmo handler que L.1 registra), (c) `selecionarMoeda(m)` quando escopo EUA. Estado Alpine `periodoCustom = {iniIdx, fimIdx, twr, xirr, benchTwr, benchXirr, titulo}`. Utilitárias puras top-of-file: `newtonRaphsonXirr`, `construirFlows`, `flowsBenchmark`, `parseMesData`, `gerarTituloPeriodo`.
+- **CSS isolado**: classe `.rent-periodo` separada de `.rent-grupo` (preserva invariante "3 grupos fixos" dos specs antigos que assertam `toHaveCount(3)`). Estilo espelha `.rent-grupo` intencionalmente.
+
 ---
 
 ## Anti-patterns banidos

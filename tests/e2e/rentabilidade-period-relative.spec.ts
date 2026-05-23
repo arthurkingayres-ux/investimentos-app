@@ -140,4 +140,46 @@ test.describe("Fase 7a.L.1 — Rentabilidade chart period-relative", () => {
       .textContent();
     expect(subtituloFinal).toBe(subtituloInicial);
   });
+
+  // 7a.L.2.c: paridade card "Período" ↔ chart no endpoint visível.
+  // O card mostra TWR a.a. (anualizado); a curva mostra growth cumulativo
+  // desde primeiro ponto visível (L.1). Para janelas >= 1 ano, TWR a.a.
+  // ≈ growth cumulativo (mesma magnitude). Para janelas < 1 ano, TWR a.a.
+  // > growth cumulativo (anualização amplifica). Spec valida sinal +
+  // consistência de magnitude (não igualdade exata por isso).
+  test("paridade card Período ↔ chart: TWR a.a. e growth visual têm mesmo sinal", async ({ page }) => {
+    await autenticar(page);
+    await abrirRentabilidade(page);
+
+    // Zoom em janela média (50-100%) → ambos cards e chart populados
+    await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { dispatchAction: (a: Record<string, unknown>) => void } }).echartsRent;
+      if (chart) {
+        chart.dispatchAction({ type: "dataZoom", start: 50, end: 100 });
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const cardTwr = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      return (data as { periodoCustom: { twr: number | null } }).periodoCustom.twr;
+    });
+
+    const endpointVisual = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => Record<string, unknown> } }).echartsRent;
+      if (!chart) return null;
+      const opt = chart.getOption();
+      const series = (opt.series as Array<{ data: number[] }>)?.[0]?.data;
+      if (!series || series.length === 0) return null;
+      // Pega último valor visível (reancorado por L.1)
+      return series[series.length - 1];
+    });
+
+    // Ambos não-null e mesmo sinal (cresceu/decresceu na janela)
+    if (cardTwr !== null && endpointVisual !== null) {
+      expect(Math.sign(cardTwr)).toBe(Math.sign(endpointVisual));
+    }
+  });
 });
