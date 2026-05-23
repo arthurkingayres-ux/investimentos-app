@@ -69,9 +69,13 @@ test.describe("Tela #rentabilidade", () => {
   test("resumo mostra grupos Origem / Ano (YTD) / 12 meses", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
-    await expect(page.locator(".tela-rentabilidade").getByText("Origem")).toBeVisible();
-    await expect(page.locator(".tela-rentabilidade").getByText("Ano (YTD)")).toBeVisible();
-    await expect(page.locator(".tela-rentabilidade").getByText("12 meses")).toBeVisible();
+    // 7a.L.2.b: ancora em .rent-grupo-titulo (cards fixos) para evitar
+    // ambiguidade com .rent-periodo-titulo do 4º card dinâmico, que pode
+    // mostrar texto "Origem" quando em full range.
+    const titulos = page.locator(".tela-rentabilidade .rent-grupo-titulo");
+    await expect(titulos.filter({ hasText: "Origem" })).toBeVisible();
+    await expect(titulos.filter({ hasText: "Ano (YTD)" })).toBeVisible();
+    await expect(titulos.filter({ hasText: "12 meses" })).toBeVisible();
   });
 
   test("redesign 7a.E.1: 3 grupos por janela + legenda Como ler", async ({ page }) => {

@@ -247,6 +247,34 @@
         <p class="chart-rent-subtitulo" x-text="rentabilidadeSubtitulo" x-show="rentabilidadeSubtitulo"></p>
         <div id="chart-rent" class="chart-rent" aria-label="Histórico TWR"></div>
 
+        <!-- 7a.L.2.b: 4º card "Período" — TWR/XIRR a.a. + vs benchmark calculados
+             para a janela atual do dataZoom. fimIdx=null = chart ainda não
+             hidratou → oculto. Título dinâmico: "Origem" (full range) ou
+             "Período · mai/25 → mai/26". Usa classe própria .rent-periodo
+             (não .rent-grupo) para preservar invariantes "3 grupos fixos"
+             dos specs existentes — CSS espelha .rent-grupo intencionalmente. -->
+        <section class="rent-periodo" x-show="periodoCustom.fimIdx !== null">
+          <h3 class="rent-periodo-titulo" x-text="periodoCustom.titulo">Período</h3>
+          <div class="rent-periodo-metrica">
+            <span class="rent-periodo-label">XIRR a.a.</span>
+            <span class="rent-periodo-valor"
+                  x-text="periodoCustom.xirr === null ? '—' : formatPct(periodoCustom.xirr)"></span>
+          </div>
+          <div class="rent-periodo-metrica">
+            <span class="rent-periodo-label">TWR a.a.</span>
+            <span class="rent-periodo-valor"
+                  x-text="periodoCustom.twr === null ? '—' : formatPct(periodoCustom.twr)"></span>
+          </div>
+          <div class="rent-periodo-bench" x-show="periodoCustom.benchTwr !== null">
+            <span class="bench-label" x-text="'vs ' + rentBenchNome()"></span>
+            <span class="bench-valor">
+              <span x-text="formatPct((periodoCustom.xirr ?? 0) - (periodoCustom.benchXirr ?? 0))"></span>
+              <span class="bench-twr"
+                    x-text="' · TWR ' + formatPct((periodoCustom.twr ?? 0) - (periodoCustom.benchTwr ?? 0))"></span>
+            </span>
+          </div>
+        </section>
+
         <div class="rent-grupos">
           <section class="rent-grupo">
             <h3 class="rent-grupo-titulo">Origem</h3>
