@@ -918,7 +918,10 @@ document.addEventListener("alpine:init", () => {
       const primeiraAnchor = parseAnchor(serie[0].data);
       const computeGrowth = (p) => {
         if (p.twr === null || p.twr === undefined) return null;
-        if (p.anualizado === false) return 1 + p.twr;
+        // CRB #4: anualizado !== true (default-cumulative) — usa branch
+        // cumulativo a menos que campo seja explicitamente `true`. Defende
+        // contra schemas futuros que omitam o campo.
+        if (p.anualizado !== true) return 1 + p.twr;
         const anchor = parseAnchor(p.data);
         if (!anchor || !primeiraAnchor) return 1 + p.twr;
         const days = Math.max(0, (anchor - primeiraAnchor) / 86400000);
@@ -950,7 +953,9 @@ document.addEventListener("alpine:init", () => {
       // Devolve a série Y reanchorada para [startIdx, endIdx]. Fora do range
       // emite null (linha some) — preserva o comportamento esperado de zoom.
       const reancorar = (growthArr, startIdx, endIdx) => {
-        const base = growthArr[startIdx] || 1.0;
+        // CRB #1: ?? em vez de || — preserva base=0 (caso extremo −100%);
+        // logical-OR coalescia para 1.0 silenciosamente, mascarando drawdown total.
+        const base = growthArr[startIdx] ?? 1.0;
         return growthArr.map((g, i) => {
           if (i < startIdx || i > endIdx) return null;
           if (g === null) return null;
@@ -1044,8 +1049,7 @@ document.addEventListener("alpine:init", () => {
       }
 
       // 7a.L.1: listener dataZoom — reancora Y para [startIdx, endIdx] visível
-      // e atualiza sub-título. Closure sobre `serie`, growthPortfolio, growthBenchmark.
-      const self = this;
+      // e atualiza sub-título. Arrow function captura `this` lexicalmente.
       const aoMoverZoom = () => {
         let startIdx = 0;
         let endIdx = totalIdx;
@@ -1062,6 +1066,11 @@ document.addEventListener("alpine:init", () => {
         if (endIdx <= startIdx) endIdx = Math.min(totalIdx, startIdx + 1);
         const novaP = reancorar(growthPortfolio, startIdx, endIdx);
         const novaB = reancorar(growthBenchmark, startIdx, endIdx);
+        // CRB #3: atualiza subtítulo ANTES do setOption — se ECharts internal
+        // falhar (chart disposed mid-event), subtítulo fica consistente com a
+        // intenção do usuário em vez de divergir das séries renderizadas.
+        this.rentabilidadeSubtitulo =
+          "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
         try {
           chart.setOption({
             series: [
@@ -1070,8 +1079,6 @@ document.addEventListener("alpine:init", () => {
             ],
           });
         } catch (_) {}
-        self.rentabilidadeSubtitulo =
-          "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
       };
       chart.on("datazoom", aoMoverZoom);
 

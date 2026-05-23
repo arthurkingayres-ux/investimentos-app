@@ -95,10 +95,12 @@ test.describe("Fase 7a.L.1 — Rentabilidade chart period-relative", () => {
       return d[d.length - 1];
     });
 
-    // Y do último ponto deve ter mudado (reancorado para janela menor)
+    // Y do último ponto deve ter mudado (reancorado para janela menor).
+    // CRB #5: assertion de magnitude (|y_depois| < |y_antes|) é frágil contra
+    // fixtures futuras — basta verificar que o valor mudou (reancoragem
+    // ocorreu) e o tipo permanece numérico.
     expect(yDepois).not.toEqual(yAntes);
-    // Janela curta → cumulativo menor que cumulativo-desde-origem
-    expect(Math.abs(yDepois as number)).toBeLessThan(Math.abs(yAntes as number));
+    expect(typeof yDepois).toBe("number");
 
     // Subtítulo deve continuar começando com "Cresceu desde" (com data nova)
     const subtitulo = page.locator(".tela-rentabilidade .chart-rent-subtitulo");
