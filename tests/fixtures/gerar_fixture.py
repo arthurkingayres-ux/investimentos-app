@@ -44,8 +44,36 @@ def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_benc
     ]
 
 
+def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
+                    bench_growth_final: float) -> list[dict]:
+    """Schema v2.14 (Fase 7a.L.2.a): serie mensal {data, nav, cashflow, benchmark_growth}
+    para card 'Período' do PWA. Mesmos 6 anchors do _serie_mensal — alinha
+    índices entre historico_twr e historico_periodo (frontend consome ambos)."""
+    meses = ["2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-04"]
+    n = len(meses)
+    # Cashflow concentrado nos meses intermediários (não no primeiro/último).
+    cf_por_mes = cashflow_total / (n - 2)
+    pontos = []
+    for i in range(n):
+        nav = round(start_nav + (fim_nav - start_nav) * (i / (n - 1)), 2)
+        if i == 0 or i == n - 1:
+            cf = 0.0
+        else:
+            # Aporte = negativo (convenção XIRR).
+            cf = round(-cf_por_mes, 2)
+        # benchmark_growth: 1.0 no anchor 0, cresce linearmente até bench_growth_final
+        bg = round(1.0 + (bench_growth_final - 1.0) * (i / (n - 1)), 6)
+        pontos.append({
+            "data": meses[i],
+            "nav": nav,
+            "cashflow": cf,
+            "benchmark_growth": bg,
+        })
+    return pontos
+
+
 PAYLOAD = {
-    "versao": "2.10",
+    "versao": "2.14",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -93,6 +121,8 @@ PAYLOAD = {
                 },
             },
             "historico_twr": _serie_mensal(0.05, 0.118, 0.04, 0.08),
+            # Schema v2.14 (Fase 7a.L.2.a): historico_periodo flat (Total/Brasil).
+            "historico_periodo": _serie_periodo(200000.0, 258000.0, 50000.0, 1.08),
         },
         "Brasil": {
             "xirr_origem": 0.091,
@@ -112,6 +142,7 @@ PAYLOAD = {
                 },
             },
             "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
+            "historico_periodo": _serie_periodo(120000.0, 150000.0, 25000.0, 1.025),
         },
         # Schema v2.7 (Fase 7a.E.14): EUA.historico_twr aninhado {brl, usd}.
         # Trilho USD tem só SP500 nos benchmarks (CDI/IBOV/IFIX são BRL-only).
@@ -149,6 +180,11 @@ PAYLOAD = {
                 "brl": _serie_mensal(0.06, 0.118, 0.05, 0.058),
                 # 7a.E.15: USD agora também emite benchmark (S&P 500 USD-nativo).
                 "usd": _serie_mensal(0.04, 0.275, 0.03, 0.214),
+            },
+            # Schema v2.14: historico_periodo aninhado {brl, usd} em EUA.
+            "historico_periodo": {
+                "brl": _serie_periodo(60000.0, 88000.0, 22000.0, 1.058),
+                "usd": _serie_periodo(12000.0, 17000.0, 4000.0, 1.214),
             },
         },
     },
