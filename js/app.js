@@ -1184,6 +1184,30 @@ document.addEventListener("alpine:init", () => {
         this.resizeObserverChart.observe(target);
       }
 
+      // 7a.L.2.b: ref para recomputarPeriodo. Captura `historico_periodo` da
+      // série ativa (nested {brl,usd} em EUA pós-v2.14; flat em Brasil/Total).
+      // Também guarda growthPortfolio/totalIdx para reuso pelo recomputador.
+      const rentRoot = (this.json.rentabilidade || {})[this.escopoAtivo];
+      let histPeriodo = null;
+      if (rentRoot) {
+        const hp = rentRoot.historico_periodo;
+        if (hp) {
+          if (this.escopoAtivo === "EUA" && !Array.isArray(hp)) {
+            const chave = this.moeda === "USD" ? "usd" : "brl";
+            histPeriodo = hp[chave] || hp.brl || null;
+          } else if (Array.isArray(hp)) {
+            histPeriodo = hp;
+          }
+        }
+      }
+      this._rentCtx = {
+        serie,
+        totalIdx,
+        growthPortfolio,
+        histPeriodo,
+        formatarMmmAA,
+      };
+
       // 7a.L.1: listener dataZoom — reancora Y para [startIdx, endIdx] visível
       // e atualiza sub-título. Arrow function captura `this` lexicalmente.
       const aoMoverZoom = () => {
@@ -1215,10 +1239,117 @@ document.addEventListener("alpine:init", () => {
             ],
           });
         } catch (_) {}
+        // 7a.L.2.b: recomputa card "Período" da janela atual.
+        this.recomputarPeriodo(startIdx, endIdx);
       };
       chart.on("datazoom", aoMoverZoom);
 
       this.echartsRent = chart;
+
+      // 7a.L.2.b: estado inicial do card. Default = full range → titulo "Origem".
+      // Inicializado para fimIdx !== null para que x-show resolva true logo
+      // após hidratar (o card mostra os valores espelhando Origem fixo).
+      this.recomputarPeriodo(0, totalIdx);
+    },
+
+    // ── 7a.L.2.b: card "Período" sob #rentabilidade ────────────────────
+    recomputarPeriodo(startIdx, endIdx) {
+      // Hook chamado por (a) aoMoverZoom do dataZoom, (b) final de
+      // hidratarRentabilidade, (c) selecionarMoeda (re-hidrata → reentra).
+      // Reseta estado se contexto inválido (rota mudou, chart disposed).
+      const ctx = this._rentCtx;
+      if (!ctx || !ctx.histPeriodo || ctx.histPeriodo.length < 2) {
+        this.periodoCustom = {
+          iniIdx: 0,
+          fimIdx: null,
+          twr: null,
+          xirr: null,
+          benchTwr: null,
+          benchXirr: null,
+          titulo: "Origem",
+        };
+        return;
+      }
+      const hist = ctx.histPeriodo;
+      const N = hist.length;
+      // Clamp para índices da histPeriodo (totalIdx é da serie do twr; em
+      // pipelines normais ambos têm mesma cardinalidade, mas defendemos).
+      const maxIdx = N - 1;
+      let iA = Math.max(0, Math.min(maxIdx, Math.floor(startIdx || 0)));
+      let iB = Math.max(0, Math.min(maxIdx, Math.floor(endIdx || 0)));
+      if (iB < iA) iB = iA;
+
+      // Janela zero (single point) → métricas indefinidas mas mantém título.
+      if (iA === iB) {
+        this.periodoCustom = {
+          iniIdx: iA,
+          fimIdx: iB,
+          twr: null,
+          xirr: null,
+          benchTwr: null,
+          benchXirr: null,
+          titulo: gerarTituloPeriodo(hist, iA, iB),
+        };
+        return;
+      }
+
+      const dA = parseMesData(hist[iA].data);
+      const dB = parseMesData(hist[iB].data);
+      let twr_aa = null;
+      if (dA && dB) {
+        const dias = (dB - dA) / 86400000;
+        if (dias >= 1 && ctx.growthPortfolio) {
+          // TWR a.a. via chain rule sobre growthPortfolio (L.1 já calcula).
+          // Quando histPeriodo e growthPortfolio têm índices alinhados,
+          // growth[iA..iB] entrega o produto correto. Defende com fallback
+          // quando algum extremo é null.
+          const gp = ctx.growthPortfolio;
+          // gp pode ter mais/menos pontos que hist se firstStable filtrou
+          // pontos iniciais. Reusa o último crescimento conhecido.
+          const gA = gp[Math.min(iA, gp.length - 1)] ?? 1;
+          const gB = gp[Math.min(iB, gp.length - 1)] ?? 1;
+          if (gA > 0) {
+            twr_aa = Math.pow(gB / gA, 365.25 / dias) - 1;
+          }
+        }
+      }
+
+      const flows = construirFlows(hist, iA, iB);
+      const xirr_aa = newtonRaphsonXirr(flows, twr_aa ?? 0.10);
+
+      let benchTwr = null;
+      let benchXirr = null;
+      const gA = hist[iA].benchmark_growth;
+      const gB = hist[iB].benchmark_growth;
+      if (gA && gB && dA && dB) {
+        const dias = (dB - dA) / 86400000;
+        if (dias >= 1 && gA > 0) {
+          const benchGrowth = gB / gA;
+          if (benchGrowth > 0) {
+            benchTwr = Math.pow(benchGrowth, 365.25 / dias) - 1;
+            benchXirr = newtonRaphsonXirr(
+              flowsBenchmark(hist, iA, iB),
+              benchTwr,
+            );
+          }
+        }
+      }
+
+      this.periodoCustom = {
+        iniIdx: iA,
+        fimIdx: iB,
+        twr: twr_aa,
+        xirr: xirr_aa,
+        benchTwr,
+        benchXirr,
+        titulo: gerarTituloPeriodo(hist, iA, iB),
+      };
+    },
+
+    rentBenchNome() {
+      // Nome amigável do benchmark principal do escopo ativo (para o
+      // label "vs ..." no card Período). Brasil/Total = CDI, EUA = S&P 500.
+      return this.escopoAtivo === "EUA" ? "S&P 500" : "CDI";
     },
 
     // ── 7a.H.1: Tela #aportar ─────────────────────────────────────────
