@@ -27,9 +27,9 @@ async function abrirPrimeiroTicker(page: Page) {
   // viewport mobile do Pixel 7; #alocacao seta rota=alocacao + tab=aloca via atualizarRota).
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible({ timeout: 5_000 });
-  // Expandir a primeira classe que tem ao menos 1 ticker. Iteramos pelas 4
-  // classes (EUA, FIIs, Ações BR, Cripto) — após clicar uma, esperamos brevemente
-  // pelo primeiro ticker visível dentro do bloco expandido.
+  // Expandir a primeira classe que tem ao menos 1 ticker. Iteramos pelas 5
+  // classes (EUA, FIIs, Renda Fixa BR, Ações BR, Cripto) — após clicar uma,
+  // esperamos brevemente pelo primeiro ticker visível dentro do bloco expandido.
   const classes = page.locator(".tela-alocacao .classe-row");
   const total = await classes.count();
   for (let i = 0; i < total; i++) {

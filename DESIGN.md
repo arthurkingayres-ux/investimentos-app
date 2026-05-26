@@ -459,7 +459,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --tab-bar-border var(--neutral-200)  --tab-active var(--g-900)
                      --tab-inactive var(--gray)  --tab-indicator-height 2px
 
-/* Class dots */     EUA #0284c7  FIIs #f59e0b  Ações BR #047857  Cripto #a855f7
+/* Class dots */     EUA #1e6091  FIIs #b8731f  Renda Fixa BR #0e7490  Ações BR #047857  Cripto #6d4ea8
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

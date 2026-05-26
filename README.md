@@ -12,7 +12,7 @@ Hash routing — todas as telas convivem na mesma página estática.
 |------------------------|-----------------------|-----------------------------------------------------------------------------|
 | `/`                    | Raio X (home)         | Patrimônio, rentabilidade, alocação, último aporte, proventos.              |
 | `/#rentabilidade`      | Detalhe de rentabilidade | Série mensal de TWR vs benchmark (CDI / S&P 500), por escopo, gráfico ECharts. |
-| `/#alocacao`           | Detalhe de alocação   | 4 classes (EUA / FIIs / Ações BR / Cripto) expansíveis com tickers dentro.  |
+| `/#alocacao`           | Detalhe de alocação   | 5 classes (EUA / FIIs / Renda Fixa BR / Ações BR / Cripto) expansíveis com tickers dentro. |
 | `/#ativo/:ticker`      | Drill-down por ativo  | Header + KPIs (qty, custo, VM, ganho, XIRR) + tabelas de movimentos e proventos. |
 
 Hash inválido cai em raio-x via `history.replaceState` (sem entrar no histórico do navegador).
