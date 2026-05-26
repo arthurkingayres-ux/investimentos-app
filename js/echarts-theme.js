@@ -33,19 +33,20 @@
     neutral200:  readToken('--neutral-200'),
     neutral300:  readToken('--neutral-300'),
     neutral50:   readToken('--neutral-50'),
-    // 4 cores semânticas de categoria:
-    catAcoesBr:  readToken('--cat-acoes-br'),
-    catEua:      readToken('--cat-eua'),
-    catFii:      readToken('--cat-fii'),
-    catCripto:   readToken('--cat-cripto')
+    // 5 cores semânticas de categoria (7a.M.1 adiciona Renda Fixa BR):
+    catAcoesBr:    readToken('--cat-acoes-br'),
+    catEua:        readToken('--cat-eua'),
+    catFii:        readToken('--cat-fii'),
+    catCripto:     readToken('--cat-cripto'),
+    catRendaFixaBr: readToken('--cat-renda-fixa-br')
   };
 
   var fontFamily = '-apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif';
 
   var theme = {
-    // Slots 0-3 são as 4 categorias na ordem [Ações BR, EUA, FII, Cripto].
-    // Slots 4+ são tokens secundários para séries não-categoria (benchmarks etc).
-    color: [tokens.catAcoesBr, tokens.catEua, tokens.catFii, tokens.catCripto, tokens.teal700, tokens.g900],
+    // Slots 0-4 são as 5 categorias na ordem [Ações BR, EUA, FII, Cripto, Renda Fixa BR] (7a.M.1).
+    // Slots 5+ são tokens secundários para séries não-categoria (benchmarks etc).
+    color: [tokens.catAcoesBr, tokens.catEua, tokens.catFii, tokens.catCripto, tokens.catRendaFixaBr, tokens.teal700, tokens.g900],
     backgroundColor: 'transparent',
     textStyle: { fontFamily: fontFamily, color: tokens.ink },
     title: { textStyle: { color: tokens.ink, fontWeight: 600, fontFamily: fontFamily } },

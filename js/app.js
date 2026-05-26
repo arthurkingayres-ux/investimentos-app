@@ -145,10 +145,12 @@ const COLORS = {
   ink:       () => css("--ink", "#1a1d1c"),
   gray:      () => css("--gray", "#5b605a"),
   // 7a.E.20.1: tokens semânticos de categoria (fonte única em :root).
-  catAcoesBr: () => css("--cat-acoes-br", "#047857"),
-  catEua:     () => css("--cat-eua",      "#1e6091"),
-  catFii:     () => css("--cat-fii",      "#b8731f"),
-  catCripto:  () => css("--cat-cripto",   "#6d4ea8"),
+  // 7a.M.1: +Renda Fixa BR (5ª categoria).
+  catAcoesBr:    () => css("--cat-acoes-br",      "#047857"),
+  catEua:        () => css("--cat-eua",           "#1e6091"),
+  catFii:        () => css("--cat-fii",           "#b8731f"),
+  catCripto:     () => css("--cat-cripto",        "#6d4ea8"),
+  catRendaFixaBr: () => css("--cat-renda-fixa-br", "#0e7490"),
 };
 
 document.addEventListener("alpine:init", () => {
@@ -520,12 +522,15 @@ document.addEventListener("alpine:init", () => {
         if (classe === "EUA") return p.moeda === "USD" && p.classe !== "Cripto";
         if (classe === "Cripto") return p.classe === "Cripto";
         if (classe === "FIIs") return p.classe === "FIIs" || p.classe === "FII";
+        // 7a.M.1: nova categoria. Match exato pela string canônica do DB.
+        if (classe === "Renda Fixa BR") return p.classe === "Renda Fixa BR";
         if (classe === "Ações BR") {
           return (
             p.moeda === "BRL" &&
             p.classe !== "FIIs" &&
             p.classe !== "FII" &&
-            p.classe !== "Cripto"
+            p.classe !== "Cripto" &&
+            p.classe !== "Renda Fixa BR"
           );
         }
         return false;
@@ -562,6 +567,8 @@ document.addEventListener("alpine:init", () => {
         "Ações BR": ["Ações BR", "Ações Brasil", "Ação BR"],
         "EUA": ["EUA", "Exterior"],
         "Cripto": ["Cripto"],
+        // 7a.M.1: 5ª categoria. Sem aliases — nome canônico único entre atual/alvo.
+        "Renda Fixa BR": ["Renda Fixa BR"],
       };
       return tabela[classe] || [classe];
     },
@@ -1564,18 +1571,21 @@ document.addEventListener("alpine:init", () => {
       const alvo = a.alvo || {};
       const aliases = { "FIIs BR": "FII", "Ações Brasil": "Ações BR" };
       // 7a.E.20.1: gradiente e dot derivam de var(--cat-*) (single source).
+      // 7a.M.1: +Renda Fixa BR.
       // Stops escuros das gradientes são tonais; ficam inline (não são "a cor da categoria").
       const grad = {
-        "EUA":      `linear-gradient(90deg, #133e5d 0%, ${COLORS.catEua()} 100%)`,
-        "Ações BR": `linear-gradient(90deg, var(--g-900) 0%, ${COLORS.catAcoesBr()} 100%)`,
-        "FII":      `linear-gradient(90deg, #8a5418 0%, ${COLORS.catFii()} 100%)`,
-        "Cripto":   `linear-gradient(90deg, #4e3979 0%, ${COLORS.catCripto()} 100%)`,
+        "EUA":           `linear-gradient(90deg, #133e5d 0%, ${COLORS.catEua()} 100%)`,
+        "Ações BR":      `linear-gradient(90deg, var(--g-900) 0%, ${COLORS.catAcoesBr()} 100%)`,
+        "FII":           `linear-gradient(90deg, #8a5418 0%, ${COLORS.catFii()} 100%)`,
+        "Cripto":        `linear-gradient(90deg, #4e3979 0%, ${COLORS.catCripto()} 100%)`,
+        "Renda Fixa BR": `linear-gradient(90deg, #0a4a5e 0%, ${COLORS.catRendaFixaBr()} 100%)`,
       };
       const dot = {
-        "EUA":      COLORS.catEua(),
-        "Ações BR": COLORS.catAcoesBr(),
-        "FII":      COLORS.catFii(),
-        "Cripto":   COLORS.catCripto(),
+        "EUA":           COLORS.catEua(),
+        "Ações BR":      COLORS.catAcoesBr(),
+        "FII":           COLORS.catFii(),
+        "Cripto":        COLORS.catCripto(),
+        "Renda Fixa BR": COLORS.catRendaFixaBr(),
       };
       return Object.keys(atual)
         .sort((x, y) => (atual[y] || 0) - (atual[x] || 0))

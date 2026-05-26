@@ -36,10 +36,11 @@
   --card-shadow: 0 1px 2px var(--g-900-04), 0 4px 16px var(--g-900-07);
 
   /* === Identidade — categorias de ativos (7a.E.20, FONTE ÚNICA, NÃO DUPLICAR) === */
-  --cat-acoes-br: #047857;  /* teal âncora (mantém #047857 do --g-700) */
-  --cat-eua:      #1e6091;  /* azul profundo (paleta refinada B; fecha drift 0284c7 vs 1d4ed8) */
-  --cat-fii:      #b8731f;  /* ocre/curry (calibrado em luminância) */
-  --cat-cripto:   #6d4ea8;  /* ametista escuro (calibrado em luminância) */
+  --cat-acoes-br:      #047857;  /* teal âncora (mantém #047857 do --g-700) */
+  --cat-eua:           #1e6091;  /* azul profundo (paleta refinada B; fecha drift 0284c7 vs 1d4ed8) */
+  --cat-fii:           #b8731f;  /* ocre/curry (calibrado em luminância) */
+  --cat-cripto:        #6d4ea8;  /* ametista escuro (calibrado em luminância) */
+  --cat-renda-fixa-br: #0e7490;  /* teal/cyan-700 — âncora institucional (RF, 7a.M.1) */
 }
 
 *, *::before, *::after {
@@ -966,6 +967,7 @@ footer.rodape code {
 .classe-dot.dot-fiis { background: var(--cat-fii); }
 .classe-dot.dot-acoes-br { background: var(--cat-acoes-br); }
 .classe-dot.dot-cripto { background: var(--cat-cripto); }
+.classe-dot.dot-renda-fixa-br { background: var(--cat-renda-fixa-br); }
 
 .classe-nome {
   font-weight: 600;

@@ -25,10 +25,14 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Tela #alocacao", () => {
-  test("mostra 4 classes (EUA, FIIs, Ações BR, Cripto)", async ({ page }) => {
+  test("mostra >= 4 classes (EUA, FIIs, Ações BR, Cripto; +Renda Fixa BR pós-7a.M.1 quando houver posição)", async ({ page }) => {
     await autenticar(page);
     const classes = page.locator(".tela-alocacao .classe-row");
-    await expect(classes).toHaveCount(4);
+    // Tolerante: 4 (fixtures pré-7a.M.1) ou 5 (fixtures pós, com posição em RF BR).
+    // O PWA renderiza só o que aparece em alocacao.atual; valor-zero é omitido.
+    const n = await classes.count();
+    expect(n).toBeGreaterThanOrEqual(4);
+    expect(n).toBeLessThanOrEqual(5);
   });
 
   test("clicar em FIIs expande lista de tickers", async ({ page }) => {
@@ -81,8 +85,9 @@ test.describe("Tela #alocacao", () => {
   test("tela detalhada alocação não prepend '+' em ticker drilldown (todas classes)", async ({ page }) => {
     await autenticar(page);
 
-    // Iterar pelas 4 classes para cobrir todos os tickers, não só FIIs.
-    for (const classe of ["EUA", "FIIs", "Ações BR", "Cripto"]) {
+    // Iterar pelas 5 classes para cobrir todos os tickers, não só FIIs.
+    // Renda Fixa BR (7a.M.1) entra como 5ª; classe sem posição é pulada pelo `count()===0`.
+    for (const classe of ["EUA", "FIIs", "Ações BR", "Cripto", "Renda Fixa BR"]) {
       const row = page.locator(`.tela-alocacao .classe-row[data-classe="${classe}"]`);
       // Algumas classes podem estar fora da fixture; pular se não aparecer.
       if ((await row.count()) === 0) continue;

@@ -99,8 +99,9 @@ PAYLOAD = {
         ],
     },
     "alocacao": {
-        "atual": {"EUA": 0.42, "Ações BR": 0.28, "FIIs": 0.22, "Cripto": 0.08},
-        "alvo": {"EUA": 0.40, "Ações BR": 0.30, "FIIs": 0.20, "Cripto": 0.10},
+        # 7a.M.1: +Renda Fixa BR (5ª categoria; EUA 0.40→0.30, RF BR 0.10 conforme spec).
+        "atual": {"EUA": 0.40, "Ações BR": 0.27, "FIIs": 0.21, "Cripto": 0.07, "Renda Fixa BR": 0.05},
+        "alvo":  {"EUA": 0.30, "Ações BR": 0.30, "FIIs": 0.20, "Cripto": 0.10, "Renda Fixa BR": 0.10},
     },
     "rentabilidade": {
         "Total": {

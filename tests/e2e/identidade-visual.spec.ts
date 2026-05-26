@@ -23,12 +23,14 @@ async function autenticar(page: Page) {
 }
 
 // Paleta refinada travada na Fase 7a.E.20 (decisão de brainstorming opção B).
+// 7a.M.1: 5ª categoria Renda Fixa BR (teal/cyan-700 #0e7490).
 // Qualquer drift em :root vs ECharts vs .classe-dot deve ser PEGO por estes testes.
 const PALETA = {
-  catAcoesBr: "#047857",
-  catEua:     "#1e6091",
-  catFii:     "#b8731f",
-  catCripto:  "#6d4ea8",
+  catAcoesBr:    "#047857",
+  catEua:        "#1e6091",
+  catFii:        "#b8731f",
+  catCripto:     "#6d4ea8",
+  catRendaFixaBr: "#0e7490",
 };
 
 test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
@@ -37,19 +39,21 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     const tokens = await page.evaluate(() => {
       const s = getComputedStyle(document.documentElement);
       return {
-        catAcoesBr: s.getPropertyValue("--cat-acoes-br").trim(),
-        catEua:     s.getPropertyValue("--cat-eua").trim(),
-        catFii:     s.getPropertyValue("--cat-fii").trim(),
-        catCripto:  s.getPropertyValue("--cat-cripto").trim(),
+        catAcoesBr:    s.getPropertyValue("--cat-acoes-br").trim(),
+        catEua:        s.getPropertyValue("--cat-eua").trim(),
+        catFii:        s.getPropertyValue("--cat-fii").trim(),
+        catCripto:     s.getPropertyValue("--cat-cripto").trim(),
+        catRendaFixaBr: s.getPropertyValue("--cat-renda-fixa-br").trim(),
       };
     });
     expect(tokens.catAcoesBr).toBe(PALETA.catAcoesBr);
     expect(tokens.catEua).toBe(PALETA.catEua);
     expect(tokens.catFii).toBe(PALETA.catFii);
     expect(tokens.catCripto).toBe(PALETA.catCripto);
+    expect(tokens.catRendaFixaBr).toBe(PALETA.catRendaFixaBr);
   });
 
-  test("tema ECharts 'drarthur' deriva as 4 cores de categoria via readToken", async ({ page }) => {
+  test("tema ECharts 'drarthur' deriva as 5 cores de categoria via readToken", async ({ page }) => {
     await autenticar(page);
     const tokens = await page.evaluate(() => {
       const w = window as any;
@@ -59,6 +63,7 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
         catEua: t.catEua,
         catFii: t.catFii,
         catCripto: t.catCripto,
+        catRendaFixaBr: t.catRendaFixaBr,
       };
     });
     // Drift impossível: tema lê de :root, então tem que bater hex-a-hex.
@@ -66,6 +71,7 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     expect(tokens.catEua).toBe(PALETA.catEua);
     expect(tokens.catFii).toBe(PALETA.catFii);
     expect(tokens.catCripto).toBe(PALETA.catCripto);
+    expect(tokens.catRendaFixaBr).toBe(PALETA.catRendaFixaBr);
   });
 
   test("drift EUA fechado: --cat-eua === tokens.catEua === COLORS.catEua()", async ({ page }) => {
