@@ -7,7 +7,8 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "serve": "python -m http.server 8080"
+    "serve": "python -m http.server 8080",
+    "dev": "python -m http.server 8080"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"
