@@ -497,6 +497,8 @@ test.describe("Tela #aportar", () => {
 
   test("cap de 5 picks: ≥6 ativos válidos resulta em ≤5 compras", async ({ page }) => {
     // 6 ativos BR válidos, todos com gap positivo. Esperado: top 5 por gap_brl.
+    // peso_intra_atual < peso_intra para todos → drift_intra negativo (abaixo do
+    // alvo) → nenhum entra em quarentena (predicado prod: drift_intra > 0).
     const bbas = { ticker: "BBAS3", preco: 25, peso_intra: 0.20, peso_intra_atual: 0.05 };
     const itsa = { ticker: "ITSA4", preco: 10, peso_intra: 0.20, peso_intra_atual: 0.10 };
     const grnd = { ticker: "WEGE3", preco: 30, peso_intra: 0.20, peso_intra_atual: 0.05 };
