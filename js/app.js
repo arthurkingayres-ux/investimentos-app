@@ -414,6 +414,15 @@ document.addEventListener("alpine:init", () => {
       }[s] || s;
     },
 
+    statusFromDriftIntra(drift) {
+      // Schema v3 (7a.E.22): status derivado no cliente a partir de drift_intra.
+      // Drift binário sem banda (filosofia buy-and-hold do Dr. Arthur).
+      if (drift === null || drift === undefined || Number.isNaN(drift)) return "no_alvo";
+      if (drift < 0) return "aportar";
+      if (drift > 0) return "pausar";
+      return "no_alvo";
+    },
+
     // Drift em pontos percentuais com sinal explícito (ex: "+0.34pp" / "−1.20pp").
     // Não usa Intl.NumberFormat porque o sufixo "pp" não é parte do locale.
     formatPctSinalPP(v) {

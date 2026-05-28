@@ -26,10 +26,55 @@ async function abrirAportar(page: Page) {
   await expect(page.locator(".tela-aportar")).toBeVisible();
 }
 
+// Adapta mocks v2 (cat.ativos[]) para schema v3 (cat.buckets[]) — Fase 7a.E.22.
+// Mantém os mocks dos testes em v2 (terse) enquanto a produção lê v3 puro.
+// Heurística: agrupa cat.ativos[] em um único bucket "picks" equal_weight.
+// drift_intra é preservado; status v2 ("pausar"/"fora_da_politica") já está
+// implícito no drift_intra > 0 ou na ausência do ticker no YAML real.
+function _adaptarV2ParaV3(override: any) {
+  if (!override?.politica?.categorias) return override;
+  for (const cat of override.politica.categorias) {
+    if (cat.buckets) continue;
+    const ativos = (cat.ativos || []).map((a: any) => ({
+      ticker: a.ticker,
+      tipo: "pick",
+      peso_intra: a.peso_intra ?? 0,
+      peso_intra_atual: a.peso_intra_atual ?? 0,
+      // Mocks v2 podem trazer status="pausar" sem drift_intra positivo.
+      // O predicado v3 só olha drift_intra — converte status legado.
+      drift_intra:
+        a.status === "pausar"
+          ? Math.max(a.drift_intra ?? 0, 0.001)
+          : a.status === "fora_da_politica"
+          ? 0.001 // legado: nota=0 também vira quarentena via drift positivo
+          : (a.nota ?? 1) === 0
+          ? 0.001
+          : a.drift_intra ?? 0,
+      peso_alvo: a.peso_alvo ?? 0,
+      peso_atual: a.peso_atual ?? 0,
+      drift: a.drift ?? 0,
+      bandeira: a.bandeira,
+    }));
+    cat.buckets = [
+      {
+        tipo: "picks",
+        equal_weight: true,
+        peso_bucket: 1.0,
+        peso_atual_bucket: 1.0,
+        drift_bucket: 0.0,
+        ativos: ativos,
+      },
+    ];
+    delete cat.ativos;
+  }
+  return override;
+}
+
 // Helper: substitui this.json antes do render para forçar cenários
 // específicos (BR subexposta, balanceado, quarentena com KNIP11 etc).
 // Funciona injetando override no objeto Alpine assim que a fase=raiox.
 async function abrirAportarComMock(page: Page, override: any) {
+  override = _adaptarV2ParaV3(override);
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
   );

@@ -97,10 +97,19 @@ test.describe("Política (view Alvo dentro de #alocacao)", () => {
     expect(matches.length).toBeGreaterThan(0);
   });
 
-  test("nota aparece como 'Nota X/N' numérico nos ativos", async ({ page }) => {
+  test("hierarquia v3: cards expandidos mostram buckets passive/picks com ativos", async ({ page }) => {
     await abrirPolitica(page);
-    const notaTexts = await page.locator(".tela-alocacao .politica-nota").allTextContents();
-    expect(notaTexts.length).toBeGreaterThan(0);
-    expect(notaTexts.some((t) => /Nota \d+\/\d+/.test(t))).toBe(true);
+    const firstCard = page.locator(".tela-alocacao .politica-card").first();
+    await firstCard.locator(".politica-header").click();
+    await expect(firstCard).toHaveAttribute("data-collapsed", "false");
+    const buckets = firstCard.locator(".politica-bucket");
+    await expect(buckets.first()).toBeVisible();
+    const labels = await firstCard.locator(".politica-bucket-label").allTextContents();
+    expect(labels.some((t) => /Passivo|Picks/.test(t))).toBe(true);
+    // Picks equal-weight inclui contagem entre parêntesis
+    expect(labels.some((t) => /equal-weight, \d+ ativos/.test(t))).toBe(true);
+    // Ativos dentro de cada bucket
+    const ativos = firstCard.locator(".politica-bucket .politica-ativo");
+    expect(await ativos.count()).toBeGreaterThan(0);
   });
 });

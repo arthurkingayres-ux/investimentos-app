@@ -447,32 +447,52 @@
                 </svg>
               </button>
 
-              <ul class="politica-ativos"
+              <div class="politica-buckets"
                   :id="'politica-body-' + cat.nome"
                   x-show="!collapsedPolitica[cat.nome]"
                   x-cloak>
-                <template x-for="ativo in cat.ativos" :key="ativo.ticker">
-                  <li class="politica-ativo">
-                    <div class="politica-ativo-linha1">
-                      <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
-                      <span class="politica-ticker" x-text="ativo.ticker"></span>
-                      <span class="politica-nota"
-                            :aria-label="'nota ' + ativo.nota + ' de ' + json.politica.escala_max"
-                            x-text="'Nota ' + ativo.nota + '/' + json.politica.escala_max"></span>
-                      <span class="politica-pill" :class="'pill-' + ativo.status"
-                            x-text="labelStatusPolitica(ativo.status)"></span>
+                <template x-for="bucket in (cat.buckets || [])" :key="bucket.tipo">
+                  <div class="politica-bucket">
+                    <div class="politica-bucket-header">
+                      <span class="politica-bucket-label"
+                            x-text="bucket.tipo === 'passive'
+                                    ? 'Passivo'
+                                    : ('Picks' + (bucket.equal_weight
+                                                  ? ' (equal-weight, ' + bucket.ativos.length + ' ativos)'
+                                                  : ''))"></span>
+                      <span class="politica-bucket-pesos">
+                        <span x-text="formatPctSemSinal(bucket.peso_bucket)"></span>
+                        <span class="sep">·</span>
+                        <span x-text="'atual ' + formatPctSemSinal(bucket.peso_atual_bucket)"></span>
+                        <span class="sep">·</span>
+                        <span :class="bucket.drift_bucket >= 0 ? 'drift-pos' : 'drift-neg'"
+                              x-text="formatPctSinalPP(bucket.drift_bucket)"></span>
+                      </span>
                     </div>
-                    <div class="politica-ativo-linha2">
-                      <span x-text="'alvo ' + formatPctSemSinal(ativo.peso_intra)"></span>
-                      <span class="sep">·</span>
-                      <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
-                      <span class="sep">·</span>
-                      <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
-                            x-text="formatPctSinalPP(ativo.drift_intra)"></span>
-                    </div>
-                  </li>
+                    <ul class="politica-ativos">
+                      <template x-for="ativo in bucket.ativos" :key="ativo.ticker">
+                        <li class="politica-ativo">
+                          <div class="politica-ativo-linha1">
+                            <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
+                            <span class="politica-ticker" x-text="ativo.ticker"></span>
+                            <span class="politica-pill"
+                                  :class="'pill-' + statusFromDriftIntra(ativo.drift_intra)"
+                                  x-text="labelStatusPolitica(statusFromDriftIntra(ativo.drift_intra))"></span>
+                          </div>
+                          <div class="politica-ativo-linha2">
+                            <span x-text="'intra ' + formatPctSemSinal(ativo.peso_intra)"></span>
+                            <span class="sep">·</span>
+                            <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
+                            <span class="sep">·</span>
+                            <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
+                                  x-text="formatPctSinalPP(ativo.drift_intra)"></span>
+                          </div>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
                 </template>
-              </ul>
+              </div>
             </article>
           </template>
         </div>
@@ -771,7 +791,7 @@
                   <span class="flag" :aria-label="row.bandeiraLabel" x-text="row.bandeira"></span>
                   <span class="aporte-compra-main">
                     <span class="aporte-compra-tk" x-text="row.ticker"></span>
-                    <span class="aporte-compra-sub" x-text="`Nota ${row.nota}/10 · ${row.pesoIntraPct}% da categoria`"></span>
+                    <span class="aporte-compra-sub" x-text="`${row.tipoLabel} · ${row.pesoIntraPct}% do bucket`"></span>
                   </span>
                   <span class="aporte-compra-qty-block">
                     <span class="aporte-compra-qty" x-text="row.cotasFormatadas"></span>

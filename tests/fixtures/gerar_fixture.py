@@ -73,7 +73,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.14",
+    "versao": "2.15",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -317,52 +317,76 @@ PAYLOAD = {
             "proventos": [],
         },
     ],
-    # 7a.E.16.3: ativo.peso_intra_atual + drift_intra; status binário usa drift_intra.
+    # Schema v3 (7a.E.22): politica.categorias[].buckets[] (passive + picks).
+    # Status agora derivado no cliente a partir de drift_intra.
     "politica": {
-        "escala_max": 10,
         "categorias": [
             {
                 "nome": "Ações BR",
                 "peso_alvo": 0.30,
                 "peso_atual": 0.27,
                 "drift": -0.03,
-                "ativos": [
-                    # cat_atual = 0.27. BBAS3 atual=0.10 → intra_atual=0.3704, intra_alvo=0.5
-                    # → drift_intra=-0.1296 → aportar.
+                "buckets": [
                     {
-                        "ticker": "BBAS3",
-                        "nota": 2,
-                        "peso_intra": 0.5,
-                        "peso_intra_atual": 0.3704,
-                        "peso_alvo": 0.15,
-                        "peso_atual": 0.10,
-                        "drift": -0.05,
-                        "drift_intra": -0.1296,
-                        "status": "aportar",
+                        "tipo": "passive",
+                        "peso_bucket": 0.40,
+                        "peso_atual_bucket": 0.10,
+                        "drift_bucket": -0.30,
+                        "ativos": [
+                            {
+                                "ticker": "BOVA11",
+                                "tipo": "passive",
+                                "peso_intra": 0.60,
+                                "peso_intra_atual": 0.50,
+                                "drift_intra": -0.10,
+                                "peso_alvo": 0.072,
+                                "peso_atual": 0.05,
+                                "drift": -0.022,
+                                "bandeira": "🇧🇷",
+                            },
+                            {
+                                "ticker": "SMAL11",
+                                "tipo": "passive",
+                                "peso_intra": 0.40,
+                                "peso_intra_atual": 0.50,
+                                "drift_intra": 0.10,
+                                "peso_alvo": 0.048,
+                                "peso_atual": 0.05,
+                                "drift": 0.002,
+                                "bandeira": "🇧🇷",
+                            },
+                        ],
                     },
-                    # ITSA4 atual=0.17 → intra_atual=0.6296, intra_alvo=0.5
-                    # → drift_intra=+0.1296 → pausar.
                     {
-                        "ticker": "ITSA4",
-                        "nota": 2,
-                        "peso_intra": 0.5,
-                        "peso_intra_atual": 0.6296,
-                        "peso_alvo": 0.15,
-                        "peso_atual": 0.17,
-                        "drift": 0.02,
-                        "drift_intra": 0.1296,
-                        "status": "pausar",
-                    },
-                    {
-                        "ticker": "GRND3",
-                        "nota": 0,
-                        "peso_intra": 0.0,
-                        "peso_intra_atual": 0.0185,
-                        "peso_alvo": 0.0,
-                        "peso_atual": 0.005,
-                        "drift": 0.005,
-                        "drift_intra": 0.0185,
-                        "status": "fora_da_politica",
+                        "tipo": "picks",
+                        "equal_weight": True,
+                        "peso_bucket": 0.60,
+                        "peso_atual_bucket": 0.17,
+                        "drift_bucket": -0.43,
+                        "ativos": [
+                            {
+                                "ticker": "ITSA4",
+                                "tipo": "pick",
+                                "peso_intra": 0.50,
+                                "peso_intra_atual": 1.0,
+                                "drift_intra": 0.50,
+                                "peso_alvo": 0.09,
+                                "peso_atual": 0.17,
+                                "drift": 0.08,
+                                "bandeira": "🇧🇷",
+                            },
+                            {
+                                "ticker": "BBAS3",
+                                "tipo": "pick",
+                                "peso_intra": 0.50,
+                                "peso_intra_atual": 0.0,
+                                "drift_intra": -0.50,
+                                "peso_alvo": 0.09,
+                                "peso_atual": 0.0,
+                                "drift": -0.09,
+                                "bandeira": "🇧🇷",
+                            },
+                        ],
                     },
                 ],
             },
@@ -371,17 +395,25 @@ PAYLOAD = {
                 "peso_alvo": 0.70,
                 "peso_atual": 0.73,
                 "drift": 0.03,
-                "ativos": [
+                "buckets": [
                     {
-                        "ticker": "VOO",
-                        "nota": 3,
-                        "peso_intra": 1.0,
-                        "peso_intra_atual": 1.0,
-                        "peso_alvo": 0.70,
-                        "peso_atual": 0.73,
-                        "drift": 0.03,
-                        "drift_intra": 0.0,
-                        "status": "no_alvo",
+                        "tipo": "passive",
+                        "peso_bucket": 1.00,
+                        "peso_atual_bucket": 0.73,
+                        "drift_bucket": -0.27,
+                        "ativos": [
+                            {
+                                "ticker": "VOO",
+                                "tipo": "passive",
+                                "peso_intra": 1.0,
+                                "peso_intra_atual": 1.0,
+                                "drift_intra": 0.0,
+                                "peso_alvo": 0.70,
+                                "peso_atual": 0.73,
+                                "drift": 0.03,
+                                "bandeira": "🇺🇸",
+                            },
+                        ],
                     },
                 ],
             },

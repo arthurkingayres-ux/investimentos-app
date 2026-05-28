@@ -51,35 +51,49 @@
     return precos;
   }
 
+  // Itera (cat, bucket, ativo) — schema v3 (7a.E.22). Status derivado de drift_intra.
+  function _iterarAtivos(portfolio) {
+    const cats = (portfolio.politica && portfolio.politica.categorias) || [];
+    const out = [];
+    for (const cat of cats) {
+      const buckets = cat.buckets || [];
+      for (const bucket of buckets) {
+        const ativos = bucket.ativos || [];
+        for (const a of ativos) {
+          out.push({ cat, bucket, ativo: a });
+        }
+      }
+    }
+    return out;
+  }
+
   // ── Ranking + seleção top-K dos candidatos ────────────────────────────
   function _candidatosOrdenados(portfolio, preco_brl_por_ticker, patrimonio_atual, patrimonio_pos) {
-    const cats = (portfolio.politica && portfolio.politica.categorias) || [];
     const candidatos = [];
-    for (const cat of cats) {
-      const ativos = cat.ativos || [];
-      for (const a of ativos) {
-        if ((a.nota || 0) === 0) continue;
-        if (a.status === "pausar" || a.status === "fora_da_politica") continue;
-        const preco = preco_brl_por_ticker[a.ticker];
-        if (!preco || preco <= 0) continue;
-        const valor_atual =
-          (a.peso_intra_atual || 0) * (cat.peso_atual || 0) * patrimonio_atual;
-        const valor_alvo =
-          (a.peso_intra || 0) * (cat.peso_alvo || 0) * patrimonio_pos;
-        candidatos.push({
-          ticker: a.ticker,
-          nota: a.nota,
-          peso_intra: a.peso_intra || 0,
-          categoria: cat.nome,
-          bandeira: a.bandeira,            // schema v2.12: emoji vem do pipeline
-          fracionario: cat.nome === "EUA",
-          preco: preco,
-          peso_alvo_efetivo: (cat.peso_alvo || 0) * (a.peso_intra || 0),
-          valor_atual: valor_atual,
-          valor_alvo: valor_alvo,
-          gap_brl: valor_alvo - valor_atual,
-        });
-      }
+    for (const { cat, bucket, ativo: a } of _iterarAtivos(portfolio)) {
+      // Quarentena v3: drift_intra > 0 → "pausar" (ativo acima do alvo).
+      // Tickers fora do YAML não aparecem em politica.categorias[].buckets[].ativos[].
+      if ((a.drift_intra || 0) > 0) continue;
+      const preco = preco_brl_por_ticker[a.ticker];
+      if (!preco || preco <= 0) continue;
+      // peso_alvo já vem portfolio-wide do pipeline (cat.peso × bucket.peso × peso_intra)
+      const peso_alvo_total = a.peso_alvo || 0;
+      const peso_atual_total = a.peso_atual || 0;
+      const valor_atual = peso_atual_total * patrimonio_atual;
+      const valor_alvo = peso_alvo_total * patrimonio_pos;
+      candidatos.push({
+        ticker: a.ticker,
+        tipo: a.tipo || (bucket.tipo === "passive" ? "passive" : "pick"),
+        peso_intra: a.peso_intra || 0,
+        categoria: cat.nome,
+        bandeira: a.bandeira,
+        fracionario: cat.nome === "EUA",
+        preco: preco,
+        peso_alvo_efetivo: peso_alvo_total,
+        valor_atual: valor_atual,
+        valor_alvo: valor_alvo,
+        gap_brl: valor_alvo - valor_atual,
+      });
     }
 
     const algumGapPositivo = candidatos.some((c) => c.gap_brl > 0);
@@ -162,6 +176,7 @@
     // o campo; em produção `pick.bandeira` é sempre populado pelo pipeline.
     const bandeira = pick.bandeira || (pick.categoria === "EUA" ? "🇺🇸" : "🇧🇷");
     const bandeiraLabel = bandeira === "🇺🇸" ? "Estados Unidos" : "Brasil";
+    const tipoLabel = pick.tipo === "passive" ? "Passivo" : "Pick";
     return {
       ticker: pick.ticker,
       cotas: cotas,
@@ -170,7 +185,8 @@
         : formatCotasInteiras(cotas),
       valor: valor_real,
       valorFormatado: "≈ " + formatBrl(valor_real),
-      nota: pick.nota,
+      tipo: pick.tipo,
+      tipoLabel: tipoLabel,
       pesoIntraPct: (pick.peso_intra * 100).toFixed(0),
       categoria: pick.categoria,
       bandeira: bandeira,
@@ -220,22 +236,16 @@
     const cats = portfolio.politica.categorias;
     const preco_brl_por_ticker = derivarPrecoBrlPorTicker(portfolio);
 
-    // Quarentena: tickers com nota==0 OU status "pausar" OU status
-    // "fora_da_politica". Predicado simétrico ao filtro de candidatos.
+    // Quarentena v3 (7a.E.22): drift_intra > 0 (ativo "pausar" — acima do alvo).
+    // Schema v3 não tem nota=0 (tickers fora do YAML simplesmente ausentes do
+    // bloco politica). Predicado simétrico ao filtro em _candidatosOrdenados.
     const quarentena = [];
     const tickersSemPosicao = [];
-    for (const cat of cats) {
-      const ativos = cat.ativos || [];
-      for (const a of ativos) {
-        if (
-          (a.nota || 0) === 0 ||
-          a.status === "pausar" ||
-          a.status === "fora_da_politica"
-        ) {
-          quarentena.push(a.ticker);
-        } else if (preco_brl_por_ticker[a.ticker] == null) {
-          tickersSemPosicao.push(a.ticker);
-        }
+    for (const { ativo: a } of _iterarAtivos(portfolio)) {
+      if ((a.drift_intra || 0) > 0) {
+        quarentena.push(a.ticker);
+      } else if (preco_brl_por_ticker[a.ticker] == null) {
+        tickersSemPosicao.push(a.ticker);
       }
     }
 
