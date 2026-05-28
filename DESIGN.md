@@ -52,7 +52,7 @@ Regras:
 
 - Forma: emoji nativo `🇧🇷` / `🇺🇸`, classe global `.flag` (17px default, com overrides contextuais para hero/raio-x).
 - Posição: primeiro elemento da row de ativo (`.flag` antes do ticker).
-- Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes: posicoes, politica.categorias[].ativos, proventos.por_ativo_origem, proventos.por_ativo_12m, proventos.mensal_12m[].por_ativo).
+- Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes; v2.15 muda o caminho de política para `politica.categorias[].buckets[].ativos`).
 - Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, #rentabilidade card hero, card "último aporte", #ativo/:ticker header).
 - Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs / Cripto) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
 
