@@ -294,12 +294,50 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 .aloc-alvo       { width: 2px; background: var(--ink); opacity: 0.62; top: -3px; bottom: -3px; }
 ```
 
-### Política accordion
-Card com header em grid 2-row + chevron rotacionável + lista de ativos colapsável.
+> **7a.E.23:** a vista "Alvo" de #alocacao usa uma variante refinada — ver `### Aloca Alvo v2` abaixo. A trilha-categoria nessa variante ganha cap-dot superior no marker e gradient muted no fill.
+
+### Política accordion (DEPRECATED — substituído em 7a.E.23)
+A vista "Alvo" de #alocacao não usa mais accordion. Mantida só pra histórico:
+o markup `.politica-card[data-collapsed]` + chevron rotacionável foi
+removido na reforma visual; cards agora são sempre expandidos com
+identidade --cat-* (ver `### Aloca Alvo v2`).
+
+### Aloca Alvo v2 (7a.E.23)
+Vista "Alvo" de #alocacao reescrita com hierarquia baseada em identidade
+de categoria. Sempre expandida (sem accordion).
+
+**Anatomia do card:** stripe 3 px `::before` à esquerda (cor `--cat-*`) +
+header grid `auto 1fr` (lead esquerdo: overline "CATEGORIA" + nome +
+"ALVO" + número-poster mono 2.375rem cor `--cat-*`; breakdown direito:
+atual mono + drift chip semantic) + trilha-categoria 14 px com marker
+preto + cap-dot pseudo-elemento + label "alvo" minúsculo + foot ticks
+"0 %" / "X % (alvo)" + sections `.aloca-alvo__cesta` separadas só por
+`border-top 1px` (anti-card overuse) + lista de ativos `.aloca-alvo__ativo`
+com mini-bar 3 px + delta pill mono direcional.
+
+**Regra de cor crítica (identidade × semântica):**
+- **Identidade** (cor da categoria via `--cat-*`): stripe, número-poster,
+  fill da trilha-categoria + cesta-trilha + mini-bar normal.
+- **Semântica** (fixa, independente de `--cat`): delta pill `↑ −X pp` em
+  `--sem-up` (= `--cat-acoes-br`); delta pill `↓ +X pp` em `--sem-down`
+  (= `--cat-fii`); mini-bar overflow em `--sem-down`. O colapso semântico
+  → identidade é intencional: a paleta corporativa já carrega significado
+  de ação (verde = aportar; amber = acima do alvo).
+
+**Naming:** "Cesta passiva" e "Cesta de picks" na UI. Backend mantém
+`bucket.tipo: "passive" | "picks"` no JSON / Python / `alocacao.yaml`.
+Rebrand é 100 % de apresentação via helper `labelCestaTipo(tipo)`.
+
+**Motion:** trilha-categoria + cesta-trilha + minibar animam
+`transform: scaleX(--fill-pct)` em 700 ms `cubic-bezier(.16, 1, .3, 1)`,
+cascade com stagger 60 ms por cesta e por ativo. Tudo sob
+`@media (prefers-reduced-motion: no-preference)`. Default off em quem
+prefere redução.
 
 ```css
-.politica-card[data-collapsed="true"] .politica-chevron { transform: rotate(-90deg); }
-@media (prefers-reduced-motion: reduce) { .politica-chevron { transition: none; } }
+.aloca-alvo__card::before { width: 3px; background: var(--cat); }
+.aloca-alvo__alvo-big    { font-size: 2.375rem; font-family: var(--mono); color: var(--cat); }
+.aloca-alvo__minibar .fill--over { background: var(--sem-down); }
 ```
 
 ### PIN screen

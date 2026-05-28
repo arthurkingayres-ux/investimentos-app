@@ -32,7 +32,7 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     const ativo = page.locator(".aloca-segmented button[aria-selected='true']");
     await expect(ativo).toHaveText("Atual");
     await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeHidden();
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeHidden();
   });
 
   test("clicar Alvo troca view e atualiza URL", async ({ page }) => {
@@ -40,14 +40,14 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await page.goto("/#alocacao");
     await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
     await expect(page).toHaveURL(/#alocacao\?v=alvo$/);
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
     await expect(page.locator(".tela-alocacao .alocacao-card")).toBeHidden();
   });
 
   test("clicar Atual volta e atualiza URL", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao?v=alvo");
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
     await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
     await expect(page).toHaveURL(/#alocacao\?v=atual$/);
     await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
@@ -58,12 +58,12 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await page.goto("/#politica");
     await expect(page).toHaveURL(/#alocacao\?v=alvo$/);
     await expect(page.locator(".tela-alocacao")).toBeVisible();
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
   });
 
-  test("cold-start submitPin em #alocacao?v=alvo abre tudo fechado", async ({ page }) => {
-    // 7a.I.4 finding iter 3: mesmo bug de cold-start, mas no caminho submitPin
-    // (sem PIN em localStorage; usuário digita PIN após landing em #alocacao?v=alvo).
+  test("cold-start submitPin em #alocacao?v=alvo renderiza cards", async ({ page }) => {
+    // 7a.E.23: vista Alvo não tem mais collapse — cards sempre expandidos.
+    // Teste herdado da 7a.I.4 valida só que o fluxo submitPin → cards visíveis funciona.
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({
         status: 200,
@@ -79,15 +79,12 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await expect(page.locator(".pin-screen")).toBeVisible({ timeout: 10_000 });
     await page.locator("input.pin-input").fill("123456");
     await page.locator("button.pin-submit").click();
-    const firstCard = page.locator(".tela-alocacao .politica-card").first();
+    const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
     await expect(firstCard).toBeVisible({ timeout: 5000 });
-    await expect(firstCard).toHaveAttribute("data-collapsed", "true");
   });
 
-  test("cold-start em #alocacao?v=alvo abre tudo fechado", async ({ page }) => {
-    // 7a.I.4 finding iter 2: atualizarRota dispara hidratarColapsoPolitica antes
-    // do JSON carregar (init → atualizarRota → tentarAutoResume). Sem o re-call
-    // pós-resume, collapsedPolitica fica {} e cards renderizam expandidos.
+  test("cold-start em #alocacao?v=alvo renderiza cards", async ({ page }) => {
+    // 7a.E.23: substituiu teste de collapsed-default; cards são sempre expandidos.
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({
         status: 200,
@@ -106,8 +103,7 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
       );
     });
     await page.goto("/#alocacao?v=alvo");
-    const firstCard = page.locator(".tela-alocacao .politica-card").first();
+    const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
     await expect(firstCard).toBeVisible();
-    await expect(firstCard).toHaveAttribute("data-collapsed", "true");
   });
 });

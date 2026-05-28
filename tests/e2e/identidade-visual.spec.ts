@@ -131,12 +131,12 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
   });
 
   test(".flag estrutural em #politica — 1 .flag por ativo de cada categoria", async ({ page }) => {
+    // 7a.E.23: vista Alvo reescrita; markup migrou para .aloca-alvo__ativo (sempre expandido).
     await autenticar(page);
     await page.goto("/#politica");
-    await page.locator(".politica-header").first().click();
-    await page.locator(".politica-ativo").first().waitFor({ state: "attached", timeout: 5000 });
-    const ativosCount = await page.locator(".politica-ativo").count();
-    const flagsCount = await page.locator(".politica-ativo .flag").count();
+    await page.locator(".aloca-alvo__ativo").first().waitFor({ state: "attached", timeout: 5000 });
+    const ativosCount = await page.locator(".aloca-alvo__ativo").count();
+    const flagsCount = await page.locator(".aloca-alvo__ativo .flag").count();
     expect(ativosCount).toBeGreaterThan(0);
     expect(flagsCount).toBe(ativosCount);
   });

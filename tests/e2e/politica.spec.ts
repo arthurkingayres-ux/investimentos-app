@@ -11,8 +11,9 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 // 7a.I.4: a antiga `tela-politica` foi fundida na tab Aloca via segmented
 // toggle Atual/Alvo. Os testes abaixo navegam por `#politica` (shim legado)
-// que redireciona para `#alocacao?v=alvo` e expõe os mesmos `politica-card`
-// dentro de `.tela-alocacao`.
+// que redireciona para `#alocacao?v=alvo`.
+// 7a.E.23: a vista Alvo foi reescrita; cards sempre expandidos, sem accordion.
+// Selectors agora são `.aloca-alvo__*` em vez de `.politica-*`.
 async function abrirPolitica(page: Page) {
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
@@ -28,13 +29,13 @@ async function abrirPolitica(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#politica");
   await expect(page.locator(".tela-alocacao")).toBeVisible();
-  await expect(page.locator(".tela-alocacao .politica-card").first()).toBeVisible();
+  await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
 }
 
 test.describe("Política (view Alvo dentro de #alocacao)", () => {
   test("renderiza cards das categorias sem horizontal scroll em iPhone retrato", async ({ page }) => {
     await abrirPolitica(page);
-    const cards = await page.locator(".tela-alocacao .politica-card").count();
+    const cards = await page.locator(".tela-alocacao .aloca-alvo__card").count();
     expect(cards).toBeGreaterThan(0);
     const overflow = await page.evaluate(
       () =>
@@ -44,72 +45,38 @@ test.describe("Política (view Alvo dentro de #alocacao)", () => {
     expect(overflow).toBe(false);
   });
 
-  test("default ao entrar em política: todas as seções fechadas", async ({ page }) => {
+  test("hierarquia v3 (7a.E.23): cada card exibe cestas + ativos sempre expandidos", async ({ page }) => {
     await abrirPolitica(page);
-    const cards = page.locator(".tela-alocacao .politica-card");
-    const count = await cards.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      await expect(cards.nth(i)).toHaveAttribute("data-collapsed", "true");
-    }
-    const keys = await page.evaluate(() =>
-      Object.keys(localStorage).filter((k) => k.startsWith("politica.collapsed."))
-    );
-    expect(keys).toHaveLength(0);
-  });
-
-  test("toggle abre e fecha sem persistir em localStorage", async ({ page }) => {
-    await abrirPolitica(page);
-    const firstCard = page.locator(".tela-alocacao .politica-card").first();
-    const firstHeader = firstCard.locator(".politica-header");
-    await expect(firstCard).toHaveAttribute("data-collapsed", "true");
-    await firstHeader.click();
-    await expect(firstCard).toHaveAttribute("data-collapsed", "false");
-    const storedAfterOpen = await page.evaluate(() =>
-      Object.keys(localStorage).filter((k) => k.startsWith("politica.collapsed.")).length
-    );
-    expect(storedAfterOpen).toBe(0);
-    await firstHeader.click();
-    await expect(firstCard).toHaveAttribute("data-collapsed", "true");
-  });
-
-  test("re-entrar em Alvo (via toggle) reseta tudo para fechado", async ({ page }) => {
-    await abrirPolitica(page);
-    const firstCard = page.locator(".tela-alocacao .politica-card").first();
-    await firstCard.locator(".politica-header").click();
-    await expect(firstCard).toHaveAttribute("data-collapsed", "false");
-    // Toggle Atual → Alvo deve re-hidratar collapsedPolitica (todos fechados).
-    await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
-    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
-    await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
-    await expect(page.locator(".tela-alocacao .politica-card").first()).toHaveAttribute("data-collapsed", "true");
-  });
-
-  test("status pills usam texto + ícone direcional", async ({ page }) => {
-    await abrirPolitica(page);
-    const labels = await page.locator(".tela-alocacao .politica-pill").allTextContents();
-    const matches = labels.filter((t) =>
-      /aportar|pausar|fora da política|no alvo/i.test(t)
-    );
-    // 7a.E.16.3: confirma que pill "pausar" não traz seta para baixo.
-    const comSetaBaixo = labels.filter((t) => /↓/.test(t));
-    expect(comSetaBaixo).toHaveLength(0);
-    expect(matches.length).toBeGreaterThan(0);
-  });
-
-  test("hierarquia v3: cards expandidos mostram buckets passive/picks com ativos", async ({ page }) => {
-    await abrirPolitica(page);
-    const firstCard = page.locator(".tela-alocacao .politica-card").first();
-    await firstCard.locator(".politica-header").click();
-    await expect(firstCard).toHaveAttribute("data-collapsed", "false");
-    const buckets = firstCard.locator(".politica-bucket");
-    await expect(buckets.first()).toBeVisible();
-    const labels = await firstCard.locator(".politica-bucket-label").allTextContents();
-    expect(labels.some((t) => /Passivo|Picks/.test(t))).toBe(true);
-    // Picks equal-weight inclui contagem entre parêntesis
-    expect(labels.some((t) => /equal-weight, \d+ ativos/.test(t))).toBe(true);
-    // Ativos dentro de cada bucket
-    const ativos = firstCard.locator(".politica-bucket .politica-ativo");
+    const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
+    const cestas = firstCard.locator(".aloca-alvo__cesta");
+    await expect(cestas.first()).toBeVisible();
+    const labels = await firstCard.locator(".aloca-alvo__clabel").allTextContents();
+    expect(labels.some((t) => /Cesta passiva|Cesta de picks/i.test(t))).toBe(true);
+    // Cesta de picks inclui "X ativos · equal-weight" no meta
+    const metas = await firstCard.locator(".aloca-alvo__cmeta").allTextContents();
+    expect(metas.some((t) => /\d+\s+ativos\s+·\s+equal-weight/i.test(t))).toBe(true);
+    // Ativos dentro de cada cesta
+    const ativos = firstCard.locator(".aloca-alvo__cesta .aloca-alvo__ativo");
     expect(await ativos.count()).toBeGreaterThan(0);
+  });
+
+  test("delta pills usam mono ± pp + seta direcional (↑ aportar / ↓ acima)", async ({ page }) => {
+    await abrirPolitica(page);
+    const labels = await page.locator(".tela-alocacao .aloca-alvo__delta").allTextContents();
+    expect(labels.length).toBeGreaterThan(0);
+    // Pelo menos um delta com ↑ (precisa aportar) ou ↓ (acima do alvo) deve existir
+    const directionais = labels.filter((t) => /↑|↓/.test(t));
+    expect(directionais.length).toBeGreaterThan(0);
+    // Texto pp segue padrão pt-BR com vírgula
+    const ppPattern = labels.filter((t) => /[+−]?\d{1,3},\d{2}\s+pp/.test(t));
+    expect(ppPattern.length).toBeGreaterThan(0);
+  });
+
+  test("labels 'bucket' (jargão tech) não aparecem na UI", async ({ page }) => {
+    // 7a.E.23 rebrand: backend mantém bucket.tipo, UI usa "Cesta passiva/de picks".
+    await abrirPolitica(page);
+    const visibleText = await page.locator(".tela-alocacao .aloca-alvo__list").innerText();
+    // Não pode haver a palavra "bucket" em lugar nenhum do markup renderizado
+    expect(visibleText.toLowerCase()).not.toMatch(/\bbucket\b/);
   });
 });

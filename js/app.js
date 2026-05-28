@@ -478,6 +478,83 @@ document.addEventListener("alpine:init", () => {
       }).format(q);
     },
 
+    // ===== 7a.E.23 — helpers da vista Alvo (#alocacao) =====
+
+    labelCestaTipo(tipo) {
+      if (tipo === "passive") return "Cesta passiva";
+      if (tipo === "picks") return "Cesta de picks";
+      return tipo || "";
+    },
+
+    // Recebe drift como FRAÇÃO (ex.: -0.0168 = -1,68 pp; convenção do backend
+    // espelhando formatPctSinalPP em app.js:428) e devolve
+    // { texto: "−1,68 pp" | "+4,30 pp" | "0,00 pp", classe: "under"|"over"|"hold", arrow: "↑"|"↓"|"·" }.
+    // Threshold ±0.005 fraction = ±0,5 pp evita ruído de arredondamento como ação.
+    // classe reflete posição vs alvo: "under" = atual<alvo (precisa aportar); "over" = acima.
+    formatDelta(pp) {
+      if (pp === null || pp === undefined || Number.isNaN(pp)) {
+        return { texto: "—", classe: "hold", arrow: "" };
+      }
+      const ppVal = pp * 100;
+      const fmt = new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Math.abs(ppVal));
+      if (pp <= -0.005) return { texto: `−${fmt} pp`, classe: "under", arrow: "↑" };
+      if (pp >= 0.005) return { texto: `+${fmt} pp`, classe: "over",  arrow: "↓" };
+      return { texto: "0,00 pp", classe: "hold", arrow: "·" };
+    },
+
+    // Razão atual/alvo capada em 1 (acima de 100 % usa marker pra mostrar overflow).
+    // `!alvo` já captura 0/null/undefined/NaN (Number.isNaN(alvo) seria dead code).
+    _ratio(atual, alvo) {
+      if (!alvo || alvo <= 0) return 0;
+      if (atual === null || atual === undefined || Number.isNaN(atual)) return 0;
+      return Math.min(1, atual / alvo);
+    },
+
+    catFillPct(cat) { return this._ratio(cat?.peso_atual, cat?.peso_alvo); },
+    catIsOver(cat) {
+      const a = cat?.peso_alvo;
+      return a && a > 0 && cat?.peso_atual > a;
+    },
+
+    cestaFillPct(bucket) { return this._ratio(bucket?.peso_atual_bucket, bucket?.peso_bucket); },
+    cestaIsOver(bucket) {
+      const a = bucket?.peso_bucket;
+      return a && a > 0 && bucket?.peso_atual_bucket > a;
+    },
+
+    ativoFillPct(ativo) { return this._ratio(ativo?.peso_intra_atual, ativo?.peso_intra); },
+    ativoIsOver(ativo) {
+      const a = ativo?.peso_intra;
+      return a && a > 0 && ativo?.peso_intra_atual > a;
+    },
+
+    // Map nome categoria → token CSS de identidade.
+    catCssVar(nome) {
+      const map = {
+        "Ações BR": "--cat-acoes-br",
+        "EUA": "--cat-eua",
+        "FII": "--cat-fii",
+        "FIIs": "--cat-fii",
+        "Cripto": "--cat-cripto",
+        "Renda Fixa BR": "--cat-renda-fixa-br",
+      };
+      return map[nome] || "--g-700";
+    },
+
+    catStyleVar(nome) {
+      return `--cat: var(${this.catCssVar(nome)});`;
+    },
+
+    // Posição do marker quando há overflow: trilha sempre 100 % preenchida,
+    // marker fica no ponto onde o alvo está em relação ao atual.
+    markerLeftOver(alvo, atual) {
+      if (!atual || atual <= 0 || !alvo) return "100%";
+      return `${Math.min(99, (alvo / atual) * 100)}%`;
+    },
+
     // Tipo de provento abreviado: "Dividendo" → "Div"; "Rendimento" → "Rend"; "JCP" → "JCP".
     abreviarTipoR7d(tipo) {
       if (!tipo) return "";

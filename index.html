@@ -420,79 +420,112 @@
           </div>
         </div>
 
-        <div class="aloca-vista" x-show="vAloca === 'alvo'" x-cloak>
+        <div class="aloca-vista aloca-alvo__list" x-show="vAloca === 'alvo'" x-cloak>
           <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
             Política não publicada ainda.
           </p>
 
           <template x-for="cat in (json && json.politica && json.politica.categorias) || []" :key="cat.nome">
-            <article class="politica-card" :data-collapsed="collapsedPolitica[cat.nome] ? 'true' : 'false'">
-              <button
-                class="politica-header"
-                type="button"
-                :aria-expanded="!collapsedPolitica[cat.nome]"
-                :aria-controls="'politica-body-' + cat.nome"
-                @click="togglePolitica(cat.nome)">
-                <span class="politica-categoria-nome" x-text="cat.nome"></span>
-                <span class="politica-categoria-peso" x-text="formatPctSemSinal(cat.peso_alvo)"></span>
-                <span class="politica-categoria-sub">
-                  <span x-text="'atual ' + formatPctSemSinal(cat.peso_atual)"></span>
-                  <span class="sep">·</span>
-                  <span :class="cat.drift >= 0 ? 'drift-pos' : 'drift-neg'"
-                    x-text="'drift ' + formatPctSinalPP(cat.drift)"></span>
-                </span>
-                <svg class="politica-chevron" aria-hidden="true" viewBox="0 0 12 12">
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5"
-                        fill="none" stroke-linecap="round"/>
-                </svg>
-              </button>
+            <article class="aloca-alvo__card" :style="catStyleVar(cat.nome)">
+              <header class="aloca-alvo__head">
+                <div class="aloca-alvo__lead">
+                  <span class="aloca-alvo__overline">Categoria</span>
+                  <span class="aloca-alvo__nome" x-text="cat.nome"></span>
+                  <span class="aloca-alvo__alvo-label">Alvo</span>
+                  <span class="aloca-alvo__alvo-big">
+                    <span x-text="formatPctSemSinal(cat.peso_alvo).replace(/\s*%$/, '')"></span><span class="pct">%</span>
+                  </span>
+                </div>
+                <div class="aloca-alvo__breakdown">
+                  <span class="aloca-alvo__atual">
+                    <span class="lab">atual</span>&nbsp;<span x-text="formatPctSemSinal(cat.peso_atual)"></span>
+                  </span>
+                  <span class="aloca-alvo__drift"
+                        :class="{
+                          'aloca-alvo__drift--under': formatDelta(cat.drift).classe === 'under',
+                          'aloca-alvo__drift--over':  formatDelta(cat.drift).classe === 'over',
+                          'aloca-alvo__drift--hold':  formatDelta(cat.drift).classe === 'hold'
+                        }">
+                    <span x-text="formatDelta(cat.drift).arrow"></span>&nbsp;<span x-text="formatDelta(cat.drift).texto"></span>
+                  </span>
+                </div>
+              </header>
 
-              <div class="politica-buckets"
-                  :id="'politica-body-' + cat.nome"
-                  x-show="!collapsedPolitica[cat.nome]"
-                  x-cloak>
-                <template x-for="bucket in (cat.buckets || [])" :key="bucket.tipo">
-                  <div class="politica-bucket">
-                    <div class="politica-bucket-header">
-                      <span class="politica-bucket-label"
-                            x-text="bucket.tipo === 'passive'
-                                    ? 'Passivo'
-                                    : ('Picks' + (bucket.equal_weight
-                                                  ? ' (equal-weight, ' + bucket.ativos.length + ' ativos)'
-                                                  : ''))"></span>
-                      <span class="politica-bucket-pesos">
-                        <span x-text="formatPctSemSinal(bucket.peso_bucket)"></span>
-                        <span class="sep">·</span>
-                        <span x-text="'atual ' + formatPctSemSinal(bucket.peso_atual_bucket)"></span>
-                        <span class="sep">·</span>
-                        <span :class="bucket.drift_bucket >= 0 ? 'drift-pos' : 'drift-neg'"
-                              x-text="formatPctSinalPP(bucket.drift_bucket)"></span>
-                      </span>
-                    </div>
-                    <ul class="politica-ativos">
-                      <template x-for="ativo in bucket.ativos" :key="ativo.ticker">
-                        <li class="politica-ativo">
-                          <div class="politica-ativo-linha1">
-                            <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
-                            <span class="politica-ticker" x-text="ativo.ticker"></span>
-                            <span class="politica-pill"
-                                  :class="'pill-' + statusFromDriftIntra(ativo.drift_intra)"
-                                  x-text="labelStatusPolitica(statusFromDriftIntra(ativo.drift_intra))"></span>
-                          </div>
-                          <div class="politica-ativo-linha2">
-                            <span x-text="'intra ' + formatPctSemSinal(ativo.peso_intra)"></span>
-                            <span class="sep">·</span>
-                            <span x-text="'atual ' + formatPctSemSinal(ativo.peso_intra_atual)"></span>
-                            <span class="sep">·</span>
-                            <span :class="ativo.drift_intra >= 0 ? 'drift-pos' : 'drift-neg'"
-                                  x-text="formatPctSinalPP(ativo.drift_intra)"></span>
-                          </div>
-                        </li>
-                      </template>
-                    </ul>
-                  </div>
-                </template>
+              <div class="aloca-alvo__trilha-cat">
+                <div class="fill"
+                     :class="catIsOver(cat) && 'fill--over'"
+                     :style="`--fill-pct: ${catFillPct(cat)};`"></div>
+                <div class="marker"
+                     :style="catIsOver(cat) ? `left: ${markerLeftOver(cat.peso_alvo, cat.peso_atual)};` : 'left: 100%;'"></div>
               </div>
+              <div class="aloca-alvo__trilha-cat-foot">
+                <span>0 %</span>
+                <span x-text="catIsOver(cat)
+                              ? formatPctSemSinal(cat.peso_atual) + ' (acima do alvo)'
+                              : formatPctSemSinal(cat.peso_alvo) + ' (alvo)'"></span>
+              </div>
+
+              <template x-for="bucket in (cat.buckets || [])" :key="bucket.tipo">
+                <section class="aloca-alvo__cesta">
+                  <div class="aloca-alvo__cesta-head">
+                    <div>
+                      <div class="aloca-alvo__clabel" x-text="labelCestaTipo(bucket.tipo)"></div>
+                      <div class="aloca-alvo__cmeta"
+                           x-text="bucket.tipo === 'passive'
+                                   ? 'peso fixo intra-categoria'
+                                   : (bucket.ativos.length + ' ativos · equal-weight')"></div>
+                    </div>
+                    <div class="aloca-alvo__cnum">
+                      <span x-text="formatPctSemSinal(bucket.peso_atual_bucket).replace(/\s*%$/, '')"></span>
+                      <span class="of">&nbsp;de&nbsp;</span>
+                      <span x-text="formatPctSemSinal(bucket.peso_bucket)"></span>
+                    </div>
+                  </div>
+
+                  <div class="aloca-alvo__cesta-trilha">
+                    <div class="fill"
+                         :class="cestaIsOver(bucket) && 'fill--over'"
+                         :style="`--fill-pct: ${cestaFillPct(bucket)};`"></div>
+                    <div class="marker"
+                         :style="cestaIsOver(bucket) ? `left: ${markerLeftOver(bucket.peso_bucket, bucket.peso_atual_bucket)};` : 'left: 100%;'"></div>
+                  </div>
+
+                  <div class="aloca-alvo__ativos">
+                    <template x-for="ativo in bucket.ativos" :key="ativo.ticker">
+                      <a :href="'#ativo/' + ativo.ticker" class="aloca-alvo__ativo">
+                        <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
+                        <div class="aloca-alvo__ativo-body">
+                          <div class="aloca-alvo__ativo-row1">
+                            <span class="aloca-alvo__ticker" x-text="ativo.ticker"></span>
+                            <span class="aloca-alvo__ativo-sub">
+                              <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
+                              <span>&nbsp;de&nbsp;</span>
+                              <span x-text="formatPctSemSinal(ativo.peso_intra)"></span>
+                              <span>&nbsp;na cesta</span>
+                            </span>
+                          </div>
+                          <div class="aloca-alvo__minibar">
+                            <div class="fill"
+                                 :class="ativoIsOver(ativo) && 'fill--over'"
+                                 :style="`--fill-pct: ${ativoFillPct(ativo)};`"></div>
+                            <div class="marker"
+                                 :style="ativoIsOver(ativo) ? `left: ${markerLeftOver(ativo.peso_intra, ativo.peso_intra_atual)};` : 'left: 100%;'"></div>
+                          </div>
+                        </div>
+                        <span class="aloca-alvo__delta"
+                              :class="{
+                                'aloca-alvo__delta--under': formatDelta(ativo.drift_intra).classe === 'under',
+                                'aloca-alvo__delta--over':  formatDelta(ativo.drift_intra).classe === 'over',
+                                'aloca-alvo__delta--hold':  formatDelta(ativo.drift_intra).classe === 'hold'
+                              }">
+                          <span class="arrow" x-text="formatDelta(ativo.drift_intra).arrow"></span>
+                          <span x-text="formatDelta(ativo.drift_intra).texto"></span>
+                        </span>
+                      </a>
+                    </template>
+                  </div>
+                </section>
+              </template>
             </article>
           </template>
         </div>
@@ -529,7 +562,7 @@
             <div class="kpi-grid">
               <div class="kpi">
                 <span class="kpi-label">Quantidade</span>
-                <span class="kpi-valor" x-text="posicaoAtual.quantidade"></span>
+                <span class="kpi-valor" x-text="formatQtyR7d(posicaoAtual.quantidade)"></span>
               </div>
               <div class="kpi">
                 <span class="kpi-label">Custo médio</span>
@@ -582,7 +615,7 @@
                             :title="m.lado"
                             x-text="formatarLado(m.lado).texto"></span>
                         </td>
-                        <td class="num" x-text="m.quantidade"></td>
+                        <td class="num" x-text="formatQtyR7d(m.quantidade)"></td>
                         <td class="num" x-text="formatBrl(m.preco_unitario)"></td>
                         <td class="num" x-text="formatBrl(m.total_brl)"></td>
                       </tr>

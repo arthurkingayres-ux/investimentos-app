@@ -41,6 +41,15 @@
   --cat-fii:           #b8731f;  /* ocre/curry (calibrado em luminância) */
   --cat-cripto:        #6d4ea8;  /* ametista escuro (calibrado em luminância) */
   --cat-renda-fixa-br: #0e7490;  /* teal/cyan-700 — âncora institucional (RF, 7a.M.1) */
+
+  /* === Semantic action tokens (7a.E.23) ===
+     Aliasados aos tokens de identidade pra evitar drift e reforçar
+     o vocabulário cromático: verde do projeto = "precisa aportar",
+     amber do projeto = "acima do alvo". Independente de --cat-* no card. */
+  --sem-up:        var(--cat-acoes-br);
+  --sem-up-tint:   rgba(4, 120, 87, 0.10);
+  --sem-down:      var(--cat-fii);
+  --sem-down-tint: rgba(184, 115, 31, 0.12);
 }
 
 *, *::before, *::after {
@@ -2256,5 +2265,362 @@ body:has(.tab-bar) main {
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
+}
+
+/* ============================================================
+   Aloca Alvo v2 (7a.E.23)
+   Vista "Alvo" de #alocacao reescrita com identidade --cat-*.
+   ============================================================ */
+
+.aloca-alvo__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.aloca-alvo__card {
+  position: relative;
+  background: var(--neutral-0, #fff);
+  border-radius: 14px;
+  padding: 1.25rem 1.125rem 1.125rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
+              0 8px 24px -6px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+.aloca-alvo__card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18px;
+  bottom: 18px;
+  width: 3px;
+  background: var(--cat, var(--g-700));
+  border-radius: 0 3px 3px 0;
+}
+
+.aloca-alvo__head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 1.125rem;
+  align-items: start;
+  margin-bottom: 0.875rem;
+}
+.aloca-alvo__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.aloca-alvo__overline {
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray);
+  font-weight: 700;
+}
+.aloca-alvo__nome {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-top: 1px;
+}
+.aloca-alvo__alvo-label {
+  margin-top: 0.5rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gray);
+  font-weight: 600;
+}
+.aloca-alvo__alvo-big {
+  font-family: var(--mono, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 2.375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--cat, var(--g-900));
+  line-height: 1;
+  margin-top: 2px;
+}
+.aloca-alvo__alvo-big .pct {
+  font-size: 1.375rem;
+  letter-spacing: 0;
+  font-weight: 700;
+  margin-left: 2px;
+  vertical-align: 1px;
+}
+
+.aloca-alvo__breakdown {
+  align-self: end;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 0.5rem;
+}
+.aloca-alvo__atual {
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.aloca-alvo__atual .lab {
+  color: var(--gray);
+  font-weight: 500;
+}
+.aloca-alvo__drift {
+  align-self: flex-end;
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+.aloca-alvo__drift--under { background: var(--sem-up-tint);   color: var(--sem-up); }
+.aloca-alvo__drift--over  { background: var(--sem-down-tint); color: var(--sem-down); }
+.aloca-alvo__drift--hold  { background: rgba(110, 110, 115, 0.10); color: var(--gray); font-weight: 600; }
+
+.aloca-alvo__trilha-cat {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  overflow: visible;
+  margin-bottom: 6px;
+}
+.aloca-alvo__trilha-cat .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--cat, var(--g-700)) 0%,
+    color-mix(in srgb, var(--cat, var(--g-700)) 80%, white) 100%
+  );
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--fill-pct, 1));
+}
+.aloca-alvo__trilha-cat .fill--over {
+  background: linear-gradient(
+    90deg,
+    var(--cat, var(--g-700)) 0%,
+    var(--cat, var(--g-700)) 60%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+}
+.aloca-alvo__trilha-cat .marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1.5px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+.aloca-alvo__trilha-cat .marker::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -2.25px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.aloca-alvo__trilha-cat-foot {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 0.625rem;
+  color: var(--gray);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: 0.02em;
+}
+
+.aloca-alvo__cesta {
+  padding-top: 1.125rem;
+  margin-top: 1.125rem;
+  border-top: 1px solid var(--neutral-100);
+}
+.aloca-alvo__cesta-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.625rem;
+}
+.aloca-alvo__clabel {
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink);
+}
+.aloca-alvo__cmeta {
+  font-size: 0.625rem;
+  color: var(--gray);
+  font-weight: 500;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.aloca-alvo__cnum {
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.aloca-alvo__cnum .of {
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.aloca-alvo__cesta-trilha {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  margin-bottom: 0.875rem;
+}
+.aloca-alvo__cesta-trilha .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--cat, var(--g-700));
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--fill-pct, 1));
+}
+.aloca-alvo__cesta-trilha .marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1.5px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.aloca-alvo__ativos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.aloca-alvo__ativo {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  column-gap: 0.625rem;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+.aloca-alvo__ativo .flag {
+  font-size: 0.875rem;
+  line-height: 1;
+  width: 18px;
+  text-align: center;
+}
+.aloca-alvo__ativo-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.aloca-alvo__ativo-row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.aloca-alvo__ticker {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.aloca-alvo__ativo-sub {
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.625rem;
+  color: var(--gray);
+  letter-spacing: 0.02em;
+}
+
+.aloca-alvo__minibar {
+  position: relative;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+}
+.aloca-alvo__minibar .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--cat, var(--g-700));
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(var(--fill-pct, 1));
+}
+.aloca-alvo__minibar .fill--over {
+  background: var(--sem-down);
+}
+.aloca-alvo__minibar .marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1.5px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.aloca-alvo__delta {
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.aloca-alvo__delta--under { background: var(--sem-up-tint);   color: var(--sem-up); }
+.aloca-alvo__delta--over  { background: var(--sem-down-tint); color: var(--sem-down); }
+.aloca-alvo__delta--hold  { background: rgba(110, 110, 115, 0.10); color: var(--gray); font-weight: 600; }
+.aloca-alvo__delta .arrow { font-weight: 800; }
+
+/* Motion cascade — só quando o usuário não pediu redução */
+@media (prefers-reduced-motion: no-preference) {
+  .aloca-alvo__trilha-cat .fill,
+  .aloca-alvo__cesta-trilha .fill,
+  .aloca-alvo__minibar .fill {
+    transform: scaleX(0);
+    animation: alocaAlvoFillIn 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .aloca-alvo__cesta:nth-of-type(1) .fill { animation-delay: 100ms; }
+  .aloca-alvo__cesta:nth-of-type(2) .fill { animation-delay: 220ms; }
+  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(1) .aloca-alvo__minibar .fill { animation-delay: 280ms; }
+  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(2) .aloca-alvo__minibar .fill { animation-delay: 340ms; }
+  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(3) .aloca-alvo__minibar .fill { animation-delay: 400ms; }
+  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(1) .aloca-alvo__minibar .fill { animation-delay: 400ms; }
+  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(2) .aloca-alvo__minibar .fill { animation-delay: 460ms; }
+  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(3) .aloca-alvo__minibar .fill { animation-delay: 520ms; }
+}
+
+@keyframes alocaAlvoFillIn {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(var(--fill-pct, 1)); }
 }
 
