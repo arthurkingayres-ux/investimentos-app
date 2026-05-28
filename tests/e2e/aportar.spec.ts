@@ -26,55 +26,10 @@ async function abrirAportar(page: Page) {
   await expect(page.locator(".tela-aportar")).toBeVisible();
 }
 
-// Adapta mocks v2 (cat.ativos[]) para schema v3 (cat.buckets[]) — Fase 7a.E.22.
-// Mantém os mocks dos testes em v2 (terse) enquanto a produção lê v3 puro.
-// Heurística: agrupa cat.ativos[] em um único bucket "picks" equal_weight.
-// drift_intra é preservado; status v2 ("pausar"/"fora_da_politica") já está
-// implícito no drift_intra > 0 ou na ausência do ticker no YAML real.
-function _adaptarV2ParaV3(override: any) {
-  if (!override?.politica?.categorias) return override;
-  for (const cat of override.politica.categorias) {
-    if (cat.buckets) continue;
-    const ativos = (cat.ativos || []).map((a: any) => ({
-      ticker: a.ticker,
-      tipo: "pick",
-      peso_intra: a.peso_intra ?? 0,
-      peso_intra_atual: a.peso_intra_atual ?? 0,
-      // Mocks v2 podem trazer status="pausar" sem drift_intra positivo.
-      // O predicado v3 só olha drift_intra — converte status legado.
-      drift_intra:
-        a.status === "pausar"
-          ? Math.max(a.drift_intra ?? 0, 0.001)
-          : a.status === "fora_da_politica"
-          ? 0.001 // legado: nota=0 também vira quarentena via drift positivo
-          : (a.nota ?? 1) === 0
-          ? 0.001
-          : a.drift_intra ?? 0,
-      peso_alvo: a.peso_alvo ?? 0,
-      peso_atual: a.peso_atual ?? 0,
-      drift: a.drift ?? 0,
-      bandeira: a.bandeira,
-    }));
-    cat.buckets = [
-      {
-        tipo: "picks",
-        equal_weight: true,
-        peso_bucket: 1.0,
-        peso_atual_bucket: 1.0,
-        drift_bucket: 0.0,
-        ativos: ativos,
-      },
-    ];
-    delete cat.ativos;
-  }
-  return override;
-}
-
 // Helper: substitui this.json antes do render para forçar cenários
 // específicos (BR subexposta, balanceado, quarentena com KNIP11 etc).
 // Funciona injetando override no objeto Alpine assim que a fase=raiox.
 async function abrirAportarComMock(page: Page, override: any) {
-  override = _adaptarV2ParaV3(override);
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
   );
@@ -137,24 +92,26 @@ test.describe("Tela #aportar", () => {
         },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "EUA",
             peso_alvo: 0.7,
             peso_atual: 0.5,
             drift: -0.2,
-            ativos: [
+            buckets: [
               {
-                ticker: "VOO",
-                nota: 3,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.7,
-                peso_atual: 0.5,
-                drift: -0.2,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "VOO",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.7,
+                    peso_atual: 0.5,
+                    drift: -0.2,
+                  },
+                ],
               },
             ],
           },
@@ -163,7 +120,7 @@ test.describe("Tela #aportar", () => {
             peso_alvo: 0.3,
             peso_atual: 0.5,
             drift: 0.2,
-            ativos: [],
+            buckets: [{ tipo: "picks", ativos: [] }],
           },
         ],
       },
@@ -187,24 +144,26 @@ test.describe("Tela #aportar", () => {
         },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "EUA",
             peso_alvo: 0.7,
             peso_atual: 0.5,
             drift: -0.2,
-            ativos: [
+            buckets: [
               {
-                ticker: "VOO",
-                nota: 3,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.7,
-                peso_atual: 0.5,
-                drift: -0.2,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "VOO",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.7,
+                    peso_atual: 0.5,
+                    drift: -0.2,
+                  },
+                ],
               },
             ],
           },
@@ -229,35 +188,35 @@ test.describe("Tela #aportar", () => {
         { ticker: "ITSA4", quantidade: 200, valor_mercado_brl: 2000 },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "Ações BR",
             peso_alvo: 0.5,
             peso_atual: 0.045,
             drift: -0.455,
-            ativos: [
+            buckets: [
               {
-                ticker: "BBAS3",
-                nota: 4,
-                peso_intra: 0.5,
-                peso_intra_atual: 0.55,
-                peso_alvo: 0.25,
-                peso_atual: 0.025,
-                drift: -0.225,
-                drift_intra: 0.05,
-                status: "aportar",
-              },
-              {
-                ticker: "ITSA4",
-                nota: 4,
-                peso_intra: 0.5,
-                peso_intra_atual: 0.45,
-                peso_alvo: 0.25,
-                peso_atual: 0.02,
-                drift: -0.23,
-                drift_intra: -0.05,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 0.5,
+                    drift_intra: 0.05,
+                    peso_alvo: 0.25,
+                    peso_atual: 0.025,
+                    drift: -0.225,
+                  },
+                  {
+                    ticker: "ITSA4",
+                    tipo: "pick",
+                    peso_intra: 0.5,
+                    drift_intra: -0.05,
+                    peso_alvo: 0.25,
+                    peso_atual: 0.02,
+                    drift: -0.23,
+                  },
+                ],
               },
             ],
           },
@@ -273,11 +232,10 @@ test.describe("Tela #aportar", () => {
     }
   });
 
-  test("quarentena lista tickers com nota 0 ou status pausar", async ({
+  test("quarentena lista tickers com drift_intra positivo", async ({
     page,
   }) => {
-    // Cenário explícito: GRND3 com nota=0 e ITSA4 com status="pausar" —
-    // independente de evolução da fixture default.
+    // Cenário explícito: GRND3 e ITSA4 com drift_intra > 0 (quarentena v3).
     await abrirAportarComMock(page, {
       patrimonio: { total_brl: 100000 },
       posicoes: [
@@ -286,46 +244,44 @@ test.describe("Tela #aportar", () => {
         { ticker: "ITSA4", quantidade: 200, valor_mercado_brl: 2000 },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "Ações BR",
             peso_alvo: 1.0,
             peso_atual: 0.06,
             drift: -0.94,
-            ativos: [
+            buckets: [
               {
-                ticker: "BBAS3",
-                nota: 4,
-                peso_intra: 1.0,
-                peso_intra_atual: 0.42,
-                peso_alvo: 1.0,
-                peso_atual: 0.025,
-                drift: -0.975,
-                drift_intra: -0.58,
-                status: "aportar",
-              },
-              {
-                ticker: "GRND3",
-                nota: 0,
-                peso_intra: 0.0,
-                peso_intra_atual: 0.25,
-                peso_alvo: 0.0,
-                peso_atual: 0.015,
-                drift: 0.015,
-                drift_intra: 0.25,
-                status: "fora_da_politica",
-              },
-              {
-                ticker: "ITSA4",
-                nota: 3,
-                peso_intra: 0.0,
-                peso_intra_atual: 0.33,
-                peso_alvo: 0.0,
-                peso_atual: 0.02,
-                drift: 0.02,
-                drift_intra: 0.33,
-                status: "pausar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: -0.58,
+                    peso_alvo: 1.0,
+                    peso_atual: 0.025,
+                    drift: -0.975,
+                  },
+                  {
+                    ticker: "GRND3",
+                    tipo: "pick",
+                    peso_intra: 0.0,
+                    drift_intra: 0.25,
+                    peso_alvo: 0.0,
+                    peso_atual: 0.015,
+                    drift: 0.015,
+                  },
+                  {
+                    ticker: "ITSA4",
+                    tipo: "pick",
+                    peso_intra: 0.0,
+                    drift_intra: 0.33,
+                    peso_alvo: 0.0,
+                    peso_atual: 0.02,
+                    drift: 0.02,
+                  },
+                ],
               },
             ],
           },
@@ -365,24 +321,26 @@ test.describe("Tela #aportar", () => {
         { ticker: "BBAS3", quantidade: 1000, valor_mercado_brl: 50000 },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "EUA",
             peso_alvo: 0.45,
             peso_atual: 0.5,
             drift: 0.05,
-            ativos: [
+            buckets: [
               {
-                ticker: "VOO",
-                nota: 3,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.45,
-                peso_atual: 0.5,
-                drift: 0.05,
-                drift_intra: 0.0,
-                status: "no_alvo",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "VOO",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.45,
+                    peso_atual: 0.5,
+                    drift: 0.05,
+                  },
+                ],
               },
             ],
           },
@@ -391,17 +349,20 @@ test.describe("Tela #aportar", () => {
             peso_alvo: 0.45,
             peso_atual: 0.5,
             drift: 0.05,
-            ativos: [
+            buckets: [
               {
-                ticker: "BBAS3",
-                nota: 4,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.45,
-                peso_atual: 0.5,
-                drift: 0.05,
-                drift_intra: 0.0,
-                status: "no_alvo",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.45,
+                    peso_atual: 0.5,
+                    drift: 0.05,
+                  },
+                ],
               },
             ],
           },
@@ -428,24 +389,26 @@ test.describe("Tela #aportar", () => {
         { ticker: "BBAS3", quantidade: 100, valor_mercado_brl: 5000 },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "Ações BR",
             peso_alvo: 1.0,
             peso_atual: 0.05,
             drift: -0.95,
-            ativos: [
+            buckets: [
               {
-                ticker: "BBAS3",
-                nota: 4,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 1.0,
-                peso_atual: 0.05,
-                drift: -0.95,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 1.0,
+                    peso_atual: 0.05,
+                    drift: -0.95,
+                  },
+                ],
               },
             ],
           },
@@ -477,24 +440,26 @@ test.describe("Tela #aportar", () => {
         { ticker: "BBAS3", quantidade: 100, valor_mercado_brl: 1000 },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "EUA",
             peso_alvo: 0.3,
             peso_atual: 0.1,
             drift: -0.2,
-            ativos: [
+            buckets: [
               {
-                ticker: "VOO",
-                nota: 3,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.3,
-                peso_atual: 0.1,
-                drift: -0.2,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "VOO",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.3,
+                    peso_atual: 0.1,
+                    drift: -0.2,
+                  },
+                ],
               },
             ],
           },
@@ -503,17 +468,20 @@ test.describe("Tela #aportar", () => {
             peso_alvo: 0.3,
             peso_atual: 0.1,
             drift: -0.2,
-            ativos: [
+            buckets: [
               {
-                ticker: "BBAS3",
-                nota: 4,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.3,
-                peso_atual: 0.1,
-                drift: -0.2,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.3,
+                    peso_atual: 0.1,
+                    drift: -0.2,
+                  },
+                ],
               },
             ],
           },
@@ -544,24 +512,26 @@ test.describe("Tela #aportar", () => {
         valor_mercado_brl: a.preco * 100,
       })),
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "Ações BR",
             peso_alvo: 1.0,
             peso_atual: 0.60,
             drift: -0.40,
-            ativos: all.map((a) => ({
-              ticker: a.ticker,
-              nota: 5,
-              peso_intra: a.peso_intra,
-              peso_intra_atual: a.peso_intra_atual,
-              peso_alvo: a.peso_intra,
-              peso_atual: a.peso_intra_atual * 0.60,
-              drift: -0.05,
-              drift_intra: a.peso_intra_atual - a.peso_intra,
-              status: "aportar",
-            })),
+            buckets: [
+              {
+                tipo: "picks",
+                ativos: all.map((a) => ({
+                  ticker: a.ticker,
+                  tipo: "pick",
+                  peso_intra: a.peso_intra,
+                  drift_intra: a.peso_intra_atual - a.peso_intra,
+                  peso_alvo: a.peso_intra,
+                  peso_atual: a.peso_intra_atual * 0.60,
+                  drift: -0.05,
+                })),
+              },
+            ],
           },
         ],
       },
@@ -616,24 +586,26 @@ test.describe("Tela #aportar · reduced motion", () => {
         },
       ],
       politica: {
-        escala_max: 10,
         categorias: [
           {
             nome: "EUA",
             peso_alvo: 0.7,
             peso_atual: 0.5,
             drift: -0.2,
-            ativos: [
+            buckets: [
               {
-                ticker: "VOO",
-                nota: 3,
-                peso_intra: 1.0,
-                peso_intra_atual: 1.0,
-                peso_alvo: 0.7,
-                peso_atual: 0.5,
-                drift: -0.2,
-                drift_intra: 0.0,
-                status: "aportar",
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "VOO",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: 0.0,
+                    peso_alvo: 0.7,
+                    peso_atual: 0.5,
+                    drift: -0.2,
+                  },
+                ],
               },
             ],
           },
