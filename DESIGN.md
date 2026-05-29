@@ -306,17 +306,16 @@ identidade --cat-* (ver `### Aloca Alvo v2`).
 Vista "Alvo" de #alocacao reescrita com hierarquia baseada em identidade
 de categoria. Sempre expandida (sem accordion).
 
-**Anatomia do card:** stripe 3 px `::before` à esquerda (cor `--cat-*`) +
-header grid `auto 1fr` (lead esquerdo: overline "CATEGORIA" + nome +
-"ALVO" + número-poster mono 2.375rem cor `--cat-*`; breakdown direito:
-atual mono + drift chip semantic) + trilha-categoria 14 px com marker
-preto + cap-dot pseudo-elemento + label "alvo" minúsculo + foot ticks
-"0 %" / "X % (alvo)" + sections `.aloca-alvo__cesta` separadas só por
-`border-top 1px` (anti-card overuse) + lista de ativos `.aloca-alvo__ativo`
-com mini-bar 3 px + delta pill mono direcional.
+**Anatomia do card:** header grid `auto 1fr` (lead esquerdo: overline
+"CATEGORIA" + nome + "ALVO" + número-poster mono 2.375rem cor `--cat-*`;
+breakdown direito: atual mono + drift chip semantic) + trilha-categoria
+14 px com marker preto + cap-dot pseudo-elemento + label "alvo" minúsculo
++ foot ticks "0 %" / "X % (alvo)" + sections `.aloca-alvo__cesta`
+separadas só por `border-top 1px` (anti-card overuse) + lista de ativos
+`.aloca-alvo__ativo` com mini-bar 3 px + delta pill mono direcional.
 
 **Regra de cor crítica (identidade × semântica):**
-- **Identidade** (cor da categoria via `--cat-*`): stripe, número-poster,
+- **Identidade** (cor da categoria via `--cat-*`): número-poster,
   fill da trilha-categoria + cesta-trilha + mini-bar normal.
 - **Semântica** (fixa, independente de `--cat`): delta pill `↑ −X pp` em
   `--sem-up` (= `--cat-acoes-br`); delta pill `↓ +X pp` em `--sem-down`
@@ -335,7 +334,6 @@ cascade com stagger 60 ms por cesta e por ativo. Tudo sob
 prefere redução.
 
 ```css
-.aloca-alvo__card::before { width: 3px; background: var(--cat); }
 .aloca-alvo__alvo-big    { font-size: 2.375rem; font-family: var(--mono); color: var(--cat); }
 .aloca-alvo__minibar .fill--over { background: var(--sem-down); }
 ```
