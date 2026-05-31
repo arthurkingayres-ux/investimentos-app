@@ -1132,6 +1132,103 @@ footer.rodape code {
   color: var(--red);
 }
 
+/* ── Fase 7a.E.24 — bloco Dividend Yield (#proventos) ──────────────────
+   Restrained: hierarquia por escala, não por card. Total domina via
+   font-size 2.5rem; sub-stats parelhos em 1.0625rem. Sem cor por
+   categoria, sem gradiente, sem stripe. "em USD" é a exceção que marca. */
+.dy-bloco {
+  margin: 0 0 24px;
+}
+
+.dy-dl {
+  margin: 0;
+}
+
+.dy-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray);
+}
+
+.dy-total-corpo {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dy-total-valor {
+  font-family: var(--mono);
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--g-900);            /* único acento restrito do bloco */
+  font-variant-numeric: tabular-nums;
+}
+
+.dy-total-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dy-total-label {
+  font-size: 0.8125rem;
+  color: var(--gray);
+}
+
+.dy-caption {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+
+.dy-sub {
+  margin: 20px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.dy-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dy-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--gray);
+}
+
+.dy-stat-label .flag {
+  font-size: 0.9375rem;
+}
+
+.dy-stat-valor {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.dy-stat-caption {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: var(--gray);
+}
+
 .ativo-section-h {
   margin: 22px 0 8px;
   font-size: 0.875rem;

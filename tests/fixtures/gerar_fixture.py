@@ -73,7 +73,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.15",
+    "versao": "2.16",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -195,6 +195,14 @@ PAYLOAD = {
         "ifix":  0.052,
         "sp500": 0.187,
         "usd":   0.031,
+    },
+    # Schema v2.16 (Fase 7a.E.24): dividend yield trailing-12m por escopo.
+    # Keys: total/acao_br/fii/eua. dy pode ser null → PWA renderiza "—".
+    "dividend_yield": {
+        "total":   {"dy": 0.0303, "proventos_12m": 7441.76, "valor": 245479.66, "moeda": "BRL"},
+        "acao_br": {"dy": 0.0482, "proventos_12m": 1266.05, "valor": 26240.34, "moeda": "BRL"},
+        "fii":     {"dy": 0.0780, "proventos_12m": 4798.97, "valor": 61556.69, "moeda": "BRL"},
+        "eua":     {"dy": 0.0082, "proventos_12m": 248.17, "valor": 30199.95, "moeda": "USD"},
     },
     "proventos": {
         "ytd_brl": 3240.0,

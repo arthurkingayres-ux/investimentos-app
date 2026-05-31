@@ -659,6 +659,55 @@
           <h1>Proventos</h1>
         </header>
 
+        <!-- 7a.E.24: bloco Dividend Yield (trailing-12m) — total + 3 sub-escopos -->
+        <section
+          class="dy-bloco"
+          data-testid="dy-bloco"
+          role="group"
+          aria-labelledby="dy-eyebrow"
+          x-show="json?.dividend_yield">
+          <dl class="dy-dl">
+            <!-- Total (carteira) — número-poster -->
+            <div class="dy-total" data-testid="dy-total">
+              <dt class="dy-eyebrow" id="dy-eyebrow">Dividend Yield</dt>
+              <dd class="dy-total-corpo">
+                <span class="dy-total-valor" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></span>
+                <span class="dy-total-meta">
+                  <span class="flag" aria-hidden="true">🌍</span>
+                  <span class="dy-total-label">Carteira</span>
+                </span>
+              </dd>
+              <p class="dy-caption">Proventos dos últimos 12 meses ÷ valor de mercado</p>
+            </div>
+
+            <!-- 3 sub-escopos -->
+            <div class="dy-sub">
+              <div class="dy-stat" data-testid="dy-acao_br">
+                <dt class="dy-stat-label">
+                  <span class="flag" aria-hidden="true">🇧🇷</span>
+                  <span>Ação BR</span>
+                </dt>
+                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.acao_br?.dy, 1)"></dd>
+              </div>
+              <div class="dy-stat" data-testid="dy-fii">
+                <dt class="dy-stat-label">
+                  <span class="flag" aria-hidden="true">🇧🇷</span>
+                  <span>FII</span>
+                </dt>
+                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.fii?.dy, 1)"></dd>
+              </div>
+              <div class="dy-stat" data-testid="dy-eua">
+                <dt class="dy-stat-label">
+                  <span class="flag" aria-hidden="true">🇺🇸</span>
+                  <span>EUA</span>
+                </dt>
+                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.eua?.dy, 1)"></dd>
+                <p class="dy-stat-caption">em USD<span class="sr-only"> (em dólar)</span></p>
+              </div>
+            </div>
+          </dl>
+        </section>
+
         <div class="kpi-grid kpi-grid-3">
           <div class="kpi">
             <span class="kpi-label">YTD <span x-text="anoCorrente"></span></span>
