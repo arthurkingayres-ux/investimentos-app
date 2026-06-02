@@ -1179,6 +1179,35 @@ document.addEventListener("alpine:init", () => {
       const growthPortfolio = buildGrowthArray("twr");
       const growthBenchmark = buildGrowthArray("benchmark");
 
+      // 7a.E.25: no escopo Total, montar uma linha por índice (CDI/IBOV/S&P 500)
+      // além da linha única de benchmark. Brasil/EUA seguem o caminho de 1 linha.
+      const dc = window.drarthurChart;
+      const ehTotal = this.escopoAtivo === "Total";
+      const BENCH_TOTAL = ["CDI", "IBOV", "SP500"];
+      const NOME_BENCH = { CDI: "CDI", IBOV: "IBOV", SP500: "S&P 500" };
+      const COR_BENCH = {
+        CDI: dc.tokens.gray,
+        IBOV: dc.tokens.amber700,
+        SP500: dc.tokens.blue700,
+      };
+      const buildGrowthBenchExtra = (idx) => {
+        const out = [];
+        let last = 1.0;
+        for (const p of serie) {
+          const raw = p.benchmarks ? p.benchmarks[idx] : null;
+          const g =
+            raw === null || raw === undefined
+              ? null
+              : computeGrowth({ twr: raw, anualizado: p.anualizado, data: p.data });
+          if (g !== null) last = g;
+          out.push(g === null ? last : g);
+        }
+        return out;
+      };
+      const growthExtra = ehTotal
+        ? BENCH_TOTAL.map((idx) => ({ idx, growth: buildGrowthBenchExtra(idx) }))
+        : [];
+
       // Devolve a série Y reanchorada para [startIdx, endIdx]. Fora do range
       // emite null (linha some) — preserva o comportamento esperado de zoom.
       const reancorar = (growthArr, startIdx, endIdx) => {
@@ -1196,6 +1225,10 @@ document.addEventListener("alpine:init", () => {
       const totalIdx = serie.length - 1;
       const portfolio = reancorar(growthPortfolio, 0, totalIdx);
       const benchmark = reancorar(growthBenchmark, 0, totalIdx);
+      const extraReanc = growthExtra.map((e) => ({
+        idx: e.idx,
+        data: reancorar(e.growth, 0, totalIdx),
+      }));
       this.rentabilidadeSubtitulo = "Cresceu desde " + formatarMmmAA(serie[0].data);
 
       const benchNomePorEscopo = { Total: "CDI", Brasil: "CDI", EUA: "S&P 500" };
@@ -1209,7 +1242,6 @@ document.addEventListener("alpine:init", () => {
         return (v * 100).toFixed(decimals) + "%";
       };
 
-      const dc = window.drarthurChart;
       const chart = echarts.init(target, "drarthur", { renderer: "canvas" });
 
       const option = {
@@ -1219,7 +1251,9 @@ document.addEventListener("alpine:init", () => {
           formatter: (params) => dc.tooltipFormatterAxis(params, formatPct),
         }),
         legend: {
-          data: ["Portfólio", benchNome],
+          data: ehTotal
+            ? ["Portfólio", ...growthExtra.map((e) => NOME_BENCH[e.idx])]
+            : ["Portfólio", benchNome],
           bottom: 28,
           icon: "circle",
           itemWidth: 8,
@@ -1253,10 +1287,23 @@ document.addEventListener("alpine:init", () => {
             handleSize: 24,
           },
         ],
-        series: [
-          { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
-          { name: benchNome, type: "line", data: benchmark, smooth: false, lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false },
-        ],
+        series: ehTotal
+          ? [
+              { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
+              ...extraReanc.map((e) => ({
+                name: NOME_BENCH[e.idx],
+                type: "line",
+                data: e.data,
+                smooth: false,
+                lineStyle: { type: [5, 5], width: 1.5, color: COR_BENCH[e.idx] },
+                itemStyle: { color: COR_BENCH[e.idx] },
+                connectNulls: false,
+              })),
+            ]
+          : [
+              { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
+              { name: benchNome, type: "line", data: benchmark, smooth: false, lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false },
+            ],
         aria: { enabled: true },
       };
       Object.assign(option, dc.motionConfig);
@@ -1318,19 +1365,31 @@ document.addEventListener("alpine:init", () => {
         } catch (_) {}
         if (endIdx <= startIdx) endIdx = Math.min(totalIdx, startIdx + 1);
         const novaP = reancorar(growthPortfolio, startIdx, endIdx);
-        const novaB = reancorar(growthBenchmark, startIdx, endIdx);
         // CRB #3: atualiza subtítulo ANTES do setOption — se ECharts internal
         // falhar (chart disposed mid-event), subtítulo fica consistente com a
         // intenção do usuário em vez de divergir das séries renderizadas.
         this.rentabilidadeSubtitulo =
           "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
         try {
-          chart.setOption({
-            series: [
-              { name: "Portfólio", data: novaP },
-              { name: benchNome, data: novaB },
-            ],
-          });
+          if (ehTotal) {
+            chart.setOption({
+              series: [
+                { name: "Portfólio", data: novaP },
+                ...growthExtra.map((e) => ({
+                  name: NOME_BENCH[e.idx],
+                  data: reancorar(e.growth, startIdx, endIdx),
+                })),
+              ],
+            });
+          } else {
+            const novaB = reancorar(growthBenchmark, startIdx, endIdx);
+            chart.setOption({
+              series: [
+                { name: "Portfólio", data: novaP },
+                { name: benchNome, data: novaB },
+              ],
+            });
+          }
         } catch (_) {}
         // 7a.L.2.b: recomputa card "Período" da janela atual.
         this.recomputarPeriodo(startIdx, endIdx);
