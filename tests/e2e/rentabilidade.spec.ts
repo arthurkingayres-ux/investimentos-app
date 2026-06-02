@@ -113,6 +113,10 @@ test.describe("Tela #rentabilidade", () => {
     });
     expect(legendaTotal).toContain("Portfólio");
     expect(legendaTotal).toContain("CDI");
+    // 7a.E.25: o Total ganha IBOV + S&P 500 como linhas adicionais (4 séries).
+    expect(legendaTotal).toContain("IBOV");
+    expect(legendaTotal).toContain("S&P 500");
+    expect(legendaTotal.length).toBe(4);
 
     // Trocar para EUA: legenda deve atualizar para S&P 500
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
@@ -123,5 +127,7 @@ test.describe("Tela #rentabilidade", () => {
       return chart ? chart.getOption().legend[0].data : [];
     });
     expect(legendaEUA).toContain("S&P 500");
+    // 7a.E.25: EUA segue com 1 linha de benchmark — não herda IBOV do Total.
+    expect(legendaEUA).not.toContain("IBOV");
   });
 });
