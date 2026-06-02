@@ -406,23 +406,23 @@ Os 3 cards de métrica abaixo do chart (Origem/YTD/12m) **mantêm valores anuali
 
 ### Chart #rentabilidade — múltiplos benchmarks no escopo Total (Fase 7a.E.25)
 
-No escopo **Total**, o chart plota 4 linhas: portfólio + CDI + IBOV + S&P 500 (todas visíveis no load; clique na legenda do ECharts oculta/mostra cada série, comportamento nativo). Brasil (CDI) e EUA (S&P 500) seguem com **1** linha de benchmark.
+No escopo **Total**, o chart plota 4 linhas: portfólio + CDI + IBOV + S&P 500 (todas visíveis no load; clique na legenda do ECharts oculta/mostra cada série, comportamento nativo). No escopo **Brasil** (Fase 7a.E.26), o chart plota 3 linhas: Portfólio + CDI + IBOV. EUA segue com **1** linha de benchmark (S&P 500).
 
 - **Portfólio**: `--g-700` #047857, sólido 2.5px (linha-herói, slot 0 do tema).
 - **CDI**: `--gray` #5b605a, tracejado `[5,5]` 1.5px — baseline conservador, recua.
 - **IBOV**: `--amber-700` #b45309, tracejado `[5,5]` 1.5px — mercado BR.
 - **S&P 500**: `--blue-700` #1d4ed8, tracejado `[5,5]` 1.5px — mercado EUA.
 
-As 3 cores de benchmark são tokens **secundários** (não `--cat-*`, que significam classe de ativo) e cada série extra fixa `lineStyle.color` + `itemStyle.color` explícito (marker da legenda casa com a linha). O tema `drarthur` carrega os mesmos 3 hex nos slots 5/6/7 do array `color` como fallback. Schema dependency: `rentabilidade.Total.historico_twr[N].benchmarks = {CDI, IBOV, SP500}` (BRL, schema v2.17); Brasil/EUA não emitem `benchmarks`. O `dataZoom` reancora todas as linhas (mesma chain rule de L.1).
+As 3 cores de benchmark são tokens **secundários** (não `--cat-*`, que significam classe de ativo) e cada série extra fixa `lineStyle.color` + `itemStyle.color` explícito (marker da legenda casa com a linha). O tema `drarthur` carrega os mesmos 3 hex nos slots 5/6/7 do array `color` como fallback. Schema dependency: `rentabilidade.Total.historico_twr[N].benchmarks = {CDI, IBOV, SP500}` (BRL, schema v2.17); `rentabilidade.Brasil.historico_twr[N].benchmarks = {CDI, IBOV}` (schema v2.18, additive); EUA não emite `benchmarks`. O `dataZoom` reancora todas as linhas (mesma chain rule de L.1).
 
 ### Card "Período" (Fase 7a.L.2)
 
 Acima dos 3 cards fixos (Origem/YTD/12m) aparece um 4º card `.rent-periodo` que reflete a janela atual do `dataZoom`:
 
 - **Título dinâmico**: `Origem` quando full range (startIdx=0 + endIdx≥maxIdx); `Período · mai/2025 → mai/2026` quando handles arrastados (português, mês abreviado minúsculo).
-- **Métricas**: XIRR a.a. + TWR a.a. + linha `vs {CDI|S&P 500}` (label segue escopo ativo).
+- **Métricas**: XIRR a.a. + TWR a.a. + linha(s) `vs benchmark` por escopo — **Total**: CDI / IBOV / S&P 500 (3 linhas `.rent-periodo-bench`); **Brasil**: CDI / IBOV (2 linhas); **EUA**: S&P 500 (1 linha). Cada `.rent-periodo-bench` repetida produz o formato multi-row; semântica visual: texto neutro `tabular-nums`, sinal +/− carrega direção (`color-not-only`), sem CSS novo (reutiliza classe existente).
 - **Cálculo**: TWR a.a. via chain rule sobre `growthPortfolio[]` que L.1 já calcula; XIRR a.a. via **Newton-Raphson em JS puro** sobre flows da janela (`construirFlows(hist, iA, iB)` = `[-nav[iA], ...cashflows[iA+1..iB-1], +nav[iB]]`). Benchmark simétrico (TWR via `benchmark_growth` ratio; XIRR via `flowsBenchmark` escalado pelo crescimento do índice).
-- **Schema dependency**: consome `rentabilidade.{escopo}[.moeda].historico_periodo` (mensal `[{data, nav, cashflow, benchmark_growth}]`, schema v2.14).
+- **Schema dependency**: consome `rentabilidade.{escopo}[.moeda].historico_periodo` (mensal `[{data, nav, cashflow, benchmarks_growth}]`, schema v2.18 — campo renomeado de `benchmark_growth` para `benchmarks_growth` + suporta múltiplos benchmarks).
 - **Edge cases**: Newton-Raphson não converge (janela muito curta, all-outflows) → a entrada de `benchExtras` tem `deltaXirr = null` → a `.rent-periodo-bench` correspondente renderiza `'—'` em vez de spread enganoso (`?? 0` mostraria `portfolio_xirr` como diferença).
 - **Motion**: zero transição — atualização on-drag direto via Alpine. Mesma diretriz de L.1 sobre subtítulo. (Anti-pattern explícito: animar valores num card que muda em tempo real durante drag é distractor.)
 - **Implementação**: hook `this.recomputarPeriodo(startIdx, endIdx)` chamado por (a) final de `hidratarRentabilidade`, (b) `aoMoverZoom(chart)` (mesmo handler que L.1 registra), (c) `selecionarMoeda(m)` quando escopo EUA. Estado Alpine `periodoCustom = {iniIdx, fimIdx, twr, xirr, benchExtras, titulo}`, onde `benchExtras` é um array de `{nome, deltaXirr, deltaTwr}` (deltas = portfólio − benchmark, `null` quando indefinido). Utilitárias puras top-of-file: `newtonRaphsonXirr`, `construirFlows`, `flowsBenchmark`, `parseMesData`, `gerarTituloPeriodo`.
