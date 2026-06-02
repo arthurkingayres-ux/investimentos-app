@@ -26,6 +26,7 @@
     blue700:     readToken('--blue-700'),
     teal700:     readToken('--teal-700'),
     amber:       readToken('--amber'),
+    amber700:    readToken('--amber-700'),
     red:         readToken('--red'),
     green:       readToken('--g-700'),  // alias semântico (mesma hex que g700)
     gray:        readToken('--gray'),
@@ -45,8 +46,8 @@
 
   var theme = {
     // Slots 0-4 são as 5 categorias na ordem [Ações BR, EUA, FII, Cripto, Renda Fixa BR] (7a.M.1).
-    // Slots 5+ são tokens secundários para séries não-categoria (benchmarks etc).
-    color: [tokens.catAcoesBr, tokens.catEua, tokens.catFii, tokens.catCripto, tokens.catRendaFixaBr, tokens.teal700, tokens.g900],
+    // Slots 5+ = benchmarks do gráfico (7a.E.25: CDI cinza / IBOV âmbar / S&P 500 azul).
+    color: [tokens.catAcoesBr, tokens.catEua, tokens.catFii, tokens.catCripto, tokens.catRendaFixaBr, tokens.gray, tokens.amber700, tokens.blue700],
     backgroundColor: 'transparent',
     textStyle: { fontFamily: fontFamily, color: tokens.ink },
     title: { textStyle: { color: tokens.ink, fontWeight: 600, fontFamily: fontFamily } },
