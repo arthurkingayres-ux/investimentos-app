@@ -146,4 +146,107 @@ test.describe("Tela #rentabilidade", () => {
     // 7a.E.25: EUA segue com 1 linha de benchmark — não herda IBOV do Total.
     expect(legendaEUA).not.toContain("IBOV");
   });
+
+  test("7a.E.26: gráfico BR mostra Portfólio + CDI + IBOV (3 séries) e cada uma renderiza", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+    await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
+
+    // Trocar para Brasil: schema v2.18 dá benchmarks={CDI,IBOV} no historico_twr.
+    await page.locator('.tela-rentabilidade button[data-escopo="Brasil"]').click();
+    await page.waitForFunction(() => {
+      const data = (window as { Alpine?: { $data: (el: Element) => Record<string, unknown> } }).Alpine?.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { legend: Array<{ data: string[] }> } } })?.echartsRent;
+      const opt = chart?.getOption();
+      const legendData = opt?.legend?.[0]?.data;
+      return Array.isArray(legendData) && legendData.length === 3 && legendData.includes("IBOV");
+    });
+
+    const legendaBR = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { legend: Array<{ data: string[] }> } } }).echartsRent;
+      return chart ? chart.getOption().legend[0].data : [];
+    });
+    expect(legendaBR).toEqual(["Portfólio", "CDI", "IBOV"]);
+    // Brasil não herda S&P 500 do Total (esse é EUA/Total-only).
+    expect(legendaBR).not.toContain("S&P 500");
+
+    // As 3 séries devem renderizar de fato (não só a legenda); cada benchmark
+    // precisa de pelo menos um ponto não-nulo (guarda contra série vazia).
+    const seriesBR = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { series: Array<{ name: string; data: Array<number | null> }> } } }).echartsRent;
+      const series = chart ? chart.getOption().series : [];
+      return series.map((s) => ({ name: s.name, naoNulos: (s.data || []).filter((v) => v !== null && v !== undefined).length }));
+    });
+    expect(seriesBR.length).toBe(3);
+    for (const nome of ["CDI", "IBOV"]) {
+      const s = seriesBR.find((x) => x.name === nome);
+      expect(s, `série ${nome} ausente`).toBeTruthy();
+      expect(s!.naoNulos, `série ${nome} sem pontos`).toBeGreaterThan(0);
+    }
+  });
+
+  test("7a.E.26: card Período mostra 3 (Total) / 2 (Brasil) / 1 (EUA) linhas de benchmark", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+    await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
+
+    const benchRows = page.locator(".tela-rentabilidade .rent-periodo .rent-periodo-bench");
+
+    // Helper: espera benchExtras popular para a contagem esperada do escopo.
+    const esperarBench = async (n: number) => {
+      await page.waitForFunction(
+        (alvo) => {
+          const data = (window as { Alpine?: { $data: (el: Element) => Record<string, unknown> } }).Alpine?.$data(document.body);
+          const extras = (data as { periodoCustom?: { benchExtras?: unknown[] } })?.periodoCustom?.benchExtras;
+          return Array.isArray(extras) && extras.length === alvo;
+        },
+        n,
+        { timeout: 5_000 },
+      );
+    };
+
+    // Total (default): 3 benchmarks (CDI, IBOV, S&P 500).
+    await esperarBench(3);
+    await expect(benchRows).toHaveCount(3);
+
+    // Brasil: 2 benchmarks (CDI, IBOV).
+    await page.locator('.tela-rentabilidade button[data-escopo="Brasil"]').click();
+    await esperarBench(2);
+    await expect(benchRows).toHaveCount(2);
+
+    // EUA: 1 benchmark (S&P 500, caminho single via benchmark_growth).
+    await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
+    await esperarBench(1);
+    await expect(benchRows).toHaveCount(1);
+  });
+
+  test("7a.E.26: accessor anti-regressão — 3 deltaTwr no Total, ao menos 2 distintos", async ({ page }) => {
+    // Se o accessor benchExtras ignorasse o índice (lesse só CDI-growth), os 3
+    // deltaTwr colapsariam num único valor. Os benchmarks_growth da fixture são
+    // distintos por índice ⇒ os deltas devem divergir.
+    await autenticar(page);
+    await page.goto("/#rentabilidade");
+    await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
+
+    // Garante card populado no escopo Total (default).
+    await page.waitForFunction(() => {
+      const data = (window as { Alpine?: { $data: (el: Element) => Record<string, unknown> } }).Alpine?.$data(document.body);
+      const extras = (data as { periodoCustom?: { benchExtras?: unknown[] } })?.periodoCustom?.benchExtras;
+      return Array.isArray(extras) && extras.length === 3;
+    }, null, { timeout: 5_000 });
+
+    const deltas = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      return (data as { periodoCustom: { benchExtras: Array<{ deltaTwr: number | null }> } }).periodoCustom.benchExtras.map((b) => b.deltaTwr);
+    });
+    expect(deltas.length).toBe(3);
+
+    // Ao menos 2 valores não-nulos e distintos (tolerância p/ float).
+    const naoNulos = deltas.filter((d): d is number => d !== null && d !== undefined);
+    expect(naoNulos.length).toBeGreaterThanOrEqual(2);
+    const distintos = new Set(naoNulos.map((d) => d.toFixed(6)));
+    expect(distintos.size).toBeGreaterThanOrEqual(2);
+  });
 });

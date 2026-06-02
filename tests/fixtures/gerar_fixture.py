@@ -7,6 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.18 (Fase 7a.E.26): ``Brasil.historico_twr[]`` ganha
+``benchmarks={CDI,IBOV}`` (chart BR 3 linhas); ``Total/Brasil.historico_periodo[]``
+ganham ``benchmarks_growth`` (Total={CDI,IBOV,SP500}, Brasil={CDI,IBOV})
+para o card "Período" multi-benchmark. ``Total.historico_twr[]`` mantém
+``benchmarks={CDI,IBOV,SP500}`` da 7a.E.25. EUA inalterado.
+
 Schema v2.5 (Fase 7a.E.9): adiciona bloco top-level ``benchmarks_12m``
 com 5 escalares (cdi/ibov/ifix/sp500/usd) consumidos pelo raio-x.
 v2.4 (Fase 7a.E.5): payload mínimo que satisfaz raio-x + 4 telas
@@ -28,27 +34,51 @@ PIN_TESTE = "123456"
 OUT = Path(__file__).resolve().parent / "portfolio.test.json.enc"
 
 
-def _serie_mensal(start_twr: float, fim_twr: float, start_bench: float, fim_bench: float) -> list[dict]:
-    """Gera uma série de 6 pontos linearmente interpolados em meses fictícios."""
+def _serie_mensal(
+    start_twr: float,
+    fim_twr: float,
+    start_bench: float,
+    fim_bench: float,
+    benchmarks: dict[str, tuple[float, float]] | None = None,
+) -> list[dict]:
+    """Gera uma série de 6 pontos linearmente interpolados em meses fictícios.
+
+    Quando ``benchmarks`` é passado (mapa idx → (start, fim)), cada ponto ganha
+    um bloco ``benchmarks={idx: twr_interpolado}`` (multi-linha no chart, 7a.E.25
+    Total / 7a.E.26 Brasil). Valores divergentes entre índices ⇒ linhas distintas.
+    """
     meses = ["2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-04"]
     n = len(meses)
-    return [
-        {
+    pontos = []
+    for i in range(n):
+        ponto = {
             "data": meses[i],
             "twr": round(start_twr + (fim_twr - start_twr) * (i / (n - 1)), 4),
             "benchmark": round(
                 start_bench + (fim_bench - start_bench) * (i / (n - 1)), 4
             ),
         }
-        for i in range(n)
-    ]
+        if benchmarks:
+            ponto["benchmarks"] = {
+                idx: round(s + (f - s) * (i / (n - 1)), 4)
+                for idx, (s, f) in benchmarks.items()
+            }
+        pontos.append(ponto)
+    return pontos
 
 
 def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
-                    bench_growth_final: float) -> list[dict]:
+                    bench_growth_final: float,
+                    benchmarks_growth: dict[str, float] | None = None) -> list[dict]:
     """Schema v2.14 (Fase 7a.L.2.a): serie mensal {data, nav, cashflow, benchmark_growth}
     para card 'Período' do PWA. Mesmos 6 anchors do _serie_mensal — alinha
-    índices entre historico_twr e historico_periodo (frontend consome ambos)."""
+    índices entre historico_twr e historico_periodo (frontend consome ambos).
+
+    Schema v2.18 (Fase 7a.E.26): quando ``benchmarks_growth`` é passado (mapa
+    idx → fator de crescimento final), cada ponto ganha ``benchmarks_growth={idx:
+    1+...}`` com fatores DISTINTOS por índice. O accessor ``benchExtras`` deriva
+    deltaTwr de ``gB/gA`` por índice ⇒ deltas distintos (anti-regressão: se o
+    accessor lesse só CDI, os 3 colapsariam para um único valor)."""
     meses = ["2024-01", "2024-06", "2025-01", "2025-06", "2026-01", "2026-04"]
     n = len(meses)
     # Cashflow concentrado nos meses intermediários (não no primeiro/último).
@@ -63,17 +93,26 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
             cf = round(-cf_por_mes, 2)
         # benchmark_growth: 1.0 no anchor 0, cresce linearmente até bench_growth_final
         bg = round(1.0 + (bench_growth_final - 1.0) * (i / (n - 1)), 6)
-        pontos.append({
+        ponto = {
             "data": meses[i],
             "nav": nav,
             "cashflow": cf,
             "benchmark_growth": bg,
-        })
+        }
+        if benchmarks_growth:
+            # Crescimento composto por índice: gf(rate, i) = (1+rate)**i. Distinto
+            # por índice ⇒ ratios gB/gA distintos. O caller passa o fator final
+            # (anchor 5); derivamos a taxa per-anchor de forma composta.
+            ponto["benchmarks_growth"] = {
+                idx: round(final_g ** (i / (n - 1)), 6)
+                for idx, final_g in benchmarks_growth.items()
+            }
+        pontos.append(ponto)
     return pontos
 
 
 PAYLOAD = {
-    "versao": "2.16",
+    "versao": "2.18",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -121,9 +160,18 @@ PAYLOAD = {
                     "twr_espelhado":  {"origem": 0.052, "ytd": 0.020, "12m": 0.039},
                 },
             },
-            "historico_twr": _serie_mensal(0.05, 0.118, 0.04, 0.08),
+            # 7a.E.25/7a.E.26: Total chart = Portfólio + CDI + IBOV + S&P 500 (4 linhas).
+            "historico_twr": _serie_mensal(
+                0.05, 0.118, 0.04, 0.08,
+                benchmarks={"CDI": (0.04, 0.08), "IBOV": (0.03, 0.067), "SP500": (0.06, 0.19)},
+            ),
             # Schema v2.14 (Fase 7a.L.2.a): historico_periodo flat (Total/Brasil).
-            "historico_periodo": _serie_periodo(200000.0, 258000.0, 50000.0, 1.08),
+            # Schema v2.18 (7a.E.26): benchmarks_growth {CDI,IBOV,SP500} distintos
+            # ⇒ card "Período" mostra 3 deltas distintos (anti-regressão accessor).
+            "historico_periodo": _serie_periodo(
+                200000.0, 258000.0, 50000.0, 1.08,
+                benchmarks_growth={"CDI": 1.05101, "IBOV": 1.093299, "SP500": 1.066712},
+            ),
         },
         "Brasil": {
             "xirr_origem": 0.091,
@@ -142,8 +190,16 @@ PAYLOAD = {
                     "twr_espelhado":  {"origem": 0.024, "ytd": 0.012, "12m": 0.021},
                 },
             },
-            "historico_twr": _serie_mensal(0.04, 0.078, 0.02, 0.025),
-            "historico_periodo": _serie_periodo(120000.0, 150000.0, 25000.0, 1.025),
+            # 7a.E.26: Brasil chart = Portfólio + CDI + IBOV (3 linhas). CDI segue
+            # o benchmark principal (baixo); IBOV diverge para cima ⇒ linhas distintas.
+            "historico_twr": _serie_mensal(
+                0.04, 0.078, 0.02, 0.025,
+                benchmarks={"CDI": (0.02, 0.025), "IBOV": (0.03, 0.067)},
+            ),
+            "historico_periodo": _serie_periodo(
+                120000.0, 150000.0, 25000.0, 1.025,
+                benchmarks_growth={"CDI": 1.05101, "IBOV": 1.093299},
+            ),
         },
         # Schema v2.7 (Fase 7a.E.14): EUA.historico_twr aninhado {brl, usd}.
         # Trilho USD tem só SP500 nos benchmarks (CDI/IBOV/IFIX são BRL-only).
