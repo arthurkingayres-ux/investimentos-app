@@ -118,6 +118,22 @@ test.describe("Tela #rentabilidade", () => {
     expect(legendaTotal).toContain("S&P 500");
     expect(legendaTotal.length).toBe(4);
 
+    // 7a.E.25: as 4 séries devem renderizar de fato (não só a legenda); cada
+    // linha de benchmark precisa de pelo menos um ponto não-nulo (guarda contra
+    // série vazia / fixture sem `benchmarks`).
+    const seriesTotal = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      const chart = (data as { echartsRent?: { getOption: () => { series: Array<{ name: string; data: Array<number | null> }> } } }).echartsRent;
+      const series = chart ? chart.getOption().series : [];
+      return series.map((s) => ({ name: s.name, naoNulos: (s.data || []).filter((v) => v !== null && v !== undefined).length }));
+    });
+    expect(seriesTotal.length).toBe(4);
+    for (const nome of ["CDI", "IBOV", "S&P 500"]) {
+      const s = seriesTotal.find((x) => x.name === nome);
+      expect(s, `série ${nome} ausente`).toBeTruthy();
+      expect(s!.naoNulos, `série ${nome} sem pontos`).toBeGreaterThan(0);
+    }
+
     // Trocar para EUA: legenda deve atualizar para S&P 500
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
     await page.waitForTimeout(200);
