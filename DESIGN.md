@@ -94,11 +94,33 @@ Renderização nativa por OS:
 
 ### Scale (rem-based, base 16px)
 
+**Escala numérica `--num-*` (7a.E.27 — FONTE ÚNICA).** Todo valor numérico
+(R$, %, contagem, ticker-poster) referencia um destes 6 tokens em `:root`;
+mudar um tamanho = editar o token, nunca um `font-size` inline. Rótulos/
+eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
+
+| Token | px | Onde (exemplos) |
+|---|---|---|
+| `--num-poster` | 40px (2.5rem) | hero patrimônio (`.hero-valor` mono), `.dy-total-valor` |
+| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.proventos-ytd`, `.aloca-alvo__alvo-big` |
+| `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.dy-stat-valor`, `.aporte-data` |
+| `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor`, `.classe-pct` % |
+| `--num-sm` | 15px (0.9375rem) | `.ticker-vm`, `.aporte-valor`, `.tabela-* td.num`, `.politica-*` |
+| `--num-xs` | 13px (0.8125rem) | `.ticker-pct`, `.aloca-alvo__delta/atual/cnum`, benchmark rows |
+
+Razões da escada de display: poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
+
+**Fora da escala (decisão consciente):** glifos de unidade que decoram um número
+poster — ex.: `.aloca-alvo__alvo-big .pct` (o "%" de "30%", 1.375rem ≈73% do dígito)
+— são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
+Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`.
+
 | Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
 |---|---|---|---|---|---|
-| Hero valor | 2rem (32px) | 700 | 1.1 | -0.015em | `.hero-valor` (post-7a.G.2 Pass 4 distill) |
-| Proventos YTD | 1.875rem (30px) | 800 | — | -0.01em | `.proventos-ytd` |
-| Ticker hero VM | 2rem (32px) | 800 | — | -0.5px | `.ticker-vm-grande` |
+| Hero valor | `--num-poster` 2.5rem (40px) mono | 800 | 1.05 | -0.025em | `.hero-valor` (2ª decl mono, raio-x enxuto pós-7a.I) |
+| Proventos YTD | `--num-xl` 1.875rem (30px) | 800 | — | -0.01em | `.proventos-ytd` |
+| Ticker hero VM | `--num-xl` 1.875rem (30px) mono | 800 | — | -0.025em | `.ticker-vm-grande` (7a.E.27: era 3rem drift de decl duplicada; consolidado) |
+| Ticker VM (#alocacao) | `--num-sm` 0.9375rem (15px) | 500 | — | — | `.ticker-vm` (7a.E.27: faltava `font-size`, herdava 16px → overflow; ver guarda em Components) |
 | Ticker hero h2 | 1.5rem (24px) | 700 | — | — | `.ticker-hero h2` |
 | Breadcrumb h1 | 1.375rem (22px) | 700 | — | — | `.breadcrumb h1` |
 | H1 home | 1.75rem (28px) | 700 | — | — | `h1` |
@@ -183,23 +205,23 @@ Card sólido `var(--g-900)` (teal escuro), sombra padrão de cards, sem gradient
 
 Distill 7a.G.2 removeu o `radial-gradient + linear-gradient + ::after`, reduziu `.hero-valor` de 2.625rem peso 800 → 2rem peso 700, e tornou `.hero-delta` flat (sem glassmorphism). DESIGN.md ↔ implementação reconciliados (sem mais "hero metric template" banido).
 
-### Hero Monument (raio-x, 7a.I.2)
+### Hero Monument (raio-x, 7a.I.2 · reconciliado em 7a.E.27)
 
-Variant tipográfica do hero quando renderizado dentro do shell de tab bar. Mantém o card sólido `--g-900` flat (sem gradient/glassmorphism — anti-pattern #8 vigente); a diferença vs hero padrão é apenas a fonte mono + escala + tracking. Escolha de identidade ("Monument"), não decoração.
+Variant tipográfica do hero dentro do shell de tab bar. Card sólido `--g-900` flat (sem gradient/glassmorphism — anti-pattern #8 vigente); a diferença vs hero padrão é só fonte mono + escala + tracking. Escolha de identidade ("Monument"), não decoração.
+
+Implementação real: **não** existe `.hero-valor-monument` nem `--hero-mono-size` (eram drift de doc — removidos aqui). O hero é a 2ª declaração de `.hero-valor`, que sobrescreve a base sans com a variante mono:
 
 ```css
-.hero-valor-monument {
-  font-family: var(--mono);            /* ui-monospace stack — não custom font */
-  font-size: var(--hero-mono-size);    /* 3.25rem */
+.hero-valor {                  /* 2ª decl — Monument */
+  font-family: var(--mono);    /* ui-monospace stack — não custom font */
+  font-size: var(--num-poster); /* 2.5rem (40px) — 7a.E.27 */
   font-weight: 800;
-  letter-spacing: var(--hero-mono-tracking);  /* -0.025em */
-  font-variant-numeric: tabular-nums;
-  line-height: 1.0;
-  color: #fff;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
 }
 ```
 
-Hero size foi calibrada para `2.5rem` no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, que foram removidos como parte do enxuto).
+Hero size = `--num-poster` (2.5rem), calibrada no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, removidos no enxuto).
 
 ### Bloco "Últimos 7 dias" (raio-x, 7a.J.1)
 
@@ -299,7 +321,7 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 ### Classe row — valor R$ (vista "Atual", 7a.E.27)
 A `.classe-row` da vista "Atual" mostra, por classe, o **percentual atual**
 como número-poster dominante (`.classe-pct > span:first-child`, `--g-700`,
-0.9375rem peso 600) e, na segunda linha muted (`.classe-sub`, `--gray`,
+`--num-md` 1rem peso 600 — 7a.E.27) e, na segunda linha muted (`.classe-sub`, `--gray`,
 0.6875rem), o **valor de mercado em R$ da classe** seguido de `· alvo X%`,
 separados por middle-dot via `::before` em `.alvo-pct`. O R$ usa
 `formatBrl` (com centavos, consistente com `.ticker-vm` do drilldown,
@@ -311,6 +333,17 @@ texto nunca colorido por categoria — o R$ é legenda `--gray`, distinto da
 ≤320px, `.classe-sub` usa `flex-wrap: wrap` + `white-space: nowrap` por
 segmento, então a quebra acontece no limite do middle-dot, nunca no meio
 de "alvo X%".
+
+### Trilha ticker (#alocacao) — guarda de overflow (7a.E.27)
+Dentro de uma classe expandida, cada `.ticker-row` é grid `auto 1fr auto auto`
+(flag · nome · `.ticker-vm` R$ · `.ticker-pct`). Guarda estrutural (sem
+`clamp()`/`vw`): o **nome** (`.ticker-name`, coluna `1fr`) recebe `min-width: 0`
++ `overflow: hidden` + `text-overflow: ellipsis` + `white-space: nowrap`, então
+em viewport estreito o nome encurta com reticências; o **valor monetário**
+(`.ticker-vm`, `--num-sm` + `white-space: nowrap` + `tabular-nums`) permanece
+íntegro. Princípio: **dinheiro/percentual nunca é truncado nem reticenciado —
+só rótulos textuais.** Containers de número que dividem linha (`.dy-stat`,
+`.aloca-alvo__lead`) usam `min-width: 0` para nunca forçar o overflow do track.
 
 ### Política accordion (DEPRECATED — substituído em 7a.E.23)
 A vista "Alvo" de #alocacao não usa mais accordion. Mantida só pra histórico:

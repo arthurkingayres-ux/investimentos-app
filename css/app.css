@@ -50,6 +50,18 @@
   --sem-up-tint:   rgba(4, 120, 87, 0.10);
   --sem-down:      var(--cat-fii);
   --sem-down-tint: rgba(184, 115, 31, 0.12);
+
+  /* === Escala tipográfica numérica (7a.E.27, FONTE ÚNICA, NÃO DUPLICAR) ===
+     6 degraus semânticos para TODO valor numérico (R$, %, contagem, ticker-
+     poster). Escada de display (poster→xl→lg→md) com razão ≥1.25. Rótulos/
+     eyebrows uppercase ficam fora (tratamento próprio). Mudar um tamanho =
+     editar o token; font-size numérico hardcoded vira candidato a review. */
+  --num-poster: 2.5rem;    /* 40px — hero patrimônio, DY total                */
+  --num-xl:     1.875rem;  /* 30px — ticker-vm-grande, proventos-ytd, aloca alvo */
+  --num-lg:     1.25rem;   /* 20px — r7d-delta, dy-stat, aporte-data          */
+  --num-md:     1rem;      /* 16px — kpi, rent-metrica/periodo, classe %       */
+  --num-sm:     0.9375rem; /* 15px — ticker-vm, aporte, tabelas, política      */
+  --num-xs:     0.8125rem; /* 13px — ticker-pct, drift, anotações numéricas    */
 }
 
 *, *::before, *::after {
@@ -219,7 +231,7 @@ h1 {
 }
 
 .hero-valor {
-  font-size: 2rem;
+  font-size: var(--num-poster);
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.015em;
@@ -324,7 +336,7 @@ h1 {
   gap: 0.4rem;
   padding: 0.35rem 0.25rem;
   font-variant-numeric: tabular-nums;
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
 }
 
 .rent-linha-inline .chip {
@@ -409,7 +421,7 @@ h1 {
   gap: 0.5rem;
   align-items: center;
   padding: 0.2rem 0.25rem;
-  font-size: 0.8125rem;
+  font-size: var(--num-xs);
   font-variant-numeric: tabular-nums;
   border-top: 1px dashed var(--neutral-200);
   margin-top: 0.1rem;
@@ -462,7 +474,7 @@ h1 {
   align-items: center;
   padding: 0.3rem 0.25rem;
   font-variant-numeric: tabular-nums;
-  font-size: 0.875rem;
+  font-size: var(--num-sm);
 }
 
 .bench-linha + .bench-linha {
@@ -498,7 +510,7 @@ h1 {
   align-items: center;
   gap: 0.55rem;
   margin-bottom: 0.45rem;
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
 }
 
 .aloc-dot {
@@ -587,7 +599,7 @@ h1 {
 }
 
 .aporte-data {
-  font-size: 1.125rem;
+  font-size: var(--num-lg);
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.01em;
@@ -633,7 +645,7 @@ h1 {
 }
 
 .aporte-ticker {
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.01em;
@@ -646,7 +658,7 @@ h1 {
 }
 
 .aporte-valor {
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -674,7 +686,7 @@ h1 {
 }
 
 .proventos-ytd {
-  font-size: 1.875rem;
+  font-size: var(--num-xl);
   font-weight: 800;
   background: linear-gradient(90deg, var(--g-700), var(--amber));
   -webkit-background-clip: text;
@@ -993,7 +1005,7 @@ footer.rodape code {
 .classe-pct > span:first-child {
   font-weight: 600;
   color: var(--g-700);
-  font-size: 0.9375rem;
+  font-size: var(--num-md);
 }
 
 /* 7a.E.27: segunda linha do bloco de percentual na vista Atual.
@@ -1060,16 +1072,24 @@ footer.rodape code {
 
 .ticker-name {
   font-weight: 600;
+  /* 7a.E.27: o nome trunca com reticências em viewport estreito; o valor
+     monetário (.ticker-vm) permanece íntegro — dinheiro nunca é cortado. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ticker-vm {
   color: var(--g-700);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  font-size: var(--num-sm);
+  white-space: nowrap;
 }
 
 .ticker-pct {
-  font-size: 0.75rem;
+  font-size: var(--num-xs);
   color: var(--gray);
 }
 
@@ -1114,12 +1134,13 @@ footer.rodape code {
 }
 
 .ticker-vm-grande {
-  font-size: 2rem;
+  font-family: var(--mono);
+  font-size: var(--num-xl);
   font-weight: 800;
   color: var(--g-700);
   margin: 12px 0 0;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.025em;
 }
 
 .kpi-grid {
@@ -1147,7 +1168,7 @@ footer.rodape code {
 }
 
 .kpi-valor {
-  font-size: 1rem;
+  font-size: var(--num-md);
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1187,7 +1208,7 @@ footer.rodape code {
 
 .dy-total-valor {
   font-family: var(--mono);
-  font-size: 2.5rem;
+  font-size: var(--num-poster);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -1223,6 +1244,7 @@ footer.rodape code {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .dy-stat-label {
@@ -1242,7 +1264,7 @@ footer.rodape code {
 .dy-stat-valor {
   margin: 0;
   font-family: var(--mono);
-  font-size: 1.0625rem;
+  font-size: var(--num-lg);
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1407,7 +1429,7 @@ footer.rodape code {
 }
 
 .rent-metrica-valor {
-  font-size: 1rem;
+  font-size: var(--num-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -1451,7 +1473,7 @@ footer.rodape code {
 }
 
 .rent-periodo-valor {
-  font-size: 1rem;
+  font-size: var(--num-md);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -1460,7 +1482,7 @@ footer.rodape code {
 .rent-periodo-bench {
   padding: 4px 0;
   border-top: 1px solid var(--neutral-100);
-  font-size: 0.88rem;
+  font-size: var(--num-xs);
   color: var(--gray);
   display: flex;
   justify-content: space-between;
@@ -1539,10 +1561,11 @@ footer.rodape code {
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+  font-size: var(--num-sm);
 }
 
 .tabela-movimentos {
-  font-size: 0.92rem;
+  font-size: var(--num-sm);
 }
 
 .tabela-movimentos th,
@@ -1591,7 +1614,7 @@ footer.rodape code {
 
 /* Compact KPI values in 3-col layout to prevent overflow on narrow screens */
 .kpi-grid-3 .kpi-valor {
-  font-size: 0.875rem;
+  font-size: var(--num-sm);
 }
 
 /* Clickable table row */
@@ -1714,7 +1737,7 @@ footer.rodape code {
 .politica-categoria-peso {
   grid-row: 1;
   grid-column: 2;
-  font-size: 1rem;
+  font-size: var(--num-md);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -1777,13 +1800,13 @@ footer.rodape code {
 }
 
 .politica-ticker {
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 600;
   color: var(--ink);
 }
 
 .politica-nota {
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1860,7 +1883,7 @@ footer.rodape code {
     grid-template-columns: 1fr;
   }
   .kpi-grid-3 .kpi-valor {
-    font-size: 1rem;
+    font-size: var(--num-md);
   }
 }
 
@@ -2050,7 +2073,7 @@ footer.rodape code {
 }
 .aporte-compra-tk {
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: var(--num-sm);
   color: var(--ink);
 }
 .aporte-compra-sub {
@@ -2060,7 +2083,7 @@ footer.rodape code {
 }
 .aporte-compra-qty-block { text-align: right; }
 .aporte-compra-qty {
-  font-size: 1rem;
+  font-size: var(--num-md);
   font-weight: 700;
   color: var(--g-900);
   font-variant-numeric: tabular-nums;
@@ -2090,7 +2113,7 @@ footer.rodape code {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  font-size: 0.8125rem;
+  font-size: var(--num-xs);
   color: var(--gray);
   font-variant-numeric: tabular-nums;
   margin: 0;
@@ -2131,7 +2154,7 @@ footer.rodape code {
 
 .hero-valor {
   font-family: var(--mono);
-  font-size: 2.5rem;
+  font-size: var(--num-poster);
   font-weight: 800;
   letter-spacing: -0.025em;
   line-height: 1.05;
@@ -2151,13 +2174,6 @@ footer.rodape code {
 
 .hero-meta .hero-updated {
   margin: 0;
-}
-
-.ticker-vm-grande {
-  font-family: var(--mono);
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: -0.025em;
 }
 
 .tab-bar {
@@ -2299,7 +2315,7 @@ body:has(.tab-bar) main {
 
 .r7d-delta {
   font-family: var(--mono);
-  font-size: 1.125rem;
+  font-size: var(--num-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.015em;
@@ -2321,7 +2337,7 @@ body:has(.tab-bar) main {
   justify-content: space-between;
   align-items: baseline;
   font-family: var(--mono);
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2367,7 +2383,7 @@ body:has(.tab-bar) main {
   gap: 0.5rem;
   padding: 0.3rem 0;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: var(--num-sm);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2447,7 +2463,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__alvo-big {
   font-family: var(--mono, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
-  font-size: 2.375rem;
+  font-size: var(--num-xl);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--cat, var(--g-900));
@@ -2473,7 +2489,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__atual {
   font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
-  font-size: 0.8125rem;
+  font-size: var(--num-xs);
   color: var(--ink);
   font-weight: 600;
 }
@@ -2583,7 +2599,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__cnum {
   font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
-  font-size: 0.8125rem;
+  font-size: var(--num-xs);
   color: var(--ink);
   font-weight: 700;
   white-space: nowrap;
@@ -2652,7 +2668,7 @@ body:has(.tab-bar) main {
   flex-wrap: wrap;
 }
 .aloca-alvo__ticker {
-  font-size: 0.8125rem;
+  font-size: var(--num-xs);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -2697,7 +2713,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__delta {
   font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
-  font-size: 0.75rem;
+  font-size: var(--num-xs);
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 999px;
