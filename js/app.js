@@ -76,14 +76,19 @@ function construirFlows(hist, iA, iB) {
   return flows;
 }
 
-function flowsBenchmark(hist, iA, iB) {
+function flowsBenchmark(hist, iA, iB, growthOf) {
   // Flows do benchmark: substitui nav portfolio por "nav hipotético se cada
   // aporte tivesse sido investido no índice na data do aporte". Escala o nav
   // inicial pelo crescimento do índice de iA→iB, e cashflows intermediários
   // pelo crescimento do índice de cada mês→iB.
+  // 7a.E.26: growthOf é um accessor de growth por ponto. Default = benchmark_growth
+  // (principal/CDI) preserva o caminho single (EUA + callers legados). Para
+  // IBOV/SP500, o caller passa (p) => (p.benchmarks_growth||{})[idx] — senão o
+  // XIRR seria computado contra o growth do CDI.
+  growthOf = growthOf || ((p) => p.benchmark_growth);
   if (!hist || iB <= iA) return [];
-  const growthA = hist[iA].benchmark_growth;
-  const growthB = hist[iB].benchmark_growth;
+  const growthA = growthOf(hist[iA]);
+  const growthB = growthOf(hist[iB]);
   if (!growthA || !growthB) return [];
 
   const flows = [];
@@ -107,7 +112,7 @@ function flowsBenchmark(hist, iA, iB) {
   for (let i = iA + 1; i < iB; i++) {
     const cf = hist[i].cashflow;
     if (cf) {
-      const gi = hist[i].benchmark_growth;
+      const gi = growthOf(hist[i]);
       if (gi) {
         // cashflow já vem com convenção "aporte=neg" → inverte sinal para
         // "valor investido" (positivo) antes de escalar.
@@ -188,8 +193,7 @@ document.addEventListener("alpine:init", () => {
       fimIdx: null,
       twr: null,
       xirr: null,
-      benchTwr: null,
-      benchXirr: null,
+      benchExtras: [],
       titulo: "Origem",
     },
     // 7a.H.1: estado da tela #aportar
@@ -1420,8 +1424,7 @@ document.addEventListener("alpine:init", () => {
           fimIdx: null,
           twr: null,
           xirr: null,
-          benchTwr: null,
-          benchXirr: null,
+          benchExtras: [],
           titulo: "Origem",
         };
         return;
@@ -1447,8 +1450,7 @@ document.addEventListener("alpine:init", () => {
           fimIdx: iB,
           twr: null,
           xirr: null,
-          benchTwr: null,
-          benchXirr: null,
+          benchExtras: [],
           titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
         };
         return;
@@ -1478,22 +1480,40 @@ document.addEventListener("alpine:init", () => {
       const flows = construirFlows(hist, iA, iB);
       const xirr_aa = newtonRaphsonXirr(flows, twr_aa ?? 0.10);
 
-      let benchTwr = null;
-      let benchXirr = null;
-      const gA = hist[iA].benchmark_growth;
-      const gB = hist[iB].benchmark_growth;
-      if (gA && gB && dA && dB) {
-        const dias = (dB - dA) / 86400000;
-        if (dias >= 1 && gA > 0) {
-          const benchGrowth = gB / gA;
-          if (benchGrowth > 0) {
-            benchTwr = Math.pow(benchGrowth, 365.25 / dias) - 1;
-            benchXirr = newtonRaphsonXirr(
-              flowsBenchmark(hist, iA, iB),
-              benchTwr,
-            );
+      // 7a.E.26: card multi-benchmark. Total compara contra CDI/IBOV/SP500,
+      // Brasil contra CDI/IBOV, EUA contra S&P 500 (caminho single via
+      // benchmark_growth + rentBenchNome()). benchExtras: [{nome, deltaXirr,
+      // deltaTwr}] com deltas = portfólio − benchmark (null quando indefinido).
+      const ORDEM_BENCH = ["CDI", "IBOV", "SP500"];
+      const NOME_BENCH = { CDI: "CDI", IBOV: "IBOV", SP500: "S&P 500" };
+      const temMulti = hist[iA] && hist[iA].benchmarks_growth;
+      const idxs = temMulti
+        ? ORDEM_BENCH.filter((k) => hist[iA].benchmarks_growth[k] !== undefined)
+        : [null]; // null = caminho single (EUA), usa benchmark_growth
+      const benchExtras = [];
+      for (const idx of idxs) {
+        const gA = idx ? (hist[iA].benchmarks_growth || {})[idx] : hist[iA].benchmark_growth;
+        const gB = idx ? (hist[iB].benchmarks_growth || {})[idx] : hist[iB].benchmark_growth;
+        let bTwr = null;
+        let bXirr = null;
+        if (gA && gB && dA && dB) {
+          const dias = (dB - dA) / 86400000;
+          if (dias >= 1 && gA > 0) {
+            const benchGrowth = gB / gA;
+            if (benchGrowth > 0) {
+              bTwr = Math.pow(benchGrowth, 365.25 / dias) - 1;
+              const growthOf = idx
+                ? (p) => (p.benchmarks_growth || {})[idx]
+                : (p) => p.benchmark_growth;
+              bXirr = newtonRaphsonXirr(flowsBenchmark(hist, iA, iB, growthOf), bTwr);
+            }
           }
         }
+        benchExtras.push({
+          nome: idx ? NOME_BENCH[idx] : this.rentBenchNome(),
+          deltaXirr: (bXirr !== null && xirr_aa !== null) ? xirr_aa - bXirr : null,
+          deltaTwr: (bTwr !== null && twr_aa !== null) ? twr_aa - bTwr : null,
+        });
       }
 
       this.periodoCustom = {
@@ -1501,8 +1521,7 @@ document.addEventListener("alpine:init", () => {
         fimIdx: iB,
         twr: twr_aa,
         xirr: xirr_aa,
-        benchTwr,
-        benchXirr,
+        benchExtras,
         titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
       };
     },

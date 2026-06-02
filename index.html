@@ -265,25 +265,28 @@
             <span class="rent-periodo-valor"
                   x-text="periodoCustom.twr === null ? '—' : formatPct(periodoCustom.twr)"></span>
           </div>
-          <!-- CRB 7a.L.2.b finding (general-swe #1, sev80): gate XIRR span
-               em benchXirr !== null para evitar coerção `?? 0` que mostrava
-               portfolio_xirr como "spread" quando Newton-Raphson não converge
-               (janela curta, all-outflows). benchTwr puro vale por si só. -->
-          <div class="rent-periodo-bench" x-show="periodoCustom.benchTwr !== null">
-            <span class="bench-label" x-text="'vs ' + rentBenchNome()"></span>
-            <span class="bench-valor">
-              <template x-if="periodoCustom.benchXirr !== null && periodoCustom.xirr !== null">
-                <span x-text="formatPct(periodoCustom.xirr - periodoCustom.benchXirr)"></span>
-              </template>
-              <template x-if="periodoCustom.benchXirr === null || periodoCustom.xirr === null">
-                <span>—</span>
-              </template>
-              <template x-if="periodoCustom.twr !== null && periodoCustom.benchTwr !== null">
-                <span class="bench-twr"
-                      x-text="' · TWR ' + formatPct(periodoCustom.twr - periodoCustom.benchTwr)"></span>
-              </template>
-            </span>
-          </div>
+          <!-- 7a.E.26: card multi-benchmark. benchExtras: [{nome, deltaXirr,
+               deltaTwr}] (deltas = portfólio − benchmark, já computados em JS).
+               Total = 3 linhas (CDI/IBOV/S&P 500), Brasil = 2 (CDI/IBOV),
+               EUA = 1 (S&P 500). .rent-periodo-bench repetido produz o formato
+               3-linhas com border-top entre elas (sem CSS novo). -->
+          <template x-for="(b, i) in periodoCustom.benchExtras" :key="i">
+            <div class="rent-periodo-bench">
+              <span class="bench-label" x-text="'vs ' + b.nome"></span>
+              <span class="bench-valor">
+                <template x-if="b.deltaXirr !== null">
+                  <span x-text="formatPct(b.deltaXirr)"></span>
+                </template>
+                <template x-if="b.deltaXirr === null">
+                  <span>—</span>
+                </template>
+                <template x-if="b.deltaTwr !== null">
+                  <span class="bench-twr"
+                        x-text="' · TWR ' + formatPct(b.deltaTwr)"></span>
+                </template>
+              </span>
+            </div>
+          </template>
         </section>
 
         <div class="rent-grupos">

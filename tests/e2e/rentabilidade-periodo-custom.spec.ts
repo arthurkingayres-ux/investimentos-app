@@ -90,10 +90,42 @@ test.describe("Fase 7a.L.2.b — Rentabilidade card Período", () => {
     }
   });
 
+  test("benchExtras: shape correto + uma .rent-periodo-bench por entrada", async ({ page }) => {
+    // 7a.E.26 (Task 5): card multi-benchmark. periodoCustom.benchExtras =
+    // [{nome, deltaXirr, deltaTwr}] (deltas = portfólio − benchmark, null
+    // quando indefinido). Substitui os antigos benchXirr/benchTwr escalares.
+    await autenticar(page);
+    await abrirRentabilidade(page);
+
+    const card = page.locator(".tela-rentabilidade .rent-periodo");
+    await expect(card).toBeVisible();
+
+    // Quando o card está visível, benchExtras é sempre populado (idx=null no
+    // caminho single EUA; idxs CDI/IBOV/SP500 no multi). Shape vale para
+    // qualquer versão de fixture (v2.17 ou v2.18).
+    const extras = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      return (data as { periodoCustom: { benchExtras: Array<Record<string, unknown>> } }).periodoCustom.benchExtras;
+    });
+    expect(Array.isArray(extras)).toBe(true);
+    expect(extras.length).toBeGreaterThan(0);
+    for (const b of extras) {
+      expect(b).toHaveProperty("nome");
+      expect(typeof b.nome).toBe("string");
+      expect(b).toHaveProperty("deltaXirr"); // number | null
+      expect(b).toHaveProperty("deltaTwr"); // number | null
+    }
+
+    // Uma linha .rent-periodo-bench renderizada por entrada de benchExtras.
+    const benchRows = card.locator(".rent-periodo-bench");
+    await expect(benchRows).toHaveCount(extras.length);
+  });
+
   test("Newton-Raphson divergence: bench row renderiza '—' em vez de spread enganoso", async ({ page }) => {
-    // CRB 7a.L.2.b finding (general-swe #2): força benchXirr=null injetando
+    // CRB 7a.L.2.b finding (general-swe #2): força deltaXirr=null injetando
     // hist com cashflows all-outflow (sem flow positivo → Newton diverge).
     // Antes do fix, `?? 0` mostrava portfolio_xirr como spread (UX bug).
+    // 7a.E.26 (Task 5): o estado escalar benchXirr virou benchExtras[i].deltaXirr.
     await autenticar(page);
     await abrirRentabilidade(page);
 
@@ -119,22 +151,27 @@ test.describe("Fase 7a.L.2.b — Rentabilidade card Período", () => {
     const card = page.locator(".tela-rentabilidade .rent-periodo");
     await expect(card).toBeVisible();
 
-    // Bench row deve ter "—" no campo XIRR-spread quando Newton diverge
-    // (ou row inteira oculta — ambos preservam invariante "nunca mostrar
-    // spread enganoso").
-    const benchRow = card.locator(".rent-periodo-bench");
-    const benchVisivel = await benchRow.isVisible();
-    if (benchVisivel) {
-      const benchTexto = await benchRow.textContent();
-      // Se XIRR convergiu, ok. Se não, deve renderizar "—" antes do "·" (TWR)
-      // ou benchTwr null → row oculta. Não pode mostrar "spread" enganoso.
-      // Verificação: se benchXirr é null no state, "—" deve aparecer no DOM.
-      const benchXirrNull = await page.evaluate(() => {
-        const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
-        return (data as { periodoCustom: { benchXirr: number | null } }).periodoCustom.benchXirr === null;
-      });
-      if (benchXirrNull) {
-        expect(benchTexto).toContain("—");
+    // Lê o state real: cada entrada de benchExtras com deltaXirr === null
+    // DEVE renderizar "—" na sua .rent-periodo-bench correspondente (nunca
+    // um spread enganoso). Mantém a semântica condicional original (só
+    // afirma "—" quando a divergência ocorre), agora keyed off benchExtras.
+    const extras = await page.evaluate(() => {
+      const data = (window as { Alpine: { $data: (el: Element) => Record<string, unknown> } } & Window).Alpine.$data(document.body);
+      return (data as { periodoCustom: { benchExtras: Array<{ deltaXirr: number | null }> } }).periodoCustom.benchExtras;
+    });
+    expect(Array.isArray(extras)).toBe(true);
+    expect(extras.length).toBeGreaterThan(0);
+
+    const benchRows = card.locator(".rent-periodo-bench");
+    await expect(benchRows).toHaveCount(extras.length);
+
+    const anyXirrNull = extras.some((b) => b.deltaXirr === null);
+    if (anyXirrNull) {
+      // Pelo menos uma row exibe "—" no campo XIRR-spread.
+      for (let i = 0; i < extras.length; i++) {
+        if (extras[i].deltaXirr === null) {
+          await expect(benchRows.nth(i)).toContainText("—");
+        }
       }
     }
   });
