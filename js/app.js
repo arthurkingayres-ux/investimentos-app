@@ -1179,11 +1179,15 @@ document.addEventListener("alpine:init", () => {
       const growthPortfolio = buildGrowthArray("twr");
       const growthBenchmark = buildGrowthArray("benchmark");
 
-      // 7a.E.25: no escopo Total, montar uma linha por índice (CDI/IBOV/S&P 500)
-      // além da linha única de benchmark. Brasil/EUA seguem o caminho de 1 linha.
+      // 7a.E.26: gate data-driven (substitui o gate ehTotal da 7a.E.25). Total
+      // tem benchmarks={CDI,IBOV,SP500}; Brasil={CDI,IBOV} (IBOV no gráfico BR);
+      // EUA não tem `benchmarks` → caminho single (1 linha) intacto.
       const dc = window.drarthurChart;
-      const ehTotal = this.escopoAtivo === "Total";
-      const BENCH_TOTAL = ["CDI", "IBOV", "SP500"];
+      const ORDEM_BENCH = ["CDI", "IBOV", "SP500"];
+      const temMultiBench = !!(serie[0] && serie[0].benchmarks);
+      const benchList = temMultiBench
+        ? ORDEM_BENCH.filter((k) => serie[0].benchmarks[k] !== undefined)
+        : [];
       const NOME_BENCH = { CDI: "CDI", IBOV: "IBOV", SP500: "S&P 500" };
       const COR_BENCH = {
         CDI: dc.tokens.gray,
@@ -1204,8 +1208,8 @@ document.addEventListener("alpine:init", () => {
         }
         return out;
       };
-      const growthExtra = ehTotal
-        ? BENCH_TOTAL.map((idx) => ({ idx, growth: buildGrowthBenchExtra(idx) }))
+      const growthExtra = temMultiBench
+        ? benchList.map((idx) => ({ idx, growth: buildGrowthBenchExtra(idx) }))
         : [];
 
       // Devolve a série Y reanchorada para [startIdx, endIdx]. Fora do range
@@ -1251,7 +1255,7 @@ document.addEventListener("alpine:init", () => {
           formatter: (params) => dc.tooltipFormatterAxis(params, formatPct),
         }),
         legend: {
-          data: ehTotal
+          data: temMultiBench
             ? ["Portfólio", ...growthExtra.map((e) => NOME_BENCH[e.idx])]
             : ["Portfólio", benchNome],
           bottom: 28,
@@ -1287,7 +1291,7 @@ document.addEventListener("alpine:init", () => {
             handleSize: 24,
           },
         ],
-        series: ehTotal
+        series: temMultiBench
           ? [
               { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
               ...extraReanc.map((e) => ({
@@ -1371,7 +1375,7 @@ document.addEventListener("alpine:init", () => {
         this.rentabilidadeSubtitulo =
           "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
         try {
-          if (ehTotal) {
+          if (temMultiBench) {
             chart.setOption({
               series: [
                 { name: "Portfólio", data: novaP },
