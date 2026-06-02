@@ -296,6 +296,22 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 
 > **7a.E.23:** a vista "Alvo" de #alocacao usa uma variante refinada — ver `### Aloca Alvo v2` abaixo. A trilha-categoria nessa variante ganha cap-dot superior no marker e gradient muted no fill.
 
+### Classe row — valor R$ (vista "Atual", 7a.E.27)
+A `.classe-row` da vista "Atual" mostra, por classe, o **percentual atual**
+como número-poster dominante (`.classe-pct > span:first-child`, `--g-700`,
+0.9375rem peso 600) e, na segunda linha muted (`.classe-sub`, `--gray`,
+0.6875rem), o **valor de mercado em R$ da classe** seguido de `· alvo X%`,
+separados por middle-dot via `::before` em `.alvo-pct`. O R$ usa
+`formatBrl` (com centavos, consistente com `.ticker-vm` do drilldown,
+hero e `ultimos_7d`) + `tabular-nums`. Dado 100% derivado no frontend
+(`valorAtualClasse(classe)` = soma de `valor_mercado_brl` dos tickers da
+classe via `tickersDaClasse`); zero schema bump. Identidade de cor:
+texto nunca colorido por categoria — o R$ é legenda `--gray`, distinto da
+`.ticker-vm` teal do drilldown (que é dado, não legenda). Em viewport
+≤320px, `.classe-sub` usa `flex-wrap: wrap` + `white-space: nowrap` por
+segmento, então a quebra acontece no limite do middle-dot, nunca no meio
+de "alvo X%".
+
 ### Política accordion (DEPRECATED — substituído em 7a.E.23)
 A vista "Alvo" de #alocacao não usa mais accordion. Mantida só pra histórico:
 o markup `.politica-card[data-collapsed]` + chevron rotacionável foi

@@ -82,6 +82,26 @@ test.describe("Tela #alocacao", () => {
     await expect(pcts).toHaveCount(1);
   });
 
+  test("vista Atual mostra valor R$ por classe (7a.E.27)", async ({ page }) => {
+    await autenticar(page);
+    const rows = page.locator(".tela-alocacao .classe-row");
+    const n = await rows.count();
+    expect(n).toBeGreaterThanOrEqual(4);
+
+    // Toda linha de classe renderiza um valor em R$ secundário (.classe-vm).
+    const vms = page.locator(".tela-alocacao .classe-row .classe-vm");
+    await expect(vms.first()).toBeVisible();
+    await expect(vms).toHaveCount(n);
+
+    // O valor formatado contém "R$" e tem dígito (classe com posição > 0).
+    const texto = await vms.first().textContent();
+    expect(texto).toMatch(/R\$\s?\d/);
+
+    // O percentual atual permanece o número dominante (.classe-pct > span:first-child).
+    const pct = rows.first().locator(".classe-pct > span").first();
+    expect((await pct.textContent())?.trim()).toMatch(/%$/);
+  });
+
   test("tela detalhada alocação não prepend '+' em ticker drilldown (todas classes)", async ({ page }) => {
     await autenticar(page);
 

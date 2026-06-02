@@ -671,6 +671,16 @@ document.addEventListener("alpine:init", () => {
       return 0;
     },
 
+    // 7a.E.27: valor de mercado em R$ da classe = soma de valor_mercado_brl
+    // dos tickers da classe. Reaproveita tickersDaClasse; retorna 0 quando
+    // a classe não tem posições (consistente com pctAtualClasse).
+    valorAtualClasse(classe) {
+      return this.tickersDaClasse(classe).reduce(
+        (acc, t) => acc + (t.valor_mercado_brl || 0),
+        0,
+      );
+    },
+
     get posicaoAtual() {
       if (!this.json || !this.json.posicoes || !this.tickerAtual) return null;
       return (

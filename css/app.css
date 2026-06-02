@@ -996,8 +996,33 @@ footer.rodape code {
   font-size: 0.9375rem;
 }
 
-.alvo-pct {
+/* 7a.E.27: segunda linha do bloco de percentual na vista Atual.
+   R$ da classe (secundário) + alvo, separados por middle dot. */
+.classe-sub {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0 6px;
   font-size: 0.6875rem;
+  color: var(--gray);
+}
+
+.classe-sub .classe-vm + .alvo-pct::before {
+  content: "·";
+  margin-right: 6px;
+  color: var(--gray);
+}
+
+/* Cada segmento permanece íntegro; em viewport estreito (≤320px) a
+   quebra acontece no limite do middle-dot, não no meio de "alvo X%". */
+.classe-vm,
+.classe-sub .alvo-pct {
+  white-space: nowrap;
+}
+
+.classe-vm {
+  font-variant-numeric: tabular-nums;
   color: var(--gray);
 }
 
