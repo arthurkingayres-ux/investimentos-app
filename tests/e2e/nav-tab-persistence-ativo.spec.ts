@@ -59,15 +59,44 @@ test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
-  test("breadcrumb back de #ativo volta para Raio-X com tab bar intacta", async ({ page }) => {
-    // voltar() do app limpa o hash e zera rota -> volta sempre para a home Raio-X.
-    // O ponto da persistência é: tab bar continua visível durante a transição.
+  test("breadcrumb back de #ativo (aberto em Aloca) volta para Alocação, nunca Raio-X", async ({ page }) => {
+    // voltar() deve retornar para a HOME da seção de origem (preservada em
+    // `this.tab`), nunca pular para a Raio-X a partir de outra seção.
     await autenticar(page);
     await abrirPrimeiroTicker(page);
     await expect(page.locator(".tela-ativo")).toBeVisible({ timeout: 5_000 });
     await page.locator(".tela-ativo .breadcrumb button").click();
-    await expect(page.locator(".raiox")).toBeVisible();
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
+    await expect(page.locator(".raiox")).toBeHidden();
     await expect(page.locator(".tab-bar")).toBeVisible();
+    await expect(
+      page.locator('.tab-bar a[data-tab="aloca"]'),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  test("breadcrumb back de #ativo (aberto em Proventos) volta para Proventos, nunca Raio-X", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 5_000 });
+    await page.locator(".tela-proventos .row-link").first().click();
+    await expect(page).toHaveURL(/#ativo\//);
+    await expect(page.locator(".tela-ativo")).toBeVisible({ timeout: 5_000 });
+    await page.locator(".tela-ativo .breadcrumb button").click();
+    await expect(page.locator(".tela-proventos")).toBeVisible();
+    await expect(page.locator(".raiox")).toBeHidden();
+    await expect(
+      page.locator('.tab-bar a[data-tab="provent"]'),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  test("breadcrumb back de #ativo (aberto em Raio-X) volta para Raio-X", async ({ page }) => {
+    // Quando a seção de origem É a Raio-X (ex.: último aporte), back retorna lá.
+    await autenticar(page);
+    await page.locator(".aporte-item-link").first().click();
+    await expect(page).toHaveURL(/#ativo\//);
+    await expect(page.locator(".tela-ativo")).toBeVisible({ timeout: 5_000 });
+    await page.locator(".tela-ativo .breadcrumb button").click();
+    await expect(page.locator(".raiox")).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="raiox"]'),
     ).toHaveAttribute("aria-current", "page");

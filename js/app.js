@@ -374,14 +374,28 @@ document.addEventListener("alpine:init", () => {
     voltar() {
       // history.length é heurística frágil — em link compartilhado aberto
       // numa aba com histórico prévio, history.back() saída do PWA.
-      // Sempre limpamos o hash via replaceState e zeramos a rota; mais
-      // previsível e mantém o usuário dentro do app.
-      // 7a.I.7: sincroniza `tab` com `rota` — sem isso, breadcrumb back de
-      // #ativo (push) deixava a tab bar destacando a tab de origem (ex.: aloca)
-      // enquanto a tela renderizada já era a Raio-X.
-      history.replaceState(null, "", location.pathname);
-      this.rota = "";
-      this.tab = "raiox";
+      // Sempre reescrevemos o hash via replaceState; mais previsível e mantém
+      // o usuário dentro do app.
+      //
+      // O back de uma tela drill-down (#ativo, #/raiox/chart) retorna para a
+      // HOME da seção de origem — nunca pula para a Raio-X a partir de outra
+      // seção. `this.tab` preserva a tab de origem (atualizarRota não a reseta
+      // em push #ativo/:ticker), então mapeamos tab → hash da home e deixamos
+      // atualizarRota() re-derivar rota/tab/hidratação a partir do hash.
+      // 7a.I.7 forçava `tab=raiox` aqui: o back de #ativo aberto em
+      // #alocacao/#proventos caía na Raio-X em vez da seção de origem.
+      const home = {
+        raiox: "",
+        rentab: "#rentabilidade",
+        aloca: "#alocacao",
+        provent: "#proventos",
+        aportar: "#aportar",
+      };
+      const hash = Object.prototype.hasOwnProperty.call(home, this.tab)
+        ? home[this.tab]
+        : "";
+      history.replaceState(null, "", hash || location.pathname);
+      this.atualizarRota();
     },
 
     selecionarEscopo(escopo) {
