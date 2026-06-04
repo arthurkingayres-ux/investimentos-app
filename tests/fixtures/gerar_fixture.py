@@ -450,6 +450,23 @@ PAYLOAD = {
                                 "drift": -0.09,
                                 "bandeira": "🇧🇷",
                             },
+                            {
+                                # 7a.E.28: pick quarentenado (investidor
+                                # qualificado). Fora do equal-weight (peso_intra
+                                # 0, peso_alvo 0) com posição residual; drift_intra
+                                # = 0 aqui, então só o guard explícito `quarentena`
+                                # o exclui do #aportar (não o filtro drift>0).
+                                "ticker": "KNIP11",
+                                "tipo": "pick",
+                                "quarentena": True,
+                                "peso_intra": 0.0,
+                                "peso_intra_atual": 0.0,
+                                "drift_intra": 0.0,
+                                "peso_alvo": 0.0,
+                                "peso_atual": 0.002,
+                                "drift": 0.002,
+                                "bandeira": "🇧🇷",
+                            },
                         ],
                     },
                 ],

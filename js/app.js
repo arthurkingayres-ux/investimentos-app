@@ -201,7 +201,7 @@ document.addEventListener("alpine:init", () => {
     aporteBanner: null,
     aporteCategoriasRecebedoras: [],
     aporteCategoriasNaoRecebedoras: [],
-    aporteQuarentena: [],
+    aportePausados: [],
     aporteTickersSemPosicao: [],
 
     async init() {
@@ -1614,7 +1614,7 @@ document.addEventListener("alpine:init", () => {
         this.aporteBanner = null;
         this.aporteCategoriasRecebedoras = [];
         this.aporteCategoriasNaoRecebedoras = [];
-        this.aporteQuarentena = [];
+        this.aportePausados = [];
         this.aporteTickersSemPosicao = [];
         return;
       }
@@ -1622,7 +1622,7 @@ document.addEventListener("alpine:init", () => {
       this.aporteBanner = r.banner;
       this.aporteCategoriasRecebedoras = r.categorias || [];
       this.aporteCategoriasNaoRecebedoras = r.categoriasNaoRecebedoras || [];
-      this.aporteQuarentena = r.quarentena || [];
+      this.aportePausados = r.pausados || [];
       this.aporteTickersSemPosicao = r.tickersSemPosicao || [];
     },
 

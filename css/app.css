@@ -2119,7 +2119,7 @@ footer.rodape code {
   margin: 0;
 }
 
-.aporte-quarentena {
+.aporte-pausados {
   margin-top: 18px;
   padding: 12px 14px;
   background: var(--neutral-100);
@@ -2127,9 +2127,9 @@ footer.rodape code {
   font-size: 0.75rem;
   color: var(--gray);
 }
-.aporte-quarentena p { margin: 0; }
-.aporte-quarentena strong { color: var(--ink); }
-.aporte-quarentena-tk {
+.aporte-pausados p { margin: 0; }
+.aporte-pausados strong { color: var(--ink); }
+.aporte-pausados-tk {
   font-weight: 600;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -2727,6 +2727,39 @@ body:has(.tab-bar) main {
 .aloca-alvo__delta--over  { background: var(--sem-down-tint); color: var(--sem-down); }
 .aloca-alvo__delta--hold  { background: rgba(110, 110, 115, 0.10); color: var(--gray); font-weight: 600; }
 .aloca-alvo__delta .arrow { font-weight: 800; }
+
+/* 7a.E.28 — pick em quarentena (investidor qualificado). De-ênfase
+   estrutural (sem opacity no texto, que quebraria AA): cesta atenuada via
+   tinta de fundo + supressão do minibar/delta; selo neutro no lugar do delta.
+   "Quarentena" ≠ "pausar" (drift>0): é "não posso aportar agora". */
+.aloca-alvo__ativo--quarentena {
+  background: rgba(26, 29, 28, 0.025);
+}
+.aloca-alvo__ativo--quarentena .aloca-alvo__ticker {
+  color: var(--gray);
+}
+.aloca-alvo__selo-quar {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  white-space: nowrap;
+}
+.aloca-alvo__selo-quar-tag {
+  background: rgba(26, 29, 28, 0.06);
+  color: var(--gray);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.aloca-alvo__selo-quar-sub {
+  color: var(--gray);
+  font-size: 0.625rem;
+  letter-spacing: 0.01em;
+}
 
 /* Motion cascade — só quando o usuário não pediu redução */
 @media (prefers-reduced-motion: no-preference) {

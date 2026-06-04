@@ -125,4 +125,24 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
     // amber --cat-fii #b8731f → rgb(184, 115, 31)
     expect(bg).toMatch(/rgb\(184,\s*115,\s*31\)/);
   });
+
+  // 7a.E.28 — selo "Quarentena" no pick quarentenado (KNIP11 na fixture).
+  test("pick em quarentena mostra selo, alvo 0% e sem delta de drift", async ({ page }) => {
+    await abrirAlvo(page);
+    const row = page
+      .locator(".tela-alocacao .aloca-alvo__ativo--quarentena")
+      .filter({ hasText: "KNIP11" });
+    await expect(row).toBeVisible();
+    // selo presente com o texto "Quarentena" + qualificador
+    const selo = row.locator(".aloca-alvo__selo-quar");
+    await expect(selo).toBeVisible();
+    await expect(selo).toContainText(/Quarentena/i);
+    await expect(selo).toContainText(/investidor qualificado/i);
+    // não mostra o delta aportar/pausar nesta linha (x-show=false → display:none)
+    await expect(row.locator(".aloca-alvo__delta")).toBeHidden();
+    // sublabel comunica alvo 0%
+    await expect(row).toContainText(/alvo 0%/);
+    // o ticker do ativo permanece legível (texto não some)
+    await expect(row.locator(".aloca-alvo__ticker")).toHaveText("KNIP11");
+  });
 });

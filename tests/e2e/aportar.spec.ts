@@ -290,12 +290,12 @@ test.describe("Tela #aportar", () => {
     });
     await page.locator(".aporte-input").fill("1000");
     await page.waitForTimeout(300);
-    const quarentenaText = await page
-      .locator(".aporte-quarentena")
+    const pausadosText = await page
+      .locator(".aporte-pausados")
       .textContent();
-    expect(quarentenaText).toContain("GRND3");
-    expect(quarentenaText).toContain("ITSA4");
-    expect(quarentenaText).toContain(" · ");
+    expect(pausadosText).toContain("GRND3");
+    expect(pausadosText).toContain("ITSA4");
+    expect(pausadosText).toContain(" · ");
   });
 
   test("estado balanceado mostra banner e 1+ cards proporcionais", async ({
@@ -621,5 +621,75 @@ test.describe("Tela #aportar · reduced motion", () => {
       .first()
       .evaluate((el) => getComputedStyle(el).transitionDuration);
     expect(transition).toBe("0s");
+  });
+
+  // 7a.E.28: pick em quarentena (investidor qualificado) nunca recomendado.
+  // Testa direto window.aporteCalculo: o quarentenado tem drift_intra 0 (não
+  // pega no filtro drift>0), preço presente e gap positivo — só o filtro
+  // explícito !a.quarentena o exclui. E não aparece na lista de "pausados".
+  test("pick em quarentena não é recomendado nem listado como pausado", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForFunction(() => !!(window as any).aporteCalculo);
+    const r = await page.evaluate(() => {
+      const portfolio = {
+        patrimonio: { total_brl: 10000 },
+        posicoes: [
+          { ticker: "ACT1", quantidade: 10, valor_mercado_brl: 1000 },
+          { ticker: "KNIP11", quantidade: 1, valor_mercado_brl: 100 },
+        ],
+        politica: {
+          categorias: [
+            {
+              nome: "FIIs",
+              peso_alvo: 1.0,
+              peso_atual: 0.11,
+              drift: -0.89,
+              buckets: [
+                {
+                  tipo: "picks",
+                  equal_weight: true,
+                  peso_bucket: 1.0,
+                  peso_atual_bucket: 0.11,
+                  drift_bucket: -0.89,
+                  ativos: [
+                    {
+                      ticker: "ACT1",
+                      tipo: "pick",
+                      peso_intra: 1.0,
+                      peso_intra_atual: 0.9,
+                      drift_intra: -0.1,
+                      peso_alvo: 1.0,
+                      peso_atual: 0.1,
+                      drift: -0.9,
+                      bandeira: "🇧🇷",
+                    },
+                    {
+                      ticker: "KNIP11",
+                      tipo: "pick",
+                      quarentena: true,
+                      peso_intra: 0.0,
+                      peso_intra_atual: 0.0,
+                      drift_intra: 0.0,
+                      peso_alvo: 0.0,
+                      peso_atual: 0.01,
+                      drift: 0.01,
+                      bandeira: "🇧🇷",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      const res = (window as any).aporteCalculo.calcularAporte(5000, portfolio);
+      const recomendados = (res.categorias || []).flatMap((c: any) =>
+        (c.compras || []).map((l: any) => l.ticker),
+      );
+      return { recomendados, pausados: res.pausados || [] };
+    });
+    expect(r.recomendados).toContain("ACT1");
+    expect(r.recomendados).not.toContain("KNIP11");
+    expect(r.pausados).not.toContain("KNIP11");
   });
 });

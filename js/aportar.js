@@ -71,7 +71,10 @@
   function _candidatosOrdenados(portfolio, preco_brl_por_ticker, patrimonio_atual, patrimonio_pos) {
     const candidatos = [];
     for (const { cat, bucket, ativo: a } of _iterarAtivos(portfolio)) {
-      // Quarentena v3: drift_intra > 0 → "pausar" (ativo acima do alvo).
+      // 7a.E.28: quarentena genuína (investidor qualificado) — alvo 0%, nunca
+      // recomendar, mesmo com drift_intra ≤ 0 (posição residual ou zerada).
+      if (a.quarentena) continue;
+      // Pausar: drift_intra > 0 → ativo acima do alvo (não compramos quando valoriza).
       // Tickers fora do YAML não aparecem em politica.categorias[].buckets[].ativos[].
       if ((a.drift_intra || 0) > 0) continue;
       const preco = preco_brl_por_ticker[a.ticker];
@@ -221,7 +224,7 @@
       categorias: [],
       categoriasNaoRecebedoras: [],
       banner: null,
-      quarentena: [],
+      pausados: [],
       tickersSemPosicao: [],
     };
     if (!portfolio || !portfolio.politica || !portfolio.politica.categorias) {
@@ -236,14 +239,16 @@
     const cats = portfolio.politica.categorias;
     const preco_brl_por_ticker = derivarPrecoBrlPorTicker(portfolio);
 
-    // Quarentena v3 (7a.E.22): drift_intra > 0 (ativo "pausar" — acima do alvo).
-    // Schema v3 não tem nota=0 (tickers fora do YAML simplesmente ausentes do
-    // bloco politica). Predicado simétrico ao filtro em _candidatosOrdenados.
-    const quarentena = [];
+    // Diagnóstico "pausar": drift_intra > 0 (ativo acima do alvo). Renomeado
+    // de `quarentena` na 7a.E.28 para liberar o termo ao conceito genuíno de
+    // quarentena por-pick (investidor qualificado), que é filtrado antes daqui.
+    // Predicado simétrico ao filtro em _candidatosOrdenados.
+    const pausados = [];
     const tickersSemPosicao = [];
     for (const { ativo: a } of _iterarAtivos(portfolio)) {
+      if (a.quarentena) continue; // quarentena genuína: fora do aporte, sem rótulo "pausar"
       if ((a.drift_intra || 0) > 0) {
-        quarentena.push(a.ticker);
+        pausados.push(a.ticker);
       } else if (preco_brl_por_ticker[a.ticker] == null) {
         tickersSemPosicao.push(a.ticker);
       }
@@ -262,7 +267,7 @@
         categorias: [],
         categoriasNaoRecebedoras: [],
         banner: null,
-        quarentena: quarentena,
+        pausados: pausados,
         tickersSemPosicao: tickersSemPosicao,
       };
     }
@@ -278,7 +283,7 @@
         categoriasNaoRecebedoras: [],
         banner:
           "Valor abaixo do mínimo para 1 cota completa. Aumente o valor ou guarde para o próximo mês.",
-        quarentena: quarentena,
+        pausados: pausados,
         tickersSemPosicao: tickersSemPosicao,
       };
     }
@@ -337,7 +342,7 @@
       categorias: categoriasRecebedoras,
       categoriasNaoRecebedoras: categoriasNaoRecebedoras,
       banner: banner,
-      quarentena: quarentena,
+      pausados: pausados,
       tickersSemPosicao: tickersSemPosicao,
     };
   }

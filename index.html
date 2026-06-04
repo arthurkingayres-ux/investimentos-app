@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=37">
-  <script src="js/vendor/echarts.min.js?v=37"></script>
-  <script src="js/echarts-theme.js?v=37"></script>
-  <script src="js/crypto.js?v=37"></script>
-  <script src="js/format.js?v=37"></script>
-  <script src="js/transitions.js?v=37"></script>
-  <script src="js/aportar.js?v=37"></script>
-  <script src="js/app.js?v=37"></script>
-  <script defer src="js/vendor/alpine.min.js?v=37"></script>
+  <link rel="stylesheet" href="css/app.css?v=38">
+  <script src="js/vendor/echarts.min.js?v=38"></script>
+  <script src="js/echarts-theme.js?v=38"></script>
+  <script src="js/crypto.js?v=38"></script>
+  <script src="js/format.js?v=38"></script>
+  <script src="js/transitions.js?v=38"></script>
+  <script src="js/aportar.js?v=38"></script>
+  <script src="js/app.js?v=38"></script>
+  <script defer src="js/vendor/alpine.min.js?v=38"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -498,19 +498,24 @@
 
                   <div class="aloca-alvo__ativos">
                     <template x-for="ativo in bucket.ativos" :key="ativo.ticker">
-                      <a :href="'#ativo/' + ativo.ticker" class="aloca-alvo__ativo">
+                      <a :href="'#ativo/' + ativo.ticker" class="aloca-alvo__ativo"
+                         :class="ativo.quarentena && 'aloca-alvo__ativo--quarentena'">
                         <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
                         <div class="aloca-alvo__ativo-body">
                           <div class="aloca-alvo__ativo-row1">
                             <span class="aloca-alvo__ticker" x-text="ativo.ticker"></span>
-                            <span class="aloca-alvo__ativo-sub">
+                            <span class="aloca-alvo__ativo-sub" x-show="!ativo.quarentena">
                               <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
                               <span>&nbsp;de&nbsp;</span>
                               <span x-text="formatPctSemSinal(ativo.peso_intra)"></span>
                               <span>&nbsp;na cesta</span>
                             </span>
+                            <span class="aloca-alvo__ativo-sub" x-show="ativo.quarentena" x-cloak>
+                              <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
+                              <span>&nbsp;na cesta · alvo 0%</span>
+                            </span>
                           </div>
-                          <div class="aloca-alvo__minibar">
+                          <div class="aloca-alvo__minibar" x-show="!ativo.quarentena">
                             <div class="fill"
                                  :class="ativoIsOver(ativo) && 'fill--over'"
                                  :style="`--fill-pct: ${ativoFillPct(ativo)};`"></div>
@@ -518,7 +523,7 @@
                                  :style="ativoIsOver(ativo) ? `left: ${markerLeftOver(ativo.peso_intra, ativo.peso_intra_atual)};` : 'left: 100%;'"></div>
                           </div>
                         </div>
-                        <span class="aloca-alvo__delta"
+                        <span class="aloca-alvo__delta" x-show="!ativo.quarentena"
                               :class="{
                                 'aloca-alvo__delta--under': formatDelta(ativo.drift_intra).classe === 'under',
                                 'aloca-alvo__delta--over':  formatDelta(ativo.drift_intra).classe === 'over',
@@ -526,6 +531,11 @@
                               }">
                           <span class="arrow" x-text="formatDelta(ativo.drift_intra).arrow"></span>
                           <span x-text="formatDelta(ativo.drift_intra).texto"></span>
+                        </span>
+                        <span class="aloca-alvo__selo-quar" x-show="ativo.quarentena" x-cloak
+                              aria-label="Em quarentena: restrito a investidor qualificado, fora do aporte">
+                          <span class="aloca-alvo__selo-quar-tag">Quarentena</span>
+                          <span class="aloca-alvo__selo-quar-sub">investidor qualificado</span>
                         </span>
                       </a>
                     </template>
@@ -901,13 +911,13 @@
           </template>
         </section>
 
-        <section class="aporte-quarentena" x-show="aporteQuarentena.length > 0" x-cloak>
+        <section class="aporte-pausados" x-show="aportePausados.length > 0" x-cloak>
           <p>
-            <strong>Quarentena (não aporta)</strong><br>
-            <template x-for="(ticker, i) in aporteQuarentena" :key="ticker">
+            <strong>Acima do alvo (não aporta)</strong><br>
+            <template x-for="(ticker, i) in aportePausados" :key="ticker">
               <span>
-                <span class="aporte-quarentena-tk" x-text="ticker"></span>
-                <span x-show="i < aporteQuarentena.length - 1"> · </span>
+                <span class="aporte-pausados-tk" x-text="ticker"></span>
+                <span x-show="i < aportePausados.length - 1"> · </span>
               </span>
             </template>
           </p>
