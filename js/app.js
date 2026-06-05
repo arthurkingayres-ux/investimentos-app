@@ -733,6 +733,25 @@ document.addEventListener("alpine:init", () => {
       return 0;
     },
 
+    // 7a.E.29: classes da vista Atual ordenadas por % atual decrescente.
+    // Cópia do array literal (spread) — não muta estado reativo. Sort estável:
+    // empates preservam a ordem de origem. Classe sem % resolve 0 (cai pro fim).
+    get classesAtualOrdenadas() {
+      const CLASSES = ["EUA", "FIIs", "Renda Fixa BR", "Ações BR", "Cripto"];
+      return [...CLASSES].sort(
+        (a, b) => this.pctAtualClasse(b) - this.pctAtualClasse(a),
+      );
+    },
+
+    // 7a.E.29: categorias da vista Alvo ordenadas por peso_alvo decrescente.
+    // .slice() copia o array reativo do json antes do sort — nunca o muta.
+    // peso_alvo ausente resolve 0 (categoria cai pro fim). Sort estável.
+    get categoriasAlvoOrdenadas() {
+      const cats =
+        (this.json && this.json.politica && this.json.politica.categorias) || [];
+      return cats.slice().sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0));
+    },
+
     // ── #proventos ──────────────────────────────────────────────────
 
     get totalProventosOrigem() {

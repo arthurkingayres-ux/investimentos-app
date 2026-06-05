@@ -83,16 +83,23 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
 
   test("formatDelta multiplica fração por 100 (drift -0.10 renderiza -10,00 pp, não -0,10 pp)", async ({ page }) => {
     await autenticar(page);
-    // Injetar drift conhecido de -0.10 fração (= -10,00 pp pelo backend)
-    await page.evaluate(() => {
+    // Injetar drift conhecido de -0.10 fração (= -10,00 pp pelo backend).
+    // 7a.E.29: a vista Alvo ordena os cards por peso_alvo, então o card de
+    // categorias[0] não é mais necessariamente o primeiro no DOM — leio o drift
+    // do card pelo nome da categoria mutada, não por posição.
+    const nomeMutado = await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
       if (!$data?.json?.politica?.categorias?.length) {
         throw new Error("política ausente no fixture");
       }
       $data.json.politica.categorias[0].drift = -0.10;
+      return $data.json.politica.categorias[0].nome as string;
     });
     await page.goto("/#alocacao?v=alvo");
-    const firstDrift = page.locator(".tela-alocacao .aloca-alvo__drift").first();
+    const cardMutado = page.locator(".tela-alocacao .aloca-alvo__card", {
+      has: page.locator(".aloca-alvo__nome", { hasText: nomeMutado }),
+    });
+    const firstDrift = cardMutado.locator(".aloca-alvo__drift").first();
     await expect(firstDrift).toBeVisible();
     const txt = ((await firstDrift.textContent()) ?? "").trim();
     // Deve conter "10,00 pp" — não "0,10 pp" (bug de escala fração vs pp)

@@ -383,7 +383,7 @@
 
         <div class="aloca-vista" x-show="vAloca === 'atual'" x-cloak>
           <div class="alocacao-card">
-            <template x-for="classe in ['EUA', 'FIIs', 'Renda Fixa BR', 'Ações BR', 'Cripto']" :key="classe">
+            <template x-for="classe in classesAtualOrdenadas" :key="classe">
               <div class="classe-bloco">
                 <div
                   class="classe-row"
@@ -431,7 +431,7 @@
             Política não publicada ainda.
           </p>
 
-          <template x-for="cat in (json && json.politica && json.politica.categorias) || []" :key="cat.nome">
+          <template x-for="cat in categoriasAlvoOrdenadas" :key="cat.nome">
             <article class="aloca-alvo__card" :style="catStyleVar(cat.nome)">
               <header class="aloca-alvo__head">
                 <div class="aloca-alvo__lead">

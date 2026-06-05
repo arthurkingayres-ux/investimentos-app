@@ -47,15 +47,20 @@ test.describe("Política (view Alvo dentro de #alocacao)", () => {
 
   test("hierarquia v3 (7a.E.23): cada card exibe cestas + ativos sempre expandidos", async ({ page }) => {
     await abrirPolitica(page);
+    // 7a.E.29: a vista Alvo ordena os cards por peso_alvo; o primeiro card no
+    // DOM não é mais garantidamente uma categoria com cesta de picks. Verifico
+    // a estrutura no primeiro card (cesta visível) e os marcadores de picks
+    // (label "Cesta de picks" + meta "equal-weight") na lista inteira.
     const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
     const cestas = firstCard.locator(".aloca-alvo__cesta");
     await expect(cestas.first()).toBeVisible();
-    const labels = await firstCard.locator(".aloca-alvo__clabel").allTextContents();
+    const lista = page.locator(".tela-alocacao .aloca-alvo__list");
+    const labels = await lista.locator(".aloca-alvo__clabel").allTextContents();
     expect(labels.some((t) => /Cesta passiva|Cesta de picks/i.test(t))).toBe(true);
-    // Cesta de picks inclui "X ativos · equal-weight" no meta
-    const metas = await firstCard.locator(".aloca-alvo__cmeta").allTextContents();
+    // Cesta de picks inclui "X ativos · equal-weight" no meta (em alguma categoria)
+    const metas = await lista.locator(".aloca-alvo__cmeta").allTextContents();
     expect(metas.some((t) => /\d+\s+ativos\s+·\s+equal-weight/i.test(t))).toBe(true);
-    // Ativos dentro de cada cesta
+    // Ativos dentro das cestas do primeiro card
     const ativos = firstCard.locator(".aloca-alvo__cesta .aloca-alvo__ativo");
     expect(await ativos.count()).toBeGreaterThan(0);
   });
