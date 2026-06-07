@@ -7,6 +7,9 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.19 (Fase 7a.E.28): cada ativo de bucket ``picks`` em
+``politica`` carrega ``quarentena`` (bool); ``False`` para não-quarentenados
+e buckets ``passive``. peso_atual_bucket/drift_bucket são intra-categoria.
 Schema v2.18 (Fase 7a.E.26): ``Brasil.historico_twr[]`` ganha
 ``benchmarks={CDI,IBOV}`` (chart BR 3 linhas); ``Total/Brasil.historico_periodo[]``
 ganham ``benchmarks_growth`` (Total={CDI,IBOV,SP500}, Brasil={CDI,IBOV})
@@ -112,7 +115,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.18",
+    "versao": "2.19",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -388,18 +391,21 @@ PAYLOAD = {
             {
                 "nome": "Ações BR",
                 "peso_alvo": 0.30,
-                "peso_atual": 0.27,
-                "drift": -0.03,
+                # peso_atual_cat = 0.05+0.05+0.17+0.0+0.002 (KNIP11 residual) = 0.272
+                "peso_atual": 0.272,
+                "drift": -0.028,
                 "buckets": [
                     {
                         "tipo": "passive",
                         "peso_bucket": 0.40,
-                        "peso_atual_bucket": 0.10,
-                        "drift_bucket": -0.30,
+                        # peso_atual_bucket é intra-categoria (= 0.10/0.272).
+                        "peso_atual_bucket": 0.367647,
+                        "drift_bucket": -0.032353,
                         "ativos": [
                             {
                                 "ticker": "BOVA11",
                                 "tipo": "passive",
+                                "quarentena": False,
                                 "peso_intra": 0.60,
                                 "peso_intra_atual": 0.50,
                                 "drift_intra": -0.10,
@@ -411,6 +417,7 @@ PAYLOAD = {
                             {
                                 "ticker": "SMAL11",
                                 "tipo": "passive",
+                                "quarentena": False,
                                 "peso_intra": 0.40,
                                 "peso_intra_atual": 0.50,
                                 "drift_intra": 0.10,
@@ -425,12 +432,15 @@ PAYLOAD = {
                         "tipo": "picks",
                         "equal_weight": True,
                         "peso_bucket": 0.60,
-                        "peso_atual_bucket": 0.17,
-                        "drift_bucket": -0.43,
+                        # peso_atual_bucket é intra-categoria; raw inclui KNIP11
+                        # quarentenado (0.17+0.002 = 0.172 / 0.272).
+                        "peso_atual_bucket": 0.632353,
+                        "drift_bucket": 0.032353,
                         "ativos": [
                             {
                                 "ticker": "ITSA4",
                                 "tipo": "pick",
+                                "quarentena": False,
                                 "peso_intra": 0.50,
                                 "peso_intra_atual": 1.0,
                                 "drift_intra": 0.50,
@@ -442,6 +452,7 @@ PAYLOAD = {
                             {
                                 "ticker": "BBAS3",
                                 "tipo": "pick",
+                                "quarentena": False,
                                 "peso_intra": 0.50,
                                 "peso_intra_atual": 0.0,
                                 "drift_intra": -0.50,
@@ -453,15 +464,19 @@ PAYLOAD = {
                             {
                                 # 7a.E.28: pick quarentenado (investidor
                                 # qualificado). Fora do equal-weight (peso_intra
-                                # 0, peso_alvo 0) com posição residual; drift_intra
-                                # = 0 aqui, então só o guard explícito `quarentena`
-                                # o exclui do #aportar (não o filtro drift>0).
+                                # 0, peso_alvo 0) com posição residual. O backend
+                                # ainda computa peso_intra_atual = atual/ew
+                                # (0.002/0.17 ≈ 0.011765) — o denominador EW exclui
+                                # o quarentenado, mas o numerador do próprio ticker
+                                # não é zerado. Como drift_intra > 0, o guard
+                                # explícito `quarentena` (não o filtro drift>0) é
+                                # o que o exclui do #aportar.
                                 "ticker": "KNIP11",
                                 "tipo": "pick",
                                 "quarentena": True,
                                 "peso_intra": 0.0,
-                                "peso_intra_atual": 0.0,
-                                "drift_intra": 0.0,
+                                "peso_intra_atual": 0.011765,
+                                "drift_intra": 0.011765,
                                 "peso_alvo": 0.0,
                                 "peso_atual": 0.002,
                                 "drift": 0.002,
@@ -480,12 +495,14 @@ PAYLOAD = {
                     {
                         "tipo": "passive",
                         "peso_bucket": 1.00,
-                        "peso_atual_bucket": 0.73,
-                        "drift_bucket": -0.27,
+                        # Single-bucket: intra-categoria = 1.0, drift 0.
+                        "peso_atual_bucket": 1.0,
+                        "drift_bucket": 0.0,
                         "ativos": [
                             {
                                 "ticker": "VOO",
                                 "tipo": "passive",
+                                "quarentena": False,
                                 "peso_intra": 1.0,
                                 "peso_intra_atual": 1.0,
                                 "drift_intra": 0.0,
