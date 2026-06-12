@@ -23,6 +23,12 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible();
+  // 7a.E.30: abrir a seção colapsável da vista Atual (idempotente — testes que
+  // não tocam .classe-row apenas veem o card aberto, sem efeito colateral).
+  await page
+    .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
+    .click();
+  await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
 }
 
 test.describe("Escala numérica (7a.E.27)", () => {

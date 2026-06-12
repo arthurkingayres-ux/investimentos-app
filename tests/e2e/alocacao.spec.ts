@@ -22,6 +22,12 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible();
+  // 7a.E.30: vista Atual começa sob seção colapsável fechada; abrir para
+  // que .alocacao-card e suas .classe-row fiquem visíveis/clicáveis.
+  await page
+    .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
+    .click();
+  await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
 }
 
 test.describe("Tela #alocacao", () => {

@@ -68,6 +68,8 @@ test.describe("Tab bar shell (7a.I.1)", () => {
     await autenticar(page);
     await page.goto("/#politica");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
+    // 7a.E.30: abrir a seção colapsável da vista Alvo antes de checar o card.
+    await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
     await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="aloca"]'),

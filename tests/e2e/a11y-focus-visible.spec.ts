@@ -41,6 +41,10 @@ test.describe("A11y: focus-visible em controles secundários (7a.G.2)", () => {
   test(".classe-row tem outline visível ao foco", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
+    // 7a.E.30: abrir a seção colapsável da vista Atual para expor .classe-row.
+    await page
+      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
+      .click();
     await expect(page.locator(".classe-row").first()).toBeVisible({
       timeout: 5_000,
     });

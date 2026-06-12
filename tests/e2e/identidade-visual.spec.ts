@@ -94,6 +94,10 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     await autenticar(page);
     // Expandir #alocacao pra renderizar as .classe-dot (uma por categoria).
     await page.goto("/#alocacao");
+    // 7a.E.30: abrir a seção colapsável da vista Atual.
+    await page
+      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
+      .click();
     await page.waitForSelector(".classe-dot.dot-eua", { timeout: 5000 });
     const rgbs = await page.evaluate(() => {
       const grab = (sel: string) => {
@@ -122,6 +126,10 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
   test(".flag estrutural em #alocacao expandido — 1 .flag por ticker da classe", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
+    // 7a.E.30: abrir a seção colapsável da vista Atual antes de expandir a classe.
+    await page
+      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
+      .click();
     await page.locator(".classe-row").first().click();
     await page.locator(".ticker-row").first().waitFor({ state: "attached", timeout: 5000 });
     const rowsCount = await page.locator(".ticker-row").count();

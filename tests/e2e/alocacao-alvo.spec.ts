@@ -24,9 +24,16 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
+// 7a.E.30: a vista Alvo agora começa sob uma seção colapsável fechada; abrir
+// o cabeçalho antes de inspecionar os cards.
+async function abrirSecaoAlvo(page: Page) {
+  await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
+}
+
 async function abrirAlvo(page: Page) {
   await autenticar(page);
   await page.goto("/#alocacao?v=alvo");
+  await abrirSecaoAlvo(page);
   await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
 }
 
@@ -96,6 +103,7 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
       return $data.json.politica.categorias[0].nome as string;
     });
     await page.goto("/#alocacao?v=alvo");
+    await abrirSecaoAlvo(page);
     const cardMutado = page.locator(".tela-alocacao .aloca-alvo__card", {
       has: page.locator(".aloca-alvo__nome", { hasText: nomeMutado }),
     });
@@ -124,6 +132,7 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
       a.drift_intra = 0.10;
     });
     await page.goto("/#alocacao?v=alvo");
+    await abrirSecaoAlvo(page);
     const overFill = page
       .locator(".tela-alocacao .aloca-alvo__minibar .fill--over")
       .first();

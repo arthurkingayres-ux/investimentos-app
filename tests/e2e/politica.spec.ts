@@ -29,6 +29,8 @@ async function abrirPolitica(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#politica");
   await expect(page.locator(".tela-alocacao")).toBeVisible();
+  // 7a.E.30: abrir a seção colapsável da vista Alvo antes de inspecionar cards.
+  await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
   await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
 }
 
