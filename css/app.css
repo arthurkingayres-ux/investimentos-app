@@ -1043,6 +1043,46 @@ footer.rodape code {
   font-size: 0.875rem;
 }
 
+/* 7a.E.30: cabeçalho de seção colapsável das vistas Atual/Alvo do #alocação.
+   Espelha o padrão .politica-header (button reset + flex). Plano e subordinado
+   ao segmented Atual|Alvo acima (sem fill nem borda). */
+.aloca-secao-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 12px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  min-height: 52px;
+  user-select: none;
+}
+.aloca-secao-head:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.aloca-secao-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.aloca-secao-chevron {
+  color: var(--gray);
+  font-size: 0.875rem;
+  transition: transform 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aloca-secao-chevron { transition: none; }
+}
+
 .classe-tickers {
   padding: 0 16px 16px 28px;
 }
