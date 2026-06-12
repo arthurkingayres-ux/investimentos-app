@@ -24,33 +24,48 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
+// Cabeçalho da seção da vista Atual (escopo: .aloca-vista que NÃO é a lista alvo)
+function headAtual(page: Page) {
+  return page.locator(
+    ".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head",
+  );
+}
+function headAlvo(page: Page) {
+  return page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head");
+}
+
 test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
-  test("default sem query mostra view Atual", async ({ page }) => {
+  test("default sem query mostra view Atual (seção fechada)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
     const ativo = page.locator(".aloca-segmented button[aria-selected='true']");
     await expect(ativo).toHaveText("Atual");
-    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
-    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeHidden();
+    // Cabeçalho visível, conteúdo oculto até clicar
+    await expect(headAtual(page)).toBeVisible();
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeHidden();
   });
 
-  test("clicar Alvo troca view e atualiza URL", async ({ page }) => {
+  test("clicar Alvo troca view e atualiza URL (seção alvo fechada)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
     await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
     await expect(page).toHaveURL(/#alocacao\?v=alvo$/);
+    // Card alvo continua oculto até abrir a seção
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeHidden();
+    await headAlvo(page).click();
     await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
-    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeHidden();
   });
 
   test("clicar Atual volta e atualiza URL", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao?v=alvo");
-    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
+    await expect(headAlvo(page)).toBeVisible();
     await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
     await expect(page).toHaveURL(/#alocacao\?v=atual$/);
-    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+    await expect(headAtual(page)).toBeVisible();
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "false");
   });
 
   test("legacy #politica redireciona para #alocacao?v=alvo", async ({ page }) => {
@@ -58,12 +73,10 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await page.goto("/#politica");
     await expect(page).toHaveURL(/#alocacao\?v=alvo$/);
     await expect(page.locator(".tela-alocacao")).toBeVisible();
-    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
+    await expect(headAlvo(page)).toBeVisible();
   });
 
-  test("cold-start submitPin em #alocacao?v=alvo renderiza cards", async ({ page }) => {
-    // 7a.E.23: vista Alvo não tem mais collapse — cards sempre expandidos.
-    // Teste herdado da 7a.I.4 valida só que o fluxo submitPin → cards visíveis funciona.
+  test("cold-start submitPin em #alocacao?v=alvo: abre seção renderiza cards", async ({ page }) => {
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({
         status: 200,
@@ -79,12 +92,13 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await expect(page.locator(".pin-screen")).toBeVisible({ timeout: 10_000 });
     await page.locator("input.pin-input").fill("123456");
     await page.locator("button.pin-submit").click();
+    await expect(headAlvo(page)).toBeVisible({ timeout: 5000 });
+    await headAlvo(page).click();
     const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
     await expect(firstCard).toBeVisible({ timeout: 5000 });
   });
 
-  test("cold-start em #alocacao?v=alvo renderiza cards", async ({ page }) => {
-    // 7a.E.23: substituiu teste de collapsed-default; cards são sempre expandidos.
+  test("cold-start em #alocacao?v=alvo: abre seção renderiza cards", async ({ page }) => {
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({
         status: 200,
@@ -103,7 +117,60 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
       );
     });
     await page.goto("/#alocacao?v=alvo");
+    await expect(headAlvo(page)).toBeVisible();
+    await headAlvo(page).click();
     const firstCard = page.locator(".tela-alocacao .aloca-alvo__card").first();
     await expect(firstCard).toBeVisible();
+  });
+});
+
+test.describe("Aloca seção colapsável (7a.E.30)", () => {
+  test("seção Atual começa fechada", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeHidden();
+  });
+
+  test("clique no cabeçalho abre (card visível, aria-expanded=true)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await headAtual(page).click();
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+  });
+
+  test("segundo clique fecha de novo", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await headAtual(page).click();
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+    await headAtual(page).click();
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeHidden();
+  });
+
+  test("estados independentes: abrir Atual não afeta Alvo", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await headAtual(page).click();
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+    // troca para Alvo: seção Alvo segue fechada (estado inicial false)
+    await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
+    await expect(headAlvo(page)).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeHidden();
+  });
+
+  test("mantém estado ao trocar de aba (Atual aberta persiste)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    await headAtual(page).click();
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+    await page.locator(".aloca-segmented button", { hasText: "Alvo" }).click();
+    await expect(headAlvo(page)).toBeVisible();
+    await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
+    // Atual continua aberta (não resetou ao trocar de aba)
+    await expect(headAtual(page)).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
   });
 });
