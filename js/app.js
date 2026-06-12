@@ -179,6 +179,11 @@ document.addEventListener("alpine:init", () => {
     // 7a.I.4: vista corrente da tab Aloca (segmented Atual/Alvo).
     // "alvo" expõe o conteúdo migrado da antiga tela `#politica`.
     vAloca: "atual",
+    // 7a.E.30: colapso por seção da tela #alocação. Não-persistente
+    // (reseta no reload). selecionarVistaAloca NÃO mexe nestes booleans,
+    // preservando o estado ao trocar de aba.
+    atualAberta: false,
+    alvoAberta: false,
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
@@ -369,6 +374,12 @@ document.addEventListener("alpine:init", () => {
       this.vAloca = v;
       history.replaceState(null, "", "#alocacao?v=" + v);
       if (v === "alvo") this.hidratarColapsoPolitica();
+    },
+
+    toggleSecaoAloca(qual) {
+      // 7a.E.30: alterna a seção colapsável da vista corrente. Sem persistência.
+      if (qual === "atual") this.atualAberta = !this.atualAberta;
+      else if (qual === "alvo") this.alvoAberta = !this.alvoAberta;
     },
 
     voltar() {
