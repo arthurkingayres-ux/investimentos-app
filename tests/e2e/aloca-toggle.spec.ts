@@ -62,6 +62,9 @@ test.describe("Aloca toggle Atual/Alvo (7a.I.4)", () => {
     await autenticar(page);
     await page.goto("/#alocacao?v=alvo");
     await expect(headAlvo(page)).toBeVisible();
+    // Cobertura de render do Alvo antes de trocar: abrir a seção mostra o card.
+    await headAlvo(page).click();
+    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
     await page.locator(".aloca-segmented button", { hasText: "Atual" }).click();
     await expect(page).toHaveURL(/#alocacao\?v=atual$/);
     await expect(headAtual(page)).toBeVisible();

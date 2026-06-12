@@ -380,6 +380,7 @@ document.addEventListener("alpine:init", () => {
       // 7a.E.30: alterna a seção colapsável da vista corrente. Sem persistência.
       if (qual === "atual") this.atualAberta = !this.atualAberta;
       else if (qual === "alvo") this.alvoAberta = !this.alvoAberta;
+      else console.warn("toggleSecaoAloca: qual inválido", qual);
     },
 
     voltar() {

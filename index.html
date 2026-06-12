@@ -383,13 +383,13 @@
 
         <div class="aloca-vista" x-show="vAloca === 'atual'" x-cloak>
           <button type="button" class="aloca-secao-head"
-                  :aria-expanded="atualAberta"
+                  :aria-expanded="atualAberta" aria-controls="aloca-atual-corpo"
                   @click="toggleSecaoAloca('atual')">
             <span class="aloca-secao-label">Alocação atual</span>
             <span class="aloca-secao-chevron" aria-hidden="true"
                   x-text="atualAberta ? '▾' : '▸'"></span>
           </button>
-          <div class="alocacao-card" x-show="atualAberta" x-cloak>
+          <div class="alocacao-card" id="aloca-atual-corpo" x-show="atualAberta" x-cloak>
             <template x-for="classe in classesAtualOrdenadas" :key="classe">
               <div class="classe-bloco">
                 <div
@@ -435,13 +435,13 @@
 
         <div class="aloca-vista aloca-alvo__list" x-show="vAloca === 'alvo'" x-cloak>
           <button type="button" class="aloca-secao-head"
-                  :aria-expanded="alvoAberta"
+                  :aria-expanded="alvoAberta" aria-controls="aloca-alvo-corpo"
                   @click="toggleSecaoAloca('alvo')">
             <span class="aloca-secao-label">Alocação alvo</span>
             <span class="aloca-secao-chevron" aria-hidden="true"
                   x-text="alvoAberta ? '▾' : '▸'"></span>
           </button>
-          <div class="aloca-alvo__corpo" x-show="alvoAberta" x-cloak>
+          <div class="aloca-alvo__corpo" id="aloca-alvo-corpo" x-show="alvoAberta" x-cloak>
           <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
             Política não publicada ainda.
           </p>
