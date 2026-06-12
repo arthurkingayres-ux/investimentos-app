@@ -90,31 +90,29 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     expect(trio.themeToken).toBe(PALETA.catEua);
   });
 
-  test(".classe-dot.dot-* resolve para a paleta refinada", async ({ page }) => {
+  test(".aloca-cat__dot resolve para a paleta refinada (via --cat)", async ({ page }) => {
     await autenticar(page);
-    // Expandir #alocacao pra renderizar as .classe-dot (uma por categoria).
+    // 7a.E.31: o dot do card de categoria deriva de --cat (catStyleVar), não de
+    // classes dot-*. Grab pelo nome da categoria no header.
     await page.goto("/#alocacao");
-    // 7a.E.30: abrir a seção colapsável da vista Atual.
-    await page
-      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-      .click();
-    await page.waitForSelector(".classe-dot.dot-eua", { timeout: 5000 });
+    await page.waitForSelector(".tela-alocacao .aloca-cat__dot", { timeout: 5000 });
     const rgbs = await page.evaluate(() => {
-      const grab = (sel: string) => {
-        const el = document.querySelector(sel);
-        return el ? getComputedStyle(el as Element).backgroundColor : null;
+      const grab = (nome: string) => {
+        const cards = Array.from(document.querySelectorAll(".tela-alocacao .aloca-cat"));
+        const card = cards.find(
+          (c) => c.querySelector(".aloca-cat__nome")?.textContent?.trim() === nome,
+        );
+        const dot = card?.querySelector(".aloca-cat__dot");
+        return dot ? getComputedStyle(dot as Element).backgroundColor : null;
       };
       return {
-        acoesBr: grab(".classe-dot.dot-acoes-br"),
-        eua:     grab(".classe-dot.dot-eua"),
-        fii:     grab(".classe-dot.dot-fiis"),
-        cripto:  grab(".classe-dot.dot-cripto"),
+        acoesBr: grab("Ações BR"),
+        eua:     grab("EUA"),
       };
     });
+    // A fixture tem 2 categorias (Ações BR, EUA); ambas resolvem a paleta refinada.
     expect(rgbs.acoesBr).toBe("rgb(4, 120, 87)");
     expect(rgbs.eua).toBe("rgb(30, 96, 145)");
-    expect(rgbs.fii).toBe("rgb(184, 115, 31)");
-    expect(rgbs.cripto).toBe("rgb(109, 78, 168)");
   });
 
   // Os 3 testes abaixo verificam estrutura — `.flag` renderiza, e quando o backend
@@ -123,28 +121,30 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
   // emoji em produção é verificado pelos integration tests Python (TestFase7aE20BandeiraPropagation
   // em tests/test_json_pwa.py do main repo).
 
-  test(".flag estrutural em #alocacao expandido — 1 .flag por ticker da classe", async ({ page }) => {
+  test(".flag estrutural em #alocacao — 1 .flag por ativo do card expandido", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
-    // 7a.E.30: abrir a seção colapsável da vista Atual antes de expandir a classe.
-    await page
-      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-      .click();
-    await page.locator(".classe-row").first().click();
-    await page.locator(".ticker-row").first().waitFor({ state: "attached", timeout: 5000 });
-    const rowsCount = await page.locator(".ticker-row").count();
-    const flagsCount = await page.locator(".ticker-row .flag").count();
-    expect(rowsCount).toBeGreaterThan(0);
-    expect(flagsCount).toBe(rowsCount);
+    // 7a.E.31: vista única — expandir o primeiro card mostra os ativos com flag.
+    await page.locator(".tela-alocacao .aloca-cat__head").first().click();
+    await page.locator(".aloca-alvo__ativo").first().waitFor({ state: "attached", timeout: 5000 });
+    const card = page.locator(".tela-alocacao .aloca-cat").first();
+    const ativosCount = await card.locator(".aloca-alvo__ativo").count();
+    const flagsCount = await card.locator(".aloca-alvo__ativo .flag").count();
+    expect(ativosCount).toBeGreaterThan(0);
+    expect(flagsCount).toBe(ativosCount);
   });
 
-  test(".flag estrutural em #politica — 1 .flag por ativo de cada categoria", async ({ page }) => {
-    // 7a.E.23: vista Alvo reescrita; markup migrou para .aloca-alvo__ativo (sempre expandido).
+  test(".flag estrutural via #politica (shim) — 1 .flag por ativo do card expandido", async ({ page }) => {
+    // 7a.E.31: `#politica` redireciona para `#alocacao` (vista única). Ativos
+    // renderizam ao expandir um card.
     await autenticar(page);
     await page.goto("/#politica");
+    await expect(page).toHaveURL(/#alocacao$/);
+    await page.locator(".tela-alocacao .aloca-cat__head").first().click();
     await page.locator(".aloca-alvo__ativo").first().waitFor({ state: "attached", timeout: 5000 });
-    const ativosCount = await page.locator(".aloca-alvo__ativo").count();
-    const flagsCount = await page.locator(".aloca-alvo__ativo .flag").count();
+    const card = page.locator(".tela-alocacao .aloca-cat").first();
+    const ativosCount = await card.locator(".aloca-alvo__ativo").count();
+    const flagsCount = await card.locator(".aloca-alvo__ativo .flag").count();
     expect(ativosCount).toBeGreaterThan(0);
     expect(flagsCount).toBe(ativosCount);
   });

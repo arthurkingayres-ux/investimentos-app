@@ -23,12 +23,9 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible();
-  // 7a.E.30: abrir a seção colapsável da vista Atual (idempotente — testes que
-  // não tocam .classe-row apenas veem o card aberto, sem efeito colateral).
-  await page
-    .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-    .click();
-  await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
+  // 7a.E.31: vista única — o card de categoria (com R$ no header) já é visível
+  // sem nenhum toggle.
+  await expect(page.locator(".tela-alocacao .aloca-cat").first()).toBeVisible();
 }
 
 test.describe("Escala numérica (7a.E.27)", () => {
@@ -58,32 +55,22 @@ test.describe("Escala numérica (7a.E.27)", () => {
     }
   });
 
-  test(".ticker-vm usa --num-sm (15px), não o default herdado 16px", async ({
+  test(".aloca-cat__rs-valor usa --num-sm (15px), não o default herdado 16px", async ({
     page,
   }) => {
     await autenticar(page);
-    await page
-      .locator('.tela-alocacao .classe-row[data-classe="FIIs"]')
-      .click();
-    const vm = page
-      .locator('.tela-alocacao .classe-tickers[data-classe="FIIs"] .ticker-vm')
-      .first();
+    const vm = page.locator(".tela-alocacao .aloca-cat__rs-valor").first();
     await expect(vm).toBeVisible();
     const fs = await vm.evaluate((el) => getComputedStyle(el).fontSize);
     expect(fs).toBe("15px");
   });
 
-  test("valor de 7 dígitos no .ticker-vm não estoura #alocacao a 320px", async ({
+  test("valor de 7 dígitos no R$ da categoria não estoura #alocacao a 320px", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await autenticar(page);
-    await page
-      .locator('.tela-alocacao .classe-row[data-classe="FIIs"]')
-      .click();
-    const vm = page
-      .locator('.tela-alocacao .classe-tickers[data-classe="FIIs"] .ticker-vm')
-      .first();
+    const vm = page.locator(".tela-alocacao .aloca-cat__rs-valor").first();
     await expect(vm).toBeVisible();
     // Força o pior caso de magnitude no valor monetário.
     await vm.evaluate((el) => {

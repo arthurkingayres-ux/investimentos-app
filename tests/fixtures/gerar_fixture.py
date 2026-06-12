@@ -115,7 +115,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.19",
+    "versao": "2.20",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -394,6 +394,9 @@ PAYLOAD = {
                 # peso_atual_cat = 0.05+0.05+0.17+0.0+0.002 (KNIP11 residual) = 0.272
                 "peso_atual": 0.272,
                 "drift": -0.028,
+                # 7a.E.31 (v2.20): valor_brl da categoria = soma dos ativos
+                # (inclui off-policy). 5000+5000+17000+0+200+3000 = 30200.
+                "valor_brl": 30200.0,
                 "buckets": [
                     {
                         "tipo": "passive",
@@ -412,6 +415,7 @@ PAYLOAD = {
                                 "peso_alvo": 0.072,
                                 "peso_atual": 0.05,
                                 "drift": -0.022,
+                                "valor_brl": 5000.0,
                                 "bandeira": "🇧🇷",
                             },
                             {
@@ -424,6 +428,7 @@ PAYLOAD = {
                                 "peso_alvo": 0.048,
                                 "peso_atual": 0.05,
                                 "drift": 0.002,
+                                "valor_brl": 5000.0,
                                 "bandeira": "🇧🇷",
                             },
                         ],
@@ -447,6 +452,7 @@ PAYLOAD = {
                                 "peso_alvo": 0.09,
                                 "peso_atual": 0.17,
                                 "drift": 0.08,
+                                "valor_brl": 17000.0,
                                 "bandeira": "🇧🇷",
                             },
                             {
@@ -459,6 +465,7 @@ PAYLOAD = {
                                 "peso_alvo": 0.09,
                                 "peso_atual": 0.0,
                                 "drift": -0.09,
+                                "valor_brl": 0.0,
                                 "bandeira": "🇧🇷",
                             },
                             {
@@ -480,6 +487,24 @@ PAYLOAD = {
                                 "peso_alvo": 0.0,
                                 "peso_atual": 0.002,
                                 "drift": 0.002,
+                                "valor_brl": 200.0,
+                                "bandeira": "🇧🇷",
+                            },
+                            {
+                                # 7a.E.31: held off-policy (posição fora do YAML).
+                                # Injetado na cesta picks como fora_do_alvo; drift/
+                                # peso_intra neutros (0); selo "fora do alvo" no PWA.
+                                "ticker": "LREN3",
+                                "tipo": "pick",
+                                "fora_do_alvo": True,
+                                "quarentena": False,
+                                "peso_intra": 0,
+                                "peso_intra_atual": 0,
+                                "drift_intra": 0,
+                                "peso_alvo": 0,
+                                "peso_atual": 0.03,
+                                "drift": 0,
+                                "valor_brl": 3000.0,
                                 "bandeira": "🇧🇷",
                             },
                         ],
@@ -491,6 +516,7 @@ PAYLOAD = {
                 "peso_alvo": 0.70,
                 "peso_atual": 0.73,
                 "drift": 0.03,
+                "valor_brl": 73000.0,
                 "buckets": [
                     {
                         "tipo": "passive",
@@ -509,6 +535,7 @@ PAYLOAD = {
                                 "peso_alvo": 0.70,
                                 "peso_atual": 0.73,
                                 "drift": 0.03,
+                                "valor_brl": 73000.0,
                                 "bandeira": "🇺🇸",
                             },
                         ],

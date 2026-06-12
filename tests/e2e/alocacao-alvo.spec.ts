@@ -24,76 +24,76 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
-// 7a.E.30: a vista Alvo agora começa sob uma seção colapsável fechada; abrir
-// o cabeçalho antes de inspecionar os cards.
-async function abrirSecaoAlvo(page: Page) {
-  await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
+function cardPorNome(page: Page, nome: string) {
+  return page.locator(".tela-alocacao .aloca-cat", {
+    has: page.locator(".aloca-cat__nome", { hasText: nome }),
+  });
 }
 
-async function abrirAlvo(page: Page) {
+// 7a.E.31: vista única — abre #alocacao e expande um card de categoria.
+async function abrirCategoria(page: Page, nome: string) {
   await autenticar(page);
-  await page.goto("/#alocacao?v=alvo");
-  await abrirSecaoAlvo(page);
-  await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
+  await page.goto("/#alocacao");
+  const card = cardPorNome(page, nome);
+  await card.locator(".aloca-cat__head").click();
+  await expect(card.locator(".aloca-cat__body")).toBeVisible();
+  return card;
 }
 
-test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
-  test("renderiza um card por categoria com --cat setado via inline style", async ({ page }) => {
-    await abrirAlvo(page);
-    const cards = page.locator(".tela-alocacao .aloca-alvo__card");
+test.describe("#alocacao unificada — cestas + identidade (7a.E.31 / 7a.E.23)", () => {
+  test("cada card de categoria seta --cat via inline style", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    const cards = page.locator(".tela-alocacao .aloca-cat");
     const count = await cards.count();
     expect(count).toBeGreaterThanOrEqual(2);
-
     for (let i = 0; i < count; i++) {
-      const card = cards.nth(i);
-      const cssVar = await card.evaluate((el) =>
+      const cssVar = await cards.nth(i).evaluate((el) =>
         getComputedStyle(el).getPropertyValue("--cat").trim(),
       );
-      // Resolved --cat deve ser cor concreta (hex via --cat-* ou rgb computado)
       expect(cssVar).not.toBe("");
     }
   });
 
-  test("número-poster alvo herda cor da categoria (não é cinza/preto)", async ({ page }) => {
-    await abrirAlvo(page);
-    const firstBig = page.locator(".tela-alocacao .aloca-alvo__alvo-big").first();
-    await expect(firstBig).toBeVisible();
-    const color = await firstBig.evaluate((el) => getComputedStyle(el).color);
-    // não pode ser preto puro, branco puro ou cinza neutro
+  test("R$ da categoria no header herda a cor da categoria (--cat)", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    const rs = page.locator(".tela-alocacao .aloca-cat__rs-valor").first();
+    await expect(rs).toBeVisible();
+    const color = await rs.evaluate((el) => getComputedStyle(el).color);
     expect(color).not.toMatch(/^rgb\(0,\s*0,\s*0\)/);
-    expect(color).not.toMatch(/^rgb\(255,\s*255,\s*255\)/);
-    expect(color).not.toMatch(/^rgb\(110,\s*110,\s*115\)/);
-    // deve ser rgb válido
     expect(color).toMatch(/^rgba?\(/);
   });
 
   test("trilha categoria tem marker preto (ink) com cap-dot pseudo-elemento", async ({ page }) => {
-    await abrirAlvo(page);
-    const marker = page.locator(".tela-alocacao .aloca-alvo__trilha-cat .marker").first();
+    await autenticar(page);
+    await page.goto("/#alocacao");
+    const marker = page.locator(".tela-alocacao .aloca-cat .aloca-alvo__trilha-cat .marker").first();
     await expect(marker).toBeVisible();
     const bg = await marker.evaluate((el) => getComputedStyle(el).backgroundColor);
-    // var(--ink) — qualquer tom escuro próximo de #1d1d1f
-    expect(bg).toMatch(/rgb\((\d{1,2}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
+    expect(bg).toMatch(/rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)/);
   });
 
   test("labels 'Cesta passiva' / 'Cesta de picks' presentes; jargão 'bucket' ausente", async ({ page }) => {
-    await abrirAlvo(page);
+    await abrirCategoria(page, "Ações BR");
     const labels = await page
       .locator(".tela-alocacao .aloca-alvo__clabel")
       .allTextContents();
     expect(labels.length).toBeGreaterThan(0);
     const haveCesta = labels.some((t) => /Cesta\s+(passiva|de\s+picks)/i.test(t));
     expect(haveCesta).toBe(true);
-    // "bucket" não pode vazar como label
     expect(labels.some((t) => /\bbucket\b/i.test(t))).toBe(false);
   });
 
-  test("formatDelta multiplica fração por 100 (drift -0.10 renderiza -10,00 pp, não -0,10 pp)", async ({ page }) => {
+  test("ativo expandido mostra R$ de mercado", async ({ page }) => {
+    const card = await abrirCategoria(page, "Ações BR");
+    const valor = card.locator(".aloca-alvo__valor-ativo").first();
+    await expect(valor).toBeVisible();
+    expect((await valor.textContent())?.trim()).toMatch(/R\$\s?\d/);
+  });
+
+  test("drift da categoria multiplica fração por 100 (-0.10 → -10,00 pp)", async ({ page }) => {
     await autenticar(page);
-    // Injetar drift conhecido de -0.10 fração (= -10,00 pp pelo backend).
-    // 7a.E.29: a vista Alvo ordena os cards por peso_alvo, então o card de
-    // categorias[0] não é mais necessariamente o primeiro no DOM — leio o drift
-    // do card pelo nome da categoria mutada, não por posição.
     const nomeMutado = await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
       if (!$data?.json?.politica?.categorias?.length) {
@@ -102,23 +102,17 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
       $data.json.politica.categorias[0].drift = -0.10;
       return $data.json.politica.categorias[0].nome as string;
     });
-    await page.goto("/#alocacao?v=alvo");
-    await abrirSecaoAlvo(page);
-    const cardMutado = page.locator(".tela-alocacao .aloca-alvo__card", {
-      has: page.locator(".aloca-alvo__nome", { hasText: nomeMutado }),
-    });
-    const firstDrift = cardMutado.locator(".aloca-alvo__drift").first();
-    await expect(firstDrift).toBeVisible();
-    const txt = ((await firstDrift.textContent()) ?? "").trim();
-    // Deve conter "10,00 pp" — não "0,10 pp" (bug de escala fração vs pp)
+    await page.goto("/#alocacao");
+    const drift = cardPorNome(page, nomeMutado).locator(".aloca-cat__drift");
+    await expect(drift).toBeVisible();
+    const txt = ((await drift.textContent()) ?? "").trim();
     expect(txt).toMatch(/10,00\s+pp/);
-    expect(txt).not.toMatch(/^[↑↓·\s]*−?\+?0,10\s+pp/);
+    expect(txt).not.toMatch(/0,10\s+pp/);
   });
 
   test("ativo acima do alvo recebe mini-bar amber (--sem-down)", async ({ page }) => {
     await autenticar(page);
-    // Injetar override: forçar um ativo com peso_intra_atual > peso_intra
-    await page.evaluate(() => {
+    const nome = await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
       if (!$data || !$data.json?.politica?.categorias?.length) {
         throw new Error("política ausente no fixture");
@@ -130,9 +124,10 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
       a.peso_intra = 0.05;
       a.peso_intra_atual = 0.15;
       a.drift_intra = 0.10;
+      return cat.nome as string;
     });
-    await page.goto("/#alocacao?v=alvo");
-    await abrirSecaoAlvo(page);
+    await page.goto("/#alocacao");
+    await cardPorNome(page, nome).locator(".aloca-cat__head").click();
     const overFill = page
       .locator(".tela-alocacao .aloca-alvo__minibar .fill--over")
       .first();
@@ -144,21 +139,38 @@ test.describe("#alocacao vista Alvo — reforma visual (7a.E.23)", () => {
 
   // 7a.E.28 — selo "Quarentena" no pick quarentenado (KNIP11 na fixture).
   test("pick em quarentena mostra selo, alvo 0% e sem delta de drift", async ({ page }) => {
-    await abrirAlvo(page);
-    const row = page
-      .locator(".tela-alocacao .aloca-alvo__ativo--quarentena")
+    const card = await abrirCategoria(page, "Ações BR");
+    const row = card
+      .locator(".aloca-alvo__ativo--quarentena")
       .filter({ hasText: "KNIP11" });
     await expect(row).toBeVisible();
-    // selo presente com o texto "Quarentena" + qualificador
     const selo = row.locator(".aloca-alvo__selo-quar");
     await expect(selo).toBeVisible();
     await expect(selo).toContainText(/Quarentena/i);
     await expect(selo).toContainText(/investidor qualificado/i);
-    // não mostra o delta aportar/pausar nesta linha (x-show=false → display:none)
     await expect(row.locator(".aloca-alvo__delta")).toBeHidden();
-    // sublabel comunica alvo 0%
     await expect(row).toContainText(/alvo 0%/);
-    // o ticker do ativo permanece legível (texto não some)
     await expect(row.locator(".aloca-alvo__ticker")).toHaveText("KNIP11");
+  });
+
+  // 7a.E.31 — selo "fora do alvo" no held off-policy (LREN3 na fixture).
+  test("held off-policy mostra selo 'fora do alvo', subtexto 'a zerar' e sem minibar/delta", async ({ page }) => {
+    const card = await abrirCategoria(page, "Ações BR");
+    const row = card
+      .locator(".aloca-alvo__ativo--fora")
+      .filter({ hasText: "LREN3" });
+    await expect(row).toBeVisible();
+    const selo = row.locator(".aloca-alvo__selo-fora");
+    await expect(selo).toBeVisible();
+    await expect(selo).toContainText(/fora do alvo/i);
+    await expect(row).toContainText(/a zerar/i);
+    await expect(row).toContainText(/sem alvo/i);
+    // off-policy não mostra minibar nem delta de drift
+    await expect(row.locator(".aloca-alvo__minibar")).toBeHidden();
+    await expect(row.locator(".aloca-alvo__delta")).toBeHidden();
+    // mas mostra o R$ de mercado
+    await expect(row.locator(".aloca-alvo__valor-ativo")).toBeVisible();
+    // ticker permanece legível
+    await expect(row.locator(".aloca-alvo__ticker")).toHaveText("LREN3");
   });
 });

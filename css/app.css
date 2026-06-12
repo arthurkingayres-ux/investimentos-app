@@ -943,201 +943,149 @@ footer.rodape code {
 
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
-.alocacao-card {
+/* 7a.E.31: tela #alocação unificada — topo (patrimônio + nº categorias) +
+   lista única de cards de categoria colapsáveis. O corpo expandido reusa as
+   cestas (.aloca-alvo__cesta/__ativo/__minibar) definidas mais abaixo. */
+.aloca-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 14px;
+}
+
+.aloca-top h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.aloca-top__total {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.aloca-top__valor {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.aloca-top__sub {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray);
+}
+
+.aloca-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Card de categoria. --cat vem de catStyleVar(nome) no inline style. */
+.aloca-cat {
   background: white;
-  border-radius: 18px;
-  padding: 8px;
+  border: 1px solid var(--neutral-100);
+  border-radius: 16px;
+  padding: 14px 15px;
   box-shadow: 0 2px 6px var(--g-900-07);
 }
 
-.classe-bloco + .classe-bloco {
-  border-top: 1px solid var(--neutral-100);
-}
-
-.classe-row {
+.aloca-cat__head {
   display: grid;
-  grid-template-columns: 14px 1fr auto 16px;
-  gap: 12px;
+  grid-template-columns: 10px 1fr auto;
+  gap: 10px;
   align-items: center;
-  padding: 16px 12px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 120ms ease;
-}
-
-@media (hover: hover) {
-  .classe-row:hover {
-    background: var(--neutral-50);
-    border-radius: 12px;
-  }
-}
-
-.classe-row:active {
-  background: var(--neutral-100);
-  border-radius: 12px;
-}
-
-.classe-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.classe-dot.dot-eua { background: var(--cat-eua); }
-.classe-dot.dot-fiis { background: var(--cat-fii); }
-.classe-dot.dot-acoes-br { background: var(--cat-acoes-br); }
-.classe-dot.dot-cripto { background: var(--cat-cripto); }
-.classe-dot.dot-renda-fixa-br { background: var(--cat-renda-fixa-br); }
-
-.classe-nome {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.classe-pct {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.classe-pct > span:first-child {
-  font-weight: 600;
-  color: var(--g-700);
-  font-size: var(--num-md);
-}
-
-/* 7a.E.27: segunda linha do bloco de percentual na vista Atual.
-   R$ da classe (secundário) + alvo, separados por middle dot. */
-.classe-sub {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: baseline;
-  gap: 0 6px;
-  font-size: 0.6875rem;
-  color: var(--gray);
-}
-
-.classe-sub .classe-vm + .alvo-pct::before {
-  content: "·";
-  margin-right: 6px;
-  color: var(--gray);
-}
-
-/* Cada segmento permanece íntegro; em viewport estreito (≤320px) a
-   quebra acontece no limite do middle-dot, não no meio de "alvo X%". */
-.classe-vm,
-.classe-sub .alvo-pct {
-  white-space: nowrap;
-}
-
-.classe-vm {
-  font-variant-numeric: tabular-nums;
-  color: var(--gray);
-}
-
-.classe-arrow {
-  color: var(--gray);
-  font-size: 0.875rem;
-}
-
-/* 7a.E.30: cabeçalho de seção colapsável das vistas Atual/Alvo do #alocação.
-   Espelha o padrão .politica-header (button reset + flex). Plano e subordinado
-   ao segmented Atual|Alvo acima (sem fill nem borda). */
-.aloca-secao-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
-  padding: 14px 12px;
   background: transparent;
   border: 0;
+  padding: 0;
   text-align: left;
   cursor: pointer;
   font: inherit;
   color: inherit;
-  min-height: 52px;
   user-select: none;
 }
-.aloca-secao-head:focus-visible {
+
+.aloca-cat__head:focus-visible {
   outline: 2px solid var(--teal);
-  outline-offset: -2px;
-  border-radius: 12px;
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
-.aloca-secao-label {
-  font-size: 1rem;
-  font-weight: 700;
+.aloca-cat__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cat);
+}
+
+.aloca-cat__nome {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 
-.aloca-secao-chevron {
+.aloca-cat__rs {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.aloca-cat__rs-valor {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-weight: 700;
+  color: var(--cat);
+  font-variant-numeric: tabular-nums;
+}
+
+.aloca-cat__chevron {
   color: var(--gray);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   transition: transform 150ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .aloca-secao-chevron { transition: none; }
+  .aloca-cat__chevron { transition: none; }
 }
 
-.classe-tickers {
-  padding: 0 16px 16px 28px;
-}
+/* A barra de categoria reusa .aloca-alvo__trilha-cat; o ajuste de margem
+   no card colapsável vive no selector composto .aloca-alvo__trilha-cat.aloca-cat__trilha. */
 
-.ticker-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;  /* 7a.E.20.4: 1ª col p/ .flag */
-  gap: 12px;
-  padding: 10px 0;
-  text-decoration: none;
-  color: var(--ink);
-  align-items: center;
-  border-top: 1px dashed var(--neutral-100);
-  border-radius: 8px;
-  transition: background 150ms ease, transform 150ms ease;
-}
-
-.ticker-row:hover {
-  background: var(--neutral-50);
-  transform: translateX(2px);
-}
-
-.ticker-row:active {
-  background: var(--neutral-100);
-  transform: translateX(2px) scale(0.99);
-}
-
-.ticker-name {
-  font-weight: 600;
-  /* 7a.E.27: o nome trunca com reticências em viewport estreito; o valor
-     monetário (.ticker-vm) permanece íntegro — dinheiro nunca é cortado. */
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ticker-vm {
-  color: var(--g-700);
-  font-weight: 500;
+.aloca-cat__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+  color: var(--gray);
   font-variant-numeric: tabular-nums;
-  font-size: var(--num-sm);
-  white-space: nowrap;
 }
 
-.ticker-pct {
-  font-size: var(--num-xs);
-  color: var(--gray);
+.aloca-cat__foot b {
+  color: var(--ink);
+  font-weight: 800;
 }
 
-.ticker-empty {
-  font-size: 0.8125rem;
-  color: var(--gray);
-  font-style: italic;
-  padding: 8px 0;
+.aloca-cat__drift {
+  font-weight: 800;
+}
+
+.aloca-cat__drift--under { color: var(--sem-up); }
+.aloca-cat__drift--over  { color: var(--sem-down); }
+.aloca-cat__drift--hold  { color: var(--gray); font-weight: 700; }
+
+.aloca-cat__body {
+  margin-top: 4px;
 }
 
 /* ── #ativo/:ticker ───────────────────────────────────────────────── */
@@ -1686,218 +1634,17 @@ footer.rodape code {
   margin-top: 4px;
 }
 
-/* ── Aloca segmented Atual/Alvo (7a.I.4) ───────────────────────────── */
-
-.aloca-segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin: 16px 0 20px;
-  padding: 4px;
-  background: var(--neutral-100);
-  border: 1px solid var(--neutral-200);
-  border-radius: 999px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.aloca-segmented button {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--gray);
-  cursor: pointer;
-  min-height: 36px;
-  transition: background 180ms cubic-bezier(0.16, 1, 0.3, 1),
-              color 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.aloca-segmented button.is-ativo {
-  background: var(--neutral-50);
-  color: var(--g-900);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aloca-segmented button { transition: none; }
-}
-
-/* ── Política (view Alvo dentro de #alocacao, Fase 7a.E.16) ────────── */
-
+/* 7a.E.31: empty state da #alocação unificada (política não publicada). */
 .politica-intro {
   margin: 24px 0;
   color: var(--gray);
   font-size: 0.875rem;
 }
 
-.politica-card {
-  margin: 12px 0;
-  background: #fff;
-  border: 1px solid var(--neutral-200);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  overflow: hidden;
-}
-
-.politica-header {
-  display: grid;
-  grid-template-columns: 1fr auto 18px;
-  grid-template-rows: auto auto;
-  column-gap: 12px;
-  row-gap: 4px;
-  width: 100%;
-  padding: 14px 16px;
-  background: transparent;
-  border: 0;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  min-height: 56px;
-}
-.politica-header:focus-visible {
-  outline: 2px solid var(--teal);
-  outline-offset: -2px;
-}
-
-.politica-categoria-nome {
-  grid-row: 1;
-  grid-column: 1;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.politica-categoria-peso {
-  grid-row: 1;
-  grid-column: 2;
-  font-size: var(--num-md);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-.politica-categoria-sub {
-  grid-row: 2;
-  grid-column: 1 / span 2;
-  font-size: 0.75rem;
-  color: var(--gray);
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: baseline;
-}
-.politica-categoria-sub .sep { opacity: 0.5; }
-
-.politica-chevron {
-  grid-row: 1 / span 2;
-  grid-column: 3;
-  align-self: center;
-  width: 12px;
-  height: 12px;
-  transition: transform 150ms ease;
-  color: var(--gray);
-}
-
-.politica-card[data-collapsed="true"] .politica-chevron {
-  transform: rotate(-90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .politica-chevron { transition: none; }
-}
-
-.politica-ativos {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--neutral-100);
-}
-
-.politica-ativo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--neutral-100);
-  min-height: 48px;
-}
-
-.politica-ativo:first-child { border-top: 0; }
-
-.politica-ativo-linha1 {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;  /* 7a.E.20.4: 1ª col p/ .flag */
-  align-items: center;
-  gap: 10px;
-}
-
-.politica-ticker {
-  font-size: var(--num-sm);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.politica-nota {
-  font-size: var(--num-sm);
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.politica-pill {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.pill-aportar {
-  color: var(--g-800);
-  background: rgba(4, 117, 74, 0.10);
-}
-.pill-pausar {
-  color: var(--amber-900);
-  background: rgba(245, 158, 11, 0.12);
-}
-.pill-no_alvo {
-  color: var(--gray);
-  background: transparent;
-}
-.pill-fora_da_politica {
-  color: var(--gray);
-  background: var(--neutral-100);
-}
-
-.politica-ativo-linha2 {
-  font-size: 0.75rem;
-  color: var(--gray);
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: baseline;
-}
-.politica-ativo-linha2 .sep { opacity: 0.5; }
-
-.drift-pos { color: var(--amber-900); }
-.drift-neg { color: var(--g-700); }
-
 /* Focus rings consistentes para controles interativos sem padrão prévio
    (WCAG 2.4.7 — 7a.G.2 pass 2 harden) */
 .escopo-toggle button:focus-visible,
 .moeda-toggle button:focus-visible,
-.classe-row:focus-visible,
 .breadcrumb button:focus-visible {
   outline: 2px solid var(--teal);
   outline-offset: 2px;
@@ -2450,107 +2197,6 @@ body:has(.tab-bar) main {
    Vista "Alvo" de #alocacao reescrita com identidade --cat-*.
    ============================================================ */
 
-.aloca-alvo__list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.125rem;
-}
-
-.aloca-alvo__card {
-  background: var(--neutral-0, #fff);
-  border-radius: 14px;
-  padding: 1.25rem 1.125rem 1.125rem 1.25rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
-              0 8px 24px -6px rgba(15, 23, 42, 0.06);
-  overflow: hidden;
-}
-
-.aloca-alvo__head {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 1.125rem;
-  align-items: start;
-  margin-bottom: 0.875rem;
-}
-.aloca-alvo__lead {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.aloca-alvo__overline {
-  font-size: 0.625rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gray);
-  font-weight: 700;
-}
-.aloca-alvo__nome {
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin-top: 1px;
-}
-.aloca-alvo__alvo-label {
-  margin-top: 0.5rem;
-  font-size: 0.625rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gray);
-  font-weight: 600;
-}
-.aloca-alvo__alvo-big {
-  font-family: var(--mono, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-xl);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--cat, var(--g-900));
-  line-height: 1;
-  margin-top: 2px;
-}
-.aloca-alvo__alvo-big .pct {
-  font-size: 1.375rem;
-  letter-spacing: 0;
-  font-weight: 700;
-  margin-left: 2px;
-  vertical-align: 1px;
-}
-
-.aloca-alvo__breakdown {
-  align-self: end;
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 0.5rem;
-}
-.aloca-alvo__atual {
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-xs);
-  color: var(--ink);
-  font-weight: 600;
-}
-.aloca-alvo__atual .lab {
-  color: var(--gray);
-  font-weight: 500;
-}
-.aloca-alvo__drift {
-  align-self: flex-end;
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  letter-spacing: 0.01em;
-}
-.aloca-alvo__drift--under { background: var(--sem-up-tint);   color: var(--sem-up); }
-.aloca-alvo__drift--over  { background: var(--sem-down-tint); color: var(--sem-down); }
-.aloca-alvo__drift--hold  { background: rgba(110, 110, 115, 0.10); color: var(--gray); font-weight: 600; }
-
 .aloca-alvo__trilha-cat {
   position: relative;
   height: 14px;
@@ -2558,6 +2204,11 @@ body:has(.tab-bar) main {
   background: var(--neutral-100);
   overflow: visible;
   margin-bottom: 6px;
+}
+/* 7a.E.31: no card colapsável a barra ganha respiro acima do header-botão.
+   Selector composto vence o margin-bottom acima independente da ordem. */
+.aloca-alvo__trilha-cat.aloca-cat__trilha {
+  margin: 11px 0 7px;
 }
 .aloca-alvo__trilha-cat .fill {
   position: absolute;
@@ -2600,16 +2251,6 @@ body:has(.tab-bar) main {
   border-radius: 50%;
   background: var(--ink);
 }
-.aloca-alvo__trilha-cat-foot {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-size: 0.625rem;
-  color: var(--gray);
-  font-feature-settings: "tnum" 1;
-  letter-spacing: 0.02em;
-}
-
 .aloca-alvo__cesta {
   padding-top: 1.125rem;
   margin-top: 1.125rem;
@@ -2688,6 +2329,15 @@ body:has(.tab-bar) main {
   align-items: center;
   text-decoration: none;
   color: inherit;
+}
+/* 7a.E.31: coluna direita empilha R$ (topo) + delta/selo (base), espelhando
+   o mockup — evita que o R$ vire 4ª coluna e espreme o corpo do ativo. */
+.aloca-alvo__ativo-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
 }
 .aloca-alvo__ativo .flag {
   font-size: 0.875rem;
@@ -2799,6 +2449,40 @@ body:has(.tab-bar) main {
   color: var(--gray);
   font-size: 0.625rem;
   letter-spacing: 0.01em;
+}
+
+/* 7a.E.31: R$ de mercado do ativo, à direita antes do delta/selo. */
+.aloca-alvo__valor-ativo {
+  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
+  font-feature-settings: "tnum" 1;
+  font-size: var(--num-xs);
+  font-weight: 600;
+  color: var(--g-700);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* 7a.E.31: held off-policy (posição fora da política). Misturado na cesta,
+   sem de-ênfase de fundo (≠ quarentena): a leitura é "a zerar", sinalizada
+   pelo selo âmbar e pelo subtexto, não por atenuação. */
+.aloca-alvo__ativo-sub--fora {
+  color: var(--sem-down);
+  font-weight: 600;
+}
+.aloca-alvo__selo-fora {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.aloca-alvo__selo-fora-tag {
+  background: var(--sem-down-tint);
+  color: var(--sem-down);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 /* Motion cascade — só quando o usuário não pediu redução */

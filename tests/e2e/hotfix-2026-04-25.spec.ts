@@ -29,13 +29,17 @@ test.describe("Hotfix 2026-04-25", () => {
     await expect(page.locator(".interpretacao")).toHaveCount(0);
   });
 
-  test("Alocação aplica classe dot-acoes-br à classe Ações BR", async ({ page }) => {
+  test("Alocação: card Ações BR herda a cor da categoria (--cat-acoes-br)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
-    const dot = page.locator(
-      '.tela-alocacao .classe-row[data-classe="Ações BR"] .classe-dot',
-    );
-    await expect(dot).toHaveClass(/\bdot-acoes-br\b/);
+    // 7a.E.31: o dot deriva de --cat (catStyleVar), não de uma classe dot-*.
+    const dot = page.locator(".tela-alocacao .aloca-cat", {
+      has: page.locator(".aloca-cat__nome", { hasText: "Ações BR" }),
+    }).locator(".aloca-cat__dot");
+    await expect(dot).toBeVisible();
+    const bg = await dot.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // --cat-acoes-br #047857 → rgb(4, 120, 87)
+    expect(bg).toMatch(/rgb\(4,\s*120,\s*87\)/);
   });
 });

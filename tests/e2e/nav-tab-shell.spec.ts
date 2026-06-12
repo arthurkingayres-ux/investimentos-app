@@ -62,15 +62,13 @@ test.describe("Tab bar shell (7a.I.1)", () => {
   });
 
   test("rota legada #politica mantem tab aloca ativa", async ({ page }) => {
-    // 7a.I.4: `#politica` foi fundida em `#alocacao?v=alvo`. O shim em
-    // `atualizarRota` faz `replaceState`, então a URL termina em
-    // `#alocacao?v=alvo` e a tab ativa continua sendo `aloca`.
+    // 7a.E.31: `#politica` foi fundida em `#alocacao` (vista única). O shim em
+    // `atualizarRota` faz `replaceState` para `#alocacao` e a tab ativa
+    // continua sendo `aloca`.
     await autenticar(page);
     await page.goto("/#politica");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
-    // 7a.E.30: abrir a seção colapsável da vista Alvo antes de checar o card.
-    await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
-    await expect(page.locator(".tela-alocacao .aloca-alvo__card").first()).toBeVisible();
+    await expect(page.locator(".tela-alocacao .aloca-cat").first()).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="aloca"]'),
     ).toHaveAttribute("aria-current", "page");

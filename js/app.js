@@ -175,19 +175,14 @@ document.addEventListener("alpine:init", () => {
     agoraTimer: null,
     escopoAtivo: "Total",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
-    classeExpandida: null,
-    // 7a.I.4: vista corrente da tab Aloca (segmented Atual/Alvo).
-    // "alvo" expõe o conteúdo migrado da antiga tela `#politica`.
-    vAloca: "atual",
-    // 7a.E.30: colapso por seção da tela #alocação. Não-persistente
-    // (reseta no reload). selecionarVistaAloca NÃO mexe nestes booleans,
-    // preservando o estado ao trocar de aba.
-    atualAberta: false,
-    alvoAberta: false,
+    // 7a.E.31: tela #alocação unificada — uma lista de cards de categoria
+    // colapsáveis. catAberta mapeia nome→bool; todas começam fechadas (map
+    // vazio = false). Não-persistente (reseta no reload), preservado ao
+    // trocar de aba (vive só em memória Alpine).
+    catAberta: {},
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     _escListenerProventos: null,
-    collapsedPolitica: {},
     // 7a.L.1: sub-título do chart #rentabilidade (atualizado por dataZoom)
     rentabilidadeSubtitulo: "",
     // 7a.L.2.b: estado do 4º card "Período" sob #rentabilidade. fimIdx=null
@@ -268,21 +263,18 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       if (path === "alocacao") {
+        // 7a.E.31: vista única. Sem ?v= (segmented Atual/Alvo removido). As
+        // categorias começam fechadas; catAberta vive em memória Alpine.
         this.rota = "alocacao";
         this.tab = "aloca";
-        const v = params.get("v") === "alvo" ? "alvo" : "atual";
-        this.vAloca = v;
-        if (v === "alvo") this.hidratarColapsoPolitica();
         return;
       }
       if (path === "politica") {
-        // 7a.I.4 shim: `#politica` foi fundida em `#alocacao?v=alvo`.
+        // 7a.I.4 shim mantido (7a.E.31): `#politica` foi fundida em `#alocacao`.
         // replaceState não dispara hashchange — sem loop com este handler.
-        history.replaceState(null, "", "#alocacao?v=alvo");
+        history.replaceState(null, "", "#alocacao");
         this.rota = "alocacao";
         this.tab = "aloca";
-        this.vAloca = "alvo";
-        this.hidratarColapsoPolitica();
         return;
       }
       if (path === "proventos") {
@@ -366,21 +358,29 @@ document.addEventListener("alpine:init", () => {
       sessionStorage.setItem("heroCountUpDone", "1");
     },
 
-    selecionarVistaAloca(v) {
-      // 7a.I.4: troca a view do segmented Atual/Alvo. replaceState mantém
-      // a entry atual no histórico (back-button volta para a tela anterior,
-      // não para a outra vista).
-      if (v !== "atual" && v !== "alvo") return;
-      this.vAloca = v;
-      history.replaceState(null, "", "#alocacao?v=" + v);
-      if (v === "alvo") this.hidratarColapsoPolitica();
+    // 7a.E.31: alterna o card de uma categoria na vista #alocação unificada.
+    // Não-persistente; map vazio = todas fechadas.
+    toggleCategoria(nome) {
+      this.catAberta = {
+        ...this.catAberta,
+        [nome]: !this.catAberta[nome],
+      };
     },
 
-    toggleSecaoAloca(qual) {
-      // 7a.E.30: alterna a seção colapsável da vista corrente. Sem persistência.
-      if (qual === "atual") this.atualAberta = !this.atualAberta;
-      else if (qual === "alvo") this.alvoAberta = !this.alvoAberta;
-      else console.warn("toggleSecaoAloca: qual inválido", qual);
+    // 7a.E.31: R$ de mercado da categoria / do ativo (schema v2.20).
+    valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
+    valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
+
+    // 7a.E.31: patrimônio total = soma do valor_brl das categorias da política
+    // (inclui held off-policy injetado no bloco política). Cai pro patrimônio
+    // do hero se a política ainda não publicou.
+    patrimonioTotalBrl() {
+      const cats =
+        (this.json && this.json.politica && this.json.politica.categorias) || [];
+      if (cats.length) {
+        return cats.reduce((acc, c) => acc + (c.valor_brl || 0), 0);
+      }
+      return (this.json && this.json.patrimonio && this.json.patrimonio.total_brl) || 0;
     },
 
     voltar() {
@@ -413,44 +413,6 @@ document.addEventListener("alpine:init", () => {
     selecionarEscopo(escopo) {
       this.escopoAtivo = escopo;
       this.hidratarRentabilidade();
-    },
-
-    hidratarColapsoPolitica() {
-      // 7a.E.17: cada navegação para #politica reseta todas as seções para
-      // fechado. Ignora localStorage; estado vive só em memória Alpine.
-      if (!this.json || !this.json.politica) return;
-      const out = {};
-      for (const cat of this.json.politica.categorias) {
-        out[cat.nome] = true;
-      }
-      this.collapsedPolitica = out;
-    },
-
-    togglePolitica(nome) {
-      this.collapsedPolitica = {
-        ...this.collapsedPolitica,
-        [nome]: !this.collapsedPolitica[nome],
-      };
-    },
-
-    labelStatusPolitica(s) {
-      // Drift binário intra-categoria (7a.E.16.3): "aportar" leva seta pra cima
-      // (drift<0 → comprar); "pausar" é só texto (não vendemos quando valoriza).
-      return {
-        aportar: "↑ aportar",
-        no_alvo: "no alvo",
-        pausar: "pausar",
-        fora_da_politica: "fora da política",
-      }[s] || s;
-    },
-
-    statusFromDriftIntra(drift) {
-      // Schema v3 (7a.E.22): status derivado no cliente a partir de drift_intra.
-      // Drift binário sem banda (filosofia buy-and-hold do Dr. Arthur).
-      if (drift === null || drift === undefined || Number.isNaN(drift)) return "no_alvo";
-      if (drift < 0) return "aportar";
-      if (drift > 0) return "pausar";
-      return "no_alvo";
     },
 
     // Drift em pontos percentuais com sinal explícito (ex: "+0.34pp" / "−1.20pp").
@@ -628,85 +590,6 @@ document.addEventListener("alpine:init", () => {
       return !!(eua && eua.brl && eua.usd);
     },
 
-    expandirClasse(classe) {
-      this.classeExpandida = this.classeExpandida === classe ? null : classe;
-    },
-
-    tickersDaClasse(classe) {
-      const posicoes = (this.json && this.json.posicoes) || [];
-      const filtroPorClasse = (p) => {
-        if (classe === "EUA") return p.moeda === "USD" && p.classe !== "Cripto";
-        if (classe === "Cripto") return p.classe === "Cripto";
-        if (classe === "FIIs") return p.classe === "FIIs" || p.classe === "FII";
-        // 7a.M.1: nova categoria. Match exato pela string canônica do DB.
-        if (classe === "Renda Fixa BR") return p.classe === "Renda Fixa BR";
-        if (classe === "Ações BR") {
-          return (
-            p.moeda === "BRL" &&
-            p.classe !== "FIIs" &&
-            p.classe !== "FII" &&
-            p.classe !== "Cripto" &&
-            p.classe !== "Renda Fixa BR"
-          );
-        }
-        return false;
-      };
-      return posicoes
-        .filter(filtroPorClasse)
-        .slice()
-        .sort((a, b) => (b.valor_mercado_brl || 0) - (a.valor_mercado_brl || 0));
-    },
-
-    // Pré-computa lista de tickers da classe + pesos numa única passada.
-    // Evita O(N²) de avaliar pesoNaClasse(ticker, classe) -> tickersDaClasse(classe)
-    // dentro do x-for do template — agora cada classe é processada 1x por render.
-    tickersComPesos(classe) {
-      const tickers = this.tickersDaClasse(classe);
-      const totalClasse = tickers.reduce(
-        (acc, t) => acc + (t.valor_mercado_brl || 0),
-        0,
-      );
-      return tickers.map((p) => ({
-        ...p,
-        peso_na_classe: totalClasse > 0 ? (p.valor_mercado_brl || 0) / totalClasse : 0,
-      }));
-    },
-
-    // Tabela compartilhada de aliases — schema do backend usa nomes
-    // ligeiramente diferentes entre alocacao.atual e alocacao.alvo
-    // (ex.: "Exterior" vs "EUA", "Ações Brasil" vs "Ações BR"). Ambos
-    // pctAtualClasse e pctAlvoClasse resolvem pela mesma tabela para
-    // evitar drift fictício (atual=0%, alvo!=0%).
-    _aliasesClasse(classe) {
-      const tabela = {
-        "FIIs": ["FIIs", "FIIs BR", "FII"],
-        "Ações BR": ["Ações BR", "Ações Brasil", "Ação BR"],
-        "EUA": ["EUA", "Exterior"],
-        "Cripto": ["Cripto"],
-        // 7a.M.1: 5ª categoria. Sem aliases — nome canônico único entre atual/alvo.
-        "Renda Fixa BR": ["Renda Fixa BR"],
-      };
-      return tabela[classe] || [classe];
-    },
-
-    pctAtualClasse(classe) {
-      const atual = (this.json && this.json.alocacao && this.json.alocacao.atual) || {};
-      for (const k of this._aliasesClasse(classe)) {
-        if (atual[k] != null) return atual[k];
-      }
-      return 0;
-    },
-
-    // 7a.E.27: valor de mercado em R$ da classe = soma de valor_mercado_brl
-    // dos tickers da classe. Reaproveita tickersDaClasse; retorna 0 quando
-    // a classe não tem posições (consistente com pctAtualClasse).
-    valorAtualClasse(classe) {
-      return this.tickersDaClasse(classe).reduce(
-        (acc, t) => acc + (t.valor_mercado_brl || 0),
-        0,
-      );
-    },
-
     get posicaoAtual() {
       if (!this.json || !this.json.posicoes || !this.tickerAtual) return null;
       return (
@@ -737,31 +620,16 @@ document.addEventListener("alpine:init", () => {
       return mapa[lado] || { texto: lado, classe: "lado-neutro" };
     },
 
-    pctAlvoClasse(classe) {
-      const alvo = (this.json && this.json.alocacao && this.json.alocacao.alvo) || {};
-      for (const k of this._aliasesClasse(classe)) {
-        if (alvo[k] != null) return alvo[k];
-      }
-      return 0;
-    },
-
-    // 7a.E.29: classes da vista Atual ordenadas por % atual decrescente.
-    // Cópia do array literal (spread) — não muta estado reativo. Sort estável:
-    // empates preservam a ordem de origem. Classe sem % resolve 0 (cai pro fim).
-    get classesAtualOrdenadas() {
-      const CLASSES = ["EUA", "FIIs", "Renda Fixa BR", "Ações BR", "Cripto"];
-      return [...CLASSES].sort(
-        (a, b) => this.pctAtualClasse(b) - this.pctAtualClasse(a),
-      );
-    },
-
-    // 7a.E.29: categorias da vista Alvo ordenadas por peso_alvo decrescente.
-    // .slice() copia o array reativo do json antes do sort — nunca o muta.
-    // peso_alvo ausente resolve 0 (categoria cai pro fim). Sort estável.
-    get categoriasAlvoOrdenadas() {
+    // 7a.E.31: categorias da vista #alocação unificada ordenadas por peso_alvo
+    // decrescente (renomeia categoriasAlvoOrdenadas da 7a.E.29). .slice() copia
+    // o array reativo do json antes do sort — nunca o muta. peso_alvo ausente
+    // resolve 0 (categoria cai pro fim). Sort estável; empate por nome.
+    get categoriasAlocacaoOrdenadas() {
       const cats =
         (this.json && this.json.politica && this.json.politica.categorias) || [];
-      return cats.slice().sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0));
+      return cats
+        .slice()
+        .sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0) || a.nome.localeCompare(b.nome));
     },
 
     // ── #proventos ──────────────────────────────────────────────────
@@ -1725,12 +1593,8 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "aportar") {
           this.hidratarAportar();
         }
-        // 7a.I.4: cold-start em `#alocacao?v=alvo` chamou hidratarColapsoPolitica
-        // antes de `json` carregar (atualizarRota foi disparado em init pré-resume).
-        // Re-hidrata agora pra zerar collapsedPolitica (default todas fechadas).
-        if (this.rota === "alocacao" && this.vAloca === "alvo") {
-          this.hidratarColapsoPolitica();
-        }
+        // 7a.E.31: a vista #alocação unificada começa com todas as categorias
+        // fechadas (catAberta vazio) — sem hidratação pós-resume necessária.
         // 7a.I.5: cold-start em `#/raiox/chart` chamou hidratarPatrimonio
         // antes do json — gráfico ECharts não renderiza no primeiro tick.
         if (this.rota === "patrimonio") {
@@ -1922,12 +1786,8 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         this.resetarFalhas();
         this.fase = "raiox";
-        // 7a.I.4: cold-start em `#alocacao?v=alvo` (sem PIN em localStorage) chega
-        // aqui após o usuário digitar PIN; atualizarRota pré-resume já rodou com
-        // json null. Re-hidrata pra zerar collapsedPolitica (default todas fechadas).
-        if (this.rota === "alocacao" && this.vAloca === "alvo") {
-          this.hidratarColapsoPolitica();
-        }
+        // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;
+        // sem re-hidratação de colapso necessária pós-PIN.
         // 7a.I.5: mesmo padrão — bookmark direto de `#/raiox/chart` precisa
         // re-hidratar o gráfico depois que `json` chegou via submitPin.
         if (this.rota === "patrimonio") {

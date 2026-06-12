@@ -38,17 +38,14 @@ test.describe("A11y: focus-visible em controles secundários (7a.G.2)", () => {
     expect(ow).not.toBe("0px");
   });
 
-  test(".classe-row tem outline visível ao foco", async ({ page }) => {
+  test(".aloca-cat__head tem outline visível ao foco", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
-    // 7a.E.30: abrir a seção colapsável da vista Atual para expor .classe-row.
-    await page
-      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-      .click();
-    await expect(page.locator(".classe-row").first()).toBeVisible({
+    // 7a.E.31: vista única — o header-botão do card de categoria é o controle focável.
+    await expect(page.locator(".tela-alocacao .aloca-cat__head").first()).toBeVisible({
       timeout: 5_000,
     });
-    const el = page.locator(".classe-row").first();
+    const el = page.locator(".tela-alocacao .aloca-cat__head").first();
     // Ativa input modality "keyboard" antes do focus programático
     await page.keyboard.press("Tab");
     await el.focus();

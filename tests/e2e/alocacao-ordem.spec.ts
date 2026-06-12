@@ -36,37 +36,24 @@ function assertNaoCrescente(valores: number[]) {
   }
 }
 
-test.describe("Ordenação decrescente #alocacao (7a.E.29)", () => {
-  test("vista Atual ordena classes por % atual decrescente", async ({ page }) => {
+test.describe("Ordenação #alocacao unificada (7a.E.31)", () => {
+  test("categorias ordenadas por peso_alvo decrescente", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
-    // 7a.E.30: abrir a seção colapsável da vista Atual.
-    await page
-      .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-      .click();
-    await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
-    // Coleta o primeiro span de cada .classe-pct (o número-headline da classe).
+    await expect(page.locator(".tela-alocacao .aloca-cat").first()).toBeVisible();
+    // O "alvo Y%" de cada card (foot) é o número de ordenação.
     const textos = await page.$$eval(
-      ".tela-alocacao .classe-bloco .classe-pct > span:first-child",
+      ".tela-alocacao .aloca-cat .aloca-cat__foot-alvo b",
       (els) => els.map((e) => (e.textContent || "").trim()),
     );
     expect(textos.length).toBeGreaterThan(1);
     assertNaoCrescente(textos.map(parsePct));
   });
 
-  test("vista Alvo ordena categorias por % alvo decrescente", async ({ page }) => {
+  test("primeira categoria é a de maior alvo (EUA 70% na fixture)", async ({ page }) => {
     await autenticar(page);
-    await page.goto("/#alocacao?v=alvo");
-    // 7a.E.30: abrir a seção colapsável da vista Alvo.
-    await page.locator(".tela-alocacao .aloca-alvo__list .aloca-secao-head").click();
-    await expect(
-      page.locator(".tela-alocacao .aloca-alvo__card").first(),
-    ).toBeVisible();
-    const textos = await page.$$eval(
-      ".tela-alocacao .aloca-alvo__card .aloca-alvo__alvo-big",
-      (els) => els.map((e) => (e.textContent || "").trim()),
-    );
-    expect(textos.length).toBeGreaterThan(1);
-    assertNaoCrescente(textos.map(parsePct));
+    await page.goto("/#alocacao");
+    const primeiro = page.locator(".tela-alocacao .aloca-cat .aloca-cat__nome").first();
+    await expect(primeiro).toHaveText("EUA");
   });
 });

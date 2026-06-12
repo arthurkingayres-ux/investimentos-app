@@ -8,3 +8,6 @@ tests/fixtures/*.json
 !tests/fixtures/portfolio.test.json.enc
 __pycache__/
 *.pyc
+
+# CRB scratch (code-review-board)
+.tmp_crb/

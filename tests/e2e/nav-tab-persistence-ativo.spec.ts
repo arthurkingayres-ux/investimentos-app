@@ -27,29 +27,22 @@ async function abrirPrimeiroTicker(page: Page) {
   // viewport mobile do Pixel 7; #alocacao seta rota=alocacao + tab=aloca via atualizarRota).
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible({ timeout: 5_000 });
-  // 7a.E.30: abrir a seção colapsável da vista Atual antes de expandir classes.
-  await page
-    .locator(".tela-alocacao .aloca-vista:not(.aloca-alvo__list) .aloca-secao-head")
-    .click();
-  await expect(page.locator(".tela-alocacao .alocacao-card")).toBeVisible();
-  // Expandir a primeira classe que tem ao menos 1 ticker. Iteramos pelas 5
-  // classes (EUA, FIIs, Renda Fixa BR, Ações BR, Cripto) — após clicar uma,
-  // esperamos brevemente pelo primeiro ticker visível dentro do bloco expandido.
-  const classes = page.locator(".tela-alocacao .classe-row");
-  const total = await classes.count();
+  // 7a.E.31: vista única — expandir o primeiro card de categoria e clicar o
+  // primeiro ativo (push para #ativo/:ticker).
+  const cards = page.locator(".tela-alocacao .aloca-cat");
+  const total = await cards.count();
   for (let i = 0; i < total; i++) {
-    await classes.nth(i).click();
-    const tickerVisivel = page.locator(".tela-alocacao .ticker-row").first();
+    await cards.nth(i).locator(".aloca-cat__head").click();
+    const ativo = cards.nth(i).locator(".aloca-alvo__ativo").first();
     try {
-      await expect(tickerVisivel).toBeVisible({ timeout: 1_500 });
-      await tickerVisivel.click();
+      await expect(ativo).toBeVisible({ timeout: 1_500 });
+      await ativo.click();
       return;
     } catch {
-      // classe sem ticker (ou ainda colapsada); tenta a próxima
       continue;
     }
   }
-  throw new Error("Nenhuma classe na fixture tem ticker — ajustar fixture");
+  throw new Error("Nenhuma categoria na fixture tem ativo — ajustar fixture");
 }
 
 test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
