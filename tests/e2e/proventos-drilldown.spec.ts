@@ -138,4 +138,36 @@ test.describe("7a.E.18 — Proventos · drilldown mês×ativo", () => {
     const headerStrong = page.locator(".tela-proventos .ativo-section-h strong");
     await expect(headerStrong).toBeVisible();
   });
+
+  // 7a.O.2 — aluguel de ações entra como entrada própria tipo "Aluguel" no
+  // drilldown mensal, coexistindo com o dividendo do mesmo ticker (sem colisão
+  // de :key) e marcado por um selo.
+  test("selo Aluguel coexiste com dividendo do mesmo ticker no mês (sem colisão de key)", async ({ page }) => {
+    await abrirProventosMensal(page);
+    const idx = await page.evaluate(() => {
+      const data = (window as unknown as {
+        Alpine: { $data: (el: Element) => Record<string, unknown> };
+      }).Alpine.$data(document.body) as {
+        json: { proventos: { mensal_12m: { por_ativo: unknown[] }[] } };
+        _handleClickBarraMes: (i: number) => void;
+      };
+      const m12 = data.json.proventos.mensal_12m;
+      const i = m12.length - 1;
+      m12[i].por_ativo = [
+        { ticker: "WEGE3", valor: 5.0, bandeira: "🇧🇷" },
+        { ticker: "WEGE3", valor: 2.6, bandeira: "🇧🇷", tipo: "Aluguel" },
+      ];
+      data._handleClickBarraMes(i);
+      return i;
+    });
+    expect(idx).toBeGreaterThanOrEqual(0);
+    await page.waitForTimeout(200);
+    const linhas = page.locator(".tabela-proventos tbody tr");
+    // Duas linhas WEGE3 coexistem — :key inclui o tipo, sem colisão Alpine.
+    await expect(linhas).toHaveCount(2);
+    // Selo "Aluguel" aparece exatamente uma vez (só na linha de aluguel).
+    const selo = page.locator(".tabela-proventos .provento-tipo-tag");
+    await expect(selo).toHaveCount(1);
+    await expect(selo).toHaveText("Aluguel");
+  });
 });

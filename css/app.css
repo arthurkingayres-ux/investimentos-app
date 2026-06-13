@@ -1639,6 +1639,23 @@ footer.rodape code {
 
 /* ── Fase 7a.E.18 — drilldown mês×ativo em #proventos ─────────────── */
 
+/* 7a.O.2 — selo "Aluguel" no drilldown mensal: distingue a renda de aluguel
+   de ações (BTC) do dividendo do mesmo ticker no mês. Texto (não cor sozinha),
+   espelha o selo de quarentena (.aloca-alvo__selo-quar-tag) p/ coesão. */
+.provento-tipo-tag {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+  background: rgba(26, 29, 28, 0.06);
+  color: var(--gray, #5b605a);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
 /* Hint discreto abaixo do gráfico quando há mês selecionado. */
 .proventos-hint-limpar {
   font-size: 10px;

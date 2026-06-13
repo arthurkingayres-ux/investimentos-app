@@ -742,18 +742,19 @@
                 </tr>
               </thead>
               <tbody>
-                <template x-for="item in tabelaProventosAtual()" :key="item.ticker">
+                <template x-for="item in tabelaProventosAtual()" :key="item.ticker + '·' + (item.tipo || 'prov')">
                   <tr
                     class="row-link"
                     tabindex="0"
                     role="link"
-                    :aria-label="'Ver ativo ' + item.ticker"
+                    :aria-label="'Ver ativo ' + item.ticker + (item.tipo === 'Aluguel' ? ' (aluguel)' : '')"
                     @click="location.hash = 'ativo/' + item.ticker"
                     @keydown.enter="location.hash = 'ativo/' + item.ticker"
                     @keydown.space.prevent="location.hash = 'ativo/' + item.ticker">
                     <td>
                       <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
                       <span x-text="item.ticker"></span>
+                      <template x-if="item.tipo === 'Aluguel'"><span class="provento-tipo-tag">Aluguel</span></template>
                     </td>
                     <td class="num" x-text="formatBrl(item.total)"></td>
                   </tr>

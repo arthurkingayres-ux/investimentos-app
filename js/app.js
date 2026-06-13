@@ -638,10 +638,14 @@ document.addEventListener("alpine:init", () => {
         const entry = m12[this.proventosMesSelecionado];
         if (!entry) return [];
         // Normaliza shape {ticker, valor} → {ticker, total} pra colar com o
-        // template existente que usa item.total.
+        // template existente que usa item.total. Preserva bandeira e tipo
+        // (7a.O.2): o aluguel de ações entra como entrada própria tipo
+        // "Aluguel", que coexiste com o dividendo do mesmo ticker no mês.
         return (entry.por_ativo || []).map((a) => ({
           ticker: a.ticker,
           total: a.valor,
+          bandeira: a.bandeira,
+          tipo: a.tipo,
         }));
       }
       return this.proventosToggle === "origem"
