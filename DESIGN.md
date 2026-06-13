@@ -8,7 +8,7 @@
 
 **Calmo, denso, médico.** Layout flat com hierarquia tipográfica clara, paleta teal-quente sobre warm-neutral (não cool gray, não pure white), sombras suavemente tintadas para a cor do brand, motion mínimo (pin shake + chevron rotation + card lift sutil). Densidade calibrada por contexto: raio-X home é airy (cards generosos, ≤5 elementos por viewport); telas de drilldown (#ativo, #proventos) são densas (tabelas com tabular-nums, KPIs em grid 2-col ou 3-col).
 
-Variance baseline: **6.5/10** (assimetria pontual + tipografia Monument no hero + tab bar como elemento de identidade). Motion: **4.5/10** (cross-fade tabs + indicator slide + count-up hero + push slides + segmented; tudo gated por `prefers-reduced-motion`, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
+Variance baseline: **6.5/10** (assimetria pontual + tipografia Monument no hero + tab bar como elemento de identidade). Motion: **4.5/10** (cross-fade tabs + indicator slide + count-up hero + push slides; tudo gated por `prefers-reduced-motion`, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
 
 ---
 
@@ -102,17 +102,16 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | Token | px | Onde (exemplos) |
 |---|---|---|
 | `--num-poster` | 40px (2.5rem) | hero patrimônio (`.hero-valor` mono), `.dy-total-valor` |
-| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.proventos-ytd`, `.aloca-alvo__alvo-big` |
+| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.proventos-ytd` |
 | `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.dy-stat-valor`, `.aporte-data` |
-| `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor`, `.classe-pct` % |
-| `--num-sm` | 15px (0.9375rem) | `.ticker-vm`, `.aporte-valor`, `.tabela-* td.num`, `.politica-*` |
-| `--num-xs` | 13px (0.8125rem) | `.ticker-pct`, `.aloca-alvo__delta/atual/cnum`, benchmark rows |
+| `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
+| `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
+| `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
 
 Razões da escada de display: poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
 
 **Fora da escala (decisão consciente):** glifos de unidade que decoram um número
-poster — ex.: `.aloca-alvo__alvo-big .pct` (o "%" de "30%", 1.375rem ≈73% do dígito)
-— são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
+poster são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
 Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`.
 
 | Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
@@ -120,7 +119,7 @@ Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`
 | Hero valor | `--num-poster` 2.5rem (40px) mono | 800 | 1.05 | -0.025em | `.hero-valor` (2ª decl mono, raio-x enxuto pós-7a.I) |
 | Proventos YTD | `--num-xl` 1.875rem (30px) | 800 | — | -0.01em | `.proventos-ytd` |
 | Ticker hero VM | `--num-xl` 1.875rem (30px) mono | 800 | — | -0.025em | `.ticker-vm-grande` (7a.E.27: era 3rem drift de decl duplicada; consolidado) |
-| Ticker VM (#alocacao) | `--num-sm` 0.9375rem (15px) | 500 | — | — | `.ticker-vm` (7a.E.27: faltava `font-size`, herdava 16px → overflow; ver guarda em Components) |
+| R$ categoria (#alocacao) | `--num-sm` 0.9375rem (15px) | 700 | — | — | `.aloca-cat__rs-valor` (cor `--cat`; guarda overflow 7 díg a 320px) |
 | Ticker hero h2 | 1.5rem (24px) | 700 | — | — | `.ticker-hero h2` |
 | Breadcrumb h1 | 1.375rem (22px) | 700 | — | — | `.breadcrumb h1` |
 | H1 home | 1.75rem (28px) | 700 | — | — | `h1` |
@@ -316,75 +315,59 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 .aloc-alvo       { width: 2px; background: var(--ink); opacity: 0.62; top: -3px; bottom: -3px; }
 ```
 
-> **7a.E.23:** a vista "Alvo" de #alocacao usa uma variante refinada — ver `### Aloca Alvo v2` abaixo. A trilha-categoria nessa variante ganha cap-dot superior no marker e gradient muted no fill.
+### Aloca unificada (7a.E.31)
+`#alocacao` é **uma única lista de cards de categoria colapsáveis** — sem
+segmented Atual/Alvo (removido), sem accordion de seção. A tela consolida
+política alvo + estado atual lado a lado. Topo `.aloca-top`: título + R$
+patrimônio total + nº de categorias (legenda muted uppercase).
 
-### Classe row — valor R$ (vista "Atual", 7a.E.27)
-A `.classe-row` da vista "Atual" mostra, por classe, o **percentual atual**
-como número-poster dominante (`.classe-pct > span:first-child`, `--g-700`,
-`--num-md` 1rem peso 600 — 7a.E.27) e, na segunda linha muted (`.classe-sub`, `--gray`,
-0.6875rem), o **valor de mercado em R$ da classe** seguido de `· alvo X%`,
-separados por middle-dot via `::before` em `.alvo-pct`. O R$ usa
-`formatBrl` (com centavos, consistente com `.ticker-vm` do drilldown,
-hero e `ultimos_7d`) + `tabular-nums`. Dado 100% derivado no frontend
-(`valorAtualClasse(classe)` = soma de `valor_mercado_brl` dos tickers da
-classe via `tickersDaClasse`); zero schema bump. Identidade de cor:
-texto nunca colorido por categoria — o R$ é legenda `--gray`, distinto da
-`.ticker-vm` teal do drilldown (que é dado, não legenda). Em viewport
-≤320px, `.classe-sub` usa `flex-wrap: wrap` + `white-space: nowrap` por
-segmento, então a quebra acontece no limite do middle-dot, nunca no meio
-de "alvo X%".
+**Anatomia do card (`.aloca-cat`, `--cat` via `catStyleVar(nome)` inline):**
+- **Header-resumo sempre visível** (`.aloca-cat__head`, `<button>`): dot
+  `--cat` · nome (1.08rem 800) · `.aloca-cat__rs-valor` (R$ da categoria,
+  mono `--num-sm` cor `--cat`) + chevron `▸/▾`. `aria-expanded` +
+  `aria-controls` apontando o corpo.
+- **Barra** reusa `.aloca-alvo__trilha-cat` (14px, marker preto + cap-dot,
+  fill gradient `--cat`; overflow → `fill--over` em `--sem-down`).
+- **Foot** (`.aloca-cat__foot`): `atual X%` · `alvo Y%` · drift pp colorido
+  (`--sem-up`/`--sem-down`/`--gray` via `formatDelta`).
+- **Corpo** (`.aloca-cat__body`, `x-show` por `catAberta[nome]`): cestas
+  `.aloca-alvo__cesta` (passiva/picks, `border-top 1px`, sem nested card) +
+  ativos `.aloca-alvo__ativo` (grid `18px 1fr auto`).
 
-### Trilha ticker (#alocacao) — guarda de overflow (7a.E.27)
-Dentro de uma classe expandida, cada `.ticker-row` é grid `auto 1fr auto auto`
-(flag · nome · `.ticker-vm` R$ · `.ticker-pct`). Guarda estrutural (sem
-`clamp()`/`vw`): o **nome** (`.ticker-name`, coluna `1fr`) recebe `min-width: 0`
-+ `overflow: hidden` + `text-overflow: ellipsis` + `white-space: nowrap`, então
-em viewport estreito o nome encurta com reticências; o **valor monetário**
-(`.ticker-vm`, `--num-sm` + `white-space: nowrap` + `tabular-nums`) permanece
-íntegro. Princípio: **dinheiro/percentual nunca é truncado nem reticenciado —
-só rótulos textuais.** Containers de número que dividem linha (`.dy-stat`,
-`.aloca-alvo__lead`) usam `min-width: 0` para nunca forçar o overflow do track.
+**Colapso:** todas as categorias **começam fechadas** (`catAberta: {}`
+vazio). Estado **não-persistente** (reseta no reload), preservado em memória
+Alpine ao trocar de aba. Ordem dos cards por **alvo decrescente**
+(`categoriasAlocacaoOrdenadas`). Chevron rotation 150ms ease,
+`prefers-reduced-motion: reduce` → `transition: none`.
 
-### Política accordion (DEPRECATED — substituído em 7a.E.23)
-A vista "Alvo" de #alocacao não usa mais accordion. Mantida só pra histórico:
-o markup `.politica-card[data-collapsed]` + chevron rotacionável foi
-removido na reforma visual; cards agora são sempre expandidos com
-identidade --cat-* (ver `### Aloca Alvo v2`).
+**Linha de ativo:** coluna direita `.aloca-alvo__ativo-right` empilha R$ de
+mercado (`.aloca-alvo__valor-ativo`, mono `--num-xs`) sobre o delta/selo —
+evita que o R$ vire 4ª coluna e esprema o subtexto. Mini-bar 3px
+(`atual/alvo intra`) + delta pill mono direcional só para picks normais.
 
-### Aloca Alvo v2 (7a.E.23)
-Vista "Alvo" de #alocacao reescrita com hierarquia baseada em identidade
-de categoria. Sempre expandida (sem accordion).
+**Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
+do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do
+alvo" (`--sem-down-tint`/`--sem-down`, espelha o selo de quarentena) +
+subtexto "a zerar · sem alvo"; **sem** mini-bar nem delta. Guarda
+`fora_do_alvo && !quarentena` (quarentena tem precedência se ambos).
 
-**Anatomia do card:** header grid `auto 1fr` (lead esquerdo: overline
-"CATEGORIA" + nome + "ALVO" + número-poster mono 2.375rem cor `--cat-*`;
-breakdown direito: atual mono + drift chip semantic) + trilha-categoria
-14 px com marker preto + cap-dot pseudo-elemento + label "alvo" minúsculo
-+ foot ticks "0 %" / "X % (alvo)" + sections `.aloca-alvo__cesta`
-separadas só por `border-top 1px` (anti-card overuse) + lista de ativos
-`.aloca-alvo__ativo` com mini-bar 3 px + delta pill mono direcional.
+**Regra de cor (identidade × semântica):**
+- **Identidade** (`--cat-*`): dot, R$ do header, fill da trilha/cesta/minibar normal.
+- **Semântica** (fixa): delta `↑ −X pp` em `--sem-up`; `↓ +X pp` + minibar
+  overflow + selo fora-do-alvo em `--sem-down`. Verde = aportar; amber = acima/zerar.
 
-**Regra de cor crítica (identidade × semântica):**
-- **Identidade** (cor da categoria via `--cat-*`): número-poster,
-  fill da trilha-categoria + cesta-trilha + mini-bar normal.
-- **Semântica** (fixa, independente de `--cat`): delta pill `↑ −X pp` em
-  `--sem-up` (= `--cat-acoes-br`); delta pill `↓ +X pp` em `--sem-down`
-  (= `--cat-fii`); mini-bar overflow em `--sem-down`. O colapso semântico
-  → identidade é intencional: a paleta corporativa já carrega significado
-  de ação (verde = aportar; amber = acima do alvo).
+**Naming:** "Cesta passiva" / "Cesta de picks" na UI via `labelCestaTipo`;
+backend mantém `bucket.tipo: "passive" | "picks"`.
 
-**Naming:** "Cesta passiva" e "Cesta de picks" na UI. Backend mantém
-`bucket.tipo: "passive" | "picks"` no JSON / Python / `alocacao.yaml`.
-Rebrand é 100 % de apresentação via helper `labelCestaTipo(tipo)`.
-
-**Motion:** trilha-categoria + cesta-trilha + minibar animam
-`transform: scaleX(--fill-pct)` em 700 ms `cubic-bezier(.16, 1, .3, 1)`,
-cascade com stagger 60 ms por cesta e por ativo. Tudo sob
-`@media (prefers-reduced-motion: no-preference)`. Default off em quem
-prefere redução.
+**Princípio de overflow:** dinheiro/percentual nunca é truncado nem
+reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
+`--num-sm` + `tabular-nums` + `white-space: nowrap`) permanece íntegro até
+7 dígitos a 320px.
 
 ```css
-.aloca-alvo__alvo-big    { font-size: 2.375rem; font-family: var(--mono); color: var(--cat); }
+.aloca-cat__rs-valor { font-size: var(--num-sm); font-family: var(--mono); color: var(--cat); }
 .aloca-alvo__minibar .fill--over { background: var(--sem-down); }
+.aloca-alvo__selo-fora-tag { background: var(--sem-down-tint); color: var(--sem-down); }
 ```
 
 ### PIN screen
@@ -441,7 +424,7 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 | Tab indicator slide | 220ms | cubic-bezier(0.16,1,0.3,1) | transform translateX | zera |
 | Hero count-up (Raio-X) | 700ms | cubic-out via RAF | textContent | reveal instantâneo; flag em sessionStorage limita a 1×/sessão |
 | Push #ativo / #/raiox/chart | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
-| Segmented Aloca (Atual/Alvo) | 280ms | cubic-bezier(0.16,1,0.3,1) | opacity + transform | zera |
+| Segmented Aloca (Atual/Alvo) | — | — | — | LEGADO: removido em 7a.E.31 (vista única); config `segmented` em transitions.js sem uso |
 
 **Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
 
@@ -513,7 +496,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 
 ## Accessibility
 
-- Touch targets ≥44px em interativos (PIN, btn-bloquear, classe-row).
+- Touch targets ≥44px em interativos (PIN, btn-bloquear, `.aloca-cat__head`).
 - Contrast WCAG AA (a paleta foi escolhida com isso em mente; verificar antes de mudar tokens).
 - Foco visível com `outline: 2px solid var(--teal/--g-500/--g-600); outline-offset: 2-4px;` em hero-link, btn-bloquear, política-header, row-link.
 - Sinal positivo/negativo usa **forma + texto + cor** (▲/▼ + valor + cor), nunca cor sozinha. Daltonismo (deuteranopia) coberto.
