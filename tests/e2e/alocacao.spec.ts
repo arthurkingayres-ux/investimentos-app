@@ -25,14 +25,13 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Tela #alocacao unificada (7a.E.31)", () => {
-  test("topo mostra patrimônio total + nº de categorias", async ({ page }) => {
+  test("cabeçalho padrão .breadcrumb com título Alocação (sem patrimônio)", async ({ page }) => {
     await autenticar(page);
-    const valor = page.locator(".tela-alocacao .aloca-top__valor");
-    await expect(valor).toBeVisible();
-    expect((await valor.textContent())?.trim()).toMatch(/R\$\s?\d/);
-    const sub = page.locator(".tela-alocacao .aloca-top__sub");
-    // fixture tem 2 categorias (Ações BR, EUA)
-    expect((await sub.textContent())?.trim()).toMatch(/2\s+categorias/);
+    const header = page.locator(".tela-alocacao > header.breadcrumb");
+    await expect(header.locator("h1")).toHaveText("Alocação");
+    // topo não repete patrimônio nem "N categorias" (igual às demais telas)
+    await expect(page.locator(".tela-alocacao .aloca-top__valor")).toHaveCount(0);
+    await expect(page.locator(".tela-alocacao .aloca-top__sub")).toHaveCount(0);
   });
 
   test("renderiza um card por categoria; todos começam fechados", async ({ page }) => {

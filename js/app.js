@@ -371,18 +371,6 @@ document.addEventListener("alpine:init", () => {
     valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
     valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
 
-    // 7a.E.31: patrimônio total = soma do valor_brl das categorias da política
-    // (inclui held off-policy injetado no bloco política). Cai pro patrimônio
-    // do hero se a política ainda não publicou.
-    patrimonioTotalBrl() {
-      const cats =
-        (this.json && this.json.politica && this.json.politica.categorias) || [];
-      if (cats.length) {
-        return cats.reduce((acc, c) => acc + (c.valor_brl || 0), 0);
-      }
-      return (this.json && this.json.patrimonio && this.json.patrimonio.total_brl) || 0;
-    },
-
     voltar() {
       // history.length é heurística frágil — em link compartilhado aberto
       // numa aba com histórico prévio, history.back() saída do PWA.

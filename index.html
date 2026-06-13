@@ -366,15 +366,8 @@
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
-        <header class="aloca-top">
+        <header class="breadcrumb">
           <h1>Alocação</h1>
-          <div class="aloca-top__total" x-show="json && json.politica && json.politica.categorias.length" x-cloak>
-            <span class="aloca-top__valor" x-text="formatBrl(patrimonioTotalBrl())"></span>
-            <span class="aloca-top__sub">
-              patrimônio · <span x-text="categoriasAlocacaoOrdenadas.length"></span>
-              <span x-text="categoriasAlocacaoOrdenadas.length === 1 ? 'categoria' : 'categorias'"></span>
-            </span>
-          </div>
         </header>
 
         <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">

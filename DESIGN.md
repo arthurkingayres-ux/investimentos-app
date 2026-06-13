@@ -318,8 +318,9 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 ### Aloca unificada (7a.E.31)
 `#alocacao` é **uma única lista de cards de categoria colapsáveis** — sem
 segmented Atual/Alvo (removido), sem accordion de seção. A tela consolida
-política alvo + estado atual lado a lado. Topo `.aloca-top`: título + R$
-patrimônio total + nº de categorias (legenda muted uppercase).
+política alvo + estado atual lado a lado. Cabeçalho `.breadcrumb` padrão (só
+o `<h1>Alocação</h1>`, idêntico às demais telas — sem repetir patrimônio
+total, que já é o hero do #raiox).
 
 **Anatomia do card (`.aloca-cat`, `--cat` via `catStyleVar(nome)` inline):**
 - **Header-resumo sempre visível** (`.aloca-cat__head`, `<button>`): dot

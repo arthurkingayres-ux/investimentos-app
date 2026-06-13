@@ -943,46 +943,9 @@ footer.rodape code {
 
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
-/* 7a.E.31: tela #alocação unificada — topo (patrimônio + nº categorias) +
-   lista única de cards de categoria colapsáveis. O corpo expandido reusa as
-   cestas (.aloca-alvo__cesta/__ativo/__minibar) definidas mais abaixo. */
-.aloca-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 2px 2px 14px;
-}
-
-.aloca-top h1 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-
-.aloca-top__total {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.aloca-top__valor {
-  font-family: var(--mono);
-  font-size: var(--num-sm);
-  font-weight: 800;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.aloca-top__sub {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--gray);
-}
-
+/* 7a.E.31: tela #alocação unificada — cabeçalho .breadcrumb padrão (igual às
+   demais telas) + lista única de cards de categoria colapsáveis. O corpo
+   expandido reusa as cestas (.aloca-alvo__cesta/__ativo/__minibar) abaixo. */
 .aloca-lista {
   display: flex;
   flex-direction: column;
