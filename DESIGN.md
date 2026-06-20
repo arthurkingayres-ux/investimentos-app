@@ -229,12 +229,16 @@ Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 
 ```css
 .r7d-head    { /* label small-caps 11px + delta mono 1.125rem 700 (--ink/--g-700/--red) */ }
 .r7d-row     { /* sans label gray + valor mono 0.9375rem colorido por sinal */ }
+.r7d-movers  { /* cartão sutil: bg --neutral-50 + border-left 3px --ink + radius 10px */ }
+.r7d-movers li { /* grid 0.9rem 1fr auto auto auto: ▲▼ · ticker · .flag · R$ · % */ }
 .r7d-lista li{ /* grid 1fr auto auto auto: ticker · qty · valor · .flag */ }
 ```
 
-**Pattern de render:** pure Alpine (sem helper JS externo). `x-show="ultimos7dVisivel()"` esconde o bloco quando schema é v<2.13 (sem `ultimos_7d`) ou quando DB recém-bootstrapped não tem snapshot ≥7d E listas vazias. Cada `.r7d-lista` aparece via `x-show` apenas quando array é não-vazio (semana calma fica só com headline + decomp). Sem ECharts (Monument text-only); sem motion individual (segue regra global do shell — entrada via `x-transition.opacity.duration.220ms` herdada da tab raio-x).
+**Movers de mercado (7a.J.2.b).** Sub-bloco entre a decomposição 3-row e as listas Compras/Vendas/Proventos: lista as **top 3 altas + top 3 baixas por impacto em R$** na semana, "abrindo" a caixa-preta da linha **Mercado** (a única perna da decomposição que o Dr. Arthur não controla e mais quer entender). Cada linha: seta ▲/▼ · ticker · bandeira · impacto R$ com sinal (`formatBrlSigned`) · retorno % (`formatPct`). É o **elemento-assinatura** do bloco — único cartão com fundo + border-left; tudo ao redor fica plano. Ordenação visual: altas (impacto desc) seguidas das baixas (mais negativa primeiro), espelhando a ordem do array do backend (`ultimos_7d.variacao_mercado`, schema JSON v2.22). Cores pelos pares semânticos (`.is-positive`/`.is-negative` → `--g-700`/`--red`). **A11y:** direção codificada em três camadas (forma ▲/▼ + cor + sinal `+/−` no valor — nunca cor sozinha, regra `color-not-only`); seta ▲/▼ e ★ do título são `aria-hidden` (decorativos), o leitor de tela lê "PETR4 +R$ 920,00 +3,10%".
 
-**Tokens reusados (zero novo):** `--mono` (headline + valores), `--g-700` (sinais positivos), `--red` (sinais negativos), `--gray` (labels secundários), `--ink` (texto principal), `--neutral-100/200` (borders), classe global `.flag` (bandeiras BR/EUA).
+**Pattern de render:** pure Alpine (sem helper JS externo). `x-show="ultimos7dVisivel()"` esconde o bloco quando schema é v<2.13 (sem `ultimos_7d`) ou quando DB recém-bootstrapped não tem snapshot ≥7d E listas vazias. Cada `.r7d-lista` aparece via `x-show` apenas quando array é não-vazio (semana calma fica só com headline + decomp). O `.r7d-movers` aparece via `x-show="(json.ultimos_7d?.variacao_mercado || []).length > 0"` (some quando não há snapshot-base 7d ou todos os impactos < 1 centavo). Sem ECharts (Monument text-only); sem motion individual (segue regra global do shell — entrada via `x-transition.opacity.duration.220ms` herdada da tab raio-x).
+
+**Tokens reusados (zero novo):** `--mono` (headline + valores), `--num-sm` (linhas movers/decomp), `--g-700` (sinais positivos), `--red` (sinais negativos), `--gray` (labels secundários), `--ink` (texto principal), `--neutral-50` (fundo do cartão movers), `--neutral-100/200` (borders), classe global `.flag` (bandeiras BR/EUA). Helper novo: `formatBrlSigned` (R$ com sinal explícito) em `js/format.js`.
 
 ### Tab bar (Monument)
 

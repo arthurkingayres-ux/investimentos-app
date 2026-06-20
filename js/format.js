@@ -4,6 +4,16 @@ window.formatBrl = (n) => new Intl.NumberFormat("pt-BR", {
   style: "currency", currency: "BRL", minimumFractionDigits: 2,
 }).format(n ?? 0);
 
+// Igual a formatBrl mas com sinal explícito ("+R$ 920,00" / "−R$ 4.180,00").
+// Para o impacto de mercado (#raiox movers): o sinal carrega significado de
+// direção (somou vs tirou do patrimônio) e dá a leitura por leitor de tela
+// quando a seta ▲/▼ é decorativa (aria-hidden). signDisplay "exceptZero"
+// não prefixa o zero.
+window.formatBrlSigned = (n) => new Intl.NumberFormat("pt-BR", {
+  style: "currency", currency: "BRL", minimumFractionDigits: 2,
+  signDisplay: "exceptZero",
+}).format(n ?? 0);
+
 // Helper interno: aceita signDisplay como param para evitar duplicação
 // entre formatPct e formatPctSemSinal.
 const _fmtPct = (decimal, digits, signDisplay) => {

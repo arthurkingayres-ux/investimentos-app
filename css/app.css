@@ -2172,6 +2172,98 @@ body:has(.tab-bar) main {
   white-space: nowrap;
 }
 
+/* Movers de mercado (7a.J.2.b) — cartão sutil que "abre" a linha Mercado:
+   top altas (▲ verde) + baixas (▼ vermelho) por impacto em R$. Reusa a
+   linguagem Monument (--mono, tabular-nums, pares semânticos --g-700/--red,
+   .flag global). Setas decorativas (aria-hidden); o sinal de formatBrlSigned
+   carrega a direção para leitores de tela. */
+.r7d-movers {
+  margin-top: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--neutral-50, #fbfbf9);
+  border-left: 3px solid var(--ink);
+  border-radius: 10px;
+}
+
+.r7d-movers-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.r7d-movers-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+}
+
+.r7d-movers-star { color: var(--gray); }
+
+.r7d-movers-cap {
+  font-size: 10px;
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.r7d-movers ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.r7d-movers li {
+  display: grid;
+  grid-template-columns: 0.9rem 1fr auto auto auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.r7d-movers li + li {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.r7d-movers .arr {
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--gray);
+}
+
+.r7d-movers .tk {
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  min-width: 0;
+}
+
+.r7d-movers .rs {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.r7d-movers .pc {
+  text-align: right;
+  color: var(--gray);
+  white-space: nowrap;
+  min-width: 3.4em;
+}
+
+.r7d-movers .is-positive { color: var(--g-700); }
+.r7d-movers .is-negative { color: var(--red); }
+
 /* ============================================================
    Aloca Alvo v2 (7a.E.23)
    Vista "Alvo" de #alocacao reescrita com identidade --cat-*.

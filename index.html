@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=39">
-  <script src="js/vendor/echarts.min.js?v=39"></script>
-  <script src="js/echarts-theme.js?v=39"></script>
-  <script src="js/crypto.js?v=39"></script>
-  <script src="js/format.js?v=39"></script>
-  <script src="js/transitions.js?v=39"></script>
-  <script src="js/aportar.js?v=39"></script>
-  <script src="js/app.js?v=39"></script>
-  <script defer src="js/vendor/alpine.min.js?v=39"></script>
+  <link rel="stylesheet" href="css/app.css?v=40">
+  <script src="js/vendor/echarts.min.js?v=40"></script>
+  <script src="js/echarts-theme.js?v=40"></script>
+  <script src="js/crypto.js?v=40"></script>
+  <script src="js/format.js?v=40"></script>
+  <script src="js/transitions.js?v=40"></script>
+  <script src="js/aportar.js?v=40"></script>
+  <script src="js/app.js?v=40"></script>
+  <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -125,6 +125,32 @@
                 :class="sinalClasse(json.ultimos_7d?.decomposicao?.mercado_brl)"
                 x-text="formatDecompR7d(json.ultimos_7d?.decomposicao?.mercado_brl)"></span>
             </div>
+          </div>
+
+          <div
+            class="r7d-movers"
+            x-show="(json.ultimos_7d?.variacao_mercado || []).length > 0"
+            x-cloak>
+            <div class="r7d-movers-head">
+              <span class="r7d-movers-title"><span class="r7d-movers-star" aria-hidden="true">★ </span>Variação no mercado</span>
+              <span class="r7d-movers-cap">por impacto · R$</span>
+            </div>
+            <ul>
+              <template x-for="(m, i) in (json.ultimos_7d?.variacao_mercado || [])"
+                        :key="m.ticker + '-' + m.moeda + '-' + i">
+                <li>
+                  <span class="arr" :class="sinalClasse(m.impacto_brl)"
+                        aria-hidden="true"
+                        x-text="m.impacto_brl >= 0 ? '▲' : '▼'"></span>
+                  <span class="tk" x-text="m.ticker"></span>
+                  <span class="flag" aria-hidden="true" x-text="m.bandeira"></span>
+                  <span class="rs" :class="sinalClasse(m.impacto_brl)"
+                        x-text="formatBrlSigned(m.impacto_brl)"></span>
+                  <span class="pc"
+                        x-text="m.retorno_pct == null ? '' : formatPct(m.retorno_pct)"></span>
+                </li>
+              </template>
+            </ul>
           </div>
 
           <div class="r7d-listas">

@@ -67,6 +67,15 @@ const FIXTURE_ATIVA = {
     { ticker: "HGLG11", moeda: "BRL", bandeira: "🇧🇷", tipo: "Dividendo", valor_brl: 412.0 },
     { ticker: "BBAS3", moeda: "BRL", bandeira: "🇧🇷", tipo: "JCP", valor_brl: 88.0 },
   ],
+  variacao_mercado: [
+    { ticker: "PETR4", moeda: "BRL", bandeira: "🇧🇷", impacto_brl: 920.0, retorno_pct: 0.031 },
+    { ticker: "VOO", moeda: "USD", bandeira: "🇺🇸", impacto_brl: 610.0, retorno_pct: 0.014 },
+    { ticker: "ITSA4", moeda: "BRL", bandeira: "🇧🇷", impacto_brl: 180.0, retorno_pct: 0.009 },
+    { ticker: "BBAS3", moeda: "BRL", bandeira: "🇧🇷", impacto_brl: -4180.0, retorno_pct: -0.052 },
+    { ticker: "EGIE3", moeda: "BRL", bandeira: "🇧🇷", impacto_brl: -2140.0, retorno_pct: -0.028 },
+    { ticker: "KNRI11", moeda: "BRL", bandeira: "🇧🇷", impacto_brl: -760.0, retorno_pct: -0.017 },
+  ],
+  variacao_mercado_base_data: "2026-05-09",
 };
 
 const FIXTURE_CALMA = {
@@ -82,6 +91,8 @@ const FIXTURE_CALMA = {
   compras: [],
   vendas: [],
   proventos: [],
+  variacao_mercado: [],
+  variacao_mercado_base_data: null,
 };
 
 test.describe("Raio-X — Últimos 7 dias (7a.J.1.b)", () => {
@@ -164,5 +175,85 @@ test.describe("Raio-X — Últimos 7 dias (7a.J.1.b)", () => {
   test("schema sem ultimos_7d (legacy): bloco fica escondido", async ({ page }) => {
     await abrirRaioxComUltimos7d(page, null);
     await expect(page.locator(".raiox-7d")).toBeHidden();
+  });
+});
+
+test.describe("Raio-X — Movers de mercado (7a.J.2.b)", () => {
+  test("lista visível, ordenada (altas antes de baixas), 6 linhas", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+
+    const movers = page.locator(".r7d-movers");
+    await expect(movers).toBeVisible();
+    await expect(movers.locator(".r7d-movers-title")).toContainText("Variação no mercado");
+
+    const itens = movers.locator("li");
+    await expect(itens).toHaveCount(6);
+
+    // Ordem do array preservada: 3 altas (desc) seguidas de 3 baixas (asc).
+    const tickers = await itens.locator(".tk").allTextContents();
+    expect(tickers).toEqual(["PETR4", "VOO", "ITSA4", "BBAS3", "EGIE3", "KNRI11"]);
+  });
+
+  test("altas verdes com ▲ / baixas vermelhas com ▼", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const itens = page.locator(".r7d-movers li");
+
+    const primeira = itens.first();
+    await expect(primeira.locator(".arr")).toHaveText("▲");
+    await expect(primeira.locator(".arr")).toHaveClass(/is-positive/);
+    await expect(primeira.locator(".rs")).toHaveClass(/is-positive/);
+    await expect(primeira.locator(".rs")).toContainText("R$");
+
+    const ultima = itens.last();
+    await expect(ultima.locator(".arr")).toHaveText("▼");
+    await expect(ultima.locator(".arr")).toHaveClass(/is-negative/);
+    await expect(ultima.locator(".rs")).toHaveClass(/is-negative/);
+  });
+
+  test("formatBrlSigned: alta prefixa '+', baixa prefixa '−'", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const itens = page.locator(".r7d-movers li");
+    // pt-BR currency com signDisplay exceptZero: "+R$ 920,00" / "−R$ 4.180,00"
+    // (Intl emite U+2212 MINUS SIGN no negativo; o regex abaixo aceita "-" e "−")
+    await expect(itens.first().locator(".rs")).toContainText("+");
+    const ultimaRs = await itens.last().locator(".rs").textContent();
+    expect(ultimaRs).toMatch(/^[-−]/);
+  });
+
+  test("bandeiras BR + EUA presentes nos movers", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const flags = await page.locator(".r7d-movers li .flag").allTextContents();
+    expect(flags).toContain("🇧🇷");
+    expect(flags).toContain("🇺🇸");
+  });
+
+  test("seção oculta quando variacao_mercado vazio", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_CALMA);
+    await expect(page.locator(".r7d-movers")).toBeHidden();
+  });
+
+  test("ordem DOM dentro do bloco: decomp → movers → listas", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const ordem = await page.evaluate(() => {
+      const bloco = document.querySelector(".raiox-7d");
+      if (!bloco) return null;
+      const decomp = bloco.querySelector(".r7d-decomp");
+      const movers = bloco.querySelector(".r7d-movers");
+      const listas = bloco.querySelector(".r7d-listas");
+      const idx = (el: Element | null) =>
+        el ? Array.from(bloco.children).indexOf(el) : -1;
+      return { decomp: idx(decomp), movers: idx(movers), listas: idx(listas) };
+    });
+    expect(ordem).not.toBeNull();
+    expect(ordem!.decomp).toBeGreaterThanOrEqual(0);
+    expect(ordem!.decomp).toBeLessThan(ordem!.movers);
+    expect(ordem!.movers).toBeLessThan(ordem!.listas);
+  });
+
+  test("smoke visual: screenshot do bloco Últimos 7 dias com movers", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const bloco = page.locator(".raiox-7d");
+    await expect(bloco.locator(".r7d-movers")).toBeVisible();
+    await bloco.screenshot({ path: "test-results/r7d-movers-7a-j2b.png" });
   });
 });
