@@ -164,6 +164,14 @@ document.addEventListener("alpine:init", () => {
     rota: "",
     tab: "raiox",
     tickerAtual: "",
+    // 7a.Q.3 — Relatório Mensal (payloads cifrados separados do portfolio.json)
+    relIndice: null,        // {schema, atualizado_em, meses:[…]} | null
+    relMes: null,           // artefato relatorio_mensal_v1 do mês carregado | null
+    relMesAtual: "",        // 'YYYY-MM' atualmente renderizado
+    relRotaMes: null,       // mês pedido pela rota (#/raiox/relatorio/:mes) | null
+    relCarregando: false,   // decifra do mês em andamento
+    relErro: "",            // mensagem de erro de arquivo/decifra
+    relSeletorAberto: false,// dropdown de meses aberto/fechado
     pin: "",
     pinError: "",
     carregando: false,
@@ -288,6 +296,15 @@ document.addEventListener("alpine:init", () => {
         this.rota = "patrimonio";
         this.tab = "raiox";
         setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
+      const mr = path.match(/^\/raiox\/relatorio(?:\/(\d{4}-\d{2}))?$/);
+      if (mr) {
+        this.rota = "relatorio";
+        this.tab = "raiox";
+        this.relRotaMes = mr[1] || null;
+        this.relSeletorAberto = false;
+        setTimeout(() => this.hidratarRelatorio(), 0);
         return;
       }
       if (path === "patrimonio") {
@@ -583,6 +600,29 @@ document.addEventListener("alpine:init", () => {
       return (
         this.json.posicoes.find((p) => p.ticker === this.tickerAtual) || null
       );
+    },
+
+    // 7a.Q.3: carrega o índice de relatórios mensais (payload cifrado separado)
+    async carregarIndiceRelatorios() {
+      if (!this.pin) return;
+      try {
+        const resp = await fetch("./relatorios_index.json.enc", { cache: "no-cache" });
+        if (!resp.ok) { this.relIndice = null; return; }
+        const payloadB64 = (await resp.text()).trim();
+        const idx = JSON.parse(await window.decifrar(payloadB64, this.pin));
+        this.relIndice =
+          idx && idx.schema === "relatorios_index_v1" && Array.isArray(idx.meses)
+            ? idx
+            : null;
+      } catch (err) {
+        console.warn("índice de relatórios indisponível", err);
+        this.relIndice = null; // degradação graciosa — o resto do app segue
+      }
+    },
+
+    get relUltimoMes() {
+      const meses = this.relIndice && this.relIndice.meses;
+      return meses && meses.length ? meses[0] : null; // índice é mês DESC
     },
 
     bandeiraDaPosicao(p) {
@@ -897,6 +937,86 @@ document.addEventListener("alpine:init", () => {
     hidratarPatrimonio() {
       if (this.rota !== "patrimonio" || !this.json) return;
       this.$nextTick(() => this.renderPatrimonioGrafico());
+    },
+
+    // 7a.Q.3: hidratação + lazy-load + navegação do relatório mensal
+    async hidratarRelatorio() {
+      if (this.rota !== "relatorio") return;
+      if (!this.json || !this.pin) return; // pré-auth: re-chamado no boot
+      if (!this.relIndice) await this.carregarIndiceRelatorios();
+      const alvo = this.relRotaMes || (this.relUltimoMes ? this.relUltimoMes.mes : null);
+      if (!alvo) { this.relMes = null; this.relMesAtual = ""; this.relErro = ""; return; }
+      await this.carregarRelatorioMes(alvo);
+    },
+
+    async carregarRelatorioMes(mes) {
+      if (this.relMesAtual === mes && this.relMes) return; // já carregado
+      const entrada = (this.relIndice && this.relIndice.meses || []).find((m) => m.mes === mes);
+      const arquivo = entrada ? entrada.arquivo : `relatorio_${mes}.json.enc`;
+      this.relCarregando = true;
+      this.relErro = "";
+      try {
+        const resp = await fetch("./" + arquivo, { cache: "no-cache" });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const art = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+        if (!art || art.schema !== "relatorio_mensal_v1") throw new Error("schema inesperado");
+        this.relMes = art;
+        this.relMesAtual = mes;
+      } catch (err) {
+        console.warn("relatório do mês indisponível", err);
+        this.relMes = null;
+        this.relErro = "Não foi possível abrir o relatório deste mês.";
+      } finally {
+        this.relCarregando = false;
+      }
+    },
+
+    selecionarMesRelatorio(mes) {
+      this.relSeletorAberto = false;
+      location.hash = "#/raiox/relatorio/" + mes; // hashchange → atualizarRota → hidrata
+    },
+
+    voltarDoRelatorio() {
+      location.hash = "";
+    },
+
+    // 7a.Q.3: helpers de renderização das seções
+    classeSecao(id) {
+      if (id === "leitura_mes") return "rel-secao--manchete";
+      if (id === "nao_funcionando") return "rel-secao--destaque";
+      return "";
+    },
+
+    vereditoSelo(v) {
+      if (v === "sob_pressao")
+        return { label: "Sob pressão", marca: "◐", classe: "rel-selo--pressao" };
+      if (v === "deteriorando")
+        return { label: "Deteriorando", marca: "▽", classe: "rel-selo--deteriorando" };
+      return { label: "Tese intacta", marca: "●", classe: "rel-selo--intacta" };
+    },
+
+    radarFiltrado(apenasAtencao) {
+      const r = (this.relMes && this.relMes.radar) || [];
+      return apenasAtencao ? r.filter((x) => x.veredito !== "intacta") : r;
+    },
+
+    prosaParaHtml(corpo, citacoes) {
+      const esc = (s) => String(s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      const porId = {};
+      (citacoes || []).forEach((c) => { porId[c.id] = c; });
+      const linkify = (txt) =>
+        txt.replace(/\[(\d+)\]/g, (m, n) => {
+          const c = porId[parseInt(n, 10)];
+          const href = c && c.url ? esc(c.url) : "#rel-evidencias";
+          return `<a class="rel-cit" href="${href}" target="_blank" rel="noopener" `
+               + `aria-label="Fonte ${n}">[${n}]</a>`;
+        });
+      return (corpo || "")
+        .split(/\n{2,}/)
+        .map((par) => `<p>${linkify(esc(par.trim()))}</p>`)
+        .join("");
     },
 
     renderPatrimonioGrafico() {
@@ -1576,6 +1696,9 @@ document.addEventListener("alpine:init", () => {
         this.json = JSON.parse(plaintext);
         this.pin = pin;
         this.fase = "raiox";
+        // 7a.Q.3: carga do índice de relatórios (payload separado).
+        await this.carregarIndiceRelatorios();
+        if (this.rota === "relatorio") this.hidratarRelatorio();
         // Janela 7d deslizante — refresca timestamp a cada auto-resume bem-sucedido.
         // PIN só é exigido após 7d de inatividade total.
         localStorage.setItem("pinTimestamp", String(Date.now()));
@@ -1778,6 +1901,9 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         this.resetarFalhas();
         this.fase = "raiox";
+        // 7a.Q.3: carga do índice de relatórios (payload separado).
+        await this.carregarIndiceRelatorios();
+        if (this.rota === "relatorio") this.hidratarRelatorio();
         // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;
         // sem re-hidratação de colapso necessária pós-PIN.
         // 7a.I.5: mesmo padrão — bookmark direto de `#/raiox/chart` precisa

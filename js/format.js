@@ -48,3 +48,13 @@ window.formatDataCurta = (iso) => {
   const d = new Date(iso);
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).replace(".", "");
 };
+
+// 7a.Q.3: converte "YYYY-MM" para "Mês Ano" em pt-BR ("2026-05" → "Maio 2026").
+const _MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+window.formatMesAno = (mes) => {
+  if (typeof mes !== "string" || mes.length !== 7) return "";
+  const ano = mes.slice(0, 4), mm = parseInt(mes.slice(5), 10);
+  if (!(mm >= 1 && mm <= 12)) return "";
+  return `${_MESES_PT[mm - 1]} ${ano}`;
+};

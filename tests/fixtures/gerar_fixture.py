@@ -547,11 +547,153 @@ PAYLOAD = {
 }
 
 
+# ── Fase 7a.Q.3: fixtures do Relatório Mensal (índice + 2 meses) ─────────────
+def _secoes(mes_label: str, *, mes1: bool) -> list[dict]:
+    p_contas = (
+        "Primeiro relatório — sem mês anterior a prestar contas."
+        if mes1 else
+        "No mês passado sinalizei HASH11 no radar [1]. Resultado: seguiu de lado, "
+        "tese intacta."
+    )
+    return [
+        {"id": "prestacao_contas", "titulo": "Prestação de contas", "corpo": p_contas},
+        {"id": "leitura_mes", "titulo": "Leitura do mês",
+         "corpo": f"{mes_label} foi um mês de avanço sólido, puxado pela ponta nos EUA."},
+        {"id": "como_voce_foi", "titulo": "Como você foi",
+         "corpo": "A carteira rendeu acima do CDI e do IBOV na janela [2]."},
+        {"id": "funcionando", "titulo": "O que está funcionando",
+         "corpo": "VOO e AMZN lideraram as altas, ambos em dólar."},
+        {"id": "nao_funcionando", "titulo": "O que NÃO está funcionando",
+         "corpo": "HASH11 e SMAL11 recuaram. Acompanho de perto a tese de cada um [3]."},
+        {"id": "renda", "titulo": "Renda",
+         "corpo": "Os proventos do mês vieram em linha com o run-rate."},
+        {"id": "alinhamento", "titulo": "Alinhamento",
+         "corpo": "A concentração no topo segue dentro do esperado."},
+        {"id": "radar", "titulo": "Radar",
+         "corpo": "O que observar adiante, sem ação imediata."},
+        {"id": "evidencias", "titulo": "Evidências & fontes",
+         "corpo": "Fontes citadas ao longo do relatório."},
+    ]
+
+
+def _relatorio(mes: str, mes_label: str, gerado_para: str, *, mes1: bool) -> dict:
+    return {
+        "schema": "relatorio_mensal_v1",
+        "mes": mes,
+        "gerado_em": gerado_para,
+        "gerado_para": gerado_para,
+        "titulo": f"{mes_label} — Relatório do assessor",
+        "secoes": _secoes(mes_label, mes1=mes1),
+        "radar": [
+            {"ticker": "HASH11", "observar": "fluxo de cripto e prêmio/desconto",
+             "gatilho": "desconto > 5% por 2 meses", "veredito": "intacta"},
+            {"ticker": "SMAL11", "observar": "juros longos e small caps",
+             "gatilho": "rompimento de suporte", "veredito": "sob_pressao"},
+            {"ticker": "KISU11", "observar": "vacância e dividendos",
+             "gatilho": "corte de provento", "veredito": "deteriorando"},
+        ],
+        "prestacao_contas": ([] if mes1 else [
+            {"ticker": "HASH11", "sinalizado": "fluxo de cripto — reavaliar em desconto > 5%",
+             "resultado": "seguiu de lado, tese intacta"},
+        ]),
+        "citacoes": [
+            {"id": 1, "afirmacao": "HASH11 no radar do mês anterior",
+             "fonte": "Relatório anterior", "url": "https://example.com/hash11",
+             "confianca": "alta"},
+            {"id": 2, "afirmacao": "Carteira acima do CDI na janela",
+             "fonte": "Dossiê determinístico", "url": "https://example.com/perf",
+             "confianca": "alta"},
+            {"id": 3, "afirmacao": "Tese de small caps sob pressão",
+             "fonte": "Pesquisa focada", "url": "https://example.com/smal",
+             "confianca": "baixa"},
+        ],
+        # NOTA: valores 100% SINTÉTICOS (não correspondem ao patrimônio/câmbio reais
+        # do Dr. Arthur). O sibling é repo PÚBLICO e o `.enc` decifra com o PIN de
+        # teste público 123456 — qualquer número aqui é efetivamente plaintext.
+        # Mantêm as identidades do dossiê: delta = fim − base = aportes + proventos +
+        # mercado, e os escopos somam ao Total. Espelha a convenção sintética do
+        # portfolio.test (patrimônio fictício).
+        "dossie": {
+            "mes": mes,
+            "janela": {"base_data": "2026-04-30", "fim_data": gerado_para, "mes_em_curso": False},
+            "patrimonio": {
+                "Total": {"base_brl": 160000.0, "fim_brl": 164200.0, "delta_brl": 4200.0},
+                "Brasil": {"base_brl": 95000.0, "fim_brl": 96200.0, "delta_brl": 1200.0},
+                "EUA": {"base_brl": 65000.0, "fim_brl": 68000.0, "delta_brl": 3000.0},
+            },
+            "decomposicao": {
+                "Total": {"aportes_liq_brl": 2000.0, "proventos_brl": 380.0, "mercado_brl": 1820.0},
+                "Brasil": {"aportes_liq_brl": 0.0, "proventos_brl": 380.0, "mercado_brl": 820.0},
+                "EUA": {"aportes_liq_brl": 2000.0, "proventos_brl": 0.0, "mercado_brl": 1000.0},
+            },
+            "movers": [
+                {"ticker": "VOO", "moeda": "USD", "bandeira": "🇺🇸", "impacto_brl": 1500.0, "retorno_pct": 0.0231},
+                {"ticker": "HASH11", "moeda": "BRL", "bandeira": "🇧🇷", "impacto_brl": -300.0, "retorno_pct": -0.017},
+            ],
+            "performance": {
+                "Total": {"retorno_mes_pct": 0.0114, "benchmarks": {"CDI": 0.0089, "IBOV": 0.006, "SP500": 0.014}},
+                "Brasil": {"retorno_mes_pct": 0.0086, "benchmarks": {"CDI": 0.0089, "IBOV": 0.006}},
+                "EUA": {"retorno_mes_pct": 0.0154, "benchmarks": {"SP500": 0.014}},
+            },
+            "renda": {
+                "proventos_mes_brl": 380.0,
+                "por_ativo": [{"ticker": "ITSA4", "moeda": "BRL", "bandeira": "🇧🇷", "tipo": "Dividendo", "valor_brl": 380.0}],
+                "dy_trailing": {
+                    "total": {"dy": 0.049, "proventos_12m": 13500.0, "valor": 275000.0, "moeda": "BRL"},
+                    "acao_br": {"dy": 0.058, "proventos_12m": 5800.0, "valor": 100000.0, "moeda": "BRL"},
+                    "fii": {"dy": 0.091, "proventos_12m": 4500.0, "valor": 49000.0, "moeda": "BRL"},
+                    "eua": {"dy": 0.014, "proventos_12m": 560.0, "valor": 40000.0, "moeda": "USD"},
+                },
+                "proventos_12m_brl": 13500.0,
+                "run_rate_mes_anualizado_brl": 4560.0,
+            },
+            "alinhamento": {
+                "referencia": "atual",
+                "categorias": [],
+                "concentracao_top": [
+                    {"ticker": "VOO", "peso": 0.18, "valor_brl": 29000.0, "bandeira": "🇺🇸"},
+                    {"ticker": "ITSA4", "peso": 0.09, "valor_brl": 14500.0, "bandeira": "🇧🇷"},
+                ],
+            },
+            "sinais": [],
+        },
+    }
+
+
+def gerar_relatorios() -> None:
+    maio = _relatorio("2026-05", "Maio 2026", "2026-05-31", mes1=False)
+    abril = _relatorio("2026-04", "Abril 2026", "2026-04-30", mes1=True)
+    indice = {
+        "schema": "relatorios_index_v1",
+        "atualizado_em": "2026-06-01",
+        "meses": [
+            {"mes": "2026-05", "titulo": maio["titulo"], "gerado_para": "2026-05-31",
+             "arquivo": "relatorio_2026-05.json.enc"},
+            {"mes": "2026-04", "titulo": abril["titulo"], "gerado_para": "2026-04-30",
+             "arquivo": "relatorio_2026-04.json.enc"},
+        ],
+    }
+    # Payload decifrável (PIN de teste) mas com schema ERRADO — exercita o branch
+    # `art.schema !== "relatorio_mensal_v1"` → estado de erro no frontend (Q.3.c).
+    schema_ruim = {"schema": "nao_e_relatorio_v1", "mes": "2026-05"}
+    base = OUT.parent  # tests/fixtures/
+    for nome, obj in (
+        ("relatorios_index.test.json.enc", indice),
+        ("relatorio_2026-05.test.json.enc", maio),
+        ("relatorio_2026-04.test.json.enc", abril),
+        ("relatorio_badschema.test.json.enc", schema_ruim),
+    ):
+        enc = encriptar_json(json.dumps(obj, ensure_ascii=False), PIN_TESTE)
+        (base / nome).write_text(enc, encoding="ascii")
+        print(f"Fixture gerada: {base / nome}")
+
+
 def main() -> None:
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")
     print(f"  Tamanho B64: {len(enc)} chars · PIN={PIN_TESTE}")
+    gerar_relatorios()  # 7a.Q.3
 
 
 if __name__ == "__main__":

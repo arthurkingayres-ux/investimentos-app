@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=40">
+  <link rel="stylesheet" href="css/app.css?v=42">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
-  <script src="js/format.js?v=40"></script>
+  <script src="js/format.js?v=42"></script>
   <script src="js/transitions.js?v=40"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=40"></script>
+  <script src="js/app.js?v=42"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -227,6 +227,17 @@
             <p class="aporte-vazio">Nenhum aporte registrado.</p>
           </template>
         </section>
+
+        <!-- 7a.Q.3: card de entrada para o Relatório Mensal -->
+        <a class="rel-card-home" x-show="relUltimoMes" href="#/raiox/relatorio"
+           aria-label="Abrir relatório mensal do assessor" x-cloak>
+          <div class="rel-card-home__meta">
+            <span class="rel-card-home__label">Relatório do mês</span>
+            <span class="rel-card-home__mes"
+              x-text="relUltimoMes ? formatMesAno(relUltimoMes.mes) : ''"></span>
+          </div>
+          <span class="rel-card-home__chevron" aria-hidden="true">›</span>
+        </a>
 
         <footer class="rodape">
           <p>Fonte: <code>investimentos.db</code> · doc-trail auditável</p>
@@ -911,6 +922,180 @@
           <span>Tickers da política sem posição vigente (sem cotação para incluir no cálculo): </span>
           <span x-text="aporteTickersSemPosicao.join(', ')"></span>
         </p>
+      </section>
+
+      <!-- ── Tela #relatorio (Fase 7a.Q.3) ──────────────────────────────── -->
+      <section class="tela-detalhes tela-relatorio" x-show="rota === 'relatorio'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        x-cloak>
+        <header class="breadcrumb rel-breadcrumb">
+          <button @click="voltarDoRelatorio()" aria-label="Voltar ao Raio-X" type="button">←</button>
+          <h1>Relatório</h1>
+          <div class="rel-seletor" @keydown.escape="relSeletorAberto = false">
+            <button class="rel-seletor__btn" type="button"
+              :aria-expanded="relSeletorAberto"
+              @click="relSeletorAberto = !relSeletorAberto">
+              <span x-text="relMes ? formatMesAno(relMes.mes) : 'Meses'"></span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <ul class="rel-seletor__lista" x-show="relSeletorAberto" x-cloak
+              @click.outside="relSeletorAberto = false">
+              <template x-for="m in (relIndice?.meses || [])" :key="m.mes">
+                <li>
+                  <button class="rel-seletor__item" type="button"
+                    :class="m.mes === relMesAtual ? 'is-atual' : ''"
+                    @click="selecionarMesRelatorio(m.mes)"
+                    x-text="formatMesAno(m.mes)"></button>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </header>
+        <div class="rel-loading" x-show="relCarregando" x-cloak aria-live="polite">
+          <div class="rel-skeleton"></div>
+          <div class="rel-skeleton"></div>
+          <div class="rel-skeleton rel-skeleton--short"></div>
+        </div>
+
+        <div class="rel-erro" x-show="!relCarregando && relErro" x-cloak>
+          <p x-text="relErro"></p>
+          <button class="rel-erro__voltar" type="button" x-show="relUltimoMes"
+            @click="selecionarMesRelatorio(relUltimoMes.mes)">Voltar ao último mês</button>
+        </div>
+
+        <div class="rel-vazio" x-show="!relCarregando && !relErro && !relMes" x-cloak>
+          <p>Ainda não há relatórios publicados.</p>
+        </div>
+
+        <template x-if="relMes && !relCarregando && !relErro">
+          <div class="rel-corpo">
+            <template x-for="sec in (relMes.secoes || [])" :key="sec.id">
+              <section class="rel-secao" :class="classeSecao(sec.id)" :data-secao="sec.id">
+                <h2 class="rel-secao__titulo" x-text="sec.titulo"></h2>
+                <div class="rel-prosa" x-html="prosaParaHtml(sec.corpo, relMes.citacoes)"></div>
+                <!-- enriquecimentos por id -->
+                <template x-if="sec.id === 'radar'">
+                  <ul class="rel-radar">
+                    <template x-for="r in radarFiltrado(false)" :key="r.ticker">
+                      <li class="rel-radar-card">
+                        <div class="rel-radar-card__head">
+                          <span class="rel-radar-card__ticker" x-text="r.ticker"></span>
+                          <span class="rel-selo" :class="vereditoSelo(r.veredito).classe">
+                            <span class="rel-selo__marca" aria-hidden="true"
+                              x-text="vereditoSelo(r.veredito).marca"></span>
+                            <span x-text="vereditoSelo(r.veredito).label"></span>
+                          </span>
+                        </div>
+                        <p class="rel-radar-card__obs"><span>Observar:</span> <span x-text="r.observar"></span></p>
+                        <p class="rel-radar-card__gat"><span>Gatilho:</span> <span x-text="r.gatilho"></span></p>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+                <template x-if="sec.id === 'nao_funcionando'">
+                  <div class="rel-veredito" x-show="radarFiltrado(true).length > 0">
+                    <template x-for="r in radarFiltrado(true)" :key="'sel-' + r.ticker">
+                      <span class="rel-selo" :class="vereditoSelo(r.veredito).classe">
+                        <span class="rel-selo__marca" aria-hidden="true"
+                          x-text="vereditoSelo(r.veredito).marca"></span>
+                        <span x-text="r.ticker + ' · ' + vereditoSelo(r.veredito).label"></span>
+                      </span>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="sec.id === 'como_voce_foi'">
+                  <div class="rel-kpis">
+                    <div class="kpi">
+                      <span class="kpi-label">Retorno do mês</span>
+                      <span class="kpi-valor" x-text="formatPct(relMes.dossie?.performance?.Total?.retorno_mes_pct)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">CDI</span>
+                      <span class="kpi-valor" x-text="formatPct(relMes.dossie?.performance?.Total?.benchmarks?.CDI)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">IBOV</span>
+                      <span class="kpi-valor" x-text="formatPct(relMes.dossie?.performance?.Total?.benchmarks?.IBOV)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">S&amp;P 500</span>
+                      <span class="kpi-valor" x-text="formatPct(relMes.dossie?.performance?.Total?.benchmarks?.SP500)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">Aportes líq.</span>
+                      <span class="kpi-valor" x-text="formatBrl(relMes.dossie?.decomposicao?.Total?.aportes_liq_brl)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">Proventos</span>
+                      <span class="kpi-valor" x-text="formatBrl(relMes.dossie?.decomposicao?.Total?.proventos_brl)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">Mercado</span>
+                      <span class="kpi-valor" :class="(relMes.dossie?.decomposicao?.Total?.mercado_brl ?? 0) < 0 ? 'is-neg' : ''"
+                        x-text="formatBrl(relMes.dossie?.decomposicao?.Total?.mercado_brl)"></span>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="sec.id === 'renda'">
+                  <div class="rel-kpis">
+                    <div class="kpi">
+                      <span class="kpi-label">Proventos do mês</span>
+                      <span class="kpi-valor" x-text="formatBrl(relMes.dossie?.renda?.proventos_mes_brl)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">Proventos 12m</span>
+                      <span class="kpi-valor" x-text="formatBrl(relMes.dossie?.renda?.proventos_12m_brl)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">DY carteira</span>
+                      <span class="kpi-valor" x-text="formatPct(relMes.dossie?.renda?.dy_trailing?.total?.dy)"></span>
+                    </div>
+                    <div class="kpi">
+                      <span class="kpi-label">Run-rate anual</span>
+                      <span class="kpi-valor" x-text="formatBrl(relMes.dossie?.renda?.run_rate_mes_anualizado_brl)"></span>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="sec.id === 'alinhamento'">
+                  <ul class="rel-concentracao">
+                    <template x-for="c in (relMes.dossie?.alinhamento?.concentracao_top || [])" :key="c.ticker">
+                      <li>
+                        <span class="flag" aria-hidden="true" x-text="c.bandeira"></span>
+                        <span class="rel-conc__ticker" x-text="c.ticker"></span>
+                        <span class="rel-conc__peso" x-text="formatPct(c.peso)"></span>
+                        <span class="rel-conc__valor" x-text="formatBrl(c.valor_brl)"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+                <template x-if="sec.id === 'prestacao_contas'">
+                  <ul class="rel-prestacao" x-show="(relMes.prestacao_contas || []).length > 0">
+                    <template x-for="p in (relMes.prestacao_contas || [])" :key="'pc-' + p.ticker">
+                      <li>
+                        <span class="rel-prestacao__ticker" x-text="p.ticker"></span>
+                        <span class="rel-prestacao__sin" x-text="p.sinalizado"></span>
+                        <span class="rel-prestacao__res" x-text="p.resultado"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+                <template x-if="sec.id === 'evidencias'">
+                  <ol class="rel-evidencias" id="rel-evidencias">
+                    <template x-for="c in (relMes.citacoes || [])" :key="'cit-' + c.id">
+                      <li :value="c.id">
+                        <a class="rel-cit" :href="c.url" target="_blank" rel="noopener" x-text="c.afirmacao"></a>
+                        <span class="rel-evid__fonte" x-text="' — ' + c.fonte"></span>
+                        <span class="rel-evid__incerto" x-show="c.confianca === 'baixa'"> · <em>sinal incerto</em></span>
+                      </li>
+                    </template>
+                  </ol>
+                </template>
+              </section>
+            </template>
+          </div>
+        </template>
       </section>
 
       </div>

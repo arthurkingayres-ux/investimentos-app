@@ -2580,3 +2580,124 @@ body:has(.tab-bar) main {
   to   { transform: scaleX(var(--fill-pct, 1)); }
 }
 
+/* 7a.Q.3 — Relatório Mensal */
+.rel-card-home {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 16px 0 0;
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--ink);
+  min-height: 44px;
+}
+.rel-card-home__meta { display: flex; flex-direction: column; gap: 2px; }
+.rel-card-home__label {
+  font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--gray);
+}
+.rel-card-home__mes { font-size: var(--num-md); font-weight: 600; color: var(--g-900); }
+.rel-card-home__chevron { font-size: 1.5rem; color: var(--g-700); line-height: 1; }
+.rel-breadcrumb__mes {
+  margin-left: auto; font-size: var(--num-sm); color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+.rel-corpo { display: flex; flex-direction: column; gap: 28px; padding-top: 4px; }
+.rel-secao { display: flex; flex-direction: column; gap: 10px; }
+.rel-secao__titulo {
+  font-size: var(--num-lg); font-weight: 700; color: var(--g-900); margin: 0;
+}
+.rel-prosa { max-width: 68ch; color: var(--ink); line-height: 1.62; }
+.rel-prosa p { margin: 0 0 10px; }
+.rel-prosa p:last-child { margin-bottom: 0; }
+.rel-cit {
+  color: var(--g-700); font-weight: 600; text-decoration: none;
+  font-variant-numeric: tabular-nums; padding: 0 1px;
+}
+.rel-cit:hover { text-decoration: underline; }
+/* §2 manchete — abre forte */
+.rel-secao--manchete .rel-secao__titulo { font-size: var(--num-xl); }
+.rel-secao--manchete .rel-prosa { font-size: var(--num-md); }
+/* §5 NÃO funcionando — destaque por hierarquia/separador, sem vermelho gritante */
+.rel-secao--destaque {
+  border-left: 3px solid var(--sem-down);
+  background: var(--sem-down-tint);
+  border-radius: 0 12px 12px 0;
+  padding: 16px 16px 16px 18px;
+  gap: 12px;
+}
+.rel-secao--destaque .rel-secao__titulo { color: var(--ink); }
+/* Selos de veredito */
+.rel-veredito { display: flex; flex-wrap: wrap; gap: 8px; }
+.rel-selo {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: var(--num-xs); font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.rel-selo__marca { font-weight: 800; }
+.rel-selo--intacta { background: rgba(110,110,115,0.10); color: var(--gray); }
+.rel-selo--pressao { background: var(--sem-down-tint); color: var(--sem-down); }
+.rel-selo--deteriorando { background: rgba(185,28,28,0.10); color: var(--red); }
+.rel-radar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.rel-radar-card {
+  border: 1px solid var(--neutral-200); border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px; background: white;
+}
+.rel-radar-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rel-radar-card__ticker { font-weight: 700; color: var(--g-900); }
+.rel-radar-card__obs, .rel-radar-card__gat { margin: 0; font-size: var(--num-sm); color: var(--ink); }
+.rel-radar-card__obs span:first-child, .rel-radar-card__gat span:first-child {
+  color: var(--gray); font-size: var(--num-xs); text-transform: uppercase; letter-spacing: 0.3px;
+}
+/* Mini-cards dossiê */
+.rel-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.rel-concentracao, .rel-prestacao { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rel-concentracao li { display: flex; align-items: center; gap: 8px; font-size: var(--num-sm); }
+.rel-conc__ticker { font-weight: 600; color: var(--g-900); }
+.rel-conc__peso, .rel-conc__valor { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rel-conc__peso { color: var(--gray); }
+.rel-prestacao li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--neutral-100); font-size: var(--num-sm); }
+.rel-prestacao__ticker { font-weight: 700; color: var(--g-900); }
+.rel-prestacao__sin { color: var(--gray); font-size: var(--num-xs); }
+.rel-evidencias { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
+.rel-evidencias li { font-size: var(--num-sm); color: var(--ink); }
+.rel-evid__fonte { color: var(--gray); }
+.rel-evid__incerto em { color: var(--sem-down); font-style: italic; }
+/* Seletor de mês (arquivo) */
+.rel-seletor { margin-left: auto; position: relative; }
+.rel-seletor__btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
+  background: none; border: 1px solid var(--neutral-200); border-radius: 10px;
+  padding: 6px 12px; font-size: var(--num-sm); color: var(--g-900); cursor: pointer;
+}
+.rel-seletor__lista {
+  list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; right: 0; z-index: 20;
+  background: white; border: 1px solid var(--neutral-200); border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(6,78,59,0.10); min-width: 160px;
+}
+.rel-seletor__item {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: 10px 12px; border-radius: 8px; font-size: var(--num-sm); color: var(--ink);
+  min-height: 44px;
+}
+.rel-seletor__item:hover { background: var(--neutral-100); }
+.rel-seletor__item.is-atual { font-weight: 700; color: var(--g-700); }
+/* Estados loading / erro / vazio */
+.rel-loading { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.rel-skeleton { height: 18px; border-radius: 6px; background: var(--neutral-100);
+  animation: rel-pulse 1.4s ease-in-out infinite; }
+.rel-skeleton--short { width: 55%; }
+@keyframes rel-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .rel-skeleton { animation: none; } }
+.rel-erro, .rel-vazio { padding: 32px 8px; color: var(--gray); text-align: center; }
+.rel-erro__voltar {
+  margin-top: 12px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--neutral-200);
+  border-radius: 10px; background: white; color: var(--g-700); font-weight: 600; cursor: pointer;
+}

@@ -1,7 +1,8 @@
 // Carteira Arthur — service worker
-// Cache-first para o shell estático; network-first (timeout 2s) para portfolio.json.enc.
+// Cache-first para o shell estático; network-first (timeout 2s) para os dados
+// cifrados *.json.enc (portfolio + relatórios mensais 7a.Q.3).
 
-const CACHE_VERSION = "v35";
+const CACHE_VERSION = "v36";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -19,7 +20,6 @@ const SHELL_PRECACHE = [
   "./js/echarts-theme.js",
 ];
 
-const DADOS_URL = "portfolio.json.enc";
 const DADOS_TIMEOUT_MS = 2000;
 
 self.addEventListener("install", (event) => {
@@ -55,7 +55,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.endsWith("/" + DADOS_URL) || url.pathname.endsWith(DADOS_URL)) {
+  // 7a.Q.3: todos os .enc (portfolio + índice/meses do relatório) são dados →
+  // network-first. Cada pathname distinto cacheia em separado no CACHE_DADOS.
+  if (url.pathname.endsWith(".json.enc")) {
     event.respondWith(networkFirstDados(req));
     return;
   }

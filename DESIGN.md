@@ -556,3 +556,14 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Motion */         pin-shake 420ms · chevron 150ms · card-lift 150ms · fill 300ms
 /* prefers-reduced-motion: reduce */ respected
 ```
+
+---
+
+## Relatório Mensal (7a.Q.3) — componentes
+
+Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `.kpi`, `.flag`):
+
+- `.rel-card-home` — card de entrada na home Raio-X (surface branca, `--neutral-200` border, chevron `--g-700`); empty-safe (`x-show="relUltimoMes"`).
+- `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — borda-esquerda + tint `--sem-down`; peso por hierarquia, **calma, sem vermelho gritante**).
+- `.rel-selo` (+ `--intacta` cinza / `--pressao` `--sem-down` âmbar / `--deteriorando` `--red`) — veredito de tese por ticker. **Forma (glyph `aria-hidden` ●/◐/▽) + texto + cor**, nunca cor sozinha (deuteranopia coberta). Modelado em `.aloca-alvo__delta`.
+- `.rel-kpis` reusa `.kpi` para os mini-cards do dossiê (performance/decomposição/renda). `.rel-radar` / `.rel-concentracao` / `.rel-evidencias` / `.rel-prestacao` — listas. `.rel-seletor` — dropdown de meses (botão + itens ≥44px). `.rel-loading`/`.rel-erro`/`.rel-vazio` — estados mutuamente exclusivos (skeleton com `prefers-reduced-motion: reduce` honored; degradação graciosa).
