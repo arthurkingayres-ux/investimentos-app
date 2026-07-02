@@ -11,6 +11,12 @@ async function mockPortfolio(page: Page) {
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
   );
+  // Isola do artefato de produção: o relatorios_index.json.enc real é cifrado
+  // com o PIN de prod (≠ 123456) e o PBKDF2 de PIN-errado alargava a race do
+  // Test 3. Servimos 404 — o carregarIndiceRelatorios cai no catch e segue.
+  await page.route("**/relatorios_index.json.enc", (route) =>
+    route.fulfill({ status: 404, body: "", contentType: "text/plain" }),
+  );
 }
 
 test.describe("Sessao", () => {
@@ -55,10 +61,17 @@ test.describe("Sessao", () => {
     }, originalTs);
     await page.goto("/");
     await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
-    const novoTs = await page.evaluate(() =>
-      Number(localStorage.getItem("pinTimestamp") || 0),
-    );
-    // Sliding window: timestamp foi refrescado para perto de agora.
-    expect(novoTs).toBeGreaterThan(originalTs + 60_000);
+    // Sliding window: timestamp foi refrescado para perto de agora. expect.poll
+    // absorve o timing residual (o refresh agora ocorre logo após a fase virar
+    // raiox, mas ainda num microtask).
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            Number(localStorage.getItem("pinTimestamp") || 0),
+          ),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(originalTs + 60_000);
   });
 });

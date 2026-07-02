@@ -1696,12 +1696,13 @@ document.addEventListener("alpine:init", () => {
         this.json = JSON.parse(plaintext);
         this.pin = pin;
         this.fase = "raiox";
+        // Janela 7d deslizante — refresca o timestamp assim que o auto-resume
+        // valida a sessão, ANTES do carregamento (lento) do índice de
+        // relatórios. PIN só é exigido após 7d de inatividade total.
+        localStorage.setItem("pinTimestamp", String(Date.now()));
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
         if (this.rota === "relatorio") this.hidratarRelatorio();
-        // Janela 7d deslizante — refresca timestamp a cada auto-resume bem-sucedido.
-        // PIN só é exigido após 7d de inatividade total.
-        localStorage.setItem("pinTimestamp", String(Date.now()));
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         // 7a.H.1: se a rota já é #aportar (reload), hidratar agora que temos json.
