@@ -62,6 +62,39 @@
   --num-md:     1rem;      /* 16px — kpi, rent-metrica/periodo, classe %       */
   --num-sm:     0.9375rem; /* 15px — ticker-vm, aporte, tabelas, política      */
   --num-xs:     0.8125rem; /* 13px — ticker-pct, drift, anotações numéricas    */
+
+  /* === Fase 7a.S — Refresh Monument (S.1 fundação, FONTE ÚNICA) ==============
+     Substrato de tokens/motion. Valores LIGHT; o bloco [data-theme="dark"] é
+     S.12. INERTE por design: nenhum elemento aplica estes tokens nesta sub-fase
+     — S.2–S.12 os consomem. Aliasados aos existentes onde value-idênticos. */
+
+  /* Contrato de motion — um easing base, um spring, três durações. ADITIVO:
+     o contrato de navegação (transitions.js 220/280/700ms) segue intacto;
+     estes governam o motion NOVO de S.2–S.12. */
+  --ease:        cubic-bezier(.16,1,.3,1);     /* base (= literal já usado inline) */
+  --ease-spring: cubic-bezier(.34,1.28,.44,1); /* overshoot: PIN dots, indicator, facet-dots */
+  --d1: .14s;
+  --d2: .3s;
+  --d3: .55s;
+
+  /* Banda "monument display" (posters de herói) — fina por natureza (razões
+     <1.25), distinta da escada de dados --num-xl→xs. */
+  --num-poster-lg: 2.875rem;  /* 46px — rel-poster (capa Relatório S.9); apval S.5 mapeia aqui */
+  --num-poster-xl: 3.375rem;  /* 54px — poster monumento (DY dedicado S.7)              */
+
+  /* Tokens semânticos (LIGHT; dark = S.12) */
+  --accent:         var(--g-700);  /* #047857 âncora teal semântica; dark-flip em S.12 */
+  --accent-2:       var(--g-500);  /* #10b981 */
+  --accent-soft:    rgba(4, 120, 87, 0.09);
+  --surface-2:      #f3f3ec;       /* superfície do grifo / pill */
+  --faint:          #989e97;       /* eyebrow / captions muted */
+  --hero-glow:      transparent;   /* luz do hero — dark acende em S.12 */
+  --card-topline:   transparent;   /* hairline superior dos cards — dark em S.12 */
+  --shadow-pressed: 0 1px 2px rgba(6, 78, 59, 0.06), 0 3px 10px -4px rgba(6, 78, 59, 0.14);
+  --pill:           #f3f3ec;  /* independente de --surface-2: diverge no dark S.12 (#12201a vs #101d16) */
+  --amber-bg:       #fbf3e3;
+  --amber-bd:       #eeddb8;
+  --tab-bg:         rgba(250, 250, 247, 0.86);
 }
 
 *, *::before, *::after {
@@ -101,6 +134,32 @@ h1 {
 .subtitle {
   color: var(--gray);
   margin: 0 0 1.5rem;
+}
+
+/* === Fase 7a.S — componentes de assinatura (S.1) ===========================
+   Definidos aqui; INERTES nesta sub-fase (nenhum HTML os aplica ainda).
+   .eyebrow = voz única de abertura de tela (S.4 aplica). .grifo = "grifo do
+   assessor", UMA por tela (S.5/S.8/S.9/S.10 aplicam); variante --amber
+   reservada ao box "NÃO funcionando" do Relatório. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.grifo {
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 14px 14px 0;
+  padding: 14px 16px;
+}
+
+.grifo--amber {
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-bd);
+  border-left: 3px solid var(--amber);
 }
 
 .pin-screen {
@@ -1800,7 +1859,7 @@ footer.rodape code {
   background: var(--g-500);
   opacity: 0.45;
   border-radius: 999px;
-  transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 300ms var(--ease);
 }
 @media (prefers-reduced-motion: reduce) {
   .aporte-trilha-delta { transition: none; }
@@ -1991,7 +2050,7 @@ footer.rodape code {
   background: var(--tab-active);
   border-radius: 0 0 2px 2px;
   transform: translateX(var(--tab-indicator-x, 0px));
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 220ms var(--ease);
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2002,8 +2061,8 @@ footer.rodape code {
 
 /* 7a.I.6: push transitions — slide-in da direita 280ms para telas push (#ativo, #/raiox/chart) */
 .push-enter {
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 280ms var(--ease),
+              opacity 280ms var(--ease);
 }
 .push-from-right {
   transform: translateX(16px);
@@ -2563,7 +2622,7 @@ body:has(.tab-bar) main {
   .aloca-alvo__cesta-trilha .fill,
   .aloca-alvo__minibar .fill {
     transform: scaleX(0);
-    animation: alocaAlvoFillIn 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: alocaAlvoFillIn 700ms var(--ease) forwards;
   }
   .aloca-alvo__cesta:nth-of-type(1) .fill { animation-delay: 100ms; }
   .aloca-alvo__cesta:nth-of-type(2) .fill { animation-delay: 220ms; }

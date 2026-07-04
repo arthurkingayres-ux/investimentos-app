@@ -108,7 +108,14 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
 | `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
 
-Razões da escada de display: poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
+**Banda "monument display" (7a.S.1)** — posters de herói, degraus finos (razões <1.25), distinta da escada de dados acima:
+
+| Token | px | Onde (exemplos) |
+|---|---|---|
+| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` (capa Relatório S.9); apval do hero-faceta S.5 mapeia aqui |
+| `--num-poster-xl` | 54px (3.375rem) | poster monumento (DY dedicado S.7) |
+
+Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
 
 **Fora da escala (decisão consciente):** glifos de unidade que decoram um número
 poster são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
@@ -433,6 +440,18 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 
 **Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
 
+### Contrato de refino — tokens de motion (7a.S.1)
+
+O Refresh Monument introduz um contrato de motion em `:root`, **aditivo** ao de navegação acima (que permanece 220/280/700ms, ground-truth em `transitions.js` e validado por `nav-reduced-motion.spec.ts`):
+
+| Token | Valor | Papel |
+|---|---|---|
+| `--ease` | `cubic-bezier(.16,1,.3,1)` | curva base (= literal antes inline; migrado a `var(--ease)` no CSS) |
+| `--ease-spring` | `cubic-bezier(.34,1.28,.44,1)` | overshoot sutil: dots do PIN, indicator, facet-dots |
+| `--d1` / `--d2` / `--d3` | `.14s` / `.3s` / `.55s` | três durações do motion NOVO de S.2–S.12 |
+
+Regra: motion novo referencia estes tokens; o contrato de nav não é remapeado (durações não coincidem — reconciliação por adição, não substituição, spec §11).
+
 ### Chart #rentabilidade — period-relative reanchoring (Fase 7a.L.1)
 
 Chart histórico do #rentabilidade reanchora dinamicamente conforme o `dataZoom` é movido. Sem zoom (range 100%), Y mostra **cumulativo desde origem** (1 + crescimento_total − 1). Com zoom em `[startIdx, endIdx]`, Y vira **cumulativo desde primeiro ponto visível** via chain rule: `y[i] = growth[i] / growth[startIdx] − 1`. Benchmark recebe o mesmo tratamento. Sub-título `<p class="chart-rent-subtitulo">` acima do chart explicita a âncora ("Cresceu desde Mmm/AA") e atualiza via Alpine state `rentabilidadeSubtitulo`.
@@ -484,7 +503,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders** (`border-left: 4px solid` em alerts/cards). Não usados.
+14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): Raio-X = card Movers · Alocação = callout "abaixo do alvo" · Proventos = leitura de run-rate · Aportar = box do plano · Relatório = âmbar "NÃO funcionando" · Rentabilidade = nenhum (grifo removido a pedido).
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
 16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
@@ -544,6 +563,17 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --tab-inactive var(--gray)  --tab-indicator-height 2px
 
 /* Class dots */     EUA #1e6091  FIIs #b8731f  Renda Fixa BR #0e7490  Ações BR #047857  Cripto #6d4ea8
+
+/* Refresh Monument (7a.S.1) — valores LIGHT; bloco [data-theme="dark"] = S.12 */
+/* Motion   */       --ease cubic-bezier(.16,1,.3,1)  --ease-spring cubic-bezier(.34,1.28,.44,1)
+                     --d1 .14s  --d2 .3s  --d3 .55s
+/* Monument num */   --num-poster-lg 46px (2.875rem)  --num-poster-xl 54px (3.375rem)
+/* Semantic */       --accent var(--g-700)  --accent-2 var(--g-500)  --accent-soft rgba(4,120,87,.09)
+                     --surface-2 #f3f3ec  --faint #989e97  --hero-glow transparent
+                     --card-topline transparent  --pill #f3f3ec  --tab-bg rgba(250,250,247,.86)
+                     --amber-bg #fbf3e3  --amber-bd #eeddb8
+                     --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
+/* Componentes */    .eyebrow (11px/800/.2em/upper/--faint)  .grifo (border-left 3px --accent, "uma por tela")
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)
