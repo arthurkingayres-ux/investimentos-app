@@ -33,11 +33,13 @@ test.describe("Tab bar shell (7a.I.1)", () => {
     await expect(tabBar).toBeVisible();
     const tabs = tabBar.locator("a");
     await expect(tabs).toHaveCount(5);
+    // 7a.S.4: rótulos por extenso (fim das abreviações rent/aloca/prov/apt).
+    // Cobertura detalhada do texto exato + estilo Monument vive em tab-vozes.spec.ts.
     await expect(tabs.nth(0)).toHaveText(/raio-?x/i);
-    await expect(tabs.nth(1)).toHaveText(/rent/i);
-    await expect(tabs.nth(2)).toHaveText(/aloca/i);
-    await expect(tabs.nth(3)).toHaveText(/prov/i);
-    await expect(tabs.nth(4)).toHaveText(/apt/i);
+    await expect(tabs.nth(1)).toHaveText(/rentabilidade/i);
+    await expect(tabs.nth(2)).toHaveText(/alocação/i);
+    await expect(tabs.nth(3)).toHaveText(/proventos/i);
+    await expect(tabs.nth(4)).toHaveText(/aportar/i);
   });
 
   test("tab raiox tem aria-current=page em rota vazia", async ({ page }) => {

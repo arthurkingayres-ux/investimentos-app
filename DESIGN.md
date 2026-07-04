@@ -249,7 +249,7 @@ Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 
 
 ### Tab bar (Monument)
 
-Bottom nav fixa, 5 destinos text-only (sem ícones), indicator 2px no **topo** da tab ativa que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todas as tabs — não é pseudo `::before` por tab.
+Bottom nav fixa, 5 destinos **por extenso** (Raio-X · Rentabilidade · Alocação · Proventos · Aportar), text-only (sem ícones), indicator 2px no **topo** da tab ativa que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todas as tabs — não é pseudo `::before` por tab.
 
 ```css
 .tab-bar {
@@ -257,33 +257,59 @@ Bottom nav fixa, 5 destinos text-only (sem ícones), indicator 2px no **topo** d
   bottom: 0; left: 0; right: 0;
   height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--tab-bar-bg);
+  background: var(--tab-bg);              /* 7a.S.4: frosted (era --tab-bar-bg opaco) */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   border-top: 1px solid var(--tab-bar-border);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   z-index: 100;
 }
 .tab-bar a {
-  font-size: 13px; font-weight: 600;
-  color: var(--tab-inactive);
-  letter-spacing: 0.02em;
+  font-size: 10.5px; font-weight: 600;    /* 7a.S.4: era 13px/0.02em, abreviado */
+  color: var(--faint);
+  letter-spacing: 0.01em;
   min-height: 44px;
+  min-width: 0;                           /* evita grid blowout com rótulo longo */
+  padding: 0 2px;
+  text-align: center;
 }
-.tab-bar a[aria-current="page"] { color: var(--tab-active); }
+.tab-bar a[aria-current="page"] { color: var(--accent); font-weight: 700; }
 .tab-bar-indicator {
   position: absolute; top: 0;
   height: var(--tab-indicator-height);
   background: var(--tab-active);
   transform: translateX(var(--tab-indicator-x, 0px));
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);  /* 7a.S.4: NÃO tocado */
 }
 ```
 
-**Tokens:** `--tab-bar-height: 56px`, `--tab-bar-bg: var(--neutral-50)`, `--tab-bar-border: var(--neutral-200)`, `--tab-active: var(--g-900)`, `--tab-inactive: var(--gray)`, `--tab-indicator-height: 2px`.
+**Tokens:** `--tab-bar-height: 56px`, `--tab-bg: rgba(250,250,247,.86)` (7a.S.4, frosted; `--tab-bar-bg: var(--neutral-50)` fica só como fallback histórico, não mais referenciado), `--tab-bar-border: var(--neutral-200)`, `--tab-active: var(--g-900)` (ainda usado pelo indicator), `--tab-indicator-height: 2px`. Cor/peso do label agora vêm de `--faint`/`--accent` (S.1), não mais de `--tab-inactive`.
+
+**Rótulos por extenso (7a.S.4):** as abreviações `raio-x/rent/aloca/prov/apt` (pré-7a.S) viraram `Raio-X/Rentabilidade/Alocação/Proventos/Aportar`. Risco medido: "Rentabilidade" (13 caracteres, palavra sem quebra) a 320px em 5 colunas (~64px/tab) — `min-width: 0` no item do grid + `padding: 0 2px` evitam o "grid blowout" (a track de `1fr` cresceria além da viewport com `min-width: auto` padrão). Verificado: 0 overflow horizontal a 320px (`tab-vozes.spec.ts`).
 
 **Persistência:** visível nas 5 tabs e nas telas de push (`#ativo/:ticker`, `#/raiox/chart`). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
 
-**Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 ativa / 400 inativa, color shift `--gray` → `--g-900`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + tracking + indicator.
+**Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 inativa / 700 ativa, color shift `--faint` → `--accent`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + cor + tracking + indicator.
+
+### Voz única de abertura de tela — `.eyebrow` (7a.S.4)
+
+Antes da 7a.S.4, cada tela abria com um `<h1>` grande e inconsistente (tamanhos/pesos/cores variando tela a tela — ex. `.raiox > h1` já tinha virado um eyebrow ad-hoc 13px/600/.08em/`--gray` só naquela tela, enquanto `.breadcrumb h1` das demais era 22px/700/`--g-900`). A 7a.S.4 consolida tudo em `.eyebrow` (definido em S.1, inerte até aqui):
+
+```css
+.eyebrow {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--faint);
+  margin: 0;
+}
+.eyebrow--accent { color: var(--accent); }  /* 7a.S.4: variante das push screens */
+```
+
+**Mapeamento por tela:**
+- **Tab screens** (Raio X, Rentabilidade, Alocação, Proventos, Aportar) — o `<h1>` de abertura vira `<p class="eyebrow">`, cor `--faint`. No raio-x, o eyebrow é filho direto de `.raiox` (sem `.breadcrumb`, tela âncora); nas demais 4, o eyebrow substitui o `<h1>` dentro do `<header class="breadcrumb">` já existente (sem botão voltar). O **hero-poster do patrimônio** no raio-x permanece intocado — só o h1 redundante com o rótulo da própria tab bar é rebaixado.
+- **Push screens** (`#ativo/:ticker`, `#/raiox/chart` → `.tela-patrimonio`, `#relatorio`) — mesmo `.eyebrow`, variante `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. O `.breadcrumb` com botão "←" **não é removido** — a variante troca só a cor do label, não a navegação.
+
+Nenhuma tela usa `<h1>` daqui pra frente, exceto a PIN screen (`<h1>Carteira</h1>`, fora do shell autenticado — não é uma "tela" no sentido de navegação por tab/push).
 
 ### Card (padrão)
 Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
@@ -522,7 +548,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
 22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
 23. **Stagger entre elementos > 50ms.** Default em barras é 30ms.
-24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600/400 + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
+24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600 inativa / 700 ativa + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
 25. **Bottom-underline cliché** em tab ativa (linha grossa colorida abaixo do label, padrão Material/Bootstrap). O app usa indicator 2px no **topo** da tab — escolha estética + reduz competição visual com border-top da própria tab bar.
 
 ---
@@ -567,9 +593,10 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Mono (Monument) */ --mono ui-monospace, SF Mono, Cascadia Mono, JetBrains Mono, Menlo, Consolas
                       --hero-mono-size 3.25rem  --hero-mono-tracking -0.025em
 
-/* Tab bar */        --tab-bar-height 56px  --tab-bar-bg var(--neutral-50)
+/* Tab bar */        --tab-bar-height 56px  --tab-bar-bg var(--neutral-50) (histórico, não referenciado pós-7a.S.4)
                      --tab-bar-border var(--neutral-200)  --tab-active var(--g-900)
-                     --tab-inactive var(--gray)  --tab-indicator-height 2px
+                     --tab-inactive var(--gray) (histórico)  --tab-indicator-height 2px
+                     /* 7a.S.4: label usa --faint (inativa)/--accent+700 (ativa); fundo frosted --tab-bg */
 
 /* Class dots */     EUA #1e6091  FIIs #b8731f  Renda Fixa BR #0e7490  Ações BR #047857  Cripto #6d4ea8
 
@@ -582,7 +609,8 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --card-topline transparent  --pill #f3f3ec  --tab-bg rgba(250,250,247,.86)
                      --amber-bg #fbf3e3  --amber-bd #eeddb8
                      --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
-/* Componentes */    .eyebrow (11px/800/.2em/upper/--faint)  .grifo (border-left 3px --accent, "uma por tela")
+/* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
+                     .grifo (border-left 3px --accent, "uma por tela")
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

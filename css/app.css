@@ -151,16 +151,24 @@ h1 {
 }
 
 /* === Fase 7a.S — componentes de assinatura (S.1) ===========================
-   Definidos aqui; INERTES nesta sub-fase (nenhum HTML os aplica ainda).
-   .eyebrow = voz única de abertura de tela (S.4 aplica). .grifo = "grifo do
-   assessor", UMA por tela (S.5/S.8/S.9/S.10 aplicam); variante --amber
-   reservada ao box "NÃO funcionando" do Relatório. */
+   .eyebrow = voz única de abertura de tela (7a.S.4 aplica — antes h1 grandes
+   inconsistentes por tela). .grifo = "grifo do assessor", UMA por tela
+   (S.5/S.8/S.9/S.10 aplicam); variante --amber reservada ao box "NÃO
+   funcionando" do Relatório. */
 .eyebrow {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--faint);
+  margin: 0;
+}
+
+/* 7a.S.4: variante das telas push (#ativo/#patrimonio/#relatorio) — mesma
+   voz, cor --accent no lugar de --faint (sinaliza "você entrou mais fundo"
+   sem reintroduzir peso/tamanho de h1). */
+.eyebrow--accent {
+  color: var(--accent);
 }
 
 .grifo {
@@ -258,12 +266,10 @@ h1 {
   padding-bottom: 2rem;
 }
 
-.raiox > h1 {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gray);
+/* 7a.S.4: o h1 ad-hoc (13px/600/.08em/gray) que já fazia as vezes de eyebrow
+   virou o .eyebrow canônico (11px/800/.2em/--faint); só a margem inferior
+   (que separava do hero abaixo) precisa de override aqui. */
+.raiox > .eyebrow {
   margin: 0 0 1rem;
 }
 
@@ -927,13 +933,6 @@ footer.rodape code {
 /* 7a.S.2: mapeia .back do mockup — desloca p/ esquerda, sinalizando "voltar". */
 .breadcrumb button:active {
   transform: translateX(-3px);
-}
-
-.breadcrumb h1 {
-  font-size: 1.375rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--g-900);
 }
 
 .placeholder {
@@ -2113,7 +2112,10 @@ footer.rodape code {
   right: 0;
   height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--tab-bar-bg);
+  /* 7a.S.4: frosted — mockup .tabbar (translúcido + blur em vez de opaco). */
+  background: var(--tab-bg);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   border-top: 1px solid var(--tab-bar-border);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -2125,13 +2127,19 @@ footer.rodape code {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  /* 7a.S.4: rótulos por extenso (mockup .tab) — 10.5px/600/.01em, sem
+     text-transform (o texto já vem com a capitalização final). min-width:0
+     evita "grid blowout" (a track de 1fr cresceria além de 64px @320px se
+     o item tivesse min-width:auto padrão com uma palavra sem quebra). */
+  font-size: 10.5px;
   font-weight: 600;
-  color: var(--tab-inactive);
+  color: var(--faint);
   text-decoration: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   min-height: 44px;
-  text-transform: lowercase;
+  min-width: 0;
+  padding: 0 2px;
+  text-align: center;
 }
 @media (prefers-reduced-motion: no-preference) {
   .tab-bar a { transition: transform var(--d1) var(--ease); }
@@ -2142,7 +2150,8 @@ footer.rodape code {
 }
 
 .tab-bar a[aria-current="page"] {
-  color: var(--tab-active);
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .tab-bar a:focus-visible {

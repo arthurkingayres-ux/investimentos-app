@@ -25,10 +25,22 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Tela #alocacao unificada (7a.E.31)", () => {
-  test("cabeçalho padrão .breadcrumb com título Alocação (sem patrimônio)", async ({ page }) => {
+  test("cabeçalho padrão .breadcrumb abre com .eyebrow Alocação, que é h1 pequeno (sem patrimônio)", async ({ page }) => {
+    // 7a.S.4: a voz única de abertura de tela é .eyebrow. CRB: .eyebrow
+    // voltou a ser <h1> (heading semantics para leitor de tela), mas
+    // estilizado pequeno (11px) — a classe vence a regra `h1 { font-size:
+    // 1.75rem }` grande por especificidade. O invariante correto é: É
+    // heading (tagName H1) E está pequeno (fontSize), nunca só um dos dois.
     await autenticar(page);
     const header = page.locator(".tela-alocacao > header.breadcrumb");
-    await expect(header.locator("h1")).toHaveText("Alocação");
+    const eyebrow = header.locator(".eyebrow");
+    await expect(eyebrow).toHaveText("Alocação");
+    const info = await eyebrow.evaluate((el) => ({
+      tag: el.tagName,
+      fontSize: getComputedStyle(el).fontSize,
+    }));
+    expect(info.tag).toBe("H1");
+    expect(info.fontSize).toBe("11px");
     // topo não repete patrimônio nem "N categorias" (igual às demais telas)
     await expect(page.locator(".tela-alocacao .aloca-top__valor")).toHaveCount(0);
     await expect(page.locator(".tela-alocacao .aloca-top__sub")).toHaveCount(0);

@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=45">
+  <link rel="stylesheet" href="css/app.css?v=46">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
@@ -72,7 +72,7 @@
     <template x-if="fase === 'raiox'">
       <div>
       <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak>
-        <h1>Raio X</h1>
+        <h1 class="eyebrow">Raio X</h1>
 
         <a href="#/raiox/chart" class="hero hero-link" aria-label="Abrir histórico patrimonial">
           <div class="hero-meta">
@@ -247,7 +247,7 @@
 
       <section class="tela-detalhes tela-rentabilidade" x-show="rota === 'rentabilidade'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
-          <h1>Rentabilidade</h1>
+          <h1 class="eyebrow">Rentabilidade</h1>
         </header>
 
         <div class="escopo-toggle" role="tablist">
@@ -404,7 +404,7 @@
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
-          <h1>Alocação</h1>
+          <h1 class="eyebrow">Alocação</h1>
         </header>
 
         <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
@@ -548,7 +548,7 @@
         x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 x-text="tickerAtual"></h1>
+          <h1 class="eyebrow eyebrow--accent" x-text="tickerAtual"></h1>
         </header>
 
         <template x-if="!posicaoAtual">
@@ -666,7 +666,7 @@
       <!-- ── Tela #proventos ──────────────────────────────────────────── -->
       <section class="tela-detalhes tela-proventos" x-show="rota === 'proventos'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
-          <h1>Proventos</h1>
+          <h1 class="eyebrow">Proventos</h1>
         </header>
 
         <!-- 7a.E.24: bloco Dividend Yield (trailing-12m) — total + 3 sub-escopos -->
@@ -815,7 +815,7 @@
         x-cloak>
         <header class="breadcrumb">
           <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1>Histórico patrimonial</h1>
+          <h1 class="eyebrow eyebrow--accent">Histórico patrimonial</h1>
         </header>
 
         <div class="kpi-grid kpi-stack">
@@ -843,7 +843,7 @@
       <!-- ── Tela #aportar (Fase 7a.H.1) ──────────────────────────────── -->
       <section class="tela-detalhes tela-aportar" x-show="rota === 'aportar'" x-transition:enter.opacity.duration.220ms x-cloak>
         <header class="breadcrumb">
-          <h1>Próximo aporte</h1>
+          <h1 class="eyebrow">Próximo aporte</h1>
         </header>
 
         <div class="aporte-input-block">
@@ -937,7 +937,7 @@
         x-cloak>
         <header class="breadcrumb rel-breadcrumb">
           <button @click="voltarDoRelatorio()" aria-label="Voltar ao Raio-X" type="button">←</button>
-          <h1>Relatório</h1>
+          <h1 class="eyebrow eyebrow--accent">Relatório</h1>
           <div class="rel-seletor" @keydown.escape="relSeletorAberto = false">
             <button class="rel-seletor__btn" type="button"
               :aria-expanded="relSeletorAberto"
@@ -1109,11 +1109,11 @@
     <template x-if="fase === 'raiox'">
       <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
         <span class="tab-bar-indicator" aria-hidden="true"></span>
-        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname)">raio-x</a>
-        <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">rent</a>
-        <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">aloca</a>
-        <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">prov</a>
-        <a href="#aportar" data-tab="aportar" :aria-current="tab === 'aportar' ? 'page' : null">apt</a>
+        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname)">Raio-X</a>
+        <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">Rentabilidade</a>
+        <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">Alocação</a>
+        <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">Proventos</a>
+        <a href="#aportar" data-tab="aportar" :aria-current="tab === 'aportar' ? 'page' : null">Aportar</a>
       </nav>
     </template>
   </main>
