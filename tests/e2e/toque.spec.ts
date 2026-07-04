@@ -152,11 +152,13 @@ test.describe("Toque — :active pressionado (7a.S.2 Task 2)", () => {
     expect(transform).not.toBe("none");
   });
 
-  test(".hero-link encolhe + ganha shadow-pressed ao ser pressionado (mouse down)", async ({
+  test(".hero encolhe + ganha shadow-pressed ao ser pressionado (mouse down)", async ({
     page,
   }) => {
+    // 7a.S.5: o hero deixou de ser <a class="hero-link"> (virou facet-cycling
+    // <div role="button">) — o :active/shadow-pressed migrou pro seletor `.hero`.
     await autenticar(page);
-    const hero = page.locator(".hero-link");
+    const hero = page.locator(".hero");
     await expect(hero).toBeVisible();
     const box = await hero.boundingBox();
     expect(box).not.toBeNull();

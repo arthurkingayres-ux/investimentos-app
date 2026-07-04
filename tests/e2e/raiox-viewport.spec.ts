@@ -29,7 +29,7 @@ async function autenticar(page: Page) {
 test.describe("Raio-X enxuto (apenas hero + último aporte)", () => {
   test("hero patrimônio visível com valor", async ({ page }) => {
     await autenticar(page);
-    const hero = page.locator(".hero.hero-link");
+    const hero = page.locator(".hero");
     await expect(hero).toBeVisible();
     await expect(page.locator("#hero-patrimonio")).toBeVisible();
   });

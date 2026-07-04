@@ -25,16 +25,37 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
-  test("tap no hero empurra para chart full + tab raiox persiste", async ({ page }) => {
+  test("tap no affordance 'ver histórico' empurra para chart full + tab raiox persiste", async ({ page }) => {
+    // 7a.S.5: o hero virou facet-cycling (tap cicla 4 fatos, não navega mais).
+    // O acesso ao histórico completo migrou pro affordance discreto .hero-chart-link.
     await autenticar(page);
-    const hero = page.locator(".hero.hero-link");
-    await expect(hero).toBeVisible();
-    await hero.click();
+    const chartLink = page.locator(".hero-chart-link");
+    await expect(chartLink).toBeVisible();
+    await chartLink.click();
     await expect(page).toHaveURL(/#\/raiox\/chart$/);
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
     await expect(
       page.locator('.tab-bar a[data-tab="raiox"]'),
     ).toHaveAttribute("aria-current", "page");
+  });
+
+  test("tap no hero NÃO navega (cicla faceta em vez de ir pro chart)", async ({ page }) => {
+    // 7a.S.5: regression guard — a mudança de comportamento é intencional.
+    await autenticar(page);
+    const hero = page.locator(".hero");
+    await hero.click();
+    await expect(page).not.toHaveURL(/raiox\/chart/);
+    await expect(page.locator(".tela-patrimonio")).toBeHidden();
+    await expect(page.locator(".raiox")).toBeVisible();
+  });
+
+  test("affordance 'ver histórico' tem touch target ≥44px e aria-label", async ({ page }) => {
+    await autenticar(page);
+    const chartLink = page.locator(".hero-chart-link");
+    await expect(chartLink).toHaveAttribute("aria-label", /.+/);
+    const box = await chartLink.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
   });
 
   test("legacy #patrimonio redireciona para #/raiox/chart", async ({ page }) => {
@@ -46,7 +67,7 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
 
   test("voltar do chart full retorna para Raio-X", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".hero.hero-link").click();
+    await page.locator(".hero-chart-link").click();
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
     await page.locator(".tela-patrimonio .breadcrumb button").click();
     await expect(page.locator(".raiox")).toBeVisible();

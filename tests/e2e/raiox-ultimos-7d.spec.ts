@@ -95,6 +95,32 @@ const FIXTURE_CALMA = {
   variacao_mercado_base_data: null,
 };
 
+// 7a.S.5 Task 2: DB recém-bootstrapped sem snapshot ≥7d — `ultimos_7d` existe
+// (schema v2.13+) mas não tem o que mostrar (delta null + listas vazias).
+// Distinto do legado (json.ultimos_7d ausente): aqui merece uma voz humana
+// em vez de silêncio total.
+const FIXTURE_SEM_HISTORICO = {
+  janela_dias: 7,
+  data_corte: "2026-05-09",
+  delta_patrim_brl: null,
+  delta_patrim_pct: null,
+  decomposicao: { aportes_liq_brl: null, proventos_brl: null, mercado_brl: null },
+  compras: [],
+  vendas: [],
+  proventos: [],
+  variacao_mercado: [],
+  variacao_mercado_base_data: null,
+};
+
+// 7a.S.5 Task 2: semana ativa (headline + decomp + listas visíveis) mas sem
+// cotação-base pra rankear movers (variacao_mercado vazio, distinto de
+// FIXTURE_CALMA que tem TUDO vazio).
+const FIXTURE_SEM_MOVERS = {
+  ...FIXTURE_ATIVA,
+  variacao_mercado: [],
+  variacao_mercado_base_data: null,
+};
+
 test.describe("Raio-X — Últimos 7 dias (7a.J.1.b)", () => {
   test("semana ativa: bloco visível com headline + decomp 3-row + listas", async ({ page }) => {
     await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
@@ -175,6 +201,40 @@ test.describe("Raio-X — Últimos 7 dias (7a.J.1.b)", () => {
   test("schema sem ultimos_7d (legacy): bloco fica escondido", async ({ page }) => {
     await abrirRaioxComUltimos7d(page, null);
     await expect(page.locator(".raiox-7d")).toBeHidden();
+    // 7a.S.5: o fallback de voz (.r7d-vazio) é distinto do legado — legado
+    // não tem `ultimos_7d` nenhum, então nem a mensagem quieta aparece.
+    await expect(page.locator(".r7d-vazio")).toBeHidden();
+  });
+
+  // 7a.S.5 Task 2 — voz nos estados vazios: em vez de o bloco simplesmente
+  // desaparecer sem explicação (schema presente mas sem dado suficiente),
+  // uma frase curta e humana assume o lugar.
+  test("sem histórico de 7d ainda (schema presente, dado insuficiente): mensagem humana em vez de silêncio", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_SEM_HISTORICO);
+    await expect(page.locator(".raiox-7d")).toBeHidden();
+    const vazio = page.locator(".r7d-vazio");
+    await expect(vazio).toBeVisible();
+    await expect(vazio).toHaveText(/\S/); // frase não-vazia
+    await expect(vazio).not.toContainText("Nenhum dado disponível");
+  });
+
+  test("semana ativa sem cotação-base pra movers: mensagem humana no lugar do card", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_SEM_MOVERS);
+    const bloco = page.locator(".raiox-7d");
+    await expect(bloco).toBeVisible();
+    await expect(bloco.locator(".r7d-movers")).toBeHidden();
+    const vazio = bloco.locator(".r7d-movers-vazio");
+    await expect(vazio).toBeVisible();
+    await expect(vazio).toHaveText(/\S/);
+    // As listas Compras/Vendas/Proventos da FIXTURE_ATIVA seguem intactas —
+    // a voz cobre só o sub-bloco Movers, não o resto da semana ativa.
+    await expect(bloco.locator('.r7d-lista[data-list="compras"]')).toBeVisible();
+  });
+
+  test("semana ativa COM movers: mensagem de vazio dos movers não aparece", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    await expect(page.locator(".r7d-movers")).toBeVisible();
+    await expect(page.locator(".r7d-movers-vazio")).toBeHidden();
   });
 });
 
@@ -255,5 +315,42 @@ test.describe("Raio-X — Movers de mercado (7a.J.2.b)", () => {
     const bloco = page.locator(".raiox-7d");
     await expect(bloco.locator(".r7d-movers")).toBeVisible();
     await bloco.screenshot({ path: "test-results/r7d-movers-7a-j2b.png" });
+  });
+
+  // 7a.S.5 Task 3 — grifo consagrado: .r7d-movers vira o ÚNICO cartão com
+  // border-left na tela Raio-X (Apêndice B da spec: "Raio-X = card Movers",
+  // já documentado como anti-pattern #14 do DESIGN.md). border-left 3px
+  // var(--accent) = rgb(4, 120, 87); --surface-2 = rgb(243, 243, 236).
+  test("grifo: .r7d-movers usa .grifo (border-left --accent + radius 0/14 + bg --surface-2)", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const movers = page.locator(".r7d-movers");
+    await expect(movers).toBeVisible();
+    const estilo = await movers.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        borderLeftWidth: cs.borderLeftWidth,
+        borderLeftColor: cs.borderLeftColor,
+        borderLeftStyle: cs.borderLeftStyle,
+        borderTopLeftRadius: cs.borderTopLeftRadius,
+        borderTopRightRadius: cs.borderTopRightRadius,
+        borderBottomRightRadius: cs.borderBottomRightRadius,
+        borderBottomLeftRadius: cs.borderBottomLeftRadius,
+        backgroundColor: cs.backgroundColor,
+      };
+    });
+    expect(estilo.borderLeftWidth).toBe("3px");
+    expect(estilo.borderLeftStyle).toBe("solid");
+    expect(estilo.borderLeftColor).toBe("rgb(4, 120, 87)"); // var(--accent)
+    expect(estilo.borderTopLeftRadius).toBe("0px");
+    expect(estilo.borderTopRightRadius).toBe("14px");
+    expect(estilo.borderBottomRightRadius).toBe("14px");
+    expect(estilo.borderBottomLeftRadius).toBe("0px");
+    expect(estilo.backgroundColor).toBe("rgb(243, 243, 236)"); // var(--surface-2)
+  });
+
+  test("grifo: dados e ordem dos movers preservados (não é só cosmético)", async ({ page }) => {
+    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
+    const tickers = await page.locator(".r7d-movers li .tk").allTextContents();
+    expect(tickers).toEqual(["PETR4", "VOO", "ITSA4", "BBAS3", "EGIE3", "KNRI11"]);
   });
 });

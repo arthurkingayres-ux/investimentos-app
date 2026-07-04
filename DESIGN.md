@@ -112,7 +112,7 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 
 | Token | px | Onde (exemplos) |
 |---|---|---|
-| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` (capa Relatório S.9); apval do hero-faceta S.5 mapeia aqui |
+| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` (capa Relatório S.9) |
 | `--num-poster-xl` | 54px (3.375rem) | poster monumento (DY dedicado S.7) |
 
 Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
@@ -227,7 +227,53 @@ Implementação real: **não** existe `.hero-valor-monument` nem `--hero-mono-si
 }
 ```
 
-Hero size = `--num-poster` (2.5rem), calibrada no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, removidos no enxuto).
+Hero size = `--num-poster` (2.5rem), calibrada no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, removidos no enxuto). **7a.S.5 nota:** o hero-valor de TODAS as 4 facetas (ver seção seguinte) mantém `--num-poster` — o mockup de referência usa 38px (≈ o mesmo degrau), não o degrau maior `--num-poster-lg` (46px) cogitado como possibilidade em S.1; corrigido aqui pra refletir a implementação real.
+
+### Hero de facetas (raio-x, 7a.S.5)
+
+O hero deixou de ser um `<a>` com uma única leitura (patrimônio) e um único destino (clique → `#/raiox/chart`). Virou um **card de facetas**: `<div role="button" tabindex="0">` que cicla **4 fatos read-only**, todos derivados do `portfolio.json` já existente — nenhum campo novo de backend:
+
+1. **Patrimônio total** (`patrimonio.total_brl`) — faceta inicial, com o count-up 1×/sessão preservado.
+2. **Divisão Brasil · EUA** (`patrimonio.br_brl` / `patrimonio.eua_brl`, campos diretos, não derivados) — split visual: 2 colunas (bandeira + R$ + % do total) + barra proporcional 2 cores.
+3. **Variação · 7 dias** (`patrimonio.variacao_semanal_brl`/`_pct`) — mesma métrica do antigo `.hero-delta`, agora com sua própria leitura em destaque (número grande + subtítulo).
+4. **Desde a origem** (`rentabilidade.Total.xirr_origem`, fallback `twr_origem` se o XIRR for `null`) — retorno anualizado acumulado desde o início da carteira.
+
+**Interação:** tap em qualquer ponto do card, `Enter`/`Space` com o card focado, ou tocar num facet-dot pulam pra faceta correspondente. `@click.stop`/`@keydown.stop` nos facet-dots impedem que o toque neles borbulhe pro `@click` do card (senão o dot avançaria a faceta duas vezes). O `aria-label` do card ("Patrimônio — toque para alternar a leitura") mais o `aria-live="polite"` em `#hero-body` tornam a troca anunciável a leitores de tela sem precisar reimplementar o padrão ARIA "tabs" completo (decisão deliberada: os dots são `<button>` nativos com `aria-current`/`aria-label` próprios, não `role="tab"` — esse role exigiria roving-tabindex + navegação por seta que não foi implementada, e um ARIA incompleto é pior que nenhum).
+
+**Facet-dots:** 4 traços de 22×3px (`::before` decorativo), mas o `<button>` que os contém tem hit-area 44×44px (`min-width`/`min-height`, ver a11y de toque) — o traço pequeno preserva a estética discreta do mockup sem violar touch target.
+
+**Transição em duas camadas** (mockup, valores extraídos): o eyebrow (`#hero-eyebrow`) esmaece (`opacity: 0`) por 150ms antes de trocar o texto; o corpo (`#hero-body`) troca via `.hero-face` — a face que sai ganha `.out` (`translateY(-10px)`, opacity 0, removida do DOM 320ms depois) enquanto a que entra começa em `translateY(10px)`/opacity 0 e anima pra `translateY(0)`/opacity 1 em `--d2` `--ease` (double-`requestAnimationFrame` força o navegador a computar o estado inicial antes de aplicar `.on`, senão a transição não dispara). Facet-dots usam `--ease-spring` só no `scaleX` do traço ativo. `prefers-reduced-motion: reduce` (via `window.drarthurNav.motion.reduced`, mesma fonte de verdade do resto do app shell) pula toda a coreografia — troca instantânea, sem RAF nem `setTimeout`.
+
+**Implementação: DOM imperativo, não `x-show`/`x-if`.** `_renderHeroFace(idx, opts)` cria/remove `.hero-face` diretamente via `document.createElement`/`innerHTML`, no mesmo racional de `ativarCountUpHero` (7a.I.6): a transição de duas camadas com remoção atrasada não mapeia bem pra `x-if` do Alpine sem arriscar nós duplicados em modo estrito de teste, e reatividade do Alpine no meio de uma animação RAF reverteria frames intermediários. `heroFacetAtivo` (estado Alpine) permanece single-source pros facet-dots (`x-for` reativo) — só o CONTEÚDO da faceta é imperativo, não o indicador de qual está ativa.
+
+**Count-up preservado, nunca re-disparado.** `ativarCountUpHero(el)` (assinatura estendida em 7a.S.5 pra aceitar um elemento explícito) é chamada toda vez que a faceta "Patrimônio total" é renderizada — inclusive ao voltar pra ela depois de ciclar. Ela mesma decide animar-ou-não via `sessionStorage.heroCountUpDone`: setado uma única vez, na 1ª renderização da sessão; toda visita subsequente (recarregar a página OU ciclar de volta pra faceta 0) cai no branch instantâneo (`el.textContent = formatBrl(...)`, sem RAF). **Gotcha descoberto pelo próprio teste TDD:** o nó antigo de `#hero-patrimonio` fica 320ms no DOM (transição de saída) enquanto um nó novo com o MESMO id é criado pra faceta seguinte — se o usuário ciclasse de volta pra faceta 0 dentro dessa janela, `getElementById` resolvia pro nó errado (o que está saindo, ainda alvo do RAF do 1º count-up em voo), revertendo o texto pro valor parcial. Corrigido de duas formas: (1) o id é removido do nó que está saindo no instante em que ele vira `.out`; (2) `ativarCountUpHero` recebe o elemento explícito (escopado ao nó que `_renderHeroFace` acabou de criar), nunca dependendo de uma busca global ambígua.
+
+**Hint "☞ toque no número"** aparece 1×/sessão (`sessionStorage.heroFacetHintSeen`, mesmo padrão de `heroCountUpDone`) e some no 1º toque (`.hero-hint.gone`, opacity 0). `aria-hidden` (é reforço visual, não informação essencial — o `aria-label` do card já comunica a interação a quem usa leitor de tela).
+
+**Acesso ao histórico completo preservado.** O hero era a ÚNICA entrada pra `#/raiox/chart` (7a.I.5); virando facet-cycling, um affordance discreto e explícito assume esse papel — `.hero-chart-link`, um `<a>` de verdade (não um `<div>` fake), abaixo do card, com texto "Ver histórico" + chevron `›`, `aria-label`, e hit-area ≥44px (`min-height`). `raiox-chart-push.spec.ts`/`raiox.spec.ts` migraram pra clicar esse link; um teste de regressão explícito ("tap no hero NÃO navega") documenta a mudança de comportamento como intencional.
+
+```css
+.hero { cursor: pointer; overflow: hidden; }      /* card vira controle interativo */
+.hero::before { background: radial-gradient(90% 70% at 78% 4%, var(--hero-glow), transparent 62%); }
+.hero:active { transform: scale(.985); box-shadow: var(--shadow-pressed); }  /* migrado de .hero-link */
+.hero-face { position: absolute; inset: 0; opacity: 0; transform: translateY(10px); }
+.hero-face.on  { opacity: 1; transform: translateY(0); }
+.hero-face.out { opacity: 0; transform: translateY(-10px); }
+.fd { min-width: 44px; min-height: 44px; }         /* hit-area do facet-dot */
+.hero-chart-link { min-height: 44px; color: var(--accent); }
+```
+
+O `.hero::before` consome `--hero-glow` (token S.1, transparente no light — inerte até S.12 dark) pela primeira vez; não é o gradiente decorativo banido pelo anti-pattern #8 (que continua vigente — sem gradiente LINEAR no background do card, só o radial glow reservado desde a fundação).
+
+### Voz humana nos estados vazios (raio-x, 7a.S.5)
+
+Três estados que antes eram robóticos ou silenciosos ganharam frase curta e humana — a degradação graciosa (`x-show`) continua intacta, só o TEXTO mudou/apareceu:
+
+- `.aporte-vazio`: "Nenhum aporte registrado." → **"Nenhum aporte por aqui ainda."**
+- `.r7d-vazio` (novo): quando `ultimos_7d` existe (schema v2.13+) mas ainda não há dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem movimentos na janela) — **"Sem novidade por aqui nesta semana."** em vez do bloco simplesmente desaparecer sem explicação. Distinto do legado (schema < v2.13, `ultimos_7d` ausente) — aí nem esta mensagem aparece (`x-show="json.ultimos_7d && !ultimos7dVisivel()"`).
+- `.r7d-movers-vazio` (novo): semana ativa (headline + decomp + listas visíveis) mas sem cotação-base pra rankear movers — **"Sem destaque de mercado nesta semana."** no lugar do card, sem tocar o resto da semana.
+
+Tipograficamente espelham `.aporte-vazio` (0.875rem/0.8125rem, `--gray`, centralizado) — não competem visualmente com dado real.
 
 ### Bloco "Últimos 7 dias" (raio-x, 7a.J.1)
 
@@ -236,12 +282,14 @@ Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 
 ```css
 .r7d-head    { /* label small-caps 11px + delta mono 1.125rem 700 (--ink/--g-700/--red) */ }
 .r7d-row     { /* sans label gray + valor mono 0.9375rem colorido por sinal */ }
-.r7d-movers  { /* cartão sutil: bg --neutral-50 + border-left 3px --ink + radius 10px */ }
+.r7d-movers  { /* .grifo consagrado (7a.S.5): bg --surface-2 + border-left 3px --accent + radius 0 14px 14px 0 */ }
 .r7d-movers li { /* grid 0.9rem 1fr auto auto auto: ▲▼ · ticker · .flag · R$ · % */ }
 .r7d-lista li{ /* grid 1fr auto auto auto: ticker · qty · valor · .flag */ }
 ```
 
-**Movers de mercado (7a.J.2.b).** Sub-bloco entre a decomposição 3-row e as listas Compras/Vendas/Proventos: lista as **top 3 altas + top 3 baixas por impacto em R$** na semana, "abrindo" a caixa-preta da linha **Mercado** (a única perna da decomposição que o Dr. Arthur não controla e mais quer entender). Cada linha: seta ▲/▼ · ticker · bandeira · impacto R$ com sinal (`formatBrlSigned`) · retorno % (`formatPct`). É o **elemento-assinatura** do bloco — único cartão com fundo + border-left; tudo ao redor fica plano. Ordenação visual: altas (impacto desc) seguidas das baixas (mais negativa primeiro), espelhando a ordem do array do backend (`ultimos_7d.variacao_mercado`, schema JSON v2.22). Cores pelos pares semânticos (`.is-positive`/`.is-negative` → `--g-700`/`--red`). **A11y:** direção codificada em três camadas (forma ▲/▼ + cor + sinal `+/−` no valor — nunca cor sozinha, regra `color-not-only`); seta ▲/▼ e ★ do título são `aria-hidden` (decorativos), o leitor de tela lê "PETR4 +R$ 920,00 +3,10%".
+**Movers de mercado (7a.J.2.b).** Sub-bloco entre a decomposição 3-row e as listas Compras/Vendas/Proventos: lista as **top 3 altas + top 3 baixas por impacto em R$** na semana, "abrindo" a caixa-preta da linha **Mercado** (a única perna da decomposição que o Dr. Arthur não controla e mais quer entender). Cada linha: seta ▲/▼ · ticker · bandeira · impacto R$ com sinal (`formatBrlSigned`) · retorno % (`formatPct`). Ordenação visual: altas (impacto desc) seguidas das baixas (mais negativa primeiro), espelhando a ordem do array do backend (`ultimos_7d.variacao_mercado`, schema JSON v2.22). Cores pelos pares semânticos (`.is-positive`/`.is-negative` → `--g-700`/`--red`). **A11y:** direção codificada em três camadas (forma ▲/▼ + cor + sinal `+/−` no valor — nunca cor sozinha, regra `color-not-only`); seta ▲/▼ e ★ do título são `aria-hidden` (decorativos), o leitor de tela lê "PETR4 +R$ 920,00 +3,10%".
+
+**Grifo consagrado (7a.S.5).** `.r7d-movers` é o **único cartão com border-left** da tela Raio-X — a colocação canônica documentada desde S.1 (anti-pattern #14, Apêndice B da spec: "Raio-X = card Movers"), agora realizada. Antes: `border-left 3px solid var(--ink)` + `background: var(--neutral-50)` + `border-radius: 10px` (uniforme). Depois: `.grifo` (S.1) — `border-left 3px solid var(--accent)` + `background: var(--surface-2)` + `border-radius: 0 14px 14px 0` (assimétrico, "abrindo" visualmente pra direita). É o cartão de maior tensão informativa do bloco (o que o Dr. Arthur mais quer entender), coerente com a régua "grifo = UMA por tela, no ponto de maior tensão".
 
 **Pattern de render:** pure Alpine (sem helper JS externo). `x-show="ultimos7dVisivel()"` esconde o bloco quando schema é v<2.13 (sem `ultimos_7d`) ou quando DB recém-bootstrapped não tem snapshot ≥7d E listas vazias. Cada `.r7d-lista` aparece via `x-show` apenas quando array é não-vazio (semana calma fica só com headline + decomp). O `.r7d-movers` aparece via `x-show="(json.ultimos_7d?.variacao_mercado || []).length > 0"` (some quando não há snapshot-base 7d ou todos os impactos < 1 centavo). Sem ECharts (Monument text-only); sem motion individual (segue regra global do shell — entrada via `x-transition.opacity.duration.220ms` herdada da tab raio-x).
 
@@ -487,6 +535,21 @@ O Refresh Monument introduz um contrato de motion em `:root`, **aditivo** ao de 
 
 Regra: motion novo referencia estes tokens; o contrato de nav não é remapeado (durações não coincidem — reconciliação por adição, não substituição, spec §11).
 
+### Hero de facetas — motion (Fase 7a.S.5)
+
+Primeiro consumidor real dos tokens `--d1`/`--d2`/`--d3`/`--ease`/`--ease-spring` reservados em S.1 (até aqui, inertes):
+
+| Elemento | Duração/curva | Property | Reduced-motion |
+|---|---|---|---|
+| Eyebrow (`#hero-eyebrow`) esmaece antes de trocar o texto | 150ms fixo (`setTimeout`) + `--d2` na volta | opacity | pula o `setTimeout`, troca o texto direto |
+| Face entra/sai (`.hero-face`) | `--d2` (`.3s`) `--ease` | opacity + `transform: translateY` (±10px) | `.out` some sem transição, `.on` aplica direto |
+| Face que sai — remoção do DOM | 320ms (`setTimeout`, > `--d2` pra garantir que a transição de saída já terminou visualmente) | — | remoção imediata (sem espera) |
+| Facet-dot ativo (traço `::before`) | `--d2` `--ease-spring` | background + `scaleX` | sem transição |
+| Hint "☞ toque no número" some | `--d3` (`.55s`) ease | opacity | sem transição |
+| `.hero`/`.hero-chart-link` `:active` | `--d1` (`.14s`) `--ease` | transform + box-shadow | herda o guard geral de S.2 (`@media (prefers-reduced-motion: no-preference)`) |
+
+Toda a coreografia é gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell, `transitions.js`) — não um segundo `matchMedia` paralelo. Nenhuma trava a leitura: o usuário pode ciclar facetas e recarregar a página livremente sem re-disparar o count-up (ver seção "Hero de facetas" em Components).
+
 ### Chart #rentabilidade — period-relative reanchoring (Fase 7a.L.1)
 
 Chart histórico do #rentabilidade reanchora dinamicamente conforme o `dataZoom` é movido. Sem zoom (range 100%), Y mostra **cumulativo desde origem** (1 + crescimento_total − 1). Com zoom em `[startIdx, endIdx]`, Y vira **cumulativo desde primeiro ponto visível** via chain rule: `y[i] = growth[i] / growth[startIdx] − 1`. Benchmark recebe o mesmo tratamento. Sub-título `<p class="chart-rent-subtitulo">` acima do chart explicita a âncora ("Cresceu desde Mmm/AA") e atualiza via Alpine state `rentabilidadeSubtitulo`.
@@ -538,7 +601,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): Raio-X = card Movers · Alocação = callout "abaixo do alvo" · Proventos = leitura de run-rate · Aportar = box do plano · Relatório = âmbar "NÃO funcionando" · Rentabilidade = nenhum (grifo removido a pedido).
+14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · Alocação = callout "abaixo do alvo" · Proventos = leitura de run-rate · Aportar = box do plano · Relatório = âmbar "NÃO funcionando" · Rentabilidade = nenhum (grifo removido a pedido).
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
 16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
@@ -610,7 +673,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --amber-bg #fbf3e3  --amber-bd #eeddb8
                      --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
 /* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
-                     .grifo (border-left 3px --accent, "uma por tela")
+                     .grifo (border-left 3px --accent, "uma por tela"; 7a.S.5 realiza em .r7d-movers)
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

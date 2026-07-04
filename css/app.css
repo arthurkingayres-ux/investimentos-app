@@ -273,6 +273,12 @@ h1 {
   margin: 0 0 1rem;
 }
 
+/* 7a.S.5: o hero deixou de ser <a class="hero-link"> (link único pro chart)
+   e virou um card de facetas — <div role="button"> que cicla 4 fatos
+   read-only no tap/Enter/Space. O :active/:focus-visible que antes viviam em
+   `.hero-link` migram pra `.hero` (é ela agora a superfície interativa). O
+   acesso ao histórico completo (#/raiox/chart) migrou pro affordance
+   discreto `.hero-chart-link`, logo abaixo do card (ver mais adiante). */
 .hero {
   background: var(--g-900);
   border-radius: 18px;
@@ -280,26 +286,58 @@ h1 {
   color: #fff;
   box-shadow: var(--card-shadow);
   position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
-
-.hero-link {
-  display: block;
-  text-decoration: none;
-  color: #fff;
+/* Radial glow via --hero-glow (S.1): transparente no light (inerte), acende
+   no dark (S.12). Não é gradiente decorativo banido (anti-pattern #8) — é o
+   mesmo token já reservado desde a fundação, só agora consumido. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 70% at 78% 4%, var(--hero-glow), transparent 62%);
+  pointer-events: none;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .hero-link { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease; }
+  .hero { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease; }
 }
-/* 7a.S.2: mapeia .hero do mockup — encolhe + troca --card-shadow por --shadow-pressed. */
-.hero-link:active {
+.hero:active {
   transform: scale(.985);
   box-shadow: var(--shadow-pressed);
 }
-.hero-link:focus-visible {
+.hero:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 18px;
 }
+
+.hero-chart-link {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.15rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-chart-link { transition: transform var(--d1) var(--ease); }
+}
+.hero-chart-link:active { transform: scale(.97); }
+.hero-chart-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.hero-chart-link__chevron { font-size: 1rem; }
 
 .hero-label {
   font-size: 0.6875rem;
@@ -309,6 +347,12 @@ h1 {
   color: rgba(255, 255, 255, 0.78);
   margin: 0 0 0.25rem;
 }
+/* 7a.S.5: troca de faceta — o eyebrow (#hero-eyebrow) esmaece 150ms antes de
+   trocar o texto (JS via _renderHeroFace), depois volta a opacity 1. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-label { transition: opacity var(--d2) ease; }
+}
+.hero-label.swap { opacity: 0; }
 
 .hero-updated {
   font-size: 0.75rem;
@@ -358,6 +402,127 @@ h1 {
   opacity: 0.85;
   font-weight: 500;
 }
+
+/* 7a.S.5 — corpo de facetas: #hero-body é gerido via JS (_renderHeroFace),
+   que cria/remove `.hero-face` (duas camadas: a que sai / a que entra) —
+   min-height evita salto de layout entre facetas de altura distinta. */
+.hero-body {
+  position: relative;
+  z-index: 1;
+  min-height: 5.5rem;
+}
+.hero-face {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-face {
+    transition: opacity var(--d2) var(--ease), transform var(--d2) var(--ease);
+  }
+}
+.hero-face.on { opacity: 1; transform: translateY(0); }
+.hero-face.out { opacity: 0; transform: translateY(-10px); }
+
+.hero-sub {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* Faceta "Divisão Brasil · EUA" — split-bar proporcional às cores de país
+   (--cat-acoes-br teal / --cat-eua azul), mesmos tokens do dot de categoria. */
+.hero-split {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.125rem;
+}
+.hero-split .col { flex: 1; min-width: 0; }
+.hero-split .cap {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.72);
+  margin-bottom: 0.25rem;
+}
+.hero-split .num {
+  font-family: var(--mono);
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.hero-split .pct {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.62);
+  margin-top: 0.125rem;
+  font-variant-numeric: tabular-nums;
+}
+.hero-splitbar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 1rem;
+  background: rgba(255, 255, 255, 0.14);
+}
+.hero-splitbar i { display: block; height: 100%; }
+
+/* Facet-dots: indicador discreto de qual das 4 facetas está ativa. O botão
+   (.fd) tem hit-area ≥44px (touch target); o traço visível de 22×3px vem do
+   ::before, mantendo a estética minúscula do mockup sem violar a11y de toque. */
+.hero-facets {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+.fd {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fd::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.24);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fd::before { transition: background var(--d2) ease, transform var(--d2) var(--ease); }
+}
+.fd.on::before { background: #fff; transform: scaleX(1.35); }
+
+/* Hint "☞ toque no número" — aparece 1×/sessão (heroFacetHintSeen), some
+   no 1º toque. prefers-reduced-motion: reduce → some sem transição. */
+.hero-hint {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.6rem;
+  font-size: 0.65625rem;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-hint { transition: opacity var(--d3) ease; }
+}
+.hero-hint.gone { opacity: 0; pointer-events: none; }
 
 .card {
   background: #fff;
@@ -2234,6 +2399,17 @@ body:has(.tab-bar) main {
   border-bottom: 0;
 }
 
+/* 7a.S.5 Task 2: voz humana no lugar do silêncio quando `ultimos_7d` existe
+   (schema v2.13+) mas não há dado suficiente ainda (DB recém-bootstrapped).
+   Espelha `.aporte-vazio` (mesmo tratamento tipográfico de "nada aqui"). */
+.r7d-vazio {
+  font-size: 0.875rem;
+  color: var(--gray);
+  text-align: center;
+  padding: 1.25rem 0;
+  margin: 1rem 0 1.25rem;
+}
+
 /* ── Últimos 7 dias (Fase 7a.J.1) — Monument text-only ────────────────── */
 .raiox-7d {
   margin: 1rem 0 1.25rem;
@@ -2351,17 +2527,33 @@ body:has(.tab-bar) main {
   white-space: nowrap;
 }
 
+/* 7a.S.5 Task 2: voz humana quando a semana está ativa (headline + decomp
+   visíveis) mas não há cotação-base pra rankear movers — distinto do
+   silêncio da semana calma (aí TUDO fica vazio, de propósito). */
+.r7d-movers-vazio {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--gray);
+  text-align: center;
+  padding: 0.6rem 0;
+}
+
 /* Movers de mercado (7a.J.2.b) — cartão sutil que "abre" a linha Mercado:
    top altas (▲ verde) + baixas (▼ vermelho) por impacto em R$. Reusa a
    linguagem Monument (--mono, tabular-nums, pares semânticos --g-700/--red,
    .flag global). Setas decorativas (aria-hidden); o sinal de formatBrlSigned
-   carrega a direção para leitores de tela. */
+   carrega a direção para leitores de tela.
+   7a.S.5 Task 3: consagra o `.grifo` (S.1) aqui — .r7d-movers é o cartão de
+   maior tensão informativa do Raio-X (Apêndice B da spec: "Raio-X = card
+   Movers"; já documentado como anti-pattern #14 do DESIGN.md). Antes
+   `border-left 3px --ink` + `--neutral-50`; agora `border-left 3px
+   var(--accent)` + radius assimétrico `0 14px 14px 0` + `--surface-2`. */
 .r7d-movers {
   margin-top: 0.2rem;
   padding: 0.55rem 0.7rem;
-  background: var(--neutral-50, #fbfbf9);
-  border-left: 3px solid var(--ink);
-  border-radius: 10px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 14px 14px 0;
 }
 
 .r7d-movers-head {

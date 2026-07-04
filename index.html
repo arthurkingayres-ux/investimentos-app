@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=46">
+  <link rel="stylesheet" href="css/app.css?v=47">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=42"></script>
-  <script src="js/transitions.js?v=40"></script>
+  <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=44"></script>
+  <script src="js/app.js?v=45"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -74,24 +74,56 @@
       <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak>
         <h1 class="eyebrow">Raio X</h1>
 
-        <a href="#/raiox/chart" class="hero hero-link" aria-label="Abrir histórico patrimonial">
+        <!-- 7a.S.5: o hero virou um card de facetas — tap/Enter/Space/dots
+             ciclam 4 fatos read-only (patrimônio · divisão BR/EUA · variação
+             7d · desde a origem). O conteúdo de #hero-body é gerido de forma
+             imperativa (montarHeroFacetas/_renderHeroFace), no mesmo espírito
+             de ativarCountUpHero — evita a reatividade do Alpine disputar com
+             a transição de duas camadas (.hero-face.out/.on). -->
+        <div class="hero"
+             id="hero"
+             role="button"
+             tabindex="0"
+             aria-label="Patrimônio — toque para alternar a leitura"
+             x-init="montarHeroFacetas()"
+             @click="ciclarHeroFacet()"
+             @keydown.enter.prevent="ciclarHeroFacet()"
+             @keydown.space.prevent="ciclarHeroFacet()">
           <div class="hero-meta">
-            <p class="hero-label">Patrimônio total</p>
+            <p class="hero-label" id="hero-eyebrow">Patrimônio total</p>
             <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
           </div>
-          <p class="hero-valor"
-             id="hero-patrimonio"
-             x-init="ativarCountUpHero()"></p>
-          <div
-            class="hero-delta"
-            :class="json.patrimonio.variacao_semanal_brl >= 0 ? 'is-positive' : 'is-negative'"
-            x-show="json.patrimonio.variacao_semanal_brl !== null && json.patrimonio.variacao_semanal_brl !== undefined">
-            <span class="seta" x-text="json.patrimonio.variacao_semanal_brl >= 0 ? '▲' : '▼'"></span>
-            <span x-text="formatBrl(json.patrimonio.variacao_semanal_brl)"></span>
-            <span x-text="'(' + formatPct(json.patrimonio.variacao_semanal_pct) + ')'"></span>
-            <span class="texto">· 7d</span>
+          <div class="hero-body" id="hero-body" aria-live="polite"></div>
+          <div class="hero-facets" aria-label="Facetas do patrimônio">
+            <template x-for="(label, i) in heroFacetLabels" :key="'fd-' + i">
+              <button type="button"
+                      class="fd"
+                      :class="{ on: i === heroFacetAtivo }"
+                      :aria-current="i === heroFacetAtivo"
+                      :aria-label="'Faceta ' + (i + 1) + ' de 4: ' + label"
+                      @click.stop="irParaFacetHero(i)"
+                      @keydown.stop></button>
+            </template>
           </div>
+          <div class="hero-hint" :class="{ gone: heroFacetHintGone }" aria-hidden="true">
+            <span>☞</span> toque no número
+          </div>
+        </div>
+        <a href="#/raiox/chart" class="hero-chart-link" aria-label="Ver histórico completo do patrimônio">
+          <span>Ver histórico</span>
+          <span class="hero-chart-link__chevron" aria-hidden="true">›</span>
         </a>
+
+        <!-- 7a.S.5 Task 2: quando o schema tem `ultimos_7d` mas ainda não há
+             dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem
+             movimentos na janela), uma frase curta substitui o silêncio
+             total. Distinto do legado (schema < v2.13, sem `ultimos_7d`
+             nenhum) — aí nem esta mensagem aparece. -->
+        <p class="r7d-vazio"
+           x-show="json.ultimos_7d && !ultimos7dVisivel()"
+           x-cloak>
+          Sem novidade por aqui nesta semana.
+        </p>
 
         <section
           class="raiox-7d"
@@ -152,6 +184,16 @@
               </template>
             </ul>
           </div>
+
+          <!-- 7a.S.5 Task 2: semana ativa mas sem cotação-base pra rankear
+               movers (ticker sem cotação ≤ base_data) — voz em vez de
+               silêncio, sem confundir com "semana calma" (que não mostra
+               nada aqui, de propósito, quando TUDO está vazio). -->
+          <p class="r7d-movers-vazio"
+             x-show="ultimos7dVisivel() && (json.ultimos_7d?.variacao_mercado || []).length === 0"
+             x-cloak>
+            Sem destaque de mercado nesta semana.
+          </p>
 
           <div class="r7d-listas">
             <div class="r7d-lista" data-list="compras" x-show="(json.ultimos_7d?.compras || []).length > 0">
@@ -224,7 +266,7 @@
             </div>
           </template>
           <template x-if="!json.ultimo_aporte">
-            <p class="aporte-vazio">Nenhum aporte registrado.</p>
+            <p class="aporte-vazio">Nenhum aporte por aqui ainda.</p>
           </template>
         </section>
 

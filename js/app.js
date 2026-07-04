@@ -273,6 +273,24 @@ document.addEventListener("alpine:init", () => {
     rota: "",
     tab: "raiox",
     tickerAtual: "",
+    // 7a.S.5: hero de facetas — índice ativo (0..3) + labels estáticos (usados
+    // tanto pelo eyebrow quanto pelo aria-label dos facet-dots). heroFacetHintGone
+    // reflete sessionStorage.heroFacetHintSeen (1×/sessão, como heroCountUpDone).
+    heroFacetAtivo: 0,
+    heroFacetHintGone: false,
+    heroFacetLabels: [
+      "Patrimônio total",
+      "Divisão Brasil · EUA",
+      "Variação · 7 dias",
+      "Desde a origem",
+    ],
+    // CRB 7a.S.5 — re-entrância de _renderHeroFace: geração da troca +
+    // handles de timers/RAF em voo (ver comentários na própria função).
+    _heroFaceGen: 0,
+    _heroEyebrowSwapTimeout: null,
+    _heroFaceRafOuter: null,
+    _heroFaceRafInner: null,
+    _heroSettleTimeout: null,
     // 7a.Q.3 — Relatório Mensal (payloads cifrados separados do portfolio.json)
     relIndice: null,        // {schema, atualizado_em, meses:[…]} | null
     relMes: null,           // artefato relatorio_mensal_v1 do mês carregado | null
@@ -463,25 +481,316 @@ document.addEventListener("alpine:init", () => {
       nav.style.setProperty("--tab-indicator-x", x + "px");
     },
 
-    ativarCountUpHero() {
+    ativarCountUpHero(elParam, onDone) {
       // 7a.I.6: dono exclusivo do textContent de #hero-patrimonio. Removido o
       // x-text para não disputar com o RAF (Alpine re-renderiza no meio dos
       // 700ms reverteria o frame intermediário para o valor final).
-      if (!this.json || !this.json.patrimonio) return;
+      // 7a.S.5: aceita um elemento explícito (passado por _renderHeroFace,
+      // escopado ao nó recém-criado da faceta ativa). Isso evita uma corrida
+      // real: com o hero de facetas, o nó ANTIGO com o mesmo id só é removido
+      // 320ms depois (transição de saída) — se o usuário ciclar de volta pra
+      // faceta 0 dentro desse intervalo, document.getElementById encontraria
+      // o nó velho (1º em ordem no DOM) em vez do novo, e o RAF do 1º count-up
+      // (ainda em voo) continuaria escrevendo nele, revertendo o texto pro
+      // valor parcial. Passar o elemento explícito elimina a ambiguidade.
+      //
+      // CRB 7a.S.5: `onDone` opcional (chamado 1x, síncrono nos caminhos
+      // instantâneos/refresh, assíncrono no caminho RAF) — usado por
+      // _renderHeroFace para saber quando o count-up terminou e liberar o
+      // aria-busy do #hero-body. Todo caminho de saída chama onDone, inclusive
+      // os guards antecipados (senão o aria-busy travaria em "true").
+      const done = () => { if (onDone) onDone(); };
+      if (!this.json || !this.json.patrimonio) { done(); return; }
       const target = this.json.patrimonio.total_brl;
-      if (typeof target !== "number" || !isFinite(target)) return;
-      const el = document.getElementById("hero-patrimonio");
-      if (!el) return;
+      if (typeof target !== "number" || !isFinite(target)) { done(); return; }
+      const el = elParam || document.getElementById("hero-patrimonio");
+      if (!el) { done(); return; }
       // Refresh dentro da mesma sessão (heroCountUpDone=1) = valor final direto,
       // sem animação. Primeira load por sessão = count-up 700ms via RAF.
       // transitions.js carrega síncrono antes de app.js em index.html, então
       // drarthurNav está sempre definido nesse ponto — sem fallback redundante.
       if (sessionStorage.getItem("heroCountUpDone") === "1") {
         el.textContent = window.formatBrl(target);
+        done();
         return;
       }
-      window.drarthurNav.applyCountUp(el, target, (n) => window.formatBrl(n));
+      window.drarthurNav.applyCountUp(el, target, (n) => window.formatBrl(n), done);
       sessionStorage.setItem("heroCountUpDone", "1");
+    },
+
+    // ── Hero de facetas (7a.S.5) ────────────────────────────────────────
+    // Conteúdo de #hero-body é gerido via DOM imperativo (mesmo racional de
+    // ativarCountUpHero: a transição de duas camadas .hero-face.out/.on —
+    // com remoção atrasada 320ms — não mapeia bem pra x-show/x-if do Alpine
+    // sem arriscar nós duplicados/strict-mode). heroFacetAtivo (estado Alpine)
+    // permanece a single source pros facet-dots (x-for reativo).
+
+    // Deriva os 4 fatos a partir de `this.json` — chamado a cada troca de
+    // faceta (barato: 4 objetos pequenos), nunca cacheado, pra sempre refletir
+    // o JSON corrente.
+    _heroFacetsData() {
+      const j = this.json || {};
+      const p = j.patrimonio || {};
+      const rentTotal = (j.rentabilidade && j.rentabilidade.Total) || {};
+      const origem = rentTotal.xirr_origem ?? rentTotal.twr_origem ?? null;
+      return [
+        {
+          tipo: "big",
+          eyebrow: this.heroFacetLabels[0],
+          valor: p.total_brl,
+          delta: p.variacao_semanal_brl,
+          deltaPct: p.variacao_semanal_pct,
+        },
+        {
+          tipo: "split",
+          eyebrow: this.heroFacetLabels[1],
+          totalBrl: p.total_brl,
+          brBrl: p.br_brl,
+          euaBrl: p.eua_brl,
+        },
+        {
+          tipo: "variacao7d",
+          eyebrow: this.heroFacetLabels[2],
+          valor: p.variacao_semanal_brl,
+          pct: p.variacao_semanal_pct,
+        },
+        {
+          tipo: "origem",
+          eyebrow: this.heroFacetLabels[3],
+          valor: origem,
+        },
+      ];
+    },
+
+    // Monta o innerHTML de UMA faceta. Números são sempre computados (nunca
+    // texto vindo do usuário) — sem risco de XSS na concatenação.
+    _heroFaceHtml(f) {
+      if (f.tipo === "big") {
+        const temDelta = f.delta !== null && f.delta !== undefined;
+        const temPct = f.deltaPct !== null && f.deltaPct !== undefined;
+        const deltaHtml = temDelta
+          ? '<div class="hero-delta ' + (f.delta >= 0 ? "is-positive" : "is-negative") + '">' +
+            '<span class="seta" aria-hidden="true">' + (f.delta >= 0 ? "▲" : "▼") + "</span>" +
+            "<span>" + window.formatBrl(f.delta) + "</span>" +
+            (temPct ? "<span>(" + window.formatPct(f.deltaPct) + ")</span>" : "") +
+            '<span class="texto">· 7d</span></div>'
+          : "";
+        return '<p class="hero-valor" id="hero-patrimonio"></p>' + deltaHtml;
+      }
+      if (f.tipo === "split") {
+        const total = f.totalBrl || 0;
+        const brPct = total > 0 ? (f.brBrl || 0) / total : 0;
+        const euaPct = total > 0 ? (f.euaBrl || 0) / total : 0;
+        return (
+          '<div class="hero-split">' +
+          '<div class="col"><div class="cap">🇧🇷 Brasil</div>' +
+          '<div class="num">' + window.formatBrl(f.brBrl) + "</div>" +
+          '<div class="pct">' + window.formatPctSemSinal(brPct, 1) + "</div></div>" +
+          '<div class="col"><div class="cap">🇺🇸 EUA</div>' +
+          '<div class="num">' + window.formatBrl(f.euaBrl) + "</div>" +
+          '<div class="pct">' + window.formatPctSemSinal(euaPct, 1) + "</div></div>" +
+          "</div>" +
+          '<div class="hero-splitbar">' +
+          '<i style="width:' + (brPct * 100).toFixed(2) + '%;background:var(--cat-acoes-br)"></i>' +
+          '<i style="width:' + (euaPct * 100).toFixed(2) + '%;background:var(--cat-eua)"></i>' +
+          "</div>"
+        );
+      }
+      if (f.tipo === "variacao7d") {
+        if (f.valor === null || f.valor === undefined) {
+          return (
+            '<p class="hero-valor">—</p>' +
+            '<p class="hero-sub">Sem histórico de 7 dias ainda — volte em breve.</p>'
+          );
+        }
+        const seta = f.valor >= 0 ? "▲" : "▼";
+        const temPct = f.pct !== null && f.pct !== undefined;
+        return (
+          '<p class="hero-valor"><span aria-hidden="true">' + seta + "</span> " +
+          window.formatBrlSigned(f.valor) + "</p>" +
+          '<p class="hero-sub">' +
+          (temPct ? window.formatPct(f.pct) + " " : "") +
+          "nesta semana · mercado + aportes + proventos</p>"
+        );
+      }
+      if (f.tipo === "origem") {
+        if (f.valor === null || f.valor === undefined) {
+          return (
+            '<p class="hero-valor">—</p>' +
+            '<p class="hero-sub">Ainda sem dado suficiente para calcular o retorno desde a origem.</p>'
+          );
+        }
+        return (
+          '<p class="hero-valor">' + window.formatPct(f.valor) + "</p>" +
+          '<p class="hero-sub">ao ano · retorno acumulado desde o início da carteira</p>'
+        );
+      }
+      return "";
+    },
+
+    // Troca a faceta ativa. opts.instant pula a transição (mount inicial);
+    // caso contrário, respeita prefers-reduced-motion (drarthurNav.motion.reduced).
+    // Facet "big" sempre delega o número a ativarCountUpHero() — que já resolve
+    // sozinho "1ª vez anima, revisitas mostram valor final direto" via
+    // sessionStorage.heroCountUpDone (nunca reseta ao trocar de faceta).
+    _renderHeroFace(idx, opts) {
+      opts = opts || {};
+      const dados = this._heroFacetsData();
+      const f = dados[idx];
+      if (!f) return;
+      this.heroFacetAtivo = idx;
+      const reduced = window.drarthurNav.motion.reduced;
+      const instant = !!(opts.instant || reduced);
+
+      // CRB 7a.S.5 (re-entrância): geração desta troca. Um settle assíncrono
+      // (RAF/timeout) de uma troca ANTERIOR ainda em voo confere este número
+      // antes de agir; se mudou, a troca foi superada e o settle é descartado
+      // — evita que um callback tardio limpe o aria-busy no meio de uma
+      // transição mais nova (ver tentarLimparBusy abaixo).
+      this._heroFaceGen = (this._heroFaceGen || 0) + 1;
+      const gen = this._heroFaceGen;
+
+      // Cancela timers/RAFs pendentes de uma troca anterior. Sem isso, num
+      // ciclo rápido (auto-repeat de tecla segurando Enter/Space, ou toques/
+      // cliques em sequência nos dots) o double-RAF pendente da troca
+      // anterior ainda acrescentaria `.on` a um nó já retirado — a raiz do
+      // órfão que este fix elimina — e o setTimeout do eyebrow escreveria um
+      // label fora de ordem.
+      if (this._heroEyebrowSwapTimeout) {
+        clearTimeout(this._heroEyebrowSwapTimeout);
+        this._heroEyebrowSwapTimeout = null;
+      }
+      if (this._heroFaceRafOuter) {
+        cancelAnimationFrame(this._heroFaceRafOuter);
+        this._heroFaceRafOuter = null;
+      }
+      if (this._heroFaceRafInner) {
+        cancelAnimationFrame(this._heroFaceRafInner);
+        this._heroFaceRafInner = null;
+      }
+      if (this._heroSettleTimeout) {
+        clearTimeout(this._heroSettleTimeout);
+        this._heroSettleTimeout = null;
+      }
+
+      const bodyEl = document.getElementById("hero-body");
+      // CRB 7a.S.5 (a11y): #hero-body é aria-live="polite" — sem isto, o SR
+      // lê ~42 frames parciais do count-up (RAF reescreve textContent) e,
+      // durante a transição de saída de 320ms, duas `.hero-face` coexistem
+      // no DOM. `aria-busy="true"` faz assistive tech ignorar a churn; só
+      // volta a "false" (tentarLimparBusy) quando a entrada assentar E — se
+      // for a faceta "big" — o count-up também tiver terminado.
+      if (bodyEl) bodyEl.setAttribute("aria-busy", "true");
+
+      const eyebrowEl = document.getElementById("hero-eyebrow");
+      if (eyebrowEl) {
+        if (instant) {
+          eyebrowEl.textContent = f.eyebrow;
+        } else {
+          eyebrowEl.classList.add("swap");
+          this._heroEyebrowSwapTimeout = setTimeout(() => {
+            eyebrowEl.textContent = f.eyebrow;
+            eyebrowEl.classList.remove("swap");
+            this._heroEyebrowSwapTimeout = null;
+          }, 150);
+        }
+      }
+      if (!bodyEl) return;
+
+      // Retira TODAS as faces pré-existentes — não só `.hero-face.on`. Numa
+      // troca rápida, a face recém-entrante ainda não ganhou `.on` (double-
+      // RAF pendente) quando a próxima troca chega; buscar só `.on` não a
+      // encontraria, e ela ficaria órfã em #hero-body, ganhando `.on` mais
+      // tarde e piscando um fato velho na tela.
+      bodyEl.querySelectorAll(".hero-face").forEach((node) => {
+        // Mesmo racional do fix original (7a.I.6/7a.S.5): nunca dois nós com
+        // #hero-patrimonio coexistindo — getElementById resolveria pro nó
+        // errado. Agora aplicado a QUALQUER face retirada, não só a `.on`.
+        const valorId = node.querySelector("#hero-patrimonio");
+        if (valorId) valorId.removeAttribute("id");
+        if (instant) {
+          node.remove();
+        } else {
+          node.classList.remove("on");
+          node.classList.add("out");
+          setTimeout(() => node.remove(), 320);
+        }
+      });
+
+      const el = document.createElement("div");
+      el.className = "hero-face";
+      el.innerHTML = this._heroFaceHtml(f);
+      bodyEl.appendChild(el);
+
+      // "Entrada pronta" = a face nova assentou visualmente (instantâneo, ou
+      // 320ms após o double-RAF — mesma folga usada pra remoção do nó de
+      // saída, cobre a transição --d2 de opacity/transform). "Count-up
+      // pronto" só existe pra faceta "big"; as demais já nascem prontas.
+      let entradaPronta = false;
+      let countUpPronto = f.tipo !== "big";
+      const tentarLimparBusy = () => {
+        if (gen !== this._heroFaceGen) return; // troca superada — ignora
+        if (entradaPronta && countUpPronto && bodyEl) {
+          bodyEl.setAttribute("aria-busy", "false");
+        }
+      };
+      const marcarEntradaPronta = () => { entradaPronta = true; tentarLimparBusy(); };
+      const marcarCountUpPronto = () => { countUpPronto = true; tentarLimparBusy(); };
+
+      if (instant) {
+        el.classList.add("on");
+        marcarEntradaPronta();
+      } else {
+        this._heroFaceRafOuter = requestAnimationFrame(() => {
+          this._heroFaceRafOuter = null;
+          this._heroFaceRafInner = requestAnimationFrame(() => {
+            this._heroFaceRafInner = null;
+            el.classList.add("on");
+            this._heroSettleTimeout = setTimeout(() => {
+              this._heroSettleTimeout = null;
+              marcarEntradaPronta();
+            }, 320);
+          });
+        });
+      }
+
+      if (f.tipo === "big") {
+        // Escopado ao nó recém-criado (não document.getElementById) — ver
+        // comentário em ativarCountUpHero sobre a corrida com o nó antigo
+        // ainda pendente de remoção (transição de saída, 320ms).
+        this.ativarCountUpHero(el.querySelector("#hero-patrimonio"), marcarCountUpPronto);
+      }
+    },
+
+    // x-init do #hero — mount inicial (faceta 0, instantâneo) + hidrata o
+    // flag do hint a partir do sessionStorage (mesmo padrão de heroCountUpDone).
+    montarHeroFacetas() {
+      try {
+        this.heroFacetHintGone = sessionStorage.getItem("heroFacetHintSeen") === "1";
+      } catch (_) {
+        this.heroFacetHintGone = false;
+      }
+      this._renderHeroFace(0, { instant: true });
+    },
+
+    _hintGoneHero() {
+      if (this.heroFacetHintGone) return;
+      this.heroFacetHintGone = true;
+      try { sessionStorage.setItem("heroFacetHintSeen", "1"); } catch (_) {}
+    },
+
+    // @click do card inteiro — cicla sequencialmente (wrap-around).
+    ciclarHeroFacet() {
+      this._hintGoneHero();
+      const proximo = (this.heroFacetAtivo + 1) % this.heroFacetLabels.length;
+      this._renderHeroFace(proximo, {});
+    },
+
+    // @click.stop de um facet-dot — pula direto pro índice tocado.
+    irParaFacetHero(idx) {
+      this._hintGoneHero();
+      if (idx === this.heroFacetAtivo) return;
+      this._renderHeroFace(idx, {});
     },
 
     // 7a.E.31: alterna o card de uma categoria na vista #alocação unificada.

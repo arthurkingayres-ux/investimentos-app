@@ -39,11 +39,19 @@
 
   // applyCountUp anima textContent de `el` de 0 ao valor `target` ao longo de motion.countUp ms.
   // `formatter(n)` converte numero para string (ex.: formatBrl). Se reduced=true, set instantaneo.
-  function applyCountUp(el, target, formatter) {
-    if (!el || typeof target !== 'number' || !isFinite(target)) return;
+  // `onDone` (opcional, 7a.S.5 CRB) e chamado exatamente 1x quando o valor final
+  // e escrito — sincrono no caminho reduced/instantaneo, assincrono (fim do RAF)
+  // no caminho animado. Usado por _renderHeroFace/ativarCountUpHero pra saber
+  // quando liberar o aria-busy do #hero-body.
+  function applyCountUp(el, target, formatter, onDone) {
+    if (!el || typeof target !== 'number' || !isFinite(target)) {
+      if (onDone) onDone();
+      return;
+    }
     var motion = window.drarthurNav.motion;
     if (motion.reduced || motion.countUp === 0) {
       el.textContent = formatter(target);
+      if (onDone) onDone();
       return;
     }
     var start = performance.now();
@@ -52,7 +60,11 @@
       var t = Math.min(1, (now - start) / duration);
       var eased = 1 - Math.pow(1 - t, 3);
       el.textContent = formatter(target * eased);
-      if (t < 1) requestAnimationFrame(frame);
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else if (onDone) {
+        onDone();
+      }
     }
     requestAnimationFrame(frame);
   }
