@@ -28,6 +28,7 @@
   --teal-700: #0d7377;       /* chip-twr text */
 
   /* Alphas nomeados */
+  --g-700-06: rgba(4, 120, 87, 0.06);  /* 7a.S.3: fundo do dataZoom (scrubber) */
   --g-700-12: rgba(4, 120, 87, 0.12);
   --teal-14:  rgba(20, 184, 166, 0.14);
   --g-900-04: rgba(6, 78, 59, 0.04);
@@ -1048,6 +1049,20 @@ footer.rodape code {
    porque ECharts pode trocar o <canvas> em resize, perdendo inline style. */
 #proventos-grafico.is-clickable {
   cursor: pointer;
+}
+
+/* 7a.S.3 Task 3: nota "em curso" sob o chart de proventos — honestidade de
+   dado (a última barra, ano/mês corrente, ainda está acumulando). Estilo
+   caption discreto, espelha .compo-legend do mockup Monument. */
+.chart-partial-note {
+  font-size: 11px;
+  color: var(--faint);
+  text-align: center;
+  margin: 6px 0 0;
+  letter-spacing: 0.02em;
+}
+.chart-partial-note:empty {
+  display: none;
 }
 
 /* ── #alocacao ────────────────────────────────────────────────────── */

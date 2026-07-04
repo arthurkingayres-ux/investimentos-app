@@ -138,8 +138,117 @@ function gerarTituloPeriodo(hist, iA, iB) {
   return `Período · ${fmt(hist[iA].data)} → ${fmt(hist[iB].data)}`;
 }
 
+// 7a.S.3 Task 1: "símbolo só no último ponto" — a série principal (linha)
+// não desenha marcador em cada ponto ("colar de contas"); só o ponto mais
+// recente ganha um marcador discreto (círculo vazado, não celebratório —
+// DESIGN.md anti-pattern #20) + rótulo do valor acima. Usa markPoint em vez
+// de per-point symbol callback: mais simples de recomputar a cada zoom
+// (L.1 já reancora a série; aqui só recalculamos coord+label do markPoint).
+// Benchmarks NUNCA recebem markPoint (função não é chamada para eles).
+function ultimoIndiceValido(dataArr) {
+  if (!Array.isArray(dataArr)) return -1;
+  for (let i = dataArr.length - 1; i >= 0; i--) {
+    if (dataArr[i] !== null && dataArr[i] !== undefined) return i;
+  }
+  return -1;
+}
+
+// 7a.S.3 Task 2: "eixo Y ancorado nos dados" — a curva de equity (patrimônio)
+// NÃO é zero-anchored (min:0 esconderia a variação real, que nesse domínio
+// nunca é perto de zero). Folga honesta: ~12% abaixo / ~14% acima do range
+// combinado de todas as séries visíveis (mesma fórmula do mockup Monument:
+// lo = min − span*0.12, hi = max + span*0.14). Barras (proventos) NÃO usam
+// isso — ficam zero-anchored (padrão ECharts, sem min explícito).
+function calcularEixoYAncorado(...arrays) {
+  const vals = [].concat(...arrays).filter((v) => v !== null && v !== undefined && isFinite(v));
+  if (vals.length === 0) return { min: undefined, max: undefined, cruzaZero: false };
+  const menor = Math.min(...vals);
+  const maior = Math.max(...vals);
+  const span = (maior - menor) || Math.max(Math.abs(maior), 1) * 0.1;
+  const min = menor - span * 0.12;
+  const max = maior + span * 0.14;
+  return { min, max, cruzaZero: min < 0 && max > 0 };
+}
+
+// 7a.S.3 Task 3: "barra parcial hachurada" — a última barra de cada série de
+// proventos (ano corrente em Anual, mês corrente em Mensal) está por
+// definição incompleta (ainda acumulando). Hachura + opacity reduzida
+// sinalizam "honestidade de dado" sem esconder o valor parcial. Padrão
+// diagonal espelha o SVG do mockup Monument (rotation 45°, traço fino).
+const DECAL_PARCIAL = {
+  symbol: "rect",
+  dashArrayX: [1, 0],
+  dashArrayY: [3, 4],
+  rotation: Math.PI / 4,
+  color: "rgba(255,255,255,0.55)",
+};
+
+// 7a.S.3 Task 4: "scrubber-instrumento" — restyle do dataZoom nativo do
+// ECharts (patrimônio + rentabilidade). Trilho fino cor da marca, alças
+// discretas (círculo simples em vez do ícone-ampulheta default), sem o
+// chrome pesado default (dataBackground/selectedDataBackground — a
+// silhueta em miniatura dos dados — e showDetail — bolha com valor bruto
+// durante o drag). NÃO porta o overlay HTML custom do mockup (.zoomtrack
+// com ticks de ano + bolha de mês na alça) — exigiria reescrever o listener
+// de zoom e arriscaria quebrar o reancoramento L.1; fica como follow-up
+// (ver relato da sub-fase). minValueSpan:1 é só a guarda mínima (não deixa
+// zoom colapsar pra 1 ponto) — valor conservador pra não colidir com a
+// fixture de teste sintética (6 pontos esparsos); dados reais mensais têm
+// dezenas/centenas de pontos onde essa guarda nunca bina.
+function criarDataZoomInstrumento(dc) {
+  const hidden = { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } };
+  return [
+    { type: "inside", start: 0, end: 100, minValueSpan: 1 },
+    {
+      type: "slider",
+      height: 8,
+      bottom: 6,
+      start: 0,
+      end: 100,
+      minValueSpan: 1,
+      backgroundColor: COLORS.g700a06(),
+      fillerColor: COLORS.g700a12(),
+      borderColor: "transparent",
+      brushSelect: false,
+      showDetail: false,
+      dataBackground: hidden,
+      selectedDataBackground: hidden,
+      handleIcon: "circle",
+      handleSize: 14,
+      handleStyle: { color: dc.tokens.g700, borderColor: "#fff", borderWidth: 1, opacity: 0.95 },
+      moveHandleSize: 4,
+      moveHandleStyle: { color: dc.tokens.g700, opacity: 0.35 },
+      textStyle: { color: dc.tokens.gray, fontSize: 10 },
+    },
+  ];
+}
+
+function criarMarkPointUltimo(dataArr, formatFn, cor, fontFamily) {
+  const idx = ultimoIndiceValido(dataArr);
+  if (idx === -1) return { data: [] };
+  const valor = dataArr[idx];
+  return {
+    symbol: "circle",
+    symbolSize: 8,
+    itemStyle: { color: "#fff", borderColor: cor, borderWidth: 2.5 },
+    label: {
+      show: true,
+      position: "top",
+      distance: 8,
+      color: cor,
+      fontWeight: 700,
+      fontSize: 11,
+      fontFamily: fontFamily,
+      formatter: () => formatFn(valor),
+    },
+    animation: false,
+    data: [{ coord: [idx, valor] }],
+  };
+}
+
 const COLORS = {
   g700:      () => css("--g-700", "#047857"),
+  g700a06:   () => css("--g-700-06", "rgba(4, 120, 87, 0.06)"),
   g700a12:   () => css("--g-700-12", "rgba(4, 120, 87, 0.12)"),
   blue700:   () => css("--blue-700", "#1d4ed8"),
   blue500:   () => css("--blue-500", "#0284c7"),
@@ -762,12 +871,16 @@ document.addEventListener("alpine:init", () => {
         valores = m12.map((e) => e.valor);
       }
 
+      const notaParcialEl = document.getElementById("proventosNotaParcial");
+
       if (!labels.length) {
         container.innerHTML = '<p class="placeholder">Sem dados de proventos.</p>';
+        if (notaParcialEl) notaParcialEl.textContent = "";
         return;
       }
       if (typeof echarts === "undefined" || !window.drarthurChart) {
         container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        if (notaParcialEl) notaParcialEl.textContent = "";
         return;
       }
 
@@ -781,16 +894,35 @@ document.addEventListener("alpine:init", () => {
         return "R$ " + Math.round(v);
       };
 
-      // barData: aplica fade + destaque quando há seleção
+      // 7a.S.3 Task 3: a última barra do array é sempre o bucket em curso
+      // (ano corrente em Anual, mês corrente em Mensal) — honestidade de
+      // dado, independente da data real do sistema (ver DESIGN.md).
+      const ultimoIdx = valores.length - 1;
+
+      // barData: aplica fade + destaque quando há seleção, e hachura na
+      // barra parcial (persiste independente da seleção — é atributo do
+      // dado, não do estado de interação).
       const barData = valores.map((v, i) => {
         const item = { value: v };
+        const ehParcial = i === ultimoIdx;
+        let color = dc.tokens.g700;
+        let opacity = 1.0;
         if (mesSelecionado !== null && i !== mesSelecionado) {
-          item.itemStyle = { color: dc.tokens.g700, opacity: 0.55 };
+          opacity = 0.55;
         } else if (mesSelecionado !== null && i === mesSelecionado) {
-          item.itemStyle = { color: dc.tokens.g900, opacity: 1.0 };
+          color = dc.tokens.g900;
+          opacity = 1.0;
+        } else if (ehParcial) {
+          opacity = 0.65;
         }
+        item.itemStyle = { color, opacity };
+        if (ehParcial) item.itemStyle.decal = DECAL_PARCIAL;
         return item;
       });
+
+      if (notaParcialEl) {
+        notaParcialEl.textContent = `${labels[ultimoIdx]} em curso — hachura · toque numa barra para ler`;
+      }
 
       const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
       const self = this;
@@ -1056,6 +1188,7 @@ document.addEventListener("alpine:init", () => {
 
       const dc = window.drarthurChart;
       const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
+      const eixoY = calcularEixoYAncorado(totais, aportes);
 
       const option = {
         grid: { top: 10, right: 24, bottom: 60, left: 8, containLabel: true },
@@ -1080,27 +1213,28 @@ document.addEventListener("alpine:init", () => {
             hideOverlap: true,
           },
         },
-        yAxis: { type: "value", axisLabel: { formatter: formatBRL } },
-        dataZoom: [
-          { type: "inside", start: 0, end: 100 },
-          {
-            type: "slider",
-            height: 14,
-            bottom: 6,
-            start: 0,
-            end: 100,
-            backgroundColor: "rgba(4,120,87,0.06)",
-            fillerColor: "rgba(4,120,87,0.12)",
-            borderColor: "transparent",
-            handleStyle: { color: dc.tokens.g700 },
-            moveHandleStyle: { color: dc.tokens.g700 },
-            textStyle: { color: dc.tokens.gray, fontSize: 10 },
-            handleSize: 24,
-          },
-        ],
+        yAxis: { type: "value", min: eixoY.min, max: eixoY.max, axisLabel: { formatter: formatBRL } },
+        dataZoom: criarDataZoomInstrumento(dc),
         series: [
-          { name: "Patrimônio", type: "line", data: totais, smooth: false, lineStyle: { width: 2.5 } },
-          { name: "Aporte acum.", type: "line", data: aportes, smooth: false, lineStyle: { type: [6, 4], width: 1.8 } },
+          {
+            name: "Patrimônio", type: "line", data: totais, smooth: false,
+            lineStyle: { width: 2.5 }, showSymbol: false,
+            // 7a.S.3: markPoint fixo no ÚLTIMO ponto real (= patrimônio de hoje),
+            // âncora ABSOLUTA — diferente do markPoint period-relative da rentabilidade
+            // (que reancora no aoMoverZoom). Ao dar zoom numa janela passada o rótulo
+            // sai de vista de propósito: rotular um ponto passado como se fosse "hoje"
+            // enganaria. Assimetria intencional (CRB 7a.S.3 general-swe).
+            markPoint: criarMarkPointUltimo(totais, formatBRL, dc.tokens.g700, dc.fontFamily),
+            markLine: eixoY.cruzaZero ? {
+              silent: true, symbol: "none", label: { show: false },
+              lineStyle: { type: "dashed", color: dc.tokens.gray, width: 1, opacity: 0.5 },
+              data: [{ yAxis: 0 }],
+            } : undefined,
+          },
+          {
+            name: "Aporte acum.", type: "line", data: aportes, smooth: false,
+            lineStyle: { type: [6, 4], width: 1.8 }, showSymbol: false,
+          },
         ],
         aria: { enabled: true },
       };
@@ -1313,26 +1447,14 @@ document.addEventListener("alpine:init", () => {
           },
         },
         yAxis: { type: "value", axisLabel: { formatter: formatPct } },
-        dataZoom: [
-          { type: "inside", start: 0, end: 100 },
-          {
-            type: "slider",
-            height: 14,
-            bottom: 6,
-            start: 0,
-            end: 100,
-            backgroundColor: "rgba(4,120,87,0.06)",
-            fillerColor: "rgba(4,120,87,0.12)",
-            borderColor: "transparent",
-            handleStyle: { color: dc.tokens.g700 },
-            moveHandleStyle: { color: dc.tokens.g700 },
-            textStyle: { color: dc.tokens.gray, fontSize: 10 },
-            handleSize: 24,
-          },
-        ],
+        dataZoom: criarDataZoomInstrumento(dc),
         series: temMultiBench
           ? [
-              { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
+              {
+                name: "Portfólio", type: "line", data: portfolio, smooth: false,
+                lineStyle: { width: 2.5 }, connectNulls: false, showSymbol: false,
+                markPoint: criarMarkPointUltimo(portfolio, formatPct, dc.tokens.g700, dc.fontFamily),
+              },
               ...extraReanc.map((e) => ({
                 name: NOME_BENCH[e.idx],
                 type: "line",
@@ -1341,11 +1463,19 @@ document.addEventListener("alpine:init", () => {
                 lineStyle: { type: [5, 5], width: 1.5, color: COR_BENCH[e.idx] },
                 itemStyle: { color: COR_BENCH[e.idx] },
                 connectNulls: false,
+                showSymbol: false,
               })),
             ]
           : [
-              { name: "Portfólio", type: "line", data: portfolio, smooth: false, lineStyle: { width: 2.5 }, connectNulls: false },
-              { name: benchNome, type: "line", data: benchmark, smooth: false, lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false },
+              {
+                name: "Portfólio", type: "line", data: portfolio, smooth: false,
+                lineStyle: { width: 2.5 }, connectNulls: false, showSymbol: false,
+                markPoint: criarMarkPointUltimo(portfolio, formatPct, dc.tokens.g700, dc.fontFamily),
+              },
+              {
+                name: benchNome, type: "line", data: benchmark, smooth: false,
+                lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false, showSymbol: false,
+              },
             ],
         aria: { enabled: true },
       };
@@ -1413,11 +1543,14 @@ document.addEventListener("alpine:init", () => {
         // intenção do usuário em vez de divergir das séries renderizadas.
         this.rentabilidadeSubtitulo =
           "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
+        // 7a.S.3 Task 1: markPoint do último ponto visível reancora junto —
+        // sem isso, ficaria preso no índice/valor da janela anterior.
+        const markPointReanc = criarMarkPointUltimo(novaP, formatPct, dc.tokens.g700, dc.fontFamily);
         try {
           if (temMultiBench) {
             chart.setOption({
               series: [
-                { name: "Portfólio", data: novaP },
+                { name: "Portfólio", data: novaP, markPoint: markPointReanc },
                 ...growthExtra.map((e) => ({
                   name: NOME_BENCH[e.idx],
                   data: reancorar(e.growth, startIdx, endIdx),
@@ -1428,7 +1561,7 @@ document.addEventListener("alpine:init", () => {
             const novaB = reancorar(growthBenchmark, startIdx, endIdx);
             chart.setOption({
               series: [
-                { name: "Portfólio", data: novaP },
+                { name: "Portfólio", data: novaP, markPoint: markPointReanc },
                 { name: benchNome, data: novaB },
               ],
             });

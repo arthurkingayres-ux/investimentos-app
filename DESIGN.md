@@ -426,6 +426,15 @@ Gráficos do PWA usam motion calibrada — mais expressiva que o resto do app, m
 
 Todas as 4 regras zeram via `prefers-reduced-motion: reduce`. Single source of truth: `js/echarts-theme.js` exporta `window.drarthurChart.motionConfig` (rebuilds on MediaQueryList change).
 
+### Higiene de dataviz (Fase 7a.S.3)
+
+4 tratamentos elevam os 3 gráficos ECharts (rentabilidade/patrimônio/proventos) de classe sem tocar tema/motion/tooltip acima. Implementados em `js/app.js` via 3 helpers puros no escopo do módulo (`criarMarkPointUltimo`, `calcularEixoYAncorado`, `criarDataZoomInstrumento`) + a constante `DECAL_PARCIAL`.
+
+1. **Símbolo só no último ponto.** A série principal (Portfólio em rentabilidade, Patrimônio em patrimônio) usa `showSymbol:false` — sem "colar de contas" ao longo da linha — e ganha um único `markPoint` no ponto mais recente: círculo vazado (`symbol:'circle'`, fundo branco, borda na cor da série) + rótulo do valor acima (`label.position:'top'`). Isso NÃO é o markPoint celebratório banido pelo anti-pattern #20 — sem estrela, sem balão, sem glow; é um marcador discreto de leitura, com label em cor sóbria (`--ink`/cor da série). Benchmarks e a linha "Aporte acum." nunca recebem markPoint (`showSymbol:false` sem exceção). Em rentabilidade, o listener `datazoom` da 7a.L.1 recomputa o markPoint a cada reancoramento (`criarMarkPointUltimo(novaP, ...)`) — o marcador sempre aponta para o último ponto **visível** da janela, não fica preso no índice da janela anterior.
+2. **Eixo Y ancorado nos dados** (equity de patrimônio, não em rentabilidade/proventos). `calcularEixoYAncorado(...arrays)` computa `min`/`max` do range combinado de todas as séries visíveis com folga ~12% abaixo / ~14% acima (`lo = menor − span·0.12`, `hi = maior + span·0.14` — mesma fórmula do mockup Monument), em vez de `min:0`. Uma linha-zero tracejada (`markLine`, `--gray` opacity 0.5) só aparece quando o range cruza zero (`min < 0 < max`). Rentabilidade mantém seu próprio comportamento (eixo % sem min forçado, ver reancoramento L.1 abaixo); proventos (barras) fica **fora** deste tratamento — segue zero-anchored (padrão ECharts sem `min` explícito), porque barra parcial (tratamento 3) já comunica honestidade de dado por outra via.
+3. **Barra parcial hachurada** (proventos). A última barra de cada série — o ano corrente em Anual, o mês corrente em Mensal — é por construção o bucket ainda acumulando: ganha `itemStyle.decal` (padrão diagonal `DECAL_PARCIAL`, `rotation: Math.PI/4`, cor translúcida sobre o fill) + `opacity:0.65`, e o card exibe uma nota abaixo do gráfico (`#proventosNotaParcial`, `.chart-partial-note`) com o texto `"<rótulo> em curso — hachura · toque numa barra para ler"`. A "última barra do array" é sempre tratada como parcial — decisão estrutural (não compara contra `new Date()` real), robusta independente do dia em que o app é aberto. O decal é atributo do **dado**, não do estado de interação: persiste mesmo quando o drilldown (7a.E.18) seleciona/desseleciona barras — só a `opacity` responde à seleção.
+4. **Scrubber-instrumento** (`dataZoom` em rentabilidade e patrimônio). `criarDataZoomInstrumento(dc)` substitui o `dataZoom` default "pesado" por um trilho fino (`height:8`) cor da marca (`fillerColor`/`backgroundColor` via tokens `--g-700-12`/`--g-700-06`), alças em círculo simples (`handleIcon:'circle'`, sem o ícone-ampulheta default), e remove o chrome que compete com o conteúdo: `dataBackground`/`selectedDataBackground` (silhueta em miniatura dos dados) ocultos via `opacity:0`, `showDetail:false` (sem bolha de valor bruto durante o drag), `brushSelect:false`. `minValueSpan:1` é só uma guarda mínima (não deixa o zoom colapsar a 1 ponto). **Deferido:** o overlay HTML custom do mockup (`.zoomtrack` com ticks de ano fixos + bolha de mês flutuando sobre a alça arrastada) não foi portado — exigiria reescrever o listener de `datazoom` da 7a.L.1 e arriscaria quebrar o reancoramento period-relative. O restyle nativo do `dataZoom` entrega o essencial (trilho fino + cor da marca + alças limpas) sem esse risco; a fidelidade extra (ticks/bolha) fica como follow-up caso o Dr. Arthur queira reabrir.
+
 ### Motion de navegação (app shell, Fase 7a.I.6)
 
 App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo médico" — sem slide cliché iOS, sem swoosh:
@@ -509,7 +518,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
 18. **3D charts.** O PWA é 2D plano, mobile-first.
 19. **Animação bounce / elastic / scale > 1.1** em gráficos. Apenas `cubicOut` / `cubicInOut`, durações ≤600ms.
-20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos.
+20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos. O markPoint de "símbolo no último ponto" (7a.S.3, `criarMarkPointUltimo`) é a exceção deliberadamente compliant: círculo vazado + label sóbrio, sem estrela/balão/glow — instrumento de leitura, não celebração.
 21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
 22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
 23. **Stagger entre elementos > 50ms.** Default em barras é 30ms.
@@ -550,7 +559,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Teal    */        --teal-700 #0d7377
 
 /* Alphas nomeados (7a.G.2) */
-/* Greens  */        --g-700-12 rgba(4,120,87,0.12)
+/* Greens  */        --g-700-06 rgba(4,120,87,0.06)  --g-700-12 rgba(4,120,87,0.12)
 /* Teal    */        --teal-14  rgba(20,184,166,0.14)
 /* G-900   */        --g-900-04 rgba(6,78,59,0.04)
                      --g-900-07 rgba(6,78,59,0.07)
