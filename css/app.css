@@ -99,6 +99,19 @@
 
 *, *::before, *::after {
   box-sizing: border-box;
+  /* 7a.S.2: mata o flash azul/cinza do toque no Android/iOS — o feedback
+     de toque passa a ser só :active (transform/box-shadow), nunca o
+     highlight nativo do navegador. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 7a.S.2: foco de teclado visível — sempre a mesma cor (accent), sempre
+   2px. Overrides pontuais (offset negativo em rows/tabs, raio maior no
+   hero, etc.) seguem definidos junto de cada componente — eles só herdam
+   a cor daqui em diante em vez de repetir --teal/--g-500/--g-600/--g-900. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 html, body {
@@ -267,8 +280,16 @@ h1 {
   text-decoration: none;
   color: #fff;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-link { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease; }
+}
+/* 7a.S.2: mapeia .hero do mockup — encolhe + troca --card-shadow por --shadow-pressed. */
+.hero-link:active {
+  transform: scale(.985);
+  box-shadow: var(--shadow-pressed);
+}
 .hero-link:focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 18px;
 }
@@ -450,6 +471,13 @@ h1 {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* 7a.S.2: .chip-xirr/.chip-twr/.chip-bench herdam (nenhum sobrescreve transform). */
+  .chip { transition: transform var(--d1) var(--ease); }
+}
+.chip:active {
+  transform: scale(.93);
 }
 
 .chip-xirr {
@@ -802,7 +830,11 @@ footer.rodape code {
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* 7a.S.2: transform só anima quando o usuário não pediu redução de motion. */
+  .btn-bloquear { transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform var(--d1) var(--ease); }
 }
 
 .btn-bloquear:hover {
@@ -812,11 +844,11 @@ footer.rodape code {
 }
 
 .btn-bloquear:active {
-  transform: scale(0.98);
+  transform: scale(.88); /* 7a.S.2: mapeia .iconbtn do mockup */
 }
 
 .btn-bloquear:focus-visible {
-  outline: 2px solid var(--g-500);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -888,6 +920,14 @@ footer.rodape code {
   border-radius: 8px;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .breadcrumb button { transition: transform var(--d1) var(--ease); }
+}
+/* 7a.S.2: mapeia .back do mockup — desloca p/ esquerda, sinalizando "voltar". */
+.breadcrumb button:active {
+  transform: translateX(-3px);
+}
+
 .breadcrumb h1 {
   font-size: 1.375rem;
   font-weight: 700;
@@ -955,6 +995,16 @@ footer.rodape code {
   border-color: var(--g-700);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .escopo-toggle button,
+  .moeda-toggle button { transition: transform var(--d1) var(--ease); }
+}
+/* 7a.S.2: mapeia .seg do mockup. */
+.escopo-toggle button:active,
+.moeda-toggle button:active {
+  transform: scale(.96);
+}
+
 /* 7a.L.1: sub-título acima do chart de rentabilidade — explicita métrica
    e âncora temporal (cresceu desde X). Atualiza dinamicamente conforme
    dataZoom. Estilo Monument (mono caps, color gray). */
@@ -1019,6 +1069,15 @@ footer.rodape code {
   padding: 14px 15px;
   box-shadow: 0 2px 6px var(--g-900-07);
 }
+@media (prefers-reduced-motion: no-preference) {
+  .aloca-cat { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease; }
+}
+/* 7a.S.2: mapeia .acard do mockup. :active propaga do <button> .aloca-cat__head
+   (filho) para este ancestral enquanto o botão é pressionado (CSS spec). */
+.aloca-cat:active {
+  transform: scale(.988);
+  box-shadow: var(--shadow-pressed);
+}
 
 .aloca-cat__head {
   display: grid;
@@ -1037,7 +1096,7 @@ footer.rodape code {
 }
 
 .aloca-cat__head:focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--accent);
   outline-offset: 4px;
   border-radius: 4px;
 }
@@ -1369,13 +1428,20 @@ footer.rodape code {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.15s, box-shadow 0.15s;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card-link { transition: transform 0.15s, box-shadow 0.15s; }
 }
 
 .card-link:hover,
 .card-link:focus-visible {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(6, 78, 59, 0.10);
+}
+
+/* 7a.S.2: mapeia linha/row do mockup (scale .99, sem shadow). */
+.card-link:active {
+  transform: scale(.99);
 }
 
 .card-arrow {
@@ -1392,10 +1458,18 @@ footer.rodape code {
   align-items: center;
   cursor: pointer;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .aporte-item-link { transition: transform var(--d1) var(--ease); }
+}
 
 .aporte-item-link:hover {
   background: var(--neutral-50);
   border-radius: 8px;
+}
+
+/* 7a.S.2: mapeia linha/row do mockup. */
+.aporte-item-link:active {
+  transform: scale(.99);
 }
 
 /* === 7a.E.1: Rentabilidade redesign === */
@@ -1632,6 +1706,9 @@ footer.rodape code {
   cursor: pointer;
   transition: background 0.1s;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .row-link { transition: background 0.1s, transform var(--d1) var(--ease); }
+}
 
 .row-link:hover,
 .row-link:focus-visible {
@@ -1639,8 +1716,13 @@ footer.rodape code {
   outline: none;
 }
 
+/* 7a.S.2: mapeia linha/row do mockup. */
+.row-link:active {
+  transform: scale(.99);
+}
+
 .row-link:focus-visible {
-  outline: 2px solid var(--g-600);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -1668,7 +1750,7 @@ footer.rodape code {
 .escopo-toggle button:focus-visible,
 .moeda-toggle button:focus-visible,
 .breadcrumb button:focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -1756,12 +1838,19 @@ footer.rodape code {
   width: auto;
   height: auto;
   clip: auto;
-  outline: 2px solid var(--g-900, #064e3b);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   padding: 4px 8px;
   background: white;
   border: 1px solid var(--g-900, #064e3b);
   border-radius: 6px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* 7a.S.2: mapeia .chip do mockup (chips de mês, só visíveis quando focadas). */
+  .proventos-meses-a11y button { transition: transform var(--d1) var(--ease); }
+}
+.proventos-meses-a11y button:active {
+  transform: scale(.93);
 }
 
 /* Empty-state quando o mês selecionado não tem proventos. */
@@ -2029,13 +2118,20 @@ footer.rodape code {
   min-height: 44px;
   text-transform: lowercase;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .tab-bar a { transition: transform var(--d1) var(--ease); }
+}
+/* 7a.S.2: mapeia .tab do mockup. */
+.tab-bar a:active {
+  transform: scale(.9);
+}
 
 .tab-bar a[aria-current="page"] {
   color: var(--tab-active);
 }
 
 .tab-bar a:focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -2654,6 +2750,14 @@ body:has(.tab-bar) main {
   color: var(--ink);
   min-height: 44px;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .rel-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+}
+/* 7a.S.2: mapeia .relcard do mockup. */
+.rel-card-home:active {
+  transform: scale(.98);
+  box-shadow: var(--shadow-pressed);
+}
 .rel-card-home__meta { display: flex; flex-direction: column; gap: 2px; }
 .rel-card-home__label {
   font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.4px;
@@ -2736,6 +2840,11 @@ body:has(.tab-bar) main {
   background: none; border: 1px solid var(--neutral-200); border-radius: 10px;
   padding: 6px 12px; font-size: var(--num-sm); color: var(--g-900); cursor: pointer;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .rel-seletor__btn { transition: transform var(--d1) var(--ease); }
+}
+/* 7a.S.2: toggle de ícone (▾ seletor de mês) — mapeia .iconbtn do mockup. */
+.rel-seletor__btn:active { transform: scale(.88); }
 .rel-seletor__lista {
   list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; right: 0; z-index: 20;
   background: white; border: 1px solid var(--neutral-200); border-radius: 12px;

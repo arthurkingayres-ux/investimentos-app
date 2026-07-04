@@ -6,7 +6,7 @@
 
 ## Visual atmosphere
 
-**Calmo, denso, médico.** Layout flat com hierarquia tipográfica clara, paleta teal-quente sobre warm-neutral (não cool gray, não pure white), sombras suavemente tintadas para a cor do brand, motion mínimo (pin shake + chevron rotation + card lift sutil). Densidade calibrada por contexto: raio-X home é airy (cards generosos, ≤5 elementos por viewport); telas de drilldown (#ativo, #proventos) são densas (tabelas com tabular-nums, KPIs em grid 2-col ou 3-col).
+**Calmo, denso, médico.** Layout flat com hierarquia tipográfica clara, paleta teal-quente sobre warm-neutral (não cool gray, não pure white), sombras suavemente tintadas para a cor do brand, motion mínimo (pin shake + chevron rotation + estados `:active` pressionados de toque, 7a.S.2). Densidade calibrada por contexto: raio-X home é airy (cards generosos, ≤5 elementos por viewport); telas de drilldown (#ativo, #proventos) são densas (tabelas com tabular-nums, KPIs em grid 2-col ou 3-col).
 
 Variance baseline: **6.5/10** (assimetria pontual + tipografia Monument no hero + tab bar como elemento de identidade). Motion: **4.5/10** (cross-fade tabs + indicator slide + count-up hero + push slides; tudo gated por `prefers-reduced-motion`, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
 
@@ -298,7 +298,7 @@ Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
   box-shadow: var(--card-shadow);
 }
 ```
-Variantes: `.card.proventos` (gradient warm green→amber background), `.card-link` (clicável com hover translateY).
+Variantes: `.card.proventos` (gradient warm green→amber background), `.card-link` (clicável; feedback de toque `:active scale(.99)`, 7a.S.2 — substitui o hover translateY).
 
 ### Chip (rentabilidade XIRR/TWR)
 Pill compacto com background tintado para a métrica.
@@ -400,7 +400,7 @@ Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y inte
 ### Animações ativas
 1. **PIN shake** (420ms cubic-bezier) — feedback de erro de senha. `@media (prefers-reduced-motion: no-preference)` envelopa o keyframe (default off em quem prefere).
 2. **Chevron rotation** (150ms ease) em política accordion. Respeita `prefers-reduced-motion: reduce` (transition: none).
-3. **Card-link hover** — `transform: translateY(-1px)` + shadow lift, 0.15s. Hover-only (não mobile).
+3. **Toque — estados `:active` pressionados (7a.S.2)** — todo interativo responde ao toque com escala sutil + `--shadow-pressed` (só `transform`/`box-shadow`; envelopado em `@media (prefers-reduced-motion: no-preference)`). Escalas por tipo: iconbtn .88 · hero .985 · card .988 · relcard .98 · tab .9 · chip .93 · seg .96 · back translateX(-3px) · row .99. `-webkit-tap-highlight-color: transparent` global. Substitui o lift **hover-only** (invisível no celular) por feedback de toque.
 4. **Aloc-preenchimento** — width transition 300ms ease quando a barra se atualiza.
 5. **Toast fade** — controlado por JS (não CSS), enter/exit suave.
 
@@ -413,7 +413,7 @@ Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y inte
 - Nunca animar `top`, `left`, `height`, `padding`, `margin`.
 
 ### prefers-reduced-motion
-Respeitado em PIN shake (envelope `@media`) e chevron (override transition: none). Demais transitions são curtas o suficiente (≤300ms) para não causar problema, mas idealmente futuras animações também deveriam respeitar.
+Respeitado em PIN shake (envelope `@media`), chevron (override transition: none) e nos **estados `:active` pressionados (7a.S.2)** — cada regra de toque tem sua transição envelopada em `@media (prefers-reduced-motion: no-preference)`, então o feedback vira instantâneo (sem animar) para quem prefere reduzir. Demais transitions são curtas o suficiente (≤300ms) para não causar problema.
 
 ### Motion em gráficos (ECharts, Fase 7a.E.19)
 
@@ -522,7 +522,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 
 - Touch targets ≥44px em interativos (PIN, btn-bloquear, `.aloca-cat__head`).
 - Contrast WCAG AA (a paleta foi escolhida com isso em mente; verificar antes de mudar tokens).
-- Foco visível com `outline: 2px solid var(--teal/--g-500/--g-600); outline-offset: 2-4px;` em hero-link, btn-bloquear, política-header, row-link.
+- Foco visível **unificado (7a.S.2)**: `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }` — uma regra para todos os controles (substitui as cores divergentes `--teal`/`--g-500`/`--g-600` anteriores). `--accent` = teal âncora (#047857) no light; vira luz no dark (S.12).
 - Sinal positivo/negativo usa **forma + texto + cor** (▲/▼ + valor + cor), nunca cor sozinha. Daltonismo (deuteranopia) coberto.
 - `prefers-reduced-motion: reduce` honored em PIN shake e chevron.
 - `.sr-only` utility presente para texto screen-reader-only.
@@ -583,7 +583,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Mono */           font-variant-numeric: tabular-nums (sem font separada)
 /* Weights */        400, 500, 600, 700, 800
 
-/* Motion */         pin-shake 420ms · chevron 150ms · card-lift 150ms · fill 300ms
+/* Motion */         pin-shake 420ms · chevron 150ms · :active toque (scale, 7a.S.2) · fill 300ms
 /* prefers-reduced-motion: reduce */ respected
 ```
 
