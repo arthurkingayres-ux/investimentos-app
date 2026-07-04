@@ -556,7 +556,7 @@ Chart histórico do #rentabilidade reanchora dinamicamente conforme o `dataZoom`
 
 Implementação: `hidratarRentabilidade` em `js/app.js` computa `growthPortfolio[]` e `growthBenchmark[]` em init (reconciliando `anualizado=true` → cum via `(1+aa)^(days/365.25)` com `anualizado=false` já cum). Listener `chart.on('datazoom', ...)` lê `getOption().dataZoom[0]` (startValue/endValue em category mode, startValue/endValue ou start/end fallback), mapeia para índices, chama `reancorar(growthArr, startIdx, endIdx)` e atualiza séries via `setOption({series: [...]})`. ECharts faz diff implícito + animação morph via `motionConfig`.
 
-Os 3 cards de métrica abaixo do chart (Origem/YTD/12m) **mantêm valores anualizados** — o chart e os cards medem coisas diferentes propositalmente.
+Os 3 cards de métrica abaixo do chart (Ano/12m/Origem, ordem 7a.S.6) **mantêm valores anualizados** — o chart e os cards medem coisas diferentes propositalmente.
 
 ### Chart #rentabilidade — múltiplos benchmarks no escopo Total (Fase 7a.E.25)
 
@@ -571,7 +571,7 @@ As 3 cores de benchmark são tokens **secundários** (não `--cat-*`, que signif
 
 ### Card "Período" (Fase 7a.L.2)
 
-Acima dos 3 cards fixos (Origem/YTD/12m) aparece um 4º card `.rent-periodo` que reflete a janela atual do `dataZoom`:
+Acima dos 3 cards fixos (Ano/12m/Origem, ordem 7a.S.6) aparece um 4º card `.rent-periodo` que reflete a janela atual do `dataZoom` — e continua o **1º** card visual da tela (Período → Ano → 12m → Origem):
 
 - **Título dinâmico**: `Origem` quando full range (startIdx=0 + endIdx≥maxIdx); `Período · mai/2025 → mai/2026` quando handles arrastados (português, mês abreviado minúsculo).
 - **Métricas**: XIRR a.a. + TWR a.a. + linha(s) `vs benchmark` por escopo — **Total**: CDI / IBOV / S&P 500 (3 linhas `.rent-periodo-bench`); **Brasil**: CDI / IBOV (2 linhas); **EUA**: S&P 500 (1 linha). Cada `.rent-periodo-bench` repetida produz o formato multi-row; semântica visual: texto neutro `tabular-nums`, sinal +/− carrega direção (`color-not-only`), sem CSS novo (reutiliza classe existente).
@@ -581,6 +581,37 @@ Acima dos 3 cards fixos (Origem/YTD/12m) aparece um 4º card `.rent-periodo` que
 - **Motion**: zero transição — atualização on-drag direto via Alpine. Mesma diretriz de L.1 sobre subtítulo. (Anti-pattern explícito: animar valores num card que muda em tempo real durante drag é distractor.)
 - **Implementação**: hook `this.recomputarPeriodo(startIdx, endIdx)` chamado por (a) final de `hidratarRentabilidade`, (b) `aoMoverZoom(chart)` (mesmo handler que L.1 registra), (c) `selecionarMoeda(m)` quando escopo EUA. Estado Alpine `periodoCustom = {iniIdx, fimIdx, twr, xirr, benchExtras, titulo}`, onde `benchExtras` é um array de `{nome, deltaXirr, deltaTwr}` (deltas = portfólio − benchmark, `null` quando indefinido). Utilitárias puras top-of-file: `newtonRaphsonXirr`, `construirFlows`, `flowsBenchmark`, `parseMesData`, `gerarTituloPeriodo`.
 - **CSS isolado**: classe `.rent-periodo` separada de `.rent-grupo` (preserva invariante "3 grupos fixos" dos specs antigos que assertam `toHaveCount(3)`). Estilo espelha `.rent-grupo` intencionalmente.
+
+### #rentabilidade — seletor lidera, ordem de cards, narração do zoom (Fase 7a.S.6)
+
+**Ordem de cards (top→bottom):** `.rent-periodo` (Período, janela do `dataZoom`) → `.rent-grupo` Ano (YTD) → `.rent-grupo` 12 meses → `.rent-grupo` Origem. Origem foi movida do 1º pro **último** lugar dentro de `.rent-grupos` — a leitura vai do mais recente/tático (janela que o dedo está olhando agora, depois o ano corrente, depois 12 meses) para o mais histórico/contexto (desde a origem da carteira). Período continua fora de `.rent-grupos` (classe própria, preserva a invariante "3 grupos fixos" dos specs). Nenhum grupo foi removido — `rentabilidade-3-grupos.spec.ts` e `rentabilidade.spec.ts` seguem exigindo `toHaveCount(3)`, só migradas para a nova ordem.
+
+**Seletor lidera:** a tela já abria pelo `escopo-toggle` (Total/Brasil/EUA) — sem número-poster acima dele, gráfico e cards vêm depois. A 7a.S.6 reforça esse tratamento (a seleção **é** o gesto de abertura, não um controle secundário perdido entre o header e o gráfico):
+
+```css
+.escopo-toggle button        { font-weight: 600; }                          /* era 500 */
+.escopo-toggle button.active {
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--accent-soft);  /* 1º uso real do token (reservado S.1) */
+}
+```
+
+**Escopo APP-WIDE (não só #rentabilidade):** `.escopo-toggle` é a classe única de segmented-control do app — usada tanto em #rentabilidade (Total/Brasil/EUA) quanto em #proventos (Origem/Mensal). A ênfase da seleção (600/700 + anel `--accent-soft`) é **linguagem única deliberada** em toda a marca, não um estilo local — o mesmo gesto de "a seleção lidera" vale para os dois segmented-controls. Coberto por `proventos.spec.ts` (ênfase do toggle ativo do Proventos) além dos specs de rentabilidade.
+
+`.moeda-toggle` (BRL/US$, secundário, só visível em escopo EUA) **não muda** — preserva a hierarquia visual "escopo > moeda" já documentada acima. `--accent-soft` (`rgba(4, 120, 87, 0.09)`) tinha sido reservado em S.1 e ficou "Reservado (não em uso atual)" até esta fase.
+
+**Narração do zoom (`.live`):** o subtítulo `<p class="chart-rent-subtitulo">` ("Cresceu desde Mmm/AA", L.1) ganha um micro-pulse enquanto o usuário arrasta o `dataZoom` — o texto já narrava a âncora; o pulse narra o *movimento em si* (mockup `.chart-sub.live`).
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  .chart-rent-subtitulo         { transition: transform var(--d1) ease; }
+  .chart-rent-subtitulo.live    { transform: scale(1.04); }
+}
+```
+
+- **Wiring**: `aoMoverZoom` (o mesmo handler `chart.on('datazoom', ...)` de L.1) adiciona `.live` ao subtítulo a cada evento e agenda um `setTimeout` de 300ms (`LIVE_SETTLE_MS`) que remove a classe; cada novo evento **cancela e reagenda** o timer (debounce clássico) — o ECharts `datazoom` não expõe limites nativos de "início/fim do arrasto" (dispara continuamente durante o drag e também via `dispatchAction` programático), então o settle-sem-novos-eventos é o proxy usado para "o arrasto parou".
+- **Reduced-motion**: gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell — hero de facetas S.5, motion de navegação) — sob reduced-motion a classe **nunca é adicionada** (blindagem dupla com o CSS, que também envelopa o efeito inteiro em `@media (prefers-reduced-motion: no-preference)`). Só o texto do subtítulo muda; zero pulse.
+- **Não é o anti-pattern do card Período**: a seção "Card Período" acima bane animar os *valores numéricos* do `.rent-periodo` (distractor num card que já muda em tempo real). O pulse aqui é num elemento diferente (`.chart-rent-subtitulo`, texto de âncora temporal, não um valor de retorno) e serve como narração do gesto de arrastar — não conflita com aquele anti-pattern.
 
 ---
 

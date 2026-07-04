@@ -84,9 +84,10 @@ test.describe("Tela #rentabilidade", () => {
 
     const grupos = page.locator(".tela-rentabilidade .rent-grupo");
     await expect(grupos).toHaveCount(3);
-    await expect(grupos.nth(0).locator(".rent-grupo-titulo")).toHaveText("Origem");
-    await expect(grupos.nth(1).locator(".rent-grupo-titulo")).toHaveText("Ano (YTD)");
-    await expect(grupos.nth(2).locator(".rent-grupo-titulo")).toHaveText("12 meses");
+    // 7a.S.6: ordem Ano → 12 meses → Origem (Origem movida pro fim).
+    await expect(grupos.nth(0).locator(".rent-grupo-titulo")).toHaveText("Ano (YTD)");
+    await expect(grupos.nth(1).locator(".rent-grupo-titulo")).toHaveText("12 meses");
+    await expect(grupos.nth(2).locator(".rent-grupo-titulo")).toHaveText("Origem");
 
     // Cada grupo tem exatamente 2 métricas (XIRR + TWR)
     for (let i = 0; i < 3; i++) {

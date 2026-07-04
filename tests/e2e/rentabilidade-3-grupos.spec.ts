@@ -32,7 +32,8 @@ test.describe("Rentabilidade — benchmarks em 3 grupos (7a.E.4)", () => {
     await expect(grupos).toHaveCount(3);
 
     // Verificar cada grupo independentemente por título e presença de benchmarks.
-    const titulosEsperados = ["Origem", "Ano (YTD)", "12 meses"];
+    // 7a.S.6: ordem Ano → 12 meses → Origem (Origem movida pro fim dos .rent-grupos).
+    const titulosEsperados = ["Ano (YTD)", "12 meses", "Origem"];
     for (let i = 0; i < 3; i++) {
       const grupo = grupos.nth(i);
 

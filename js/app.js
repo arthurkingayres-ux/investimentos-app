@@ -1830,6 +1830,19 @@ document.addEventListener("alpine:init", () => {
         formatarMmmAA,
       };
 
+      // 7a.S.6: narração do zoom — pulse `.live` no subtítulo enquanto o
+      // usuário arrasta o dataZoom (mockup .chart-sub.live). Debounce: cada
+      // evento "datazoom" (fila contínua durante o arrasto) reseta o timer;
+      // `.live` só sai depois de um settle sem novos eventos — aproxima
+      // "fim do arrasto" sem depender de mousedown/mouseup nativos do
+      // dataZoom do ECharts (que não expõe esses limites diretamente).
+      // Gated por window.drarthurNav.motion.reduced (mesma fonte de verdade
+      // do resto do app shell, ver hero de facetas 7a.S.5): sob
+      // reduced-motion a classe nunca é adicionada — só o texto muda.
+      const subtituloEl = document.querySelector(".chart-rent-subtitulo");
+      const LIVE_SETTLE_MS = 300;
+      let liveSettleTimer = null;
+
       // 7a.L.1: listener dataZoom — reancora Y para [startIdx, endIdx] visível
       // e atualiza sub-título. Arrow function captura `this` lexicalmente.
       const aoMoverZoom = () => {
@@ -1852,6 +1865,14 @@ document.addEventListener("alpine:init", () => {
         // intenção do usuário em vez de divergir das séries renderizadas.
         this.rentabilidadeSubtitulo =
           "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
+        // 7a.S.6: pulse `.live` — narra o arrasto sem tocar no cálculo acima.
+        if (subtituloEl && !window.drarthurNav.motion.reduced) {
+          subtituloEl.classList.add("live");
+          clearTimeout(liveSettleTimer);
+          liveSettleTimer = setTimeout(() => {
+            subtituloEl.classList.remove("live");
+          }, LIVE_SETTLE_MS);
+        }
         // 7a.S.3 Task 1: markPoint do último ponto visível reancora junto —
         // sem isso, ficaria preso no índice/valor da janela anterior.
         const markPointReanc = criarMarkPointUltimo(novaP, formatPct, dc.tokens.g700, dc.fontFamily);

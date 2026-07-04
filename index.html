@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=47">
+  <link rel="stylesheet" href="css/app.css?v=48">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=42"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=45"></script>
+  <script src="js/app.js?v=46"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -369,28 +369,8 @@
         </section>
 
         <div class="rent-grupos">
-          <section class="rent-grupo">
-            <h3 class="rent-grupo-titulo">Origem</h3>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">XIRR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.xirr_origem)"></span>
-            </div>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">TWR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.twr_origem)"></span>
-            </div>
-            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
-              <div class="rent-benchmark">
-                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
-                <span class="bench-valor">
-                  <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
-                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.origem)"></span>
-                </span>
-              </div>
-            </template>
-          </section>
+          <!-- 7a.S.6: ordem Ano → 12 meses → Origem (Origem movida para o fim;
+               Período, fora deste bloco, continua o 1º card visual). -->
           <section class="rent-grupo">
             <h3 class="rent-grupo-titulo">Ano (YTD)</h3>
             <div class="rent-metrica">
@@ -431,6 +411,28 @@
                 <span class="bench-valor">
                   <span x-text="formatPct(bench.xirr_espelhado?.['12m'])"></span>
                   <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.['12m'])"></span>
+                </span>
+              </div>
+            </template>
+          </section>
+          <section class="rent-grupo">
+            <h3 class="rent-grupo-titulo">Origem</h3>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">XIRR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(rentabilidadeAtiva()?.xirr_origem)"></span>
+            </div>
+            <div class="rent-metrica">
+              <span class="rent-metrica-label">TWR a.a.</span>
+              <span class="rent-metrica-valor"
+                    x-text="formatPct(rentabilidadeAtiva()?.twr_origem)"></span>
+            </div>
+            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
+              <div class="rent-benchmark">
+                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
+                <span class="bench-valor">
+                  <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
+                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.origem)"></span>
                 </span>
               </div>
             </template>

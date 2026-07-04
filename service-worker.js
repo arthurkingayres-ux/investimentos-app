@@ -2,7 +2,7 @@
 // Cache-first para o shell estático; network-first (timeout 2s) para os dados
 // cifrados *.json.enc (portfolio + relatórios mensais 7a.Q.3).
 
-const CACHE_VERSION = "v42";
+const CACHE_VERSION = "v43";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 

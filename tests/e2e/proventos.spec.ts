@@ -97,3 +97,25 @@ test.describe("7a.E.5 — Tela de Proventos", () => {
     await expect(page.locator(".tabela-proventos thead")).toContainText(/Total/i);
   });
 });
+
+test.describe("7a.S.6 — ênfase app-wide do segmented-control (Proventos)", () => {
+  test("o toggle ativo do #proventos ganha a ênfase (peso 700 + anel accent-soft)", async ({
+    page,
+  }) => {
+    // O .escopo-toggle é compartilhado rentabilidade↔proventos; a ênfase 7a.S.6
+    // é linguagem única de segmented-control (deliberadamente app-wide, CRB S.6).
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
+    const ativo = page
+      .locator(".tela-proventos .escopo-toggle button.active")
+      .first();
+    await expect(ativo).toBeVisible();
+    const cs = await ativo.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { fontWeight: s.fontWeight, boxShadow: s.boxShadow };
+    });
+    expect(cs.fontWeight).toBe("700");
+    expect(cs.boxShadow).not.toBe("none");
+  });
+});

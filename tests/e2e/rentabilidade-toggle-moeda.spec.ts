@@ -55,8 +55,12 @@ test.describe("Rentabilidade — toggle moeda BRL/USD (7a.E.13)", () => {
     await page.locator('.tela-rentabilidade button[data-escopo="EUA"]').click();
     await expect(page.locator(".tela-rentabilidade .moeda-toggle")).toBeVisible();
 
-    // Capturar métrica xirr_origem em BRL
-    const grupoOrigem = page.locator(".tela-rentabilidade .rent-grupo").first();
+    // Capturar métrica xirr_origem em BRL.
+    // 7a.S.6: aponta pelo título ("Origem"), não mais por .first() — o card
+    // Origem foi movido pro fim dos .rent-grupos e .first() agora seria Ano (YTD).
+    const grupoOrigem = page
+      .locator(".tela-rentabilidade .rent-grupo")
+      .filter({ has: page.locator(".rent-grupo-titulo", { hasText: "Origem" }) });
     const valorBrl = (
       await grupoOrigem.locator(".rent-metrica-valor").first().textContent()
     )?.trim();
@@ -195,29 +199,31 @@ test.describe("Rentabilidade — labels YTD periódico (7a.E.13.2)", () => {
     await page.goto("/#rentabilidade");
     await page.waitForSelector(".tela-rentabilidade .rent-grupo");
 
+    // 7a.S.6: ordem Ano (YTD) → 12 meses → Origem (Origem movida pro fim).
     const grupos = page.locator(".tela-rentabilidade .rent-grupo");
-    // Origem (índice 0): "XIRR a.a." e "TWR a.a."
-    const origemLabels = await grupos
-      .nth(0)
-      .locator(".rent-metrica-label")
-      .allTextContents();
-    expect(origemLabels[0]).toBe("XIRR a.a.");
-    expect(origemLabels[1]).toBe("TWR a.a.");
 
-    // YTD (índice 1): "XIRR" e "TWR" (sem a.a.)
+    // YTD (índice 0): "XIRR" e "TWR" (sem a.a.)
     const ytdLabels = await grupos
-      .nth(1)
+      .nth(0)
       .locator(".rent-metrica-label")
       .allTextContents();
     expect(ytdLabels[0]).toBe("XIRR");
     expect(ytdLabels[1]).toBe("TWR");
 
-    // 12m (índice 2): "XIRR a.a." e "TWR a.a."
+    // 12m (índice 1): "XIRR a.a." e "TWR a.a."
     const m12Labels = await grupos
-      .nth(2)
+      .nth(1)
       .locator(".rent-metrica-label")
       .allTextContents();
     expect(m12Labels[0]).toBe("XIRR a.a.");
     expect(m12Labels[1]).toBe("TWR a.a.");
+
+    // Origem (índice 2): "XIRR a.a." e "TWR a.a."
+    const origemLabels = await grupos
+      .nth(2)
+      .locator(".rent-metrica-label")
+      .allTextContents();
+    expect(origemLabels[0]).toBe("XIRR a.a.");
+    expect(origemLabels[1]).toBe("TWR a.a.");
   });
 });

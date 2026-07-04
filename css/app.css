@@ -1124,13 +1124,22 @@ footer.rodape code {
   font-size: 0.875rem;
   cursor: pointer;
   color: var(--ink);
-  font-weight: 500;
+  font-weight: 600; /* 7a.S.6: era 500 — espelha peso 600 do .seg do mockup (seletor lidera) */
 }
 
+/* 7a.S.6: escopo ativo ganha peso extra (700, espelha o padrão 600/700
+   inativa/ativa da tab bar S.4) + anel sutil com --accent-soft (1º uso real
+   do token, reservado desde S.1) — reforça que a seleção É o gesto de
+   abertura da tela, não um controle secundário. APP-WIDE por design:
+   `.escopo-toggle` é compartilhado (rentabilidade Total/Brasil/EUA + proventos
+   Origem/Mensal) → a ênfase é linguagem única de segmented-control em toda a
+   marca (CRB 7a.S.6 general-swe; coberto por proventos.spec.ts + rentabilidade). */
 .escopo-toggle button.active {
   background: var(--g-700);
   color: white;
   border-color: var(--g-700);
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* Sub-toggle moeda (R$/US$) — só aparece em escopo=EUA. Variante secundária
@@ -1181,6 +1190,21 @@ footer.rodape code {
   color: var(--gray-medium, #6b7280);
   margin: 8px 0 4px;
   text-align: center;
+}
+
+/* 7a.S.6: narração do zoom — pulse sutil (mockup .chart-sub.live) enquanto
+   o dataZoom está em movimento (js/app.js toggla `.live` no aoMoverZoom,
+   com debounce de settle). Gated inteiro em @media no-preference — não só
+   a transição: sob reduced-motion, `.live` não produz NENHUM efeito visual
+   (o JS também não adiciona a classe, dupla blindagem). Só o texto do
+   subtítulo muda, nunca o pulse. */
+@media (prefers-reduced-motion: no-preference) {
+  .chart-rent-subtitulo {
+    transition: transform var(--d1) ease;
+  }
+  .chart-rent-subtitulo.live {
+    transform: scale(1.04);
+  }
 }
 
 .chart-rent {
