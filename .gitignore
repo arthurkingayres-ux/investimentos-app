@@ -11,3 +11,6 @@ __pycache__/
 
 # CRB scratch (code-review-board)
 .tmp_crb/
+
+# Mockups de direção de arte (referência local; NUNCA vão ao repo público — Fase 7a.S §7)
+mockups/
