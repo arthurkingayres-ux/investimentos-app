@@ -7,6 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.23 (Fase 7a.S.7a backend / 7a.S.7b Task 0/1): ``dividend_yield``
+ganha ``campeoes`` — pódio top-3 yielders por categoria (``acao_br``/``fii``/
+``eua``), cada item ``{ticker, dy, proventos_12m, valor, moeda, bandeira}``.
+Consumido pela tela dedicada ``#s-dy``. Os 4 escopos originais (``total``/
+``acao_br``/``fii``/``eua``) seguem intactos.
+
 Schema v2.19 (Fase 7a.E.28): cada ativo de bucket ``picks`` em
 ``politica`` carrega ``quarentena`` (bool); ``False`` para não-quarentenados
 e buckets ``passive``. peso_atual_bucket/drift_bucket são intra-categoria.
@@ -115,7 +121,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.20",
+    "versao": "2.23",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -262,6 +268,37 @@ PAYLOAD = {
         "acao_br": {"dy": 0.0482, "proventos_12m": 1266.05, "valor": 26240.34, "moeda": "BRL"},
         "fii":     {"dy": 0.0780, "proventos_12m": 4798.97, "valor": 61556.69, "moeda": "BRL"},
         "eua":     {"dy": 0.0082, "proventos_12m": 248.17, "valor": 30199.95, "moeda": "USD"},
+        # Schema v2.23 (Fase 7a.S.7a backend / 7a.S.7b frontend Task 0/1):
+        # pódio top-3 yielders por categoria, consumido pela tela #s-dy.
+        # Valores 100% SINTÉTICOS (repo público) — tickers reaproveitados do
+        # universo já presente no fixture (politica/posicoes/relatorio) por
+        # coerência narrativa, sem relação com o portfólio real do Dr. Arthur.
+        "campeoes": {
+            "acao_br": [
+                {"ticker": "ITSA4", "dy": 0.082, "proventos_12m": 1394.0,
+                 "valor": 17000.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+                {"ticker": "BBAS3", "dy": 0.065, "proventos_12m": 585.0,
+                 "valor": 9000.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+                {"ticker": "SMAL11", "dy": 0.034, "proventos_12m": 170.0,
+                 "valor": 5000.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+            ],
+            "fii": [
+                {"ticker": "HGLG11", "dy": 0.091, "proventos_12m": 682.5,
+                 "valor": 7500.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+                {"ticker": "XPML11", "dy": 0.078, "proventos_12m": 727.0,
+                 "valor": 9320.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+                {"ticker": "KISU11", "dy": 0.062, "proventos_12m": 303.8,
+                 "valor": 4900.0, "moeda": "BRL", "bandeira": "🇧🇷"},
+            ],
+            "eua": [
+                {"ticker": "VWO", "dy": 0.036, "proventos_12m": 442.8,
+                 "valor": 12300.0, "moeda": "USD", "bandeira": "🇺🇸"},
+                {"ticker": "IJS", "dy": 0.024, "proventos_12m": 194.4,
+                 "valor": 8100.0, "moeda": "USD", "bandeira": "🇺🇸"},
+                {"ticker": "VOO", "dy": 0.019, "proventos_12m": 513.76,
+                 "valor": 27040.0, "moeda": "USD", "bandeira": "🇺🇸"},
+            ],
+        },
     },
     "proventos": {
         "ytd_brl": 3240.0,

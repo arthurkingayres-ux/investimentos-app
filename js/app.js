@@ -317,6 +317,12 @@ document.addEventListener("alpine:init", () => {
     catAberta: {},
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
+    // 7a.S.7b: linha-razão do card do chart (= soma exata das barras exibidas;
+    // troca com o toggle Anual/Mensal). Ver renderProventosGrafico().
+    proventosTotalLabel: "",
+    proventosTotalValor: 0,
+    // 7a.S.7b: categoria (acao_br/fii/eua) do pódio de campeões em #s-dy.
+    dySelecionado: null,
     _escListenerProventos: null,
     // 7a.L.1: sub-título do chart #rentabilidade (atualizado por dataZoom)
     rentabilidadeSubtitulo: "",
@@ -423,6 +429,15 @@ document.addEventListener("alpine:init", () => {
         this.rota = "patrimonio";
         this.tab = "raiox";
         setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
+      if (path === "/proventos/dy") {
+        // 7a.S.7b: tela dedicada de Dividend Yield é push child da tab
+        // Proventos — tab persiste (não reseta pra raiox), voltar() usa
+        // home["provent"] = "#proventos" (mapa genérico, sem shim dedicado).
+        this.rota = "dy";
+        this.tab = "provent";
+        setTimeout(() => this.hidratarDY(), 0);
         return;
       }
       const mr = path.match(/^\/raiox\/relatorio(?:\/(\d{4}-\d{2}))?$/);
@@ -1169,6 +1184,11 @@ document.addEventListener("alpine:init", () => {
         const evol = prov.evolucao_anual || [];
         labels = evol.map((e) => String(e.ano));
         valores = evol.map((e) => e.total);
+        // 7a.S.7b: linha-razão "Total · <anoInicio>–<anoFim>" — soma exata
+        // das barras exibidas (nunca um agregado independente do gráfico).
+        this.proventosTotalLabel = evol.length
+          ? `Total · ${evol[0].ano}–${evol[evol.length - 1].ano}`
+          : "Total";
       } else {
         const m12 = prov.mensal_12m || [];
         const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -1178,7 +1198,9 @@ document.addEventListener("alpine:init", () => {
           return (idx >= 0 && idx <= 11) ? `${meses[idx]}/${yy.slice(2)}` : (e.mes || "");
         });
         valores = m12.map((e) => e.valor);
+        this.proventosTotalLabel = "Total · 12 meses";
       }
+      this.proventosTotalValor = valores.reduce((acc, v) => acc + (v || 0), 0);
 
       const notaParcialEl = document.getElementById("proventosNotaParcial");
 
@@ -1349,6 +1371,78 @@ document.addEventListener("alpine:init", () => {
           self.renderProventosGrafico();
         });
       });
+    },
+
+    // ── 7a.S.7b: #s-dy (Dividend Yield — tela dedicada) ───────────────
+
+    // Entrada na rota: escolhe a categoria default do pódio de campeões —
+    // a de MAIOR dy entre os 3 sub-escopos (empty-safe: fica null se os 3
+    // vierem sem dado, ou se dividend_yield ainda não existir no payload).
+    hidratarDY() {
+      if (this.rota !== "dy" || !this.json) return;
+      const dy = this.json?.dividend_yield || {};
+      let melhor = null;
+      let melhorValor = -Infinity;
+      ["fii", "acao_br", "eua"].forEach((key) => {
+        const v = dy[key]?.dy;
+        if (typeof v === "number" && v > melhorValor) {
+          melhorValor = v;
+          melhor = key;
+        }
+      });
+      this.dySelecionado = melhor;
+    },
+
+    // As 3 linhas por classe (ordem do mockup: FII, Ação BR, EUA·USD) com a
+    // largura da barra proporcional ao maior dy entre elas.
+    dyClassesLista() {
+      const dy = this.json?.dividend_yield || {};
+      const linhas = [
+        { key: "fii", nm: "FII" },
+        { key: "acao_br", nm: "Ação BR" },
+        { key: "eua", nm: "EUA · USD" },
+      ].map((l) => ({ ...l, dy: dy[l.key]?.dy ?? null }));
+      const max = Math.max(0.0001, ...linhas.map((l) => l.dy || 0));
+      return linhas.map((l) => ({
+        ...l,
+        barPct: Math.max(0, ((l.dy || 0) / max) * 100),
+      }));
+    },
+
+    selecionarDY(key) {
+      this.dySelecionado = key;
+    },
+
+    // Campeões (0-3 itens) da categoria selecionada. Empty-safe: `campeoes`
+    // pode não existir ainda (payload antigo pré-7a.S.7a) ou a categoria
+    // pode vir com lista vazia — em ambos os casos retorna [].
+    dyCampeoesAtuais() {
+      if (!this.dySelecionado) return [];
+      const campeoes = this.json?.dividend_yield?.campeoes || {};
+      return campeoes[this.dySelecionado] || [];
+    },
+
+    dyCampeoesLabelAtual() {
+      const map = { fii: "FII", acao_br: "Ação BR", eua: "EUA · USD" };
+      return map[this.dySelecionado] || "";
+    },
+
+    // Largura da barra de cada campeão, proporcional ao maior dy da lista atual.
+    dyBarPctCampeao(item) {
+      const lista = this.dyCampeoesAtuais();
+      const max = Math.max(0.0001, ...lista.map((p) => p.dy || 0));
+      return Math.max(0, ((item.dy || 0) / max) * 100);
+    },
+
+    // Formata o valor de mercado do campeão na moeda nativa do item — BRL
+    // (Ação BR/FII) ou USD (EUA, USD-nativo, sem conversão FX).
+    formatMoedaCampeao(valor, moeda) {
+      if (moeda === "USD") {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency", currency: "USD",
+        }).format(valor ?? 0);
+      }
+      return window.formatBrl(valor);
     },
 
     // ── 7a.E.6: Histórico patrimonial ─────────────────────────────────
@@ -2179,6 +2273,11 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "patrimonio") {
           this.hidratarPatrimonio();
         }
+        // 7a.S.7b: mesmo padrão de #/raiox/chart — cold-start em
+        // `#/proventos/dy` (bookmark/share-link) chega aqui sem json ainda,
+        // então hidratarDY() precisa rodar agora que o payload chegou; senão
+        // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
+        if (this.rota === "dy") this.hidratarDY();
       } catch (err) {
         console.warn("auto-resume falhou, limpando sessão", err);
         this.limparSessao();
@@ -2375,6 +2474,9 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "patrimonio") {
           this.hidratarPatrimonio();
         }
+        // 7a.S.7b: bookmark direto de `#/proventos/dy` — re-hidrata o DY
+        // depois que `json` chegou via submitPin (espelha #/raiox/chart).
+        if (this.rota === "dy") this.hidratarDY();
       } catch (err) {
         console.error("decifra falhou", err);
         this.registrarFalha();

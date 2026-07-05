@@ -28,26 +28,40 @@ test.describe("Responsive em viewports estreitos (7a.G.2)", () => {
     await autenticar(page);
   });
 
-  test("proventos kpi-grid-3 stacks em 1 coluna com 320px", async ({ page }) => {
+  // 7a.S.7b Task 4: substitui o wrap-to-1-col de 7a.G.2 finding #3 por um
+  // affordance de rolagem horizontal (spec 7a.S §9, Fable: "3º KPI cortado
+  // a 320px") — os 3 KPIs seguem lado a lado, alcançáveis via scroll, sem
+  // nunca estourar a PÁGINA (o overflow fica contido no wrapper).
+  test("proventos kpi-grid-3 tem rolagem horizontal a 320px — 3 KPIs alcançáveis, sem overflow da página", async ({ page }) => {
     await page.goto("/#proventos");
     await expect(page.locator(".kpi-grid-3").first()).toBeVisible({
       timeout: 5_000,
     });
 
-    const cols = await page.evaluate(() => {
-      const grid = document.querySelector(".kpi-grid-3");
-      if (!grid) return 0;
-      return getComputedStyle(grid as Element).gridTemplateColumns.split(" ")
-        .length;
-    });
-    expect(cols).toBe(1);
+    // A página (documento) nunca ganha scroll horizontal por causa do row de
+    // KPIs — era esse o bug original (era 377 em viewport 320 antes do fix).
+    const docOverflowsX = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    );
+    expect(docOverflowsX).toBe(false);
 
-    // kpi-grid-3 não pode estourar a viewport (era 377 em viewport 320 antes do fix)
-    const gridRight = await page.evaluate(() => {
-      const grid = document.querySelector(".kpi-grid-3");
-      if (!grid) return 0;
-      return Math.round(grid.getBoundingClientRect().right);
+    const kpis = page.locator(".tela-proventos .kpi-grid-3 .kpi");
+    await expect(kpis).toHaveCount(3);
+
+    // O container interno tem overflow disponível — é a affordance em si.
+    const scrollInfo = await page.evaluate(() => {
+      const grid = document.querySelector(".tela-proventos .kpi-grid-3") as HTMLElement;
+      return { scrollWidth: grid.scrollWidth, clientWidth: grid.clientWidth };
     });
-    expect(gridRight).toBeLessThanOrEqual(320);
+    expect(scrollInfo.scrollWidth).toBeGreaterThan(scrollInfo.clientWidth);
+
+    // O 3º KPI é alcançável rolando o wrapper até o fim — e fica totalmente
+    // dentro da faixa horizontal da viewport (não cortado) depois.
+    await kpis.nth(2).evaluate((el) => el.scrollIntoView({ inline: "end", block: "nearest" }));
+    await expect(kpis.nth(2)).toBeVisible();
+    const box = await kpis.nth(2).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(321);
   });
 });

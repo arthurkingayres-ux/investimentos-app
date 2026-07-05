@@ -98,6 +98,37 @@ test.describe("7a.E.5 — Tela de Proventos", () => {
   });
 });
 
+test.describe("7a.S.7b — #proventos: topo reformado (linha-razão + chamada DY)", () => {
+  test("sem bloco DY inline nem poster de total no topo", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="dy-bloco"]')).toHaveCount(0);
+    await expect(page.locator(".dy-total-valor")).toHaveCount(0);
+  });
+
+  test("linha-razão = soma exata das barras exibidas; troca de rótulo/valor com o toggle", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#proventos");
+    await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
+    await page.waitForSelector("#proventos-grafico canvas[data-zr-dom-id]", { timeout: 5_000 });
+
+    // Anual (default): soma de evolucao_anual da fixture =
+    // 4200+7350+8600+9820+9820+3240 = 43030.
+    const label = page.locator("#prov-total .pt-lbl");
+    const valor = page.locator("#prov-total .pt-val");
+    await expect(label).toContainText("2021");
+    await expect(label).toContainText("2026");
+    await expect(valor).toHaveText("R$ 43.030,00");
+
+    // Mensal: soma de mensal_12m da fixture = 9700.
+    await page.locator(".tela-proventos .escopo-toggle button", { hasText: /Mensal/i }).click();
+    await page.waitForTimeout(300);
+    await expect(label).toContainText("12 meses");
+    await expect(valor).toHaveText("R$ 9.700,00");
+  });
+});
+
 test.describe("7a.S.6 — ênfase app-wide do segmented-control (Proventos)", () => {
   test("o toggle ativo do #proventos ganha a ênfase (peso 700 + anel accent-soft)", async ({
     page,

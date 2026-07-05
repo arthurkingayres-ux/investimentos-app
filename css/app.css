@@ -57,9 +57,9 @@
      poster). Escada de display (poster→xl→lg→md) com razão ≥1.25. Rótulos/
      eyebrows uppercase ficam fora (tratamento próprio). Mudar um tamanho =
      editar o token; font-size numérico hardcoded vira candidato a review. */
-  --num-poster: 2.5rem;    /* 40px — hero patrimônio, DY total                */
-  --num-xl:     1.875rem;  /* 30px — ticker-vm-grande, proventos-ytd, aloca alvo */
-  --num-lg:     1.25rem;   /* 20px — r7d-delta, dy-stat, aporte-data          */
+  --num-poster: 2.5rem;    /* 40px — hero patrimônio                          */
+  --num-xl:     1.875rem;  /* 30px — ticker-vm-grande, rel-secao--manchete, aloca alvo */
+  --num-lg:     1.25rem;   /* 20px — r7d-delta, aporte-data                   */
   --num-md:     1rem;      /* 16px — kpi, rent-metrica/periodo, classe %       */
   --num-sm:     0.9375rem; /* 15px — ticker-vm, aporte, tabelas, política      */
   --num-xs:     0.8125rem; /* 13px — ticker-pct, drift, anotações numéricas    */
@@ -944,17 +944,6 @@ h1 {
   margin-top: 0.5rem;
 }
 
-.proventos-ytd {
-  font-size: var(--num-xl);
-  font-weight: 800;
-  background: linear-gradient(90deg, var(--g-700), var(--amber));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
 .pill.pill-anterior {
   background: #fff;
   border-radius: 999px;
@@ -1239,6 +1228,101 @@ footer.rodape code {
   cursor: pointer;
 }
 
+/* 7a.S.7b: card único do chart de #proventos — a linha-razão (.prov-total)
+   e o gráfico (#proventos-grafico) dividem UM cartão (evita card-dentro-de-
+   card). O wrapper herda o chrome visual de .chart-rent; o gráfico interno
+   fica "achatado" (só aqui — não afeta #chart-rent/#patrimonio-grafico em
+   outras telas, que seguem donos do próprio chrome). */
+.prov-chart-card {
+  margin: 4px 0 24px;
+  background: white;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 2px 6px var(--g-900-07);
+}
+.prov-chart-card #proventos-grafico {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+.prov-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 1px 2px 10px;
+  border-bottom: 1px solid var(--neutral-100);
+  margin-bottom: 8px;
+}
+.prov-total .pt-lbl {
+  font-size: 0.65625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray);
+  white-space: nowrap;
+}
+.prov-total .pt-val {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Chamada do Dividend Yield (idioma de .rel-card-home) → push #s-dy. */
+.dy-chamada {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  margin: 22px 0 0;
+  background: white;
+  border: 1px solid var(--neutral-200);
+  border-radius: 18px;
+  text-decoration: none;
+  color: var(--ink);
+  box-shadow: var(--card-shadow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dy-chamada { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+}
+.dy-chamada:active {
+  transform: scale(.98);
+  box-shadow: var(--shadow-pressed);
+}
+.dy-chamada__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dy-chamada__label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--gray);
+}
+.dy-chamada__valor {
+  font-size: var(--num-md);
+  font-weight: 700;
+  color: var(--g-900);
+  font-variant-numeric: tabular-nums;
+}
+.dy-chamada__desc {
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+.dy-chamada__chevron {
+  font-size: 1.5rem;
+  color: var(--accent);
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
 /* 7a.S.3 Task 3: nota "em curso" sob o chart de proventos — honestidade de
    dado (a última barra, ano/mês corrente, ainda está acumulando). Estilo
    caption discreto, espelha .compo-legend do mockup Monument. */
@@ -1450,102 +1534,231 @@ footer.rodape code {
   color: var(--red);
 }
 
-/* ── Fase 7a.E.24 — bloco Dividend Yield (#proventos) ──────────────────
-   Restrained: hierarquia por escala, não por card. Total domina via
-   font-size 2.5rem; sub-stats parelhos em 1.0625rem. Sem cor por
-   categoria, sem gradiente, sem stripe. "em USD" é a exceção que marca. */
-.dy-bloco {
-  margin: 0 0 24px;
+/* ── Fase 7a.S.7b — #s-dy: tela dedicada de Dividend Yield ─────────────
+   Mapeia .poster/.dy-row/.dy-champs do mockup Monument (L461-621). Consome
+   tokens S.1 (--accent/--accent-soft/--surface-2/--faint/--ease/--d1-3) +
+   a escala --num-poster-xl (S.1 já a reservava p/ "poster monumento DY"). */
+.poster-wrap {
+  margin: 14px 0 4px;
 }
-
-.dy-dl {
-  margin: 0;
-}
-
-.dy-eyebrow {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--gray);
-}
-
-.dy-total-corpo {
-  margin: 4px 0 0;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.dy-total-valor {
+.poster {
   font-family: var(--mono);
-  font-size: var(--num-poster);
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--g-900);            /* único acento restrito do bloco */
+  letter-spacing: -0.035em;
+  font-size: var(--num-poster-xl);
+  line-height: 1;
+  color: var(--accent);
   font-variant-numeric: tabular-nums;
-}
-
-.dy-total-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.dy-total-label {
-  font-size: 0.8125rem;
-  color: var(--gray);
-}
-
-.dy-caption {
-  margin: 6px 0 0;
-  font-size: 0.75rem;
-  color: var(--gray);
-}
-
-.dy-sub {
-  margin: 20px 0 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.dy-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.dy-stat-label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--gray);
-}
-
-.dy-stat-label .flag {
-  font-size: 0.9375rem;
-}
-
-.dy-stat-valor {
   margin: 0;
-  font-family: var(--mono);
-  font-size: var(--num-lg);
+}
+.poster-cap {
+  font-size: 0.78125rem;
+  color: var(--gray);
+  margin: 8px 0 0;
+  letter-spacing: 0.02em;
+  max-width: 32ch;
+}
+
+.dy-compare {
+  margin-top: 20px;
+}
+.dy-cap {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: var(--faint);
+  letter-spacing: 0.03em;
+  margin-bottom: 10px;
+}
+.dy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 14px;
+  background: white;
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dy-row {
+    transition: border-color var(--d2) ease, box-shadow var(--d2) ease,
+      transform var(--d1) var(--ease);
+  }
+}
+/* 7a.S.2: mapeia .dy-row do mockup. */
+.dy-row:active {
+  transform: scale(.99);
+  box-shadow: var(--shadow-pressed);
+}
+.dy-row.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft), var(--card-shadow);
+}
+.dy-row .cls {
+  font-size: 0.84375rem;
   font-weight: 700;
   color: var(--ink);
+  width: 82px;
+  flex: 0 0 auto;
+}
+.dy-row .barw {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+}
+.dy-row .barw i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width .7s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dy-row .barw i { transition: none; }
+}
+.dy-row .yv {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
+  width: 50px;
+  text-align: right;
+  flex: 0 0 auto;
+}
+.dy-row .chv {
+  color: var(--faint);
+  font-size: 0.875rem;
+  flex: 0 0 auto;
+  transition: transform var(--d2) var(--ease), color var(--d2) ease;
+}
+.dy-row.on .chv {
+  transform: rotate(90deg);
+  color: var(--accent);
 }
 
-.dy-stat-caption {
+/* Pódio de campeões — bandeja distinta (NÃO é o grifo). */
+.dy-champs {
+  margin-top: 4px;
+  background: var(--surface-2);
+  border-radius: 14px;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+.dy-champs .dc-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.dy-champs .dc-h .t {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.dy-champs .dc-h .t .st {
+  color: var(--amber);
+}
+.dy-champs .dc-h .c {
+  font-size: 0.65625rem;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+}
+.dy-champs-vazio {
+  font-size: 0.8125rem;
+  color: var(--gray);
+  padding: 6px 0;
   margin: 0;
+}
+.champ {
+  padding: 8px 0 7px;
+}
+.champ + .champ {
+  border-top: 1px solid var(--neutral-100);
+}
+.champ-top {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.champ .rk {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: var(--faint);
+  width: 14px;
+  flex: 0 0 auto;
+}
+.champ .flag {
+  font-size: 0.8125rem;
+}
+.champ .tk {
+  font-weight: 600;
+  color: var(--ink);
+}
+.champ .y {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.90625rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.champ-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+}
+.champ-bar .bw {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: white;
+  position: relative;
+  overflow: hidden;
+}
+.champ-bar .bw i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width .6s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .champ-bar .bw i { transition: none; }
+}
+.champ-bar .rs {
+  font-family: var(--mono);
   font-size: 0.6875rem;
   color: var(--gray);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.footnote-dy {
+  margin: 28px 0 0;
+  text-align: center;
+  font-size: 0.71875rem;
+  color: var(--faint);
+}
+.footnote-dy code {
+  font-family: var(--mono);
 }
 
 .ativo-section-h {
@@ -1894,9 +2107,44 @@ footer.rodape code {
 
 /* ── #proventos ───────────────────────────────────────────────────── */
 
-/* 3-column KPI grid override for proventos screen */
+/* 7a.S.7b Task 4: affordance de rolagem horizontal (spec 7a.S §9 — Fable
+   flagou o 3º card cortado a 320px; o mockup não prescreveu o fix, resolvido
+   aqui). Substitui o wrap-to-1-col de 7a.G.2 finding #3: os 3 KPIs seguem
+   lado a lado (flex row), com scroll contido no wrapper — nunca na página —
+   e um edge-fade sinalizando que há mais conteúdo à direita. Em viewports
+   largos os 3 cards cabem inteiros e o overflow fica inerte (sem scroll). */
+.kpi-scrollwrap {
+  position: relative;
+  margin: 0 0 24px;
+}
 .kpi-grid-3 {
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  grid-template-columns: none; /* override do .kpi-grid base (2-col grid) */
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 4px;
+  scrollbar-width: none; /* Firefox */
+}
+.kpi-grid-3::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Android WebView */
+}
+.kpi-grid-3 .kpi {
+  flex: 0 0 auto;
+  width: 42%;
+  min-width: 152px;
+  scroll-snap-align: start;
+}
+.kpi-scroll-fade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 4px;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--neutral-50));
+  pointer-events: none;
 }
 
 /* Compact KPI values in 3-col layout to prevent overflow on narrow screens */
@@ -1969,16 +2217,6 @@ footer.rodape code {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-/* kpi-grid-3 stack em viewports estreitos (7a.G.2 finding #3) */
-@media (max-width: 380px) {
-  .kpi-grid-3 {
-    grid-template-columns: 1fr;
-  }
-  .kpi-grid-3 .kpi-valor {
-    font-size: var(--num-md);
-  }
 }
 
 /* ── Fase 7a.E.18 — drilldown mês×ativo em #proventos ─────────────── */

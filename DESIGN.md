@@ -28,7 +28,7 @@ Teal-quente como protagonista, neutros warm como base. Saturação contida (<60%
 - `--teal: #14b8a6` — Accent teal puro. Usado em hero radial highlight e outline focus de hero-link/política.
 
 ### Semantic
-- `--amber: #f59e0b` — Warning. Drift positivo, gradient end de proventos-ytd. (Não é mais a cor de FII desde 7a.E.20.)
+- `--amber: #f59e0b` — Warning. Drift positivo. (Não é mais a cor de FII desde 7a.E.20.)
 - `--amber-light: #fbbf24` — Reserva (não em uso atual).
 - `--red: #b91c1c` — Danger / perda. PIN error, chip.is-neg, lado-S, kpi-valor.is-neg, drift-neg.
 
@@ -101,9 +101,9 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 
 | Token | px | Onde (exemplos) |
 |---|---|---|
-| `--num-poster` | 40px (2.5rem) | hero patrimônio (`.hero-valor` mono), `.dy-total-valor` |
-| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.proventos-ytd` |
-| `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.dy-stat-valor`, `.aporte-data` |
+| `--num-poster` | 40px (2.5rem) | hero patrimônio (`.hero-valor` mono) |
+| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.rel-secao--manchete .rel-secao__titulo` |
+| `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.aporte-data` |
 | `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
 | `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
 | `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
@@ -113,7 +113,7 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | Token | px | Onde (exemplos) |
 |---|---|---|
 | `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` (capa Relatório S.9) |
-| `--num-poster-xl` | 54px (3.375rem) | poster monumento (DY dedicado S.7) |
+| `--num-poster-xl` | 54px (3.375rem) | `.poster` — DY da carteira em `#s-dy` (7a.S.7b, 1º consumidor real do token) |
 
 Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
 
@@ -124,7 +124,7 @@ Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`
 | Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
 |---|---|---|---|---|---|
 | Hero valor | `--num-poster` 2.5rem (40px) mono | 800 | 1.05 | -0.025em | `.hero-valor` (2ª decl mono, raio-x enxuto pós-7a.I) |
-| Proventos YTD | `--num-xl` 1.875rem (30px) | 800 | — | -0.01em | `.proventos-ytd` |
+| Poster DY (`#s-dy`) | `--num-poster-xl` 3.375rem (54px) mono | 800 | 1 | -0.035em | `.poster` (7a.S.7b) |
 | Ticker hero VM | `--num-xl` 1.875rem (30px) mono | 800 | — | -0.025em | `.ticker-vm-grande` (7a.E.27: era 3rem drift de decl duplicada; consolidado) |
 | R$ categoria (#alocacao) | `--num-sm` 0.9375rem (15px) | 700 | — | — | `.aloca-cat__rs-valor` (cor `--cat`; guarda overflow 7 díg a 320px) |
 | Ticker hero h2 | 1.5rem (24px) | 700 | — | — | `.ticker-hero h2` |
@@ -149,7 +149,7 @@ Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`
 
 ### Anti-patterns
 - ❌ Não usar Inter, Roboto Flex, Geist, Satoshi, ou qualquer custom font.
-- ❌ Não usar gradiente em texto exceto no `.proventos-ytd` (caso intencional, único, tintado teal→amber).
+- ❌ Não usar gradiente em texto. (Pré-7a.S.7b havia uma exceção única, `.proventos-ytd` — removida na reforma do topo de #proventos; sem exceções vigentes.)
 - ❌ Não usar serif em qualquer lugar.
 - ❌ Não usar mais de 3 weights no mesmo viewport (400, 600, 700/800 são as únicas combinações em uso).
 
@@ -456,6 +456,74 @@ reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
 .aloca-alvo__selo-fora-tag { background: var(--sem-down-tint); color: var(--sem-down); }
 ```
 
+### Proventos — linha-razão + chamada DY + KPI scroll affordance (7a.S.7b)
+
+O topo de `#proventos` perdeu o poster de total e o bloco `.dy-bloco`
+inline (4 escopos de Dividend Yield mostrados ali). A tela agora abre
+direto no `.eyebrow` + `.escopo-toggle` (Anual/Mensal); dois elementos
+novos substituem o que saiu:
+
+- **Linha-razão** (`.prov-total`, dentro do MESMO cartão do chart —
+  `.prov-chart-card` unifica o chrome do card, evitando card-dentro-de-
+  card; o `#proventos-grafico` interno fica "achatado" só ali). Rótulo
+  (`.pt-lbl`) + valor mono (`.pt-val`) = **soma exata das barras
+  exibidas** (nunca um agregado independente), recalculado a cada
+  `renderProventosGrafico()`: `"Total · 2021–2026"` no modo Anual,
+  `"Total · 12 meses"` no Mensal — troca com o toggle.
+- **Chamada de Dividend Yield** (`.dy-chamada`, idioma do card
+  `.rel-card-home` do Relatório do mês): mostra o DY trailing-12m da
+  carteira e navega (push) para a tela dedicada `#/proventos/dy`.
+
+```css
+.prov-chart-card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px var(--g-900-07); }
+.prov-chart-card #proventos-grafico { background: none; box-shadow: none; padding: 0; margin: 0; }
+.prov-total { display: flex; justify-content: space-between; border-bottom: 1px solid var(--neutral-100); }
+.dy-chamada { display: flex; border: 1px solid var(--neutral-200); border-radius: 18px; box-shadow: var(--card-shadow); }
+```
+
+**KPI scroll affordance (Task 4, spec 7a.S §9 — Fable: "3º KPI cortado a
+320px").** Substitui o wrap-to-1-col de 7a.G.2 finding #3: `.kpi-grid-3`
+vira flex row com `overflow-x: auto` contido no wrapper
+`.kpi-scrollwrap` (nunca a página — guard testado em
+`responsive-narrow.spec.ts`), `scroll-snap-type: x proximity` por card,
+e um `.kpi-scroll-fade` (`linear-gradient(to right, transparent,
+var(--neutral-50))`, `pointer-events: none`) sinalizando que há mais
+conteúdo. Em viewports largos os 3 cards cabem inteiros e o overflow
+fica inerte (sem scroll visível). Container ganha `tabindex="0"` +
+`role="group"` para alcance via teclado.
+
+### Dividend Yield dedicado — `#s-dy` (7a.S.7b)
+
+Tela push (`#/proventos/dy`, tab bar **persiste** em "Proventos" —
+mesmo mecanismo genérico de `#ativo`/`#/raiox/chart`; `voltar()` usa o
+mapa `home["provent"] = "#proventos"`, sem shim dedicado), aberta pela
+chamada de `#proventos`. Breadcrumb com `.eyebrow--accent` "Dividend
+Yield" + botão voltar.
+
+- **Poster** (`.poster`, mono, `--num-poster-xl` 54px, cor `--accent`)
+  = `dividend_yield.total.dy` da carteira + caption `.poster-cap`
+  (trailing-12m, "renda recebida ÷ valor de mercado").
+- **3 linhas por classe** (`.dy-row`, ordem FII → Ação BR → EUA·USD):
+  barra (`.barw i`) proporcional ao maior dy entre as 3, valor mono
+  (`.yv`). Clique seleciona (`.dy-row.on`, borda + anel `--accent-soft`)
+  e troca qual categoria o pódio abaixo mostra — default é a de
+  **maior dy** entre as 3 (não hardcoded).
+- **Pódio de campeões** (`.dy-champs`, bandeja `--surface-2` — **não**
+  é o `.grifo`): consome `dividend_yield.campeoes.{acao_br,fii,eua}`
+  (schema v2.23, 7a.S.7a backend). Cada `.champ` = rank + bandeira +
+  ticker + dy (`--accent`) + barra + valor de mercado na moeda nativa
+  do item (BRL ou USD, sem conversão FX para EUA). **Empty-safe:**
+  categoria com 0 campeões (ou `campeoes` ausente — payload pré-
+  7a.S.7a) renderiza a voz "Ainda sem campeões suficientes nesta
+  classe" em vez de quebrar.
+
+```css
+.poster { font-family: var(--mono); font-weight: 800; font-size: var(--num-poster-xl); color: var(--accent); }
+.dy-row { border: 1px solid var(--neutral-200); border-radius: 14px; box-shadow: var(--card-shadow); }
+.dy-row.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--card-shadow); }
+.dy-champs { background: var(--surface-2); border-radius: 14px; }
+```
+
 ### PIN screen
 Input central grande (2rem text + tabular-nums + letter-spacing 0.5rem) + botão full-width primary teal.
 
@@ -624,7 +692,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 3. **Cool gray** (azul/violeta tintado). Toda escala neutral é warm-tinted.
 4. **Inter, Roboto, Geist, Satoshi** ou qualquer custom font. System fonts são suficientes.
 5. **Glassmorphism decorativo.** Banido em todo o app. (Exceção pré-7a.G.2 do `hero-delta` foi removida na distill — chip agora é flat tint rgba sem `backdrop-filter`.) Sem exceções vigentes; qualquer reintrodução exige justificativa explícita em PR.
-6. **Gradient text decorativo.** O único `background-clip: text` aceito é `.proventos-ytd` (intencional, semantic green→amber).
+6. **Gradient text decorativo.** Nenhum `background-clip: text` em uso. (A única exceção histórica, `.proventos-ytd`, foi removida em 7a.S.7b junto com o poster de total do topo de #proventos.)
 7. **AI-purple/blue glow shadow.** Toda sombra é tintada para teal `--g-900`.
 8. **Hero metric template** (big number + label + supporting stats + gradient accent). Hero do app pós-7a.G.2 distill é card sólido `var(--g-900)` flat: label uppercase, valor 2rem peso 700, delta-pill flat. Sem gradients, sem `::after`, sem glassmorphism — explicitamente NÃO o template SaaS genérico.
 9. **3-equal-cards horizontal grid.** O app não tem isso. Se feature row for necessária, usar zig-zag ou stack vertical.
@@ -705,6 +773,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
 /* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
                      .grifo (border-left 3px --accent, "uma por tela"; 7a.S.5 realiza em .r7d-movers)
+                     .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total/.dy-chamada (#proventos) · .kpi-scroll-fade (KPI affordance)
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

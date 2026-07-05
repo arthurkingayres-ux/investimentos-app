@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=48">
+  <link rel="stylesheet" href="css/app.css?v=49">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=42"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=46"></script>
+  <script src="js/app.js?v=47"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -713,68 +713,26 @@
           <h1 class="eyebrow">Proventos</h1>
         </header>
 
-        <!-- 7a.E.24: bloco Dividend Yield (trailing-12m) — total + 3 sub-escopos -->
-        <section
-          class="dy-bloco"
-          data-testid="dy-bloco"
-          role="group"
-          aria-labelledby="dy-eyebrow"
-          x-show="json?.dividend_yield">
-          <dl class="dy-dl">
-            <!-- Total (carteira) — número-poster -->
-            <div class="dy-total" data-testid="dy-total">
-              <dt class="dy-eyebrow" id="dy-eyebrow">Dividend Yield</dt>
-              <dd class="dy-total-corpo">
-                <span class="dy-total-valor" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></span>
-                <span class="dy-total-meta">
-                  <span class="flag" aria-hidden="true">🌍</span>
-                  <span class="dy-total-label">Carteira</span>
-                </span>
-              </dd>
-              <p class="dy-caption">Proventos dos últimos 12 meses ÷ valor de mercado</p>
+        <!-- 7a.S.7b Task 4: affordance de rolagem horizontal — o 3º KPI
+             cortava a 320px (spec 7a.S §9, Fable). Substitui o wrap-to-1-col
+             de 7a.G.2 finding #3: os 3 cards seguem lado a lado, alcançáveis
+             por scroll, com edge-fade sinalizando que há mais conteúdo. -->
+        <div class="kpi-scrollwrap">
+          <div class="kpi-grid kpi-grid-3" tabindex="0" role="group" aria-label="Indicadores de proventos, role para o lado para ver todos">
+            <div class="kpi">
+              <span class="kpi-label">YTD <span x-text="anoCorrente"></span></span>
+              <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ytd_brl)"></span>
             </div>
-
-            <!-- 3 sub-escopos -->
-            <div class="dy-sub">
-              <div class="dy-stat" data-testid="dy-acao_br">
-                <dt class="dy-stat-label">
-                  <span class="flag" aria-hidden="true">🇧🇷</span>
-                  <span>Ação BR</span>
-                </dt>
-                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.acao_br?.dy, 1)"></dd>
-              </div>
-              <div class="dy-stat" data-testid="dy-fii">
-                <dt class="dy-stat-label">
-                  <span class="flag" aria-hidden="true">🇧🇷</span>
-                  <span>FII</span>
-                </dt>
-                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.fii?.dy, 1)"></dd>
-              </div>
-              <div class="dy-stat" data-testid="dy-eua">
-                <dt class="dy-stat-label">
-                  <span class="flag" aria-hidden="true">🇺🇸</span>
-                  <span>EUA</span>
-                </dt>
-                <dd class="dy-stat-valor" x-text="formatPctSemSinal(json?.dividend_yield?.eua?.dy, 1)"></dd>
-                <p class="dy-stat-caption">em USD<span class="sr-only"> (em dólar)</span></p>
-              </div>
+            <div class="kpi">
+              <span class="kpi-label"><span x-text="anoAnterior"></span></span>
+              <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ano_anterior_brl)"></span>
             </div>
-          </dl>
-        </section>
-
-        <div class="kpi-grid kpi-grid-3">
-          <div class="kpi">
-            <span class="kpi-label">YTD <span x-text="anoCorrente"></span></span>
-            <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ytd_brl)"></span>
+            <div class="kpi">
+              <span class="kpi-label">Total Origem</span>
+              <span class="kpi-valor" x-text="formatBrl(totalProventosOrigem)"></span>
+            </div>
           </div>
-          <div class="kpi">
-            <span class="kpi-label"><span x-text="anoAnterior"></span></span>
-            <span class="kpi-valor" x-text="formatBrl(json?.proventos?.ano_anterior_brl)"></span>
-          </div>
-          <div class="kpi">
-            <span class="kpi-label">Total Origem</span>
-            <span class="kpi-valor" x-text="formatBrl(totalProventosOrigem)"></span>
-          </div>
+          <span class="kpi-scroll-fade" aria-hidden="true"></span>
         </div>
 
         <div class="escopo-toggle" role="tablist" aria-label="Período">
@@ -792,7 +750,18 @@
             @click="setProventosToggle('mensal')">Mensal (12m)</button>
         </div>
 
-        <div id="proventos-grafico" class="chart-rent" aria-label="Evolução de proventos"></div>
+        <!-- 7a.S.7b: card do chart ganha a linha-razão do total no topo —
+             substitui o poster de total removido; = soma exata das barras
+             exibidas, troca de rótulo/valor com o toggle Anual/Mensal
+             (computado em renderProventosGrafico, nunca um agregado
+             independente do gráfico). -->
+        <div class="prov-chart-card">
+          <div class="prov-total" id="prov-total" aria-live="polite">
+            <span class="pt-lbl" x-text="proventosTotalLabel"></span>
+            <span class="pt-val" x-text="formatBrl(proventosTotalValor)"></span>
+          </div>
+          <div id="proventos-grafico" class="chart-rent" aria-label="Evolução de proventos"></div>
+        </div>
 
         <!-- 7a.S.3 Task 3: nota "em curso" — honestidade de dado da última barra
              (ano/mês corrente, ainda acumulando). Texto montado em JS por
@@ -806,6 +775,18 @@
 
         <!-- 7a.E.18: lista a11y visualmente oculta com 12 botões focáveis -->
         <ul class="proventos-meses-a11y" id="proventosMesesA11y" role="list" aria-label="Meses dos últimos 12 meses"></ul>
+
+        <!-- 7a.S.7b: DY virou chamada (idioma do .rel-card-home) → push #s-dy -->
+        <a class="dy-chamada" data-testid="dy-chamada" href="#/proventos/dy"
+           x-show="json?.dividend_yield"
+           aria-label="Ver detalhe do Dividend Yield da carteira">
+          <span class="dy-chamada__meta">
+            <span class="dy-chamada__label">Dividend Yield</span>
+            <span class="dy-chamada__valor" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></span>
+            <span class="dy-chamada__desc">Carteira · 12 meses — ver detalhe</span>
+          </span>
+          <span class="dy-chamada__chevron" aria-hidden="true">›</span>
+        </a>
 
         <h3 class="ativo-section-h" :class="{ filtrada: proventosToggle === 'mensal' && proventosMesSelecionado !== null }">
           <template x-if="proventosToggle === 'mensal' && proventosMesSelecionado !== null">
@@ -849,6 +830,65 @@
             </table>
           </div>
         </template>
+      </section>
+
+      <!-- ── Tela #s-dy (Fase 7a.S.7b) — Dividend Yield dedicado ────────── -->
+      <section class="tela-detalhes tela-dy" x-show="rota === 'dy'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent">Dividend Yield</h1>
+        </header>
+
+        <div class="poster-wrap">
+          <p class="poster" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></p>
+          <p class="poster-cap">dividend yield da carteira · trailing 12 meses<br>renda recebida ÷ valor de mercado</p>
+        </div>
+
+        <div class="dy-compare">
+          <div class="dy-cap"><span>Por classe · quem rende mais</span><span>toque para os campeões</span></div>
+          <div>
+            <template x-for="c in dyClassesLista()" :key="c.key">
+              <button type="button" class="dy-row" :class="{ on: dySelecionado === c.key }"
+                @click="selecionarDY(c.key)"
+                :aria-label="'Dividend yield ' + c.nm + ' ' + formatPctSemSinal(c.dy, 1) + ' — ver os campeões'">
+                <span class="cls" x-text="c.nm"></span>
+                <span class="barw"><i :style="{ width: c.barPct + '%' }"></i></span>
+                <span class="yv" x-text="formatPctSemSinal(c.dy, 1)"></span>
+                <span class="chv" aria-hidden="true">›</span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <div class="dy-champs" data-testid="dy-champs" aria-live="polite" x-show="dySelecionado">
+          <div class="dc-h">
+            <span class="t"><span class="st" aria-hidden="true">★</span> Campeões · <span x-text="dyCampeoesLabelAtual()"></span></span>
+            <span class="c">maior yield · 12m</span>
+          </div>
+          <template x-if="dyCampeoesAtuais().length === 0">
+            <p class="dy-champs-vazio">Ainda sem campeões suficientes nesta classe.</p>
+          </template>
+          <template x-for="(p, i) in dyCampeoesAtuais()" :key="p.ticker">
+            <div class="champ">
+              <div class="champ-top">
+                <span class="rk" x-text="i + 1"></span>
+                <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
+                <span class="tk" x-text="p.ticker"></span>
+                <span class="y" x-text="formatPctSemSinal(p.dy, 1)"></span>
+              </div>
+              <div class="champ-bar">
+                <span class="bw"><i :style="{ width: dyBarPctCampeao(p) + '%' }"></i></span>
+                <span class="rs" x-text="formatMoedaCampeao(p.valor, p.moeda)"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <p class="footnote-dy">DY trailing 12m ÷ valor de mercado · <code>investimentos.db</code></p>
       </section>
 
       <!-- ── Tela #patrimonio ─────────────────────────────────────────── -->

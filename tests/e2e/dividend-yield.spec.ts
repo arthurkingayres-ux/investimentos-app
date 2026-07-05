@@ -16,26 +16,50 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
-test.describe("#proventos — bloco Dividend Yield", () => {
-  test.beforeEach(async ({ page }) => {
+// 7a.S.7b: o Dividend Yield saiu do topo de #proventos (bloco inline
+// removido) e virou tela dedicada #s-dy, aberta pela chamada
+// `[data-testid="dy-chamada"]`. Os 4 escopos (total/acao_br/fii/eua) seguem
+// os MESMOS dados — só reformatados como poster + 3 dy-row.
+
+test.describe("#proventos → chamada Dividend Yield", () => {
+  test("chamada mostra o DY da carteira e navega para #s-dy", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#proventos");
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
+
+    const chamada = page.getByTestId("dy-chamada");
+    await expect(chamada).toBeVisible();
+    await expect(chamada).toContainText("%");
+
+    await chamada.click();
+    await expect(page).toHaveURL(/#\/proventos\/dy$/);
+    await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+test.describe("#s-dy — os 4 escopos de Dividend Yield (dados preservados)", () => {
+  test.beforeEach(async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#/proventos/dy");
+    await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
   });
 
-  test("renderiza os 4 escopos de DY", async ({ page }) => {
-    await expect(page.getByTestId("dy-bloco")).toBeVisible();
-    await expect(page.getByTestId("dy-total")).toBeVisible();
-    await expect(page.getByTestId("dy-acao_br")).toBeVisible();
-    await expect(page.getByTestId("dy-fii")).toBeVisible();
-    await expect(page.getByTestId("dy-eua")).toBeVisible();
+  test("renderiza o poster (total) + 3 linhas por classe (acao_br/fii/eua)", async ({ page }) => {
+    await expect(page.locator(".poster")).toBeVisible();
+    await expect(page.locator(".dy-row")).toHaveCount(3);
   });
 
   test("EUA marcado como USD", async ({ page }) => {
-    await expect(page.getByTestId("dy-eua")).toContainText("USD");
+    const linhaEua = page.locator(".dy-row", { hasText: "EUA" });
+    await expect(linhaEua).toContainText("USD");
   });
 
   test("valores DY no formato pt-BR com %", async ({ page }) => {
-    await expect(page.getByTestId("dy-total")).toContainText("%");
+    await expect(page.locator(".poster")).toContainText("%");
+    const valores = page.locator(".dy-row .yv");
+    await expect(valores).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(valores.nth(i)).toContainText("%");
+    }
   });
 });
