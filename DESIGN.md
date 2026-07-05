@@ -112,7 +112,7 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 
 | Token | px | Onde (exemplos) |
 |---|---|---|
-| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` (capa Relatório S.9) |
+| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` — capa editorial do Relatório (7a.S.9, 1º consumidor real do token) |
 | `--num-poster-xl` | 54px (3.375rem) | `.poster` — DY da carteira em `#s-dy` (7a.S.7b, 1º consumidor real do token) |
 
 Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
@@ -842,7 +842,9 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
 /* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
                      .grifo (border-left 3px --accent, "uma por tela"; 7a.S.5 realiza em .r7d-movers)
+                     .grifo--amber (border-left 3px --amber + --amber-bg/--amber-bd; 7a.S.9 realiza em .rel-secao--destaque, Apêndice B "Relatório = âmbar")
                      .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total/.dy-chamada (#proventos) · .kpi-scroll-fade (KPI affordance)
+                     .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)
@@ -860,9 +862,15 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 
 ## Relatório Mensal (7a.Q.3) — componentes
 
-Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `.kpi`, `.flag`):
+Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `--amber*`, `.kpi`, `.flag`, `.grifo--amber`):
 
 - `.rel-card-home` — card de entrada na home Raio-X (surface branca, `--neutral-200` border, chevron `--g-700`); empty-safe (`x-show="relUltimoMes"`).
-- `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — borda-esquerda + tint `--sem-down`; peso por hierarquia, **calma, sem vermelho gritante**).
+- `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — layout: borda-esquerda arredondada + padding/gap; peso por hierarquia, **calma, sem vermelho gritante**). Desde 7a.S.9 a *cor* de `.rel-secao--destaque` vem inteira de `.grifo--amber` (abaixo) — a classe de layout não carrega mais `--sem-down` própria.
 - `.rel-selo` (+ `--intacta` cinza / `--pressao` `--sem-down` âmbar / `--deteriorando` `--red`) — veredito de tese por ticker. **Forma (glyph `aria-hidden` ●/◐/▽) + texto + cor**, nunca cor sozinha (deuteranopia coberta). Modelado em `.aloca-alvo__delta`.
 - `.rel-kpis` reusa `.kpi` para os mini-cards do dossiê (performance/decomposição/renda). `.rel-radar` / `.rel-concentracao` / `.rel-evidencias` / `.rel-prestacao` — listas. `.rel-seletor` — dropdown de meses (botão + itens ≥44px). `.rel-loading`/`.rel-erro`/`.rel-vazio` — estados mutuamente exclusivos (skeleton com `prefers-reduced-motion: reduce` honored; degradação graciosa).
+
+### Capa editorial + evento mensal (7a.S.9)
+
+- **Capa editorial** — `.rel-capa` no header (abaixo do `.breadcrumb`, que mantém botão "←" + `.eyebrow.eyebrow--accent` intactos): `.rel-poster` mostra o mês do artefato como poster de 2 linhas (mês / ano, `--num-poster-lg` 46px mono `--accent`, via `formatMesAno(relMes.mes)` partido em `relPosterMes`/`relPosterAno`) + `.rel-veredito-linha` logo abaixo ("Veredito do mês: …", `--num-sm`/`--surface-2`). **Sem fabricar dado**: o artefato `relatorio_mensal_v1` não tem campo `veredito`/`headline`/`resumo` (ver `validar_artefato` no repo principal) — o getter `relVeredito` deriva a **1ª frase literal** da seção `leitura_mes` ("Leitura do mês", o panorama narrativo já escrito pelo motor `/relatorio-mensal`) via `_primeiraFrase`; só o rótulo "Veredito do mês:" é UI, o texto é 100% do artefato. `.rel-seletor__btn` ganha `white-space: nowrap` (corrige o micro-atrito Fable §3 — "Maio 2026 ▾" não quebra em 2 linhas @320px); dropdown inalterado.
+- **Evento mensal — dot "não lido"** — `.rel-dot` (7px, `var(--amber)`) no `.rel-card-home` (quando o último mês não foi lido) e em cada `.rel-seletor__item` cujo mês ainda não foi aberto. Estado 100% client-side: `relRead` (Alpine state, espelhado em `localStorage.relRead`) é um mapa `{'YYYY-MM': true}`; `mesLido(mes)` lê, `_marcarMesLido(mes)` grava e é chamado dentro de `carregarRelatorioMes` no sucesso — abrir um mês marca ele lido e o dot some (home + seletor), sem backend/schema. **A11y**: dot é `aria-hidden` + par `.sr-only` "não lido" (textual, não só cor+pulse). **Motion**: `.rel-dot::after` anima um anel via `transform: scale`/`opacity` (nunca `box-shadow` com `rgba()` ad-hoc — zero cor hardcoded fora de `:root`); a animação só existe dentro de `@media (prefers-reduced-motion: no-preference)`, então reduced-motion vira um dot estático (o `::after` fica parado sobre o próprio dot, mesma cor/tamanho).
+- **Grifo âmbar consagrado** — `classeSecao('nao_funcionando')` retorna `"rel-secao--destaque grifo--amber"`: o box ganha `.grifo--amber` (S.1: `border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`), a colocação canônica do Apêndice B ("Relatório = âmbar", variante distinta do `.grifo` accent — nunca leem como o mesmo sinal). Os selos de veredito dentro do box (ex.: SMAL11/KISU11) são preservados intactos.

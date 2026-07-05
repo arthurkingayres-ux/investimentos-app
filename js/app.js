@@ -299,6 +299,18 @@ document.addEventListener("alpine:init", () => {
     relCarregando: false,   // decifra do mês em andamento
     relErro: "",            // mensagem de erro de arquivo/decifra
     relSeletorAberto: false,// dropdown de meses aberto/fechado
+    // 7a.S.9 Task 2: evento mensal — meses já lidos (mapa 'YYYY-MM' → true).
+    // 100% client-side, sem backend/schema. Sobrevive a reload (localStorage);
+    // aberto pela 1ª vez → marcarMesLido some com o dot (home + seletor).
+    // CRB: JSON.parse pode ter SUCESSO com um não-objeto ("null"/"42"/"[]")
+    // sem lançar — coage a plain object p/ mesLido nunca fazer null[mes].
+    relRead: (() => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem("relRead") || "{}");
+        return (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          ? parsed : {};
+      } catch (_) { return {}; }
+    })(),
     pin: "",
     pinError: "",
     carregando: false,
@@ -1594,6 +1606,7 @@ document.addEventListener("alpine:init", () => {
         if (!art || art.schema !== "relatorio_mensal_v1") throw new Error("schema inesperado");
         this.relMes = art;
         this.relMesAtual = mes;
+        this._marcarMesLido(mes);
       } catch (err) {
         console.warn("relatório do mês indisponível", err);
         this.relMes = null;
@@ -1612,10 +1625,60 @@ document.addEventListener("alpine:init", () => {
       location.hash = "";
     },
 
+    // 7a.S.9 Task 2: evento mensal — dot "não lido". mesLido é lido a cada
+    // render (Alpine re-avalia x-show); _marcarMesLido persiste em
+    // localStorage e é best-effort (quota/privado não deve quebrar o app).
+    mesLido(mes) {
+      // CRB: guarda defensiva (belt-and-suspenders com a coerção no init) —
+      // this.relRead sempre deve ser objeto, mas nunca faz null[mes].
+      return !!(mes && this.relRead && this.relRead[mes]);
+    },
+    _marcarMesLido(mes) {
+      if (!mes || this.relRead[mes]) return;
+      this.relRead = { ...this.relRead, [mes]: true };
+      try { localStorage.setItem("relRead", JSON.stringify(this.relRead)); } catch (_) {}
+    },
+
+    // 7a.S.9 Task 1: mês em poster ("Maio" / "2026") — deriva de formatMesAno,
+    // sem novo parsing de data (evita duplicar a tabela _MESES_PT de format.js).
+    get relPosterMes() {
+      const s = this.relMes ? window.formatMesAno(this.relMes.mes) : "";
+      return s ? s.split(" ")[0] : "";
+    },
+    get relPosterAno() {
+      const s = this.relMes ? window.formatMesAno(this.relMes.mes) : "";
+      return s ? s.split(" ")[1] : "";
+    },
+
+    // 7a.S.9 Task 1 — "linha de veredito" da capa editorial: SEM FABRICAR
+    // DADO (Confiança nos Números). O artefato relatorio_mensal_v1 não tem
+    // campo veredito/headline/resumo dedicado (ver validar_artefato no repo
+    // principal) — deriva-se da 1ª frase da seção "leitura_mes" ("Leitura do
+    // mês"), o panorama narrativo do mês já escrito pelo motor /relatorio-mensal.
+    // Texto 100% literal do artefato; só o rótulo "Veredito do mês:" é UI.
+    get relVeredito() {
+      const secoes = (this.relMes && this.relMes.secoes) || [];
+      const leitura = secoes.find((s) => s && s.id === "leitura_mes");
+      return leitura ? this._primeiraFrase(leitura.corpo) : "";
+    },
+
+    // Primeira frase de um texto: até o 1º '.'/'!'/'?' seguido de espaço ou
+    // fim de string. Pontos de milhar pt-BR ("R$ 3.240") não têm espaço após
+    // o ponto, então não quebram a frase indevidamente.
+    _primeiraFrase(texto) {
+      if (!texto) return "";
+      const m = String(texto).match(/^.*?[.!?](?=\s|$)/);
+      return m ? m[0] : String(texto);
+    },
+
     // 7a.Q.3: helpers de renderização das seções
+    // 7a.S.9 Task 3: nao_funcionando ganha .grifo--amber (S.1) — a colocação
+    // canônica do Apêndice B (Relatório = âmbar), distinta do grifo accent
+    // (.grifo, sinal diferente — nunca lem como o mesmo). .rel-secao--destaque
+    // segue só com o layout (radius/padding/gap); a cor vem do grifo--amber.
     classeSecao(id) {
       if (id === "leitura_mes") return "rel-secao--manchete";
-      if (id === "nao_funcionando") return "rel-secao--destaque";
+      if (id === "nao_funcionando") return "rel-secao--destaque grifo--amber";
       return "";
     },
 

@@ -186,4 +186,138 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
     await expect(page.locator(".rel-erro")).toContainText("Não foi possível");
     await expect(page.locator(".rel-corpo")).toBeHidden();
   });
+
+  // ── 7a.S.9 Task 1: capa editorial (poster + veredito + seletor sem quebra) ──
+  test("capa editorial: mês em poster (46px) + veredito derivado do artefato", async ({ page }) => {
+    await autenticar(page);
+    await page.locator(".rel-card-home").click();
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+
+    const poster = page.locator(".rel-poster");
+    await expect(poster).toBeVisible();
+    await expect(poster).toContainText("Maio");
+    await expect(poster).toContainText("2026");
+    const fontSize = await poster.evaluate((el) => getComputedStyle(el).fontSize);
+    expect(fontSize).toBe("46px");
+
+    // Veredito NÃO é fabricado: é a 1ª frase da seção "leitura_mes" do artefato
+    // real (fixture), com o rótulo "Veredito do mês" prefixado.
+    const veredito = page.locator(".rel-veredito-linha");
+    await expect(veredito).toContainText("Veredito do mês");
+    await expect(veredito).toContainText(
+      "Maio 2026 foi um mês de avanço sólido, puxado pela ponta nos EUA."
+    );
+
+    // Troca de mês troca o veredito junto (mesma derivação, mês diferente).
+    await page.locator(".rel-seletor__btn").click();
+    await page.locator(".rel-seletor__item", { hasText: "Abril 2026" }).click();
+    await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Abril 2026");
+    await expect(poster).toContainText("Abril");
+    await expect(veredito).toContainText(
+      "Abril 2026 foi um mês de avanço sólido, puxado pela ponta nos EUA."
+    );
+  });
+
+  test("seletor de mês não quebra linha @320px (micro-atrito Fable)", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await autenticar(page);
+    await page.locator(".rel-card-home").click();
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    const btn = page.locator(".rel-seletor__btn");
+    const whiteSpace = await btn.evaluate((el) => getComputedStyle(el).whiteSpace);
+    expect(whiteSpace).toBe("nowrap");
+    // Altura de uma única linha (~44px de min-height, nunca duas linhas de texto).
+    const box = await btn.boundingBox();
+    expect(box && box.height).toBeLessThanOrEqual(44);
+  });
+
+  // ── 7a.S.9 Task 2: evento mensal — dot "não lido" ────────────────────────────
+  test("dot não-lido no card home; some após abrir o mês (relRead localStorage)", async ({ page }) => {
+    await autenticar(page);
+    const dot = page.locator(".rel-card-home .rel-dot");
+    await expect(dot).toBeVisible();
+    // a11y: significado textual, não só cor+pulse.
+    await expect(page.locator(".rel-card-home .sr-only")).toHaveText("não lido");
+
+    await page.locator(".rel-card-home").click();
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await page.locator(".tela-relatorio .breadcrumb button").first().click();
+    await expect(page.locator(".raiox")).toBeVisible();
+    await expect(page.locator(".rel-card-home .rel-dot")).toBeHidden();
+  });
+
+  test("dot não-lido no item do seletor; some por-mês ao abrir", async ({ page }) => {
+    await autenticar(page);
+    await page.locator(".rel-card-home").click(); // abre maio (último) → marca lido
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await page.locator(".rel-seletor__btn").click();
+    const itemMaio = page.locator(".rel-seletor__item", { hasText: "Maio 2026" });
+    const itemAbril = page.locator(".rel-seletor__item", { hasText: "Abril 2026" });
+    await expect(itemMaio.locator(".rel-dot")).toBeHidden(); // já lido (era o último)
+    await expect(itemAbril.locator(".rel-dot")).toBeVisible(); // ainda não lido
+
+    await itemAbril.click();
+    await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Abril 2026");
+    await page.locator(".rel-seletor__btn").click();
+    await expect(page.locator(".rel-seletor__item", { hasText: "Abril 2026" }).locator(".rel-dot"))
+      .toBeHidden();
+  });
+
+  test("dot não-lido pulsa por padrão; prefers-reduced-motion desliga", async ({ page }) => {
+    await autenticar(page);
+    const dot = page.locator(".rel-card-home .rel-dot");
+    await expect(dot).toBeVisible();
+    const animOn = await dot.evaluate((el) => getComputedStyle(el, "::after").animationName);
+    expect(animOn).not.toBe("none");
+  });
+
+  test("dot não-lido: prefers-reduced-motion desliga o pulse", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await autenticar(page);
+    const dot = page.locator(".rel-card-home .rel-dot");
+    await expect(dot).toBeVisible();
+    const animOff = await dot.evaluate((el) => getComputedStyle(el, "::after").animationName);
+    expect(animOff).toBe("none");
+  });
+
+  // Regressão do separador de milhar pt-BR (7a.S.9 Task 1 / CRB): a 1ª frase
+  // de "leitura_mes" com um valor "R$ 3.240,50" no meio NÃO pode ser cortada
+  // no ponto de milhar. _primeiraFrase corta só em '.'/'!'/'?' seguido de
+  // espaço ou fim — "3.240,50" não tem espaço após o ponto, então preserva a
+  // frase inteira. Injeta o corpo via Alpine.$data (determinístico, sem
+  // fixture extra) e checa a derivação real da linha de veredito.
+  test("veredito: separador de milhar pt-BR não trunca a 1ª frase", async ({ page }) => {
+    await autenticar(page);
+    await page.locator(".rel-card-home").click();
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+
+    await page.evaluate(() => {
+      const $data = (window as any).Alpine?.$data?.(document.body);
+      if (!$data) throw new Error("Alpine.$data(document.body) é undefined");
+      const sec = ($data.relMes.secoes || []).find((s: any) => s && s.id === "leitura_mes");
+      if (!sec) throw new Error("seção leitura_mes ausente no relMes");
+      sec.corpo =
+        "O patrimônio subiu para R$ 3.240,50 no mês. A segunda frase não deve aparecer.";
+    });
+
+    const veredito = page.locator(".rel-veredito-linha");
+    // Frase inteira, incluindo o valor com ponto de milhar…
+    await expect(veredito).toContainText("O patrimônio subiu para R$ 3.240,50 no mês.");
+    // …e NUNCA a 2ª frase (prova que não cortou em "3.240").
+    await expect(veredito).not.toContainText("A segunda frase não deve aparecer");
+  });
+
+  // ── 7a.S.9 Task 3: grifo âmbar consagrado (Apêndice B: Relatório = âmbar) ────
+  test("box 'NÃO funcionando' consagra o grifo âmbar (S.1); selos preservados", async ({ page }) => {
+    await autenticar(page);
+    await page.locator(".rel-card-home").click();
+    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    const dest = page.locator('.rel-secao[data-secao="nao_funcionando"]');
+    await expect(dest).toHaveClass(/rel-secao--destaque/); // preservado
+    await expect(dest).toHaveClass(/grifo--amber/);
+    const borderColor = await dest.evaluate((el) => getComputedStyle(el).borderLeftColor);
+    expect(borderColor).toBe("rgb(245, 158, 11)"); // var(--amber) #f59e0b
+    // Selos de veredito continuam preservados dentro do box (SMAL11 + KISU11).
+    await expect(dest.locator(".rel-selo")).toHaveCount(2);
+  });
 });
