@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=49">
+  <link rel="stylesheet" href="css/app.css?v=50">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=42"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=47"></script>
+  <script src="js/app.js?v=48"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -455,9 +455,43 @@
           Política não publicada ainda.
         </p>
 
+        <div class="compo" x-show="composicaoSegmentos.length" x-cloak>
+          <div class="compo-cap">
+            <span>Atual</span>
+            <span>Alvo</span>
+          </div>
+          <div class="compo-band" role="group" aria-label="Composição atual da carteira por categoria">
+            <template x-for="seg in composicaoSegmentos" :key="seg.nome">
+              <button type="button" class="compo-seg"
+                      :class="{ dim: compoSegmentoAtivo && compoSegmentoAtivo !== seg.nome }"
+                      :style="`${catStyleVar(seg.nome)} width: ${seg.larguraPct}%;`"
+                      :aria-label="seg.ariaLabel"
+                      @click="tocarSegmentoComposicao(seg.nome)">
+                <span class="sl" x-show="seg.labelVisivel" x-text="seg.label"></span>
+              </button>
+            </template>
+          </div>
+          <div class="compo-ticks">
+            <template x-for="tick in composicaoTicks" :key="tick.nome">
+              <div class="compo-tick" :style="`left: ${tick.leftPct}%;`">
+                <span class="mk" aria-hidden="true"></span>
+                <span class="tv" x-text="tick.label"></span>
+              </div>
+            </template>
+          </div>
+          <!-- 7a.S.8 CRB: confirmação não-visual do tap p/ leitor de tela.
+               O dim/flash/scroll é puramente visual; esta região aria-live
+               narra "{categoria} em destaque" quando um segmento é tocado
+               (dispara também sob reduced-motion — é a11y, não motion). -->
+          <div class="sr-only" aria-live="polite" x-text="compoAnuncio"></div>
+        </div>
+
         <div class="aloca-lista">
           <template x-for="cat in categoriasAlocacaoOrdenadas" :key="cat.nome">
-            <article class="aloca-cat" :style="catStyleVar(cat.nome)">
+            <article class="aloca-cat"
+                      :id="'aloca-cat-' + cat.nome.replace(/\s+/g, '-')"
+                      :class="{ flash: compoCardFlash === cat.nome }"
+                      :style="catStyleVar(cat.nome)">
               <button type="button" class="aloca-cat__head"
                       :aria-expanded="!!catAberta[cat.nome]"
                       :aria-controls="'aloca-cat-body-' + cat.nome.replace(/\s+/g, '-')"

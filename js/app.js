@@ -315,6 +315,18 @@ document.addEventListener("alpine:init", () => {
     // vazio = false). Não-persistente (reseta no reload), preservado ao
     // trocar de aba (vive só em memória Alpine).
     catAberta: {},
+    // 7a.S.8: faixa de composição 100% — estado transiente do tap num
+    // segmento. compoSegmentoAtivo = nome da categoria tocada (dima os
+    // irmãos); compoCardFlash = nome da categoria cujo .aloca-cat pisca.
+    // Ambos null = repouso. Não-persistente; limpo por _compoFlashTimer
+    // após ~1400ms (ou nunca setado sob prefers-reduced-motion).
+    compoSegmentoAtivo: null,
+    compoCardFlash: null,
+    _compoFlashTimer: null,
+    // 7a.S.8 CRB (a11y): texto da região aria-live sob a faixa — confirma o
+    // tap p/ leitor de tela ("{categoria} em destaque"). Setado em
+    // tocarSegmentoComposicao inclusive sob reduced-motion (é a11y, não motion).
+    compoAnuncio: "",
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     // 7a.S.7b: linha-razão do card do chart (= soma exata das barras exibidas;
@@ -1091,6 +1103,91 @@ document.addEventListener("alpine:init", () => {
       return cats
         .slice()
         .sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0) || a.nome.localeCompare(b.nome));
+    },
+
+    // 7a.S.8: faixa de composição 100% — segmentos (largura ∝ peso_atual).
+    // Larguras NORMALIZADAS pela soma de peso_atual das categorias presentes
+    // em politica.categorias (não pelo literal 100%): garante que a faixa
+    // sempre preenche exatamente 100% do espaço visual, mesmo com resíduo de
+    // arredondamento (fixture soma 100,2%) ou com categorias fora do escopo
+    // da política publicada (mesmo recorte que .aloca-lista já usa — a faixa
+    // nunca mostra mais nem menos categorias do que os cards abaixo dela).
+    // Label visível (.sl) só quando peso_atual ≥ 7% (regra dos estreitos);
+    // abaixo disso o segmento ainda fala via aria-label completo (a11y).
+    get composicaoSegmentos() {
+      const cats = this.categoriasAlocacaoOrdenadas;
+      const soma = cats.reduce((acc, c) => acc + (c.peso_atual || 0), 0) || 1;
+      return cats.map((c) => {
+        const atual = c.peso_atual || 0;
+        const alvo = c.peso_alvo || 0;
+        return {
+          nome: c.nome,
+          larguraPct: (atual / soma) * 100,
+          labelVisivel: atual >= 0.07,
+          label: `${c.nome} ${window.formatPctSemSinal(atual, 0)}`,
+          ariaLabel:
+            `${c.nome}: ${window.formatPctSemSinal(atual, 0)} atual, ` +
+            `${window.formatPctSemSinal(alvo, 0)} alvo`,
+        };
+      });
+    },
+
+    // 7a.S.8: réguas do alvo — marcas cumulativas de peso_alvo (mesma ordem
+    // dos segmentos, categoriasAlocacaoOrdenadas). Normalizadas pela soma de
+    // peso_alvo (por construção deve somar 1.0 — /alocar bloqueia categorias
+    // que não somem 1.0 — mas a normalização aqui é defensiva contra
+    // arredondamento). Cada tick marca ONDE a fatia-alvo daquela categoria
+    // termina; o rótulo mostra o peso_alvo PRÓPRIO da categoria (não o
+    // acumulado) — leitura "esta fatia vale X%", não "estamos em X% do total".
+    get composicaoTicks() {
+      const cats = this.categoriasAlocacaoOrdenadas;
+      const somaAlvo = cats.reduce((acc, c) => acc + (c.peso_alvo || 0), 0) || 1;
+      let acumulado = 0;
+      return cats.map((c) => {
+        const alvo = c.peso_alvo || 0;
+        acumulado += alvo;
+        return {
+          nome: c.nome,
+          leftPct: (acumulado / somaAlvo) * 100,
+          label: window.formatPctSemSinal(alvo, 0),
+        };
+      });
+    },
+
+    // 7a.S.8: tap num segmento da faixa → esmaece os irmãos + faz o card
+    // .aloca-cat correspondente piscar + rola até ele. Sob prefers-reduced-
+    // motion o scroll ainda acontece (behavior:auto) mas SEM dim/flash —
+    // motion zero por design, mesma convenção do resto do app shell
+    // (window.drarthurNav.motion.reduced, ver 7a.S.6/transitions.js).
+    tocarSegmentoComposicao(nome) {
+      const reduced = !!(
+        window.drarthurNav &&
+        window.drarthurNav.motion &&
+        window.drarthurNav.motion.reduced
+      );
+      const slug = nome.replace(/\s+/g, "-");
+      const card = document.getElementById("aloca-cat-" + slug);
+      if (card) {
+        card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      }
+      // CRB (a11y): confirmação não-visual do tap. Fora do guard de
+      // reduced-motion — o leitor de tela precisa saber que o tap registrou
+      // mesmo quando o dim/flash é suprimido por motion reduzido.
+      this.compoAnuncio = `${nome} em destaque`;
+      clearTimeout(this._compoFlashTimer);
+      if (reduced) {
+        // Sem pulso sob reduced-motion: garante estado limpo (caso um tap
+        // anterior, sem reduced-motion, ainda estivesse com timer pendente).
+        this.compoSegmentoAtivo = null;
+        this.compoCardFlash = null;
+        return;
+      }
+      this.compoSegmentoAtivo = nome;
+      this.compoCardFlash = nome;
+      this._compoFlashTimer = setTimeout(() => {
+        this.compoSegmentoAtivo = null;
+        this.compoCardFlash = null;
+      }, 1400);
     },
 
     // ── #proventos ──────────────────────────────────────────────────

@@ -1339,6 +1339,86 @@ footer.rodape code {
 
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
+/* 7a.S.8: faixa de composição 100% — mapa do todo no topo de #alocação,
+   ACIMA de .aloca-lista. Espelha .compo/.compo-band/.compo-seg/.compo-ticks
+   do mockup Monument. Larguras dos segmentos normalizadas pela soma de
+   peso_atual das categorias presentes (garante 100% exato do espaço visual
+   mesmo com resíduo de arredondamento); ticks do alvo normalizados pela
+   soma de peso_alvo (cumulativos, réguas do alvo). Ver DESIGN.md. */
+.compo {
+  margin-bottom: 18px;
+}
+.compo-cap {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--faint);
+  margin-bottom: 8px;
+  letter-spacing: .03em;
+}
+.compo-band {
+  position: relative;
+  display: flex;
+  height: 46px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+/* --cat vem de catStyleVar(nome) no inline style, igual .aloca-cat__dot. */
+.compo-seg {
+  height: 100%;
+  cursor: pointer;
+  position: relative;
+  border: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--cat);
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .compo-seg { transition: opacity var(--d2) ease, transform var(--d1) ease; }
+}
+.compo-seg .sl {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* Tap num segmento esmaece os irmãos por ~1400ms (tocarSegmentoComposicao). */
+.compo-seg.dim {
+  opacity: .35;
+}
+.compo-ticks {
+  position: relative;
+  height: 16px;
+  margin-top: 5px;
+}
+.compo-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.compo-tick .mk {
+  width: 1.5px;
+  height: 7px;
+  background: var(--ink);
+  opacity: .55;
+}
+.compo-tick .tv {
+  font-size: 9px;
+  color: var(--faint);
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* 7a.E.31: tela #alocação unificada — cabeçalho .breadcrumb padrão (igual às
    demais telas) + lista única de cards de categoria colapsáveis. O corpo
    expandido reusa as cestas (.aloca-alvo__cesta/__ativo/__minibar) abaixo. */
@@ -1348,22 +1428,33 @@ footer.rodape code {
   gap: 12px;
 }
 
-/* Card de categoria. --cat vem de catStyleVar(nome) no inline style. */
+/* Card de categoria. --cat vem de catStyleVar(nome) no inline style.
+   scroll-margin-top: alvo do scrollIntoView do tap na faixa (7a.S.8) —
+   evita que o header fixo (se houver) cubra o topo do card. */
 .aloca-cat {
   background: white;
   border: 1px solid var(--neutral-100);
   border-radius: 16px;
   padding: 14px 15px;
   box-shadow: 0 2px 6px var(--g-900-07);
+  scroll-margin-top: 12px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .aloca-cat { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease; }
+  .aloca-cat { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease, border-color var(--d2) ease; }
 }
 /* 7a.S.2: mapeia .acard do mockup. :active propaga do <button> .aloca-cat__head
    (filho) para este ancestral enquanto o botão é pressionado (CSS spec). */
 .aloca-cat:active {
   transform: scale(.988);
   box-shadow: var(--shadow-pressed);
+}
+/* 7a.S.8: pulso transiente quando o tap na faixa de composição aponta pra
+   este card (compoCardFlash === cat.nome) — ring + borda --accent, ~1400ms
+   (JS remove a classe). Base sem transição (reduced-motion default); a
+   suavização de border-color/box-shadow vem do bloco no-preference acima. */
+.aloca-cat.flash {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07);
 }
 
 .aloca-cat__head {

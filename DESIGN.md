@@ -456,6 +456,75 @@ reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
 .aloca-alvo__selo-fora-tag { background: var(--sem-down-tint); color: var(--sem-down); }
 ```
 
+### Faixa de composição 100% (7a.S.8)
+`#alocacao` abre respondendo "como estou dividido?" — uma **faixa de
+composição** (`.compo`) ACIMA de `.aloca-lista`, mapa do todo antes dos
+cards individuais. Um `<button class="compo-seg">` por categoria (mesmo
+recorte/ordem de `.aloca-lista` — `categoriasAlocacaoOrdenadas`, alvo
+decrescente), `background: var(--cat)` via `catStyleVar(nome)` inline
+(reusa a identidade 7a.E.20, zero cor nova).
+
+**Larguras — normalizadas, não literais:** `largura% = peso_atual /
+Σ(peso_atual das categorias presentes) × 100`. Decisão explícita (não
+"neutral remainder segment"): a faixa **sempre preenche exatamente 100%**
+do espaço visual, blindada contra (a) resíduo de arredondamento — a
+fixture de teste soma 100,2% — e (b) categorias fora do escopo da política
+publicada. Mesmo recorte que os cards abaixo já usam: a faixa nunca mostra
+mais nem menos categorias do que `.aloca-lista`. Rótulo interno (`.sl`)
+mostra o `peso_atual` **real** (não a largura normalizada) — a normalização
+é só geometria do desenho, nunca o número reportado.
+
+**Regra dos estreitos:** `.compo-seg .sl` (label branco, `text-shadow`)
+só renderiza quando `peso_atual ≥ 7%`. Abaixo disso, o segmento não tem
+texto visível mas **sempre** carrega `aria-label` completo ("Categoria: X%
+atual, Y% alvo") — a11y não depende de espaço visual. Threshold escolhido
+(não 5%/10%) porque em 46px de altura um label de 2 palavras + `%` só
+cabe com folga a partir de ~7% de largura numa faixa de largura de tela
+inteira.
+
+**`.compo-ticks` — réguas do alvo:** abaixo da faixa, uma marca (`.mk`,
+1.5px × 7px) por categoria em posição **cumulativa** de `peso_alvo`
+(normalizada pela soma de `peso_alvo` — defensivo; por construção `/alocar`
+já bloqueia categorias que não somem 1.0). O valor exibido (`.tv`) é o
+`peso_alvo` **próprio** da categoria (não o acumulado) — leitura "esta
+fatia vale X%", não "isto é X% do total". Como os segmentos usam `peso_atual`
+e os ticks usam `peso_alvo`, a régua compara visualmente atual × alvo sem
+precisar de dois gráficos separados.
+
+**Tap → dim + flash + scroll:** tocar um segmento (`tocarSegmentoComposicao`)
+esmaece os irmãos (`.compo-seg.dim`, opacity .35, ~1400ms) sem esmaecer o
+próprio segmento tocado, faz o `.aloca-cat` correspondente piscar
+(`.aloca-cat.flash`: ring `0 0 0 3px var(--accent-soft)` + `border-color:
+var(--accent)`) e chama `scrollIntoView({behavior:'smooth', block:'start'})`
+nesse card (`id="aloca-cat-<categoria-slug>"`, `scroll-margin-top: 12px`
+evita que o topo cole na borda da viewport). Ambas as classes são
+removidas por `setTimeout` após 1400ms.
+
+**`prefers-reduced-motion: reduce`:** o tap ainda rola até o card
+(`behavior: 'auto'`, instantâneo) mas **não aplica nem dim nem flash** —
+motion zero por design (nenhum pulso), lido de
+`window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do
+app shell, ver 7a.S.6 `.chart-sub.live`). Escolha explícita entre as duas
+opções da spec ("flash-estado curto sem animar" vs "nada") — optamos por
+"nada": sob motion reduzido, o scroll sozinho já entrega a navegação; um
+estado visual que aparece e desaparece sem transição ainda seria um
+"pulso", só que instantâneo.
+
+**Confirmação não-visual (a11y, CRB 7a.S.8):** o dim/flash/scroll é
+puramente visual — um leitor de tela não saberia que o tap registrou. Uma
+região `.sr-only` com `aria-live="polite"` (dentro de `.compo`,
+`x-text="compoAnuncio"`) narra "{categoria} em destaque" a cada tap.
+Setada em `tocarSegmentoComposicao` **fora** do guard de reduced-motion —
+o anúncio dispara sempre; é a11y, não motion (quando o pulso visual é
+suprimido é justamente quando a confirmação por leitor de tela mais importa).
+
+```css
+.compo-band { height: 46px; border-radius: 12px; background: var(--surface-2); overflow: hidden; }
+.compo-seg { background: var(--cat); }
+.compo-seg.dim { opacity: .35; }
+.aloca-cat.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07); }
+```
+
 ### Proventos — linha-razão + chamada DY + KPI scroll affordance (7a.S.7b)
 
 O topo de `#proventos` perdeu o poster de total e o bloco `.dy-bloco`
