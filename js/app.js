@@ -288,6 +288,10 @@ document.addEventListener("alpine:init", () => {
     rota: "",
     tab: "raiox",
     tickerAtual: "",
+    // 7a.S.12 — Modo Plantão: tema manual + persistido, NUNCA prefers-color-
+    // scheme (só localStorage). Lido no boot (init()) e aplicado a
+    // document.documentElement ANTES do 1º chart ser desenhado.
+    tema: "light",
     // 7a.S.5: hero de facetas — índice ativo (0..3) + labels estáticos (usados
     // tanto pelo eyebrow quanto pelo aria-label dos facet-dots). heroFacetHintGone
     // reflete sessionStorage.heroFacetHintSeen (1×/sessão, como heroCountUpDone).
@@ -398,6 +402,12 @@ document.addEventListener("alpine:init", () => {
     aporteScrubMax: 20000,
 
     async init() {
+      // 7a.S.12 — Modo Plantão: aplica o tema salvo ANTES de qualquer render
+      // (inclusive do 1º chart, se o boot cair direto numa sub-rota). Fonte
+      // ÚNICA é localStorage — NUNCA `prefers-color-scheme` (manual+persist,
+      // spec §5.5). Default "light" quando não há chave salva.
+      this.tema = localStorage.getItem("tema") === "dark" ? "dark" : "light";
+      this._aplicarTema(this.tema);
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
       this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
       // 7a.E.17: cleanup de chaves legadas do toggle de #politica (versões
@@ -436,6 +446,36 @@ document.addEventListener("alpine:init", () => {
         });
       });
       await this.tentarAutoResume();
+    },
+
+    // 7a.S.12 — aplica [data-theme] na raiz + atualiza a meta theme-color
+    // (chrome do navegador/status bar acompanha o tema). Não mexe em nenhum
+    // chart — reregister()+re-hidratação é responsabilidade de alternarTema().
+    _aplicarTema(tema) {
+      document.documentElement.setAttribute("data-theme", tema);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", tema === "dark" ? "#03110a" : "#064e3b");
+    },
+
+    // Toggle ☽/☀ do topo do Raio-X. Flip + persist + reregister do tema
+    // ECharts (tokens frescos). NÃO re-hidrata chart nenhum aqui: o botão só
+    // existe dentro de `.raiox` (x-show="rota === ''"), então no instante do
+    // clique `this.rota` é SEMPRE "" — nenhuma tela de chart (rentabilidade/
+    // patrimônio/proventos) pode estar ativa ao mesmo tempo, por construção.
+    // hidratarRentabilidade/hidratarPatrimonio/hidratarProventos fazem
+    // dispose+init TODA vez que a rota é (re)visitada (atualizarRota chama
+    // incondicionalmente, mesmo se já era a rota atual) — então a próxima
+    // navegação à tela do chart já lê os tokens recém-reregistrados, sem
+    // flash de cor antiga (o chart nunca fica "vivo e desatualizado": ou não
+    // existe ainda, ou é reconstruído do zero a cada entrada na tela).
+    alternarTema() {
+      const novo = this.tema === "dark" ? "light" : "dark";
+      this.tema = novo;
+      try { localStorage.setItem("tema", novo); } catch (_) {}
+      this._aplicarTema(novo);
+      if (window.drarthurChart && typeof window.drarthurChart.reregister === "function") {
+        window.drarthurChart.reregister();
+      }
     },
 
     atualizarRota() {

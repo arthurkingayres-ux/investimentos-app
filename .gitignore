@@ -14,3 +14,7 @@ __pycache__/
 
 # Mockups de direção de arte (referência local; NUNCA vão ao repo público — Fase 7a.S §7)
 mockups/
+
+# Screenshots de captura dos testes Playwright (page.screenshot, artefatos de
+# inspeção — não versionar; regeram-se localmente). CRB 7a.S.12.
+tests/screenshots/

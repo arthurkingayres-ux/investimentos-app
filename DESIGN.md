@@ -47,6 +47,7 @@ Regras:
 - Hex hardcoded fora de `:root` para essas 4 cores é proibido. Sempre `var(--cat-*)` em CSS ou `getComputedStyle(...).getPropertyValue('--cat-*')` em JS.
 - Tema ECharts `drarthur` deriva o array `color` via helper `readToken` (`js/echarts-theme.js`). Slots 0-3 são as 4 categorias na ordem [Ações BR, EUA, FII, Cripto]; slots 4+ são tokens secundários.
 - Intensidade: cor aparece em **dot 8-12px** (`.classe-dot.dot-*`) e nas séries de gráfico do PWA. **Texto nunca é colorido por categoria** — hierarquia tipográfica carrega o peso.
+- **Theme-aware (7a.S.12):** cada `--cat-*` ganha um 2º valor sob `:root[data-theme="dark"]`, mais claro/saturado que o light (ex.: Ações BR `#047857` claro → `#34d399` dark) — legível como dot/série contra o fundo quase-preto. Ver "Modo Plantão" abaixo.
 
 ### Bandeira de origem (7a.E.20)
 
@@ -71,6 +72,8 @@ Regras:
 - Toast shadow: `0 6px 24px rgba(6, 78, 59, 0.18)` — Tintada para `--g-900`.
 
 **Color strategy:** Restrained → Committed pontual. Neutros + 1 hue dominante (teal) carregam ~90% da superfície. Amber e red entram como semantic accent (≤10% do uso). Nunca mais de uma família de gray (warm-tinted, jamais cool gray).
+
+**Modo Plantão (dark OLED, 7a.S.12):** todo token acima que varia por tema (neutrals, ink/gray/faint, accent/accent-2, semânticos, `--cat-*`) ganha um valor dark sob `:root[data-theme="dark"]`. Ver seção dedicada "Modo Plantão" mais abaixo para o inventário completo, o mecanismo de toggle/persistência e o repaint dos gráficos ECharts.
 
 ---
 
@@ -888,7 +891,7 @@ Acima dos 3 cards fixos (Ano/12m/Origem, ordem 7a.S.6) aparece um 4º card `.ren
 
 Aplicações futuras e refactors NUNCA podem introduzir:
 
-1. **Pure black** (`#000000`). Use `--ink: #1a1d1c`.
+1. **Pure black** (`#000000`). Use `--ink: #1a1d1c` no light. **Modo Plantão (7a.S.12) também não usa preto puro** — `--neutral-50` dark é `#040906` (quase-preto, warm-tinted), nunca `#000`.
 2. **Pure white** em backgrounds amplos. Use `--neutral-50` ou `--neutral-100`. Branco puro só em elementos pequenos (cards, inputs).
 3. **Cool gray** (azul/violeta tintado). Toda escala neutral é warm-tinted.
 4. **Inter, Roboto, Geist, Satoshi** ou qualquer custom font. System fonts são suficientes.
@@ -908,7 +911,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 18. **3D charts.** O PWA é 2D plano, mobile-first.
 19. **Animação bounce / elastic / scale > 1.1** em gráficos. Apenas `cubicOut` / `cubicInOut`, durações ≤600ms.
 20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos. O markPoint de "símbolo no último ponto" (7a.S.3, `criarMarkPointUltimo`) é a exceção deliberadamente compliant: círculo vazado + label sóbrio, sem estrela/balão/glow — instrumento de leitura, não celebração.
-21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
+21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre `var(--surface)` (branco no light, `#0c1510` no dark, 7a.S.12) + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
 22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
 23. **Stagger > 50ms entre barras de CHART/dataviz.** Default em barras (ECharts) é 30ms — a regra escopa dataviz, onde stagger longo faz o gráfico "montar devagar" e atrasa a leitura do dado. **NÃO** se aplica ao *reveal stagger de app-shell* (chegada de cards de tela) — orçamento de motion distinto e sancionado (ver Motion → "Reveal stagger de app-shell"): `.plan-cat`/`.aporte-card` (7a.S.10, 110ms/passo) e A Abertura (7a.S.11, 100–550ms), todos reduced-motion-gated.
 24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600 inativa / 700 ativa + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
@@ -922,6 +925,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 - Contrast WCAG AA (a paleta foi escolhida com isso em mente; verificar antes de mudar tokens).
 - Foco visível **unificado (7a.S.2)**: `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }` — uma regra para todos os controles (substitui as cores divergentes `--teal`/`--g-500`/`--g-600` anteriores). `--accent` = teal âncora (#047857) no light; vira luz no dark (S.12).
 - Sinal positivo/negativo usa **forma + texto + cor** (▲/▼ + valor + cor), nunca cor sozinha. Daltonismo (deuteranopia) coberto.
+- **Modo Plantão (7a.S.12) — contraste dark verificado**: `--ink` sobre `--neutral-50`/`--surface` ≥ 4.5:1 (texto normal); `--gray`/`--accent`/`--red`/`--amber`/`--cat-*` sobre `--neutral-50` ≥ 3:1 (texto grande/uso gráfico). Fórmula WCAG relative-luminance + Playwright spec `modo-plantao.spec.ts` (Task 3) trava a régua.
 - `prefers-reduced-motion: reduce` honored em PIN shake e chevron.
 - `.sr-only` utility presente para texto screen-reader-only.
 - `[x-cloak] { display: none !important; }` previne flash of unstyled content do Alpine.
@@ -963,12 +967,12 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 
 /* Class dots */     EUA #1e6091  FIIs #b8731f  Renda Fixa BR #0e7490  Ações BR #047857  Cripto #6d4ea8
 
-/* Refresh Monument (7a.S.1) — valores LIGHT; bloco [data-theme="dark"] = S.12 */
+/* Refresh Monument (7a.S.1) — valores LIGHT (default); bloco dark = 7a.S.12 */
 /* Motion   */       --ease cubic-bezier(.16,1,.3,1)  --ease-spring cubic-bezier(.34,1.28,.44,1)
                      --d1 .14s  --d2 .3s  --d3 .55s
 /* Monument num */   --num-poster-lg 46px (2.875rem)  --num-poster-xl 54px (3.375rem)
 /* Semantic */       --accent var(--g-700)  --accent-2 var(--g-500)  --accent-soft rgba(4,120,87,.09)
-                     --surface-2 #f3f3ec  --faint #989e97  --hero-glow transparent
+                     --surface #ffffff  --surface-2 #f3f3ec  --faint #989e97  --hero-glow transparent
                      --card-topline transparent  --pill #f3f3ec  --tab-bg rgba(250,250,247,.86)
                      --amber-bg #fbf3e3  --amber-bd #eeddb8
                      --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
@@ -979,6 +983,18 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
                      .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
                      .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
+                     .theme-toggle (☽/☀ Modo Plantão, topo do Raio-X — 7a.S.12, ver seção dedicada abaixo)
+
+/* Modo Plantão (7a.S.12) — bloco :root[data-theme="dark"], warm OLED, teal-como-luz */
+/* Surfaces */       --neutral-50 #040906  --neutral-100 #0c1510  --neutral-200 #1c2b23  --neutral-300 #14211a
+                     --surface #0c1510  --surface-2 #101d16
+/* Texto   */        --ink #f1efe4  --gray #8fa598  --faint #5d7065
+/* Accent  */        --accent #34d399  --accent-2 #6ee7b7  --accent-soft rgba(52,211,153,.12)  --hero-glow rgba(52,211,153,.2)
+/* Legado  */        --g-900 #6ee7b7  --g-700 #34d399  --g-500 #6ee7b7  --teal-700 #5eead4 (headings/links/positivos pré-7a.E.23; .hero/.pin-submit têm override dedicado)
+/* Semantic*/        --red #f87171  --amber #fbbf24  --amber-700 #fdba74  --amber-bg #1b1608  --amber-bd #3a2f12
+                     --pill #12201a  --card-topline rgba(255,255,255,.045)  --tab-bg rgba(6,12,9,.84)
+                     --shadow-pressed 0 1px 2px rgba(0,0,0,.5), 0 5px 14px -6px rgba(0,0,0,.6)
+/* Categorias */     --cat-eua #5aa7dc  --cat-acoes-br #34d399  --cat-fii #e0a24a  --cat-cripto #b294e8  --cat-renda-fixa-br #22d3ee
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)
@@ -991,6 +1007,62 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Motion */         pin-shake 420ms · chevron 150ms · :active toque (scale, 7a.S.2) · fill 300ms
 /* prefers-reduced-motion: reduce */ respected
 ```
+
+---
+
+## Modo Plantão — dark OLED (Fase 7a.S.12, FECHA a umbrella 7a.S)
+
+Tema escuro para uso real (plantão, madrugada, sala escura): **warm OLED, teal-como-luz**. Toggle manual + persistido, **default light**. Bloco 100% ADITIVO — nenhuma regra light foi tocada; todo o sistema pré-existente (S.1–S.11) continua funcionando idêntico.
+
+### Toggle, persistência, boot
+
+- `<button class="theme-toggle">` (☽/☀, glifo `aria-hidden`) no topo do Raio-X (`index.html`, dentro de `.raiox`, ao lado do `.eyebrow`) — `aria-label="Alternar tema (claro/plantão)"` + `:aria-pressed="tema === 'dark'"`.
+- `alternarTema()` (`js/app.js`): flip `this.tema` → `document.documentElement.setAttribute('data-theme', tema)` (via `_aplicarTema`) → `localStorage.setItem('tema', tema)` → `window.drarthurChart.reregister()`.
+- Boot (`init()`, ANTES de `tentarAutoResume()`): `this.tema = localStorage.getItem('tema') === 'dark' ? 'dark' : 'light'` — **NUNCA lê `prefers-color-scheme`** (spec §5.5: só o Dr. Arthur decide, manual + persistido; SO em dark não muda nada sem o toggle).
+- `_aplicarTema` também atualiza `<meta name="theme-color">` (`#064e3b` light / `#03110a` dark) — chrome do navegador/status bar acompanha o tema.
+- O toggle só existe dentro de `.raiox` (`x-show="rota === ''"`) — no instante do clique nenhuma tela de chart pode estar ativa, por construção. `alternarTema()` não re-hidrata chart nenhum: a próxima entrada em `#rentabilidade`/`#/raiox/chart`/`#proventos` já dispara `hidratarX()` (dispose+init incondicional a cada navegação) lendo os tokens recém-reregistrados — zero flash de cor antiga, porque o chart nunca fica "vivo e desatualizado" (ou não existe ainda, ou é reconstruído do zero a cada entrada na tela).
+
+### Bloco `:root[data-theme="dark"]` — remap completo
+
+Todo token que varia por tema ganha um 2º valor (ver tabela em "Tokens summary" acima). Categorias de tokens:
+- **Surfaces**: `--neutral-50..300`, `--surface` (novo em 7a.S.12 — tokeniza os antigos `background:#fff/white` hardcoded de ~20 componentes: `.card`, `.aloca-cat`, `.dy-row`, `.chart-rent`, `.rel-card-home` etc.), `--surface-2`.
+- **Texto**: `--ink`/`--gray`/`--faint`.
+- **Accent (teal vira luz)**: `--accent`/`--accent-2`/`--accent-soft`/`--hero-glow`.
+- **Brand teal legado**: `--g-900`/`--g-700`/`--g-500`/`--teal-700` + alphas (`--g-700-06/-12`, `--teal-14`, `--g-900-04/-07`) — tokens pré-7a.E.23 ainda referenciados diretamente por ~20 seletores (headings, "positivo" indicators, chips). Remapeados para a MESMA família cromática do `--accent` no dark.
+- **Semânticos**: `--red`, `--amber`/`--amber-700`, `--amber-bg`/`-bd`, `--pill`, `--card-topline`, `--tab-bg`, `--shadow-pressed`, `--red-50/-200/-800` (usados só por `.erro-nao-encontrado`, 100% token-based).
+- **Categorias** (`--cat-*`): mais claras/saturadas que o light — legíveis como dot/série contra o fundo quase-preto (mantém a regra "texto nunca colorido por categoria", 7a.E.20).
+
+**Aliased-token trap**: `--accent`/`--accent-2` são declarados como `var(--g-700)`/`var(--g-500)` no LIGHT — no dark ambos são sobrescritos DIRETO (não dependem do flip de `--g-700`/`--g-500`, embora estes TAMBÉM sejam sobrescritos, por consistência com os ~20 seletores legados que os referenciam sem passar por `--accent`). `--sem-up`/`--sem-down` (aliases de `--cat-acoes-br`/`--cat-fii`) NÃO precisam de override próprio — CSS custom properties resolvem `var()` no ponto de uso (computed-value time), então herdam o valor dark de `--cat-*` automaticamente via cascata; só os tints literais (`--sem-up-tint`/`--sem-down-tint`, rgba hardcoded) precisam de override direto.
+
+**Component-level overrides** (fora do bloco `:root`, sob `[data-theme="dark"] .seletor`):
+- `.hero` — fica um card "monumento" escuro nos DOIS temas (`background: #03110a` direto), independente do flip de `--g-900` (que vira claro para servir de heading/link em outros lugares).
+- **"seg.on dark ink"** — `.pin-submit`, `.aporte-pill`, `.toast`, `.escopo-toggle button.active`, `.moeda-toggle button.active`, `.lado-B`, `.lado-S`, `.compo-seg .sl` ganham `color: #04130c` (tinta escura) — seus fundos derivam de `--g-700`/`--g-900`/`--red`/`--cat-*`, que viram claros no dark; texto branco sobre um fundo agora claro falharia AA. Um único valor de tinta, mesma convenção do mockup (`.seg.on`).
+- `.champ-bar .bw` (trilho da barrinha #s-dy) → `background: var(--neutral-50)` — "afunda" no fundo da página (groove), distinto do `--surface-2` do card em volta.
+
+### Teal-como-luz treatments
+
+- **Card hairline**: `.card`, `.dy-row`, `.dy-chamada`, `.chart-rent`, `.prov-chart-card`, `.ticker-hero`, `.rel-radar-card`, `.rel-card-home`, `.aloca-cat`, `.kpi`, `.dy-champs` ganham `box-shadow: inset 0 1px 0 var(--card-topline), ...` — fio de luz no topo, profundidade sem gradiente (anti-pattern #8 preservado).
+- **Tab indicator glow**: `.tab-bar-indicator` ganha `box-shadow: 0 0 14px rgba(52,211,153,.55)`.
+- **Poster text-shadow**: `.poster` (#s-dy) e `.rel-poster` (capa do Relatório) ganham `text-shadow: 0 0 38px rgba(52,211,153,.3)`.
+- **Sombras literais tintadas a --g-900** (fora do token `--card-shadow`/`--g-900-04/07`): `.toast`, `.tabela-wrap`, `.vazio`, `.card-link:hover/:focus-visible`, `.rel-seletor__lista` recebem `rgba(0,0,0,…)` — a versão tintada ficaria invisível contra o fundo quase-preto.
+- **Polish de badges/tints** (não é correção de contraste de texto — o texto já lê via tokens): `.chip.is-neg`, `.rel-selo--intacta`, `.rel-selo--deteriorando`, `.provento-tipo-tag` ganham tints ligeiramente mais claros/visíveis no dark.
+
+### Repaint dos gráficos ECharts (o ponto técnico)
+
+O tema `'drarthur'` do ECharts (`js/echarts-theme.js`) e o `tooltipBase` são registrados **uma vez** no load, lendo os tokens via `getComputedStyle` — sem re-leitura, ficariam presos nos valores LIGHT mesmo depois do toggle. Mecanismo:
+- `tokens` é um objeto **único e estável** (`var tokens = {}`, nunca substituído — só mutado in-place por `refreshTokens()`). Consumidores guardam `dc = window.drarthurChart` e leem `dc.tokens.x` no momento de montar cada chart — como o objeto nunca troca de referência, qualquer `dc` obtido ANTES ou DEPOIS de um `reregister()` sempre reflete os valores atuais.
+- `window.drarthurChart.reregister()` — chamado por `alternarTema()`: `refreshTokens()` (re-lê todos os tokens do `:root` corrente) → `echarts.registerTheme('drarthur', buildTheme())` (novo objeto de tema com as cores frescas) → `window.drarthurChart.tooltipBase = buildTooltipBase()` (novo tooltip, `backgroundColor: tokens.surface` + `box-shadow` theme-aware via `tooltipShadow()`, que lê `data-theme` diretamente).
+- `tokens.surface` (novo, lê `--surface`) — o tooltip do ECharts era hardcoded `#fff`; agora acompanha o tema.
+- **Verificado**: L.1 (period-relative reanchoring via dataZoom) e L.2 (card "Período") sobrevivem a um repaint — como `hidratarRentabilidade()` sempre faz dispose+init completo a cada entrada na rota, o dataZoom/card são reconstruídos do zero lendo os dados atuais, sem estado stale.
+- **Gotcha de autoria (achado nesta sub-fase)**: um comentário CSS contendo a sequência literal `*/` no meio do texto (ex. `/* ...(--g-*/--teal-700)... */`) fecha o comentário PREMATURAMENTE — todo o texto entre esse `*/` acidental e o próximo `*/` real vira CSS "solto" (não-comentário), corrompendo o parse da declaração seguinte. Causou um bug real: `--g-900` não recebia o override dark (ficava preso no valor light) enquanto `--g-700`/`--g-500`, declarados 1-2 linhas depois na mesma regra, funcionavam normalmente. Lição: nunca escrever `--algo-*/` ou qualquer `*/` não-intencional dentro de um comentário CSS.
+
+### Contraste WCAG AA (verificado)
+
+`--ink` sobre `--neutral-50`/`--surface` ≥ 4.5:1 (texto normal). `--gray`/`--accent`/`--red`/`--amber`/`--cat-*` sobre `--neutral-50` ≥ 3:1 (texto grande, ícones, uso gráfico dot/série). Fórmula de luminância relativa (WCAG) + trava em Playwright (`tests/e2e/modo-plantao.spec.ts`, Task 3).
+
+### Testes e screenshots
+
+`tests/e2e/modo-plantao.spec.ts` — 4 tasks: (1) toggle flip/persist/boot (ignora `prefers-color-scheme`) + bloco dark resolve; (2) repaint dos charts (rentabilidade/patrimônio/proventos, markPoint + tooltip mudam de cor pós-toggle, L.1/L.2 sobrevivem); (3) treatments teal-como-luz + contraste AA; (4) screenshots `page.screenshot()` (não MCP) capturando raiox/rentabilidade/alocação/proventos/#s-dy/relatório/aportar nos DOIS temas, salvos em `tests/screenshots/modo-plantao-*-{light,dark}.png` (commitados, mesma convenção dos screenshots pré-existentes de `#aportar`).
 
 ---
 

@@ -88,6 +88,7 @@
   --accent-2:       var(--g-500);  /* #10b981 */
   --accent-soft:    rgba(4, 120, 87, 0.09);
   --surface-2:      #f3f3ec;       /* superfície do grifo / pill */
+  --surface:        #ffffff;       /* 7a.S.12: tokeniza os antigos background:#fff/white de cards */
   --faint:          #989e97;       /* eyebrow / captions muted */
   --hero-glow:      transparent;   /* luz do hero — dark acende em S.12 */
   --card-topline:   transparent;   /* hairline superior dos cards — dark em S.12 */
@@ -202,7 +203,7 @@ h1 {
   padding: 0.75rem 1rem;
   border: 2px solid var(--neutral-200);
   border-radius: 14px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   outline: none;
   transition: border-color 160ms ease;
@@ -306,6 +307,40 @@ h1 {
 
 .raiox {
   padding-bottom: 2rem;
+  /* 7a.S.12: âncora do .theme-toggle absoluto (não altera o flow — .eyebrow
+     PRECISA seguir filho direto de .raiox, ver abertura.spec.ts/tab-vozes.spec.ts
+     que observam ".raiox > .eyebrow"). */
+  position: relative;
+}
+
+/* 7a.S.12 — toggle ☽/☀ do Modo Plantão. Ícone discreto no canto (mapeia
+   .iconbtn do mockup): sem fundo/borda, alinhado com a linha do .eyebrow. */
+.theme-toggle {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 1.15rem;
+  color: var(--faint);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .theme-toggle { transition: transform var(--d1) var(--ease); }
+}
+/* 7a.S.2: mapeia .iconbtn do mockup. */
+.theme-toggle:active { transform: scale(.88); }
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 /* 7a.S.4: o h1 ad-hoc (13px/600/.08em/gray) que já fazia as vezes de eyebrow
@@ -567,7 +602,7 @@ h1 {
 .hero-hint.gone { opacity: 0; pointer-events: none; }
 
 .card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--neutral-200);
   border-radius: 18px;
   padding: 1.125rem 1.125rem 1.25rem;
@@ -987,7 +1022,7 @@ h1 {
 }
 
 .pill.pill-anterior {
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   padding: 0.25rem 0.6rem;
   border: 1px solid var(--neutral-200);
@@ -1150,7 +1185,7 @@ footer.rodape code {
   flex: 1;
   padding: 10px 12px;
   border: 1px solid var(--neutral-200);
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   font-size: 0.875rem;
   cursor: pointer;
@@ -1186,7 +1221,7 @@ footer.rodape code {
   min-width: 56px;
   padding: 6px 14px;
   border: 1px solid var(--neutral-200);
-  background: white;
+  background: var(--surface);
   border-radius: 10px;
   font-size: 0.8125rem;
   cursor: pointer;
@@ -1246,7 +1281,7 @@ footer.rodape code {
      dentro do chart via bottom: 28). */
   min-height: 320px;
   margin: 4px 0 24px;
-  background: white;
+  background: var(--surface);
   border-radius: 14px;
   padding: 12px;
   /* overflow-x: hidden clipa flash de canvas durante navigate em viewport
@@ -1277,7 +1312,7 @@ footer.rodape code {
    outras telas, que seguem donos do próprio chrome). */
 .prov-chart-card {
   margin: 4px 0 24px;
-  background: white;
+  background: var(--surface);
   border-radius: 14px;
   padding: 12px;
   box-shadow: 0 2px 6px var(--g-900-07);
@@ -1322,7 +1357,7 @@ footer.rodape code {
   gap: 12px;
   padding: 16px 18px;
   margin: 22px 0 0;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--neutral-200);
   border-radius: 18px;
   text-decoration: none;
@@ -1486,7 +1521,7 @@ footer.rodape code {
    scroll-margin-top: alvo do scrollIntoView do tap na faixa (7a.S.8) —
    evita que o header fixo (se houver) cubra o topo do card. */
 .aloca-cat {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--neutral-100);
   border-radius: 16px;
   padding: 14px 15px;
@@ -1608,7 +1643,7 @@ footer.rodape code {
 }
 
 .ticker-hero {
-  background: white;
+  background: var(--surface);
   border-radius: 18px;
   padding: 18px 20px;
   box-shadow: 0 2px 6px var(--g-900-07);
@@ -1652,7 +1687,7 @@ footer.rodape code {
 }
 
 .kpi {
-  background: white;
+  background: var(--surface);
   padding: 12px 14px;
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(6, 78, 59, 0.05);
@@ -1724,7 +1759,7 @@ footer.rodape code {
   margin-bottom: 8px;
   border: 1px solid var(--neutral-200);
   border-radius: 14px;
-  background: white;
+  background: var(--surface);
   box-shadow: var(--card-shadow);
   cursor: pointer;
   font-family: inherit;
@@ -1872,7 +1907,7 @@ footer.rodape code {
   flex: 1;
   height: 5px;
   border-radius: 999px;
-  background: white;
+  background: var(--surface);
   position: relative;
   overflow: hidden;
 }
@@ -1916,7 +1951,7 @@ footer.rodape code {
 }
 
 .tabela-wrap {
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(6, 78, 59, 0.05);
@@ -1961,7 +1996,7 @@ footer.rodape code {
   color: var(--gray);
   font-style: italic;
   padding: 12px;
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
 }
 
@@ -2042,7 +2077,7 @@ footer.rodape code {
 }
 
 .rent-grupo {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--neutral-200);
   border-radius: 10px;
   padding: 12px 14px;
@@ -2085,7 +2120,7 @@ footer.rodape code {
    invariante "3 grupos fixos" dos specs de regression. Aparece acima do
    bloco .rent-grupos quando o usuário move o dataZoom. */
 .rent-periodo {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--neutral-200);
   border-radius: 10px;
   padding: 12px 14px;
@@ -2427,8 +2462,9 @@ footer.rodape code {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   padding: 4px 8px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--g-900, #064e3b);
+  color: var(--ink);
   border-radius: 6px;
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -3505,7 +3541,7 @@ body:has(.tab-bar) main {
   gap: 12px;
   padding: 14px 16px;
   margin: 16px 0 0;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--neutral-200);
   border-radius: 14px;
   text-decoration: none;
@@ -3622,7 +3658,7 @@ body:has(.tab-bar) main {
 .rel-radar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .rel-radar-card {
   border: 1px solid var(--neutral-200); border-radius: 12px; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 6px; background: white;
+  display: flex; flex-direction: column; gap: 6px; background: var(--surface);
 }
 .rel-radar-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rel-radar-card__ticker { font-weight: 700; color: var(--g-900); }
@@ -3664,7 +3700,7 @@ body:has(.tab-bar) main {
 .rel-seletor__btn:active { transform: scale(.88); }
 .rel-seletor__lista {
   list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; right: 0; z-index: 20;
-  background: white; border: 1px solid var(--neutral-200); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--neutral-200); border-radius: 12px;
   box-shadow: 0 6px 20px rgba(6,78,59,0.10); min-width: 160px;
 }
 .rel-seletor__item {
@@ -3686,5 +3722,189 @@ body:has(.tab-bar) main {
 .rel-erro, .rel-vazio { padding: 32px 8px; color: var(--gray); text-align: center; }
 .rel-erro__voltar {
   margin-top: 12px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--neutral-200);
-  border-radius: 10px; background: white; color: var(--g-700); font-weight: 600; cursor: pointer;
+  border-radius: 10px; background: var(--surface); color: var(--g-700); font-weight: 600; cursor: pointer;
+}
+
+/* ============================================================================
+   Fase 7a.S.12 — Modo Plantão (dark OLED, teal-como-luz). FECHA a umbrella
+   7a.S. Bloco 100% ADITIVO: nenhuma regra acima é tocada — light continua
+   sendo o default bit-a-bit idêntico. Ativado via `[data-theme="dark"]` na
+   raiz (`document.documentElement`), toggle manual + persistência
+   (js/app.js `alternarTema()`/boot) — NUNCA `prefers-color-scheme`. Ver
+   DESIGN.md "Modo Plantão" para o inventário completo + racional.
+   ============================================================================ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces (warm OLED) */
+  --neutral-50:  #040906;
+  --neutral-100: #0c1510;
+  --neutral-200: #1c2b23;
+  --neutral-300: #14211a;
+  --surface:     #0c1510;
+  --surface-2:   #101d16;
+
+  /* Texto */
+  --ink:   #f1efe4;
+  --gray:  #8fa598;
+  --faint: #5d7065;
+
+  /* Teal/accent — teal vira LUZ */
+  --accent:      #34d399;
+  --accent-2:    #6ee7b7;
+  --accent-soft: rgba(52, 211, 153, 0.12);
+  --hero-glow:   rgba(52, 211, 153, 0.2);
+
+  /* Brand teal legado (--g-900, --g-700, --g-500, --teal-700) — mesma família
+     cromática do --accent (headings/links/positivos que ainda referenciam
+     --g-900/--g-700/--g-500 diretamente, pré-7a.E.23). .hero e .pin-submit
+     têm overrides dedicados abaixo — não dependem do flip destes tokens base. */
+  --g-900:    #6ee7b7;
+  --g-700:    #34d399;
+  --g-500:    #6ee7b7;
+  --teal-700: #5eead4;
+  --g-700-06: rgba(52, 211, 153, 0.08);
+  --g-700-12: rgba(52, 211, 153, 0.16);
+  --teal-14:  rgba(94, 234, 212, 0.16);
+  --g-900-04: rgba(0, 0, 0, 0.35);
+  --g-900-07: rgba(0, 0, 0, 0.5);
+
+  /* Semânticos */
+  --red:            #f87171;
+  --amber:          #fbbf24;
+  --amber-700:      #fdba74;
+  --blue-700:       #60a5fa;  /* S&P 500 (benchmark, lido JS-side em echarts-theme) — AA ~7.8:1 no dark; distinto de --cat-eua/--gray/--amber-700 (CRB 7a.S.12) */
+  --amber-bg:       #1b1608;
+  --amber-bd:       #3a2f12;
+  --pill:           #12201a;
+  --card-topline:   rgba(255, 255, 255, 0.045);
+  --tab-bg:         rgba(6, 12, 9, 0.84);
+  --shadow-pressed: 0 1px 2px rgba(0, 0, 0, 0.5), 0 5px 14px -6px rgba(0, 0, 0, 0.6);
+
+  /* Categorias (theme-aware, 7a.E.20 — dot/série colorido, texto nunca) */
+  --cat-eua:           #5aa7dc;
+  --cat-acoes-br:      #34d399;
+  --cat-fii:           #e0a24a;
+  --cat-cripto:        #b294e8;
+  --cat-renda-fixa-br: #22d3ee;
+  /* --sem-up/--sem-down (aliases var(--cat-acoes-br)/var(--cat-fii)) resolvem
+     via cascata automaticamente — só os tints literais precisam de override. */
+  --sem-up-tint:   rgba(52, 211, 153, 0.14);
+  --sem-down-tint: rgba(224, 162, 74, 0.16);
+
+  /* Erro (.erro-nao-encontrado) — 100% token-based, sem override adicional
+     de componente necessário. */
+  --red-50:  #2a1212;
+  --red-200: #5b2323;
+  --red-800: #fca5a5;
+}
+
+/* ── Hero: sempre um card "monumento" escuro nos DOIS temas — não decorre
+   do flip de --g-900 acima (evita virar um card teal-claro). ─────────────── */
+[data-theme="dark"] .hero {
+  background: #03110a;
+}
+[data-theme="dark"] .hero::before {
+  background: radial-gradient(90% 70% at 78% 4%, var(--hero-glow), transparent 62%);
+}
+
+/* ── "seg.on dark ink" — texto escuro sobre superfície teal-clara (contraste),
+   mesmo tratamento em todo botão/pill cujo fundo deriva de --g-700/--g-900/
+   --red agora "claros" no dark. Um único valor de tinta (#04130c), igual ao
+   mockup (.seg.on). ──────────────────────────────────────────────────────── */
+[data-theme="dark"] .pin-submit,
+[data-theme="dark"] .aporte-pill,
+[data-theme="dark"] .toast,
+[data-theme="dark"] .escopo-toggle button.active,
+[data-theme="dark"] .moeda-toggle button.active,
+[data-theme="dark"] .lado-B,
+[data-theme="dark"] .lado-S,
+[data-theme="dark"] .compo-seg .sl {
+  color: #04130c;
+}
+[data-theme="dark"] .compo-seg .sl {
+  text-shadow: none;
+}
+
+/* ── Track/groove — mockup `.champ-bar .bw { background: var(--bg); }`:
+   o trilho da barrinha de comparação (#s-dy) "afunda" no fundo da página,
+   distinto da superfície --surface-2 do card .dy-champs em volta. ───────── */
+[data-theme="dark"] .champ-bar .bw {
+  background: var(--neutral-50);
+}
+
+/* ── Teal-como-luz: hairline superior nos cards (profundidade sem gradiente,
+   anti-pattern #8 preservado) + glow no indicator da tab ativa + text-shadow
+   nos posters monumento. ─────────────────────────────────────────────────── */
+[data-theme="dark"] .card,
+[data-theme="dark"] .dy-row,
+[data-theme="dark"] .dy-chamada,
+[data-theme="dark"] .chart-rent,
+[data-theme="dark"] .prov-chart-card,
+[data-theme="dark"] .ticker-hero,
+[data-theme="dark"] .rel-radar-card,
+[data-theme="dark"] .rel-card-home {
+  box-shadow: inset 0 1px 0 var(--card-topline), var(--card-shadow);
+}
+[data-theme="dark"] .aloca-cat {
+  box-shadow: inset 0 1px 0 var(--card-topline), 0 2px 6px var(--g-900-07);
+}
+[data-theme="dark"] .aloca-cat.flash {
+  box-shadow: inset 0 1px 0 var(--card-topline), 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07);
+}
+[data-theme="dark"] .kpi {
+  box-shadow: inset 0 1px 0 var(--card-topline), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .dy-champs {
+  box-shadow: inset 0 1px 0 var(--card-topline);
+}
+
+[data-theme="dark"] .tab-bar-indicator {
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.55);
+}
+
+[data-theme="dark"] .poster,
+[data-theme="dark"] .rel-poster {
+  text-shadow: 0 0 38px rgba(52, 211, 153, 0.3);
+}
+
+/* ── Sombras literais tintadas a --g-900 (rgba(6,78,59,…), fora do token
+   --card-shadow/--g-900-04/07) — sem override ficariam invisíveis contra o
+   fundo quase-preto. ─────────────────────────────────────────────────────── */
+[data-theme="dark"] .toast {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+[data-theme="dark"] .tabela-wrap,
+[data-theme="dark"] .vazio {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .card-link:hover,
+[data-theme="dark"] .card-link:focus-visible {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .rel-seletor__lista {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Tints/badges literais (fora de --sem-up-tint/--sem-down-tint) — mesmo
+   racional: alpha baixo sobre preto quase some sem realce. Polish, não
+   correção de contraste de texto (o texto dos selos já lê bem via
+   --gray/--red/--sem-down, que são tokens e já se atualizam sozinhos). ──── */
+[data-theme="dark"] .chip.is-neg {
+  background: rgba(248, 113, 113, 0.14);
+}
+[data-theme="dark"] .rel-selo--intacta {
+  background: rgba(143, 165, 152, 0.14);
+}
+[data-theme="dark"] .rel-selo--deteriorando {
+  background: rgba(248, 113, 113, 0.14);
+}
+[data-theme="dark"] .provento-tipo-tag {
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="dark"] .aloca-alvo__selo-quar-tag {
+  /* espelha .provento-tipo-tag (ambos rgba(26,29,28,.06) no light) — sem este
+     override o selo de quarentena somia no dark (dark-ink sobre dark). CRB 7a.S.12. */
+  background: rgba(255, 255, 255, 0.08);
 }
