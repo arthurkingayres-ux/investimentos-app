@@ -479,16 +479,26 @@ mostra o `peso_atual` **real** (não a largura normalizada) — a normalização
 
 **Rótulo interno — só o percentual (fix 2026-07-05):** `.compo-seg .sl`
 mostra **apenas** `PP%` (ex.: "58%") — nunca o nome da categoria. O nome
-vive no card logo abaixo (`.aloca-cat`) e no `aria-label` completo; repeti-lo
-dentro de um segmento estreito era o que colidia os labels no celular.
-**Regra dos estreitos:** o `.sl` só renderiza quando a **largura normalizada**
-do segmento (`larguraPct`) `≥ 12%` — ~34px na tela mais estreita (320px),
-o mínimo p/ "PP%" caber sem cortar. Abaixo disso, o segmento é só cor +
-`aria-label`. O threshold antigo (`peso_atual ≥ 7%`, com label "Nome PP%")
-foi calibrado p/ a fixture de 2 categorias largas e quebrava com as 5
-categorias reais (nomes longos como "Renda Fixa BR" num segmento de ~9%
-transbordavam e colidiam). Rede de segurança: `.compo-seg { overflow:
-hidden }` — nenhum rótulo pode vazar pro vizinho, p/ qualquer dado/viewport.
+vive no card logo abaixo (`.aloca-cat`, em `atual X% · alvo Y%`) e no
+`aria-label` completo; repeti-lo dentro de um segmento estreito era o que
+colidia os labels no celular.
+
+**Regra dos estreitos — por medição, não por threshold fixo:** qual `.sl`
+aparece é decidido por `ajustarLabelsFaixa(band)` (JS): para cada segmento,
+compara `sl.scrollWidth` (largura natural do "PP%") com o `clientWidth` do
+segmento e mostra o rótulo (`visibility: visible`) só quando ele **cabe** de
+fato; senão fica escondido (`visibility: hidden`, o default do `.sl`) e o
+segmento fala só por cor + `aria-label`. Assim uma categoria real de ~9-10%
+(ex.: Renda Fixa BR) **mostra** seu % num celular normal (≥360px) e some só
+onde não caberia (320px), enquanto uma fatia minúscula (ex.: Cripto ~2%)
+nunca ganha número. Roda via `x-effect` na `.compo-band` (depende de `rota` +
+`composicaoSegmentos`, com `$nextTick` — re-mede ao abrir a tela, quando a
+faixa deixa de ser `display:none` e ganha largura real) e num `@resize.window`
+debounced (rotação). Guarda contra `clientWidth 0` (faixa oculta → nada é
+mostrado até a tela abrir). O threshold fixo anterior (`peso_atual ≥ 7%` →
+`larguraPct ≥ 12%`) escondia categorias mesmo quando o número caberia. Rede
+de segurança: `.compo-seg { overflow: hidden }` — nenhum rótulo vaza pro
+vizinho, p/ qualquer dado/viewport.
 
 **`.compo-ticks` — réguas do alvo:** abaixo da faixa, uma marca (`.mk`,
 1.5px × 7px) por categoria **com alvo > 0** em posição **cumulativa** de

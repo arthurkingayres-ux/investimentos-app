@@ -1287,27 +1287,26 @@ document.addEventListener("alpine:init", () => {
     // arredondamento (fixture soma 100,2%) ou com categorias fora do escopo
     // da política publicada (mesmo recorte que .aloca-lista já usa — a faixa
     // nunca mostra mais nem menos categorias do que os cards abaixo dela).
-    // Rótulo interno (.sl) = SÓ o percentual, e só quando o segmento é largo o
-    // bastante p/ o número caber (larguraPct ≥ 12% — ver comentário no map);
-    // abaixo disso o segmento fala só via aria-label completo (a11y).
+    // Rótulo interno (.sl) = SÓ o percentual; a visibilidade é decidida por
+    // MEDIÇÃO (ajustarLabelsFaixa) — o número aparece sempre que couber no
+    // segmento, senão o segmento fala só via cor + aria-label completo (a11y).
     get composicaoSegmentos() {
       const cats = this.categoriasAlocacaoOrdenadas;
       const soma = cats.reduce((acc, c) => acc + (c.peso_atual || 0), 0) || 1;
       return cats.map((c) => {
         const atual = c.peso_atual || 0;
         const alvo = c.peso_alvo || 0;
-        const larguraPct = (atual / soma) * 100;
         return {
           nome: c.nome,
-          larguraPct,
+          larguraPct: (atual / soma) * 100,
           // Rótulo interno = SÓ o percentual (o nome da categoria mora no card
-          // logo abaixo + no aria-label). E só aparece quando o segmento é
-          // largo o bastante p/ o número caber sem transbordar: ~12% da faixa
-          // (~34px na largura de tela mais estreita) segura "PP%". O threshold
-          // antigo (peso_atual ≥ 7%) foi calibrado p/ a fixture de 2 categorias
-          // largas; com as 5 categorias reais, nomes longos ("Renda Fixa BR")
-          // nunca cabiam num segmento estreito e os labels colidiam.
-          labelVisivel: larguraPct >= 12,
+          // logo abaixo + no aria-label). Quais aparecem é decidido por medição
+          // em ajustarLabelsFaixa (o número aparece se couber no segmento),
+          // não por um threshold fixo — assim uma categoria real de ~9-10%
+          // (ex.: Renda Fixa BR) mostra seu % num celular normal, e só o que
+          // não cabe (ex.: Cripto ~2%) fica sem número. O threshold fixo antigo
+          // (7%→12%) escondia categorias mesmo quando o "PP%" caberia, e o nome
+          // dentro do segmento (pré-fix) transbordava e colidia com o vizinho.
           label: window.formatPctSemSinal(atual, 0),
           ariaLabel:
             `${c.nome}: ${window.formatPctSemSinal(atual, 0)} atual, ` +
@@ -1350,6 +1349,26 @@ document.addEventListener("alpine:init", () => {
         });
       });
       return ticks;
+    },
+
+    // Fix 2026-07-05 (refino): decide QUAIS rótulos "PP%" da faixa cabem no
+    // segmento e devem aparecer. Roda após o render dos segmentos (x-effect +
+    // $nextTick) e no resize/rotação. Mede a largura natural do .sl contra a
+    // largura interna do segmento; mostra os que cabem, esconde os demais por
+    // visibility (mantém o nó no layout p/ poder re-medir sem reflow). Guarda
+    // contra clientWidth 0 (faixa ainda display:none numa rota não-alocacao):
+    // nesse caso deixa tudo escondido — o x-effect re-mede quando a tela abre.
+    ajustarLabelsFaixa(band) {
+      if (!band) return;
+      band.querySelectorAll(".compo-seg").forEach((seg) => {
+        const sl = seg.querySelector(".sl");
+        if (!sl) return;
+        const largSeg = seg.clientWidth;
+        // scrollWidth do .sl = conteúdo + padding do próprio .sl; +1px de
+        // tolerância p/ arredondamento sub-pixel. Só mostra com largura real.
+        const cabe = largSeg > 0 && sl.scrollWidth <= largSeg + 1;
+        sl.style.visibility = cabe ? "visible" : "hidden";
+      });
     },
 
     // 7a.S.8: tap num segmento da faixa → esmaece os irmãos + faz o card

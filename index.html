@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=56">
+  <link rel="stylesheet" href="css/app.css?v=57">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=43"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=55"></script>
+  <script src="js/app.js?v=56"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -475,14 +475,16 @@
             <span>Atual</span>
             <span>Alvo</span>
           </div>
-          <div class="compo-band" role="group" aria-label="Composição atual da carteira por categoria">
+          <div class="compo-band" role="group" aria-label="Composição atual da carteira por categoria"
+               x-effect="rota; composicaoSegmentos; $nextTick(() => ajustarLabelsFaixa($el))"
+               @resize.window.debounce.150ms="ajustarLabelsFaixa($el)">
             <template x-for="seg in composicaoSegmentos" :key="seg.nome">
               <button type="button" class="compo-seg"
                       :class="{ dim: compoSegmentoAtivo && compoSegmentoAtivo !== seg.nome }"
                       :style="`${catStyleVar(seg.nome)} width: ${seg.larguraPct}%;`"
                       :aria-label="seg.ariaLabel"
                       @click="tocarSegmentoComposicao(seg.nome)">
-                <span class="sl" x-show="seg.labelVisivel" x-text="seg.label"></span>
+                <span class="sl" x-text="seg.label"></span>
               </button>
             </template>
           </div>

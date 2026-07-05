@@ -189,36 +189,36 @@ test.describe("Faixa de composição 100% #alocacao (7a.S.8)", () => {
     expect(pos[idxAcoesBr]).toBeLessThan(101);
   });
 
-  test("regra dos estreitos: peso_atual < 7% esconde o label visível mas mantém aria-label completo", async ({ page }) => {
+  test("regra dos estreitos: categoria estreita esconde o label mas mantém aria-label completo", async ({ page }) => {
     await autenticar(page);
     await injetarCategorias(page, CATS_COM_ESTREITA);
     await expect(page.locator(".compo-seg")).toHaveCount(3);
 
-    const dados = await page.$$eval(".compo-seg", (els) =>
-      els.map((el) => {
-        const sl = el.querySelector(".sl") as HTMLElement | null;
-        // x-show mantém o nó no DOM e alterna display:none — presença no
-        // DOM não basta pra "visível"; checa o computed display.
-        const labelVisivel = !!sl && getComputedStyle(sl).display !== "none";
-        return {
-          aria: el.getAttribute("aria-label") || "",
-          labelVisivel,
-          labelTexto: sl?.textContent?.trim() || "",
-        };
-      }),
-    );
-    const cripto = dados.find((d) => d.aria.includes("Cripto"));
-    const acoesBr = dados.find((d) => d.aria.includes("Ações BR"));
-    const eua = dados.find((d) => d.aria.includes("EUA"));
-    expect(cripto).toBeTruthy();
+    // A visibilidade do rótulo agora é decidida por medição (ajustarLabelsFaixa
+    // alterna .sl visibility). Cripto (~5%) é estreita demais → escondida; Ações
+    // BR (27%) e EUA (68%) cabem → visíveis. A medição é assíncrona ($nextTick),
+    // então poll até assentar.
+    const dado = async (nome: string) =>
+      page.$$eval(
+        ".compo-seg",
+        (segs, [alvo, visSrc]) => {
+          const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+          const el = segs.find((s) => (s.getAttribute("aria-label") || "").includes(alvo));
+          if (!el) return null;
+          const sl = el.querySelector(".sl");
+          return { aria: el.getAttribute("aria-label") || "", labelVisivel: !!sl && vis(sl) };
+        },
+        [nome, slVisivel.toString()] as [string, string],
+      );
+
+    await expect.poll(async () => (await dado("Ações BR"))?.labelVisivel).toBe(true);
+    await expect.poll(async () => (await dado("EUA"))?.labelVisivel).toBe(true);
+    const cripto = await dado("Cripto");
     expect(cripto!.labelVisivel).toBe(false);
     expect(cripto!.aria).toMatch(/Cripto/);
     expect(cripto!.aria).toMatch(/atual/);
     expect(cripto!.aria).toMatch(/alvo/);
     expect(cripto!.aria).toMatch(/%/);
-    // >=7% mostram label visível.
-    expect(acoesBr!.labelVisivel).toBe(true);
-    expect(eua!.labelVisivel).toBe(true);
   });
 
   test("segmentos são <button> operáveis (a11y)", async ({ page }) => {
@@ -295,24 +295,40 @@ test.describe("Faixa de composição 100% #alocacao (7a.S.8)", () => {
 });
 
 // Fix 2026-07-05: legibilidade da faixa no celular com 5 categorias (fixture
-// sintética CATS_SINTETICAS, forma do caso real). O threshold antigo (peso_atual
-// ≥ 7%) foi calibrado p/ a fixture de 2 categorias largas; com 5 categorias
-// (nomes longos, uma de alvo 0%) os labels
-// "Nome PP%" transbordavam os segmentos estreitos e colidiam em texto ilegível,
-// e o tick cumulativo da Cripto (alvo 0%) empilhava em 100% + vazava a borda.
+// sintética CATS_SINTETICAS, forma do caso real). O threshold fixo antigo
+// (peso_atual ≥ 7%, depois larguraPct ≥ 12%) escondia categorias reais como
+// Renda Fixa BR (~9%) mesmo quando o número "PP%" caberia. Agora a decisão é
+// por MEDIÇÃO: o rótulo (.sl, só o percentual) aparece sempre que couber de
+// verdade no segmento (ajustarLabelsFaixa), senão fica só cor. Antes do fix
+// original os labels "Nome PP%" transbordavam e colidiam em texto ilegível.
+
+// Um .sl conta como visível quando não está nem display:none nem
+// visibility:hidden (a medição usa visibility p/ poder medir sem reflow).
+function slVisivel(el: Element): boolean {
+  const cs = getComputedStyle(el);
+  return cs.display !== "none" && cs.visibility !== "hidden";
+}
+
 test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)", () => {
   test("label interno do segmento é só o percentual (sem nome de categoria)", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
+    await page.setViewportSize({ width: 390, height: 844 });
     await autenticar(page);
     await injetarCategorias(page, CATS_SINTETICAS);
     await expect(page.locator(".compo-seg")).toHaveCount(5);
 
-    const labels = await page.$$eval(".compo-seg .sl", (els) =>
-      els
-        .filter((el) => getComputedStyle(el).display !== "none")
-        .map((el) => el.textContent?.trim() || ""),
-    );
-    expect(labels.length).toBeGreaterThan(0);
+    await expect
+      .poll(async () =>
+        page.$$eval(".compo-seg .sl", (els, visSrc) => {
+          const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+          return els.filter(vis).map((el) => el.textContent?.trim() || "");
+        }, slVisivel.toString()),
+      )
+      .not.toEqual([]);
+
+    const labels = await page.$$eval(".compo-seg .sl", (els, visSrc) => {
+      const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+      return els.filter(vis).map((el) => el.textContent?.trim() || "");
+    }, slVisivel.toString());
     // Todo label visível é APENAS "PP%" — dígitos + %, sem letras (nome mora no
     // card abaixo + no aria-label). Antes do fix vinha "EUA 58%", "Ações BR 14%".
     for (const t of labels) {
@@ -320,46 +336,99 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     }
   });
 
-  test("nenhum label visível transborda seu próprio segmento (não invade o vizinho)", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
+  for (const w of [320, 390]) {
+    test(`nenhum label visível transborda seu próprio segmento @ ${w}px (invariante)`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: 844 });
+      await autenticar(page);
+      await injetarCategorias(page, CATS_SINTETICAS);
+      await expect(page.locator(".compo-seg")).toHaveCount(5);
+
+      // O invariante (label visível nunca extrapola o segmento) precisa valer
+      // DEPOIS que a medição assíncrona assentou — poll até estabilizar em [].
+      await expect
+        .poll(async () =>
+          page.$$eval(".compo-seg", (segs, visSrc) => {
+            const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+            return segs
+              .map((seg) => {
+                const sl = seg.querySelector(".sl");
+                if (!sl || !vis(sl)) return null;
+                const s = seg.getBoundingClientRect();
+                const r = sl.getBoundingClientRect();
+                return r.left < s.left - 1 || r.right > s.right + 1
+                  ? seg.getAttribute("aria-label")
+                  : null;
+              })
+              .filter((x) => x !== null);
+          }, slVisivel.toString()),
+        )
+        .toEqual([]);
+    });
+  }
+
+  test("categoria de ~9% (Renda Fixa BR) MOSTRA seu % quando cabe; Cripto (estreita) fica só cor", async ({ page }) => {
+    // Num celular típico (390px), Renda Fixa BR (~9%) tem largura suficiente
+    // p/ "9%" — deve aparecer (era o ponto do Dr. Arthur: não podia ficar sem
+    // número). Cripto (~3%, alvo 0) é estreita demais → só cor, mas o
+    // aria-label de ambas segue completo (a11y).
+    await page.setViewportSize({ width: 390, height: 844 });
     await autenticar(page);
     await injetarCategorias(page, CATS_SINTETICAS);
     await expect(page.locator(".compo-seg")).toHaveCount(5);
 
-    const spills = await page.$$eval(".compo-seg", (segs) =>
-      segs
-        .map((seg) => {
-          const sl = seg.querySelector<HTMLElement>(".sl");
-          if (!sl || getComputedStyle(sl).display === "none") return null;
-          const s = seg.getBoundingClientRect();
-          const r = sl.getBoundingClientRect();
-          // O label não pode extrapolar as bordas do segmento (tolerância 1px).
-          return { aria: seg.getAttribute("aria-label") || "", spillL: r.left < s.left - 1, spillR: r.right > s.right + 1 };
-        })
-        .filter((x): x is { aria: string; spillL: boolean; spillR: boolean } => x !== null && (x.spillL || x.spillR)),
-    );
-    expect(spills).toEqual([]);
+    const dado = async (nome: string) =>
+      page.$$eval(
+        ".compo-seg",
+        (segs, [alvo, visSrc]) => {
+          const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+          const el = segs.find((s) => (s.getAttribute("aria-label") || "").includes(alvo));
+          if (!el) return null;
+          const sl = el.querySelector(".sl");
+          return {
+            aria: el.getAttribute("aria-label") || "",
+            visivel: !!sl && vis(sl),
+            texto: sl?.textContent?.trim() || "",
+          };
+        },
+        [nome, slVisivel.toString()] as [string, string],
+      );
+
+    await expect.poll(async () => (await dado("Renda Fixa BR"))?.visivel).toBe(true);
+    const rf = await dado("Renda Fixa BR");
+    expect(rf!.texto).toMatch(/^\d+%$/);
+    expect(rf!.aria).toMatch(/Renda Fixa BR/);
+
+    const cripto = await dado("Cripto");
+    expect(cripto!.visivel).toBe(false);
+    expect(cripto!.aria).toMatch(/Cripto/);
+    expect(cripto!.aria).toMatch(/atual/);
+    expect(cripto!.aria).toMatch(/alvo/);
   });
 
-  test("categoria estreita (Renda Fixa BR ~9%) esconde o label mas mantém aria-label completo", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
+  test("resize re-mede: Renda Fixa BR aparece ao alargar de 320px → 390px", async ({ page }) => {
+    // Exercita o @resize.window (ajustarLabelsFaixa re-mede na rotação/resize):
+    // a 320px "9%" da Renda Fixa BR não cabe (escondida); ao alargar p/ 390px o
+    // handler re-mede e o rótulo passa a caber → aparece.
+    const rfVisivel = async () =>
+      page.$$eval(
+        ".compo-seg",
+        (segs, visSrc) => {
+          const vis = new Function("el", `return (${visSrc})(el)`) as (e: Element) => boolean;
+          const el = segs.find((s) => (s.getAttribute("aria-label") || "").includes("Renda Fixa BR"));
+          const sl = el?.querySelector(".sl");
+          return !!sl && vis(sl);
+        },
+        slVisivel.toString(),
+      );
+
+    await page.setViewportSize({ width: 320, height: 844 });
     await autenticar(page);
     await injetarCategorias(page, CATS_SINTETICAS);
+    await expect(page.locator(".compo-seg")).toHaveCount(5);
+    await expect.poll(rfVisivel).toBe(false);
 
-    const rf = await page.$$eval(".compo-seg", (segs) => {
-      const el = segs.find((s) => (s.getAttribute("aria-label") || "").includes("Renda Fixa BR"));
-      if (!el) return null;
-      const sl = el.querySelector<HTMLElement>(".sl");
-      return {
-        aria: el.getAttribute("aria-label") || "",
-        labelVisivel: !!sl && getComputedStyle(sl).display !== "none",
-      };
-    });
-    expect(rf).not.toBeNull();
-    expect(rf!.labelVisivel).toBe(false);
-    expect(rf!.aria).toMatch(/Renda Fixa BR/);
-    expect(rf!.aria).toMatch(/atual/);
-    expect(rf!.aria).toMatch(/alvo/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(rfVisivel).toBe(true);
   });
 
   test("categoria de alvo 0% (Cripto) NÃO emite tick; ticks = categorias com alvo > 0", async ({ page }) => {

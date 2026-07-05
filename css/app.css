@@ -1453,8 +1453,8 @@ footer.rodape code {
   background: var(--cat);
   -webkit-tap-highlight-color: transparent;
   /* Safety net: o rótulo (.sl) nunca pode vazar pro segmento vizinho, para
-     qualquer dado/viewport futuro. O labelVisivel (≥12% de largura) já
-     esconde os estreitos; isto garante a contenção mesmo no caso-limite. */
+     qualquer dado/viewport futuro. A medição (ajustarLabelsFaixa) já esconde
+     os que não cabem; isto garante a contenção mesmo no caso-limite. */
   overflow: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -1469,6 +1469,9 @@ footer.rodape code {
   padding: 0 4px;
   white-space: nowrap;
   overflow: hidden;
+  /* Escondido por padrão; ajustarLabelsFaixa (medição) mostra os que cabem no
+     segmento. visibility (não display) preserva o layout p/ poder re-medir. */
+  visibility: hidden;
 }
 /* Tap num segmento esmaece os irmãos por ~1400ms (tocarSegmentoComposicao). */
 .compo-seg.dim {
