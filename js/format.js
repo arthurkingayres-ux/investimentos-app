@@ -58,3 +58,17 @@ window.formatMesAno = (mes) => {
   if (!(mm >= 1 && mm <= 12)) return "";
   return `${_MESES_PT[mm - 1]} ${ano}`;
 };
+
+// 7a.S.10: "YYYY-MM-DD" → "12 de junho" (dia + mês por extenso, sem ano —
+// legenda do apcap do simulador de aporte). Parse por regex (NÃO
+// `new Date(iso)`): datas ISO sem hora viram meia-noite UTC — em
+// America/Sao_Paulo (UTC-3) isso volta pro dia anterior no horário local
+// (new Date("2026-04-20").getDate() === 19). Regex evita o fuso inteiramente.
+window.formatDataExtenso = (iso) => {
+  if (typeof iso !== "string") return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  const mes = parseInt(m[2], 10);
+  if (!(mes >= 1 && mes <= 12)) return "";
+  return `${parseInt(m[3], 10)} de ${_MESES_PT[mes - 1].toLowerCase()}`;
+};

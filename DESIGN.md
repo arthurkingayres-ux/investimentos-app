@@ -593,6 +593,116 @@ Yield" + botão voltar.
 .dy-champs { background: var(--surface-2); border-radius: 14px; }
 ```
 
+### Aportar — simulador vivo (7a.S.10)
+
+`#aportar` era o executor de política puro da 7a.H.1 (input + cards
+recebedores, sem coreografia). A 7a.S.10 o transforma num **laboratório
+vivo** que ensina *por que* o plano é o que é — **aditivo**: o cálculo
+cap-5/zero-sobra/gap de `js/aportar.js` (`window.aporteCalculo.calcularAporte`)
+permanece **intocado**; toda a nova camada vive em `app.js`/`index.html`/
+`app.css`.
+
+**Single source of truth do valor:** `aporteValor` (string, o mesmo
+`x-model` do `.aporte-input` de texto pré-existente) é a ÚNICA fonte —
+chips e scrubber escrevem nela via `aporteSetValor(v, animar)`/`aporteAdd(delta)`
+e chamam `recalcularAporte(animar)`, exatamente como o
+`@input.debounce.150ms` já fazia. Digitar, tocar um chip ou arrastar o
+scrubber convergem no mesmo estado; nenhum dos três tem uma cópia própria
+do valor.
+
+- **Pré-carga (`.aporte-cap`)** — legenda acima dos chips, `aporteApcapHtml()`
+  lê `json.ultimo_aporte` ("Seu último aporte foi **R$ X**, em D de mês —
+  toque para repetir"); sem dado, cai num convite genérico. Novo formatter
+  `window.formatDataExtenso` (`js/format.js`) — parse por **regex**, não
+  `new Date(iso)`: uma data-only ISO ("2026-04-20") vira meia-noite UTC, que
+  em America/Sao_Paulo (UTC-3) volta pro dia anterior no horário local
+  (`getDate()` retornaria 19, não 20). Regex evita o fuso inteiramente.
+- **Chips rápidos (`.aporte-chips`)** — `.aporte-chip--hero` "Repetir · R$ X"
+  (`x-show` só quando há último aporte) + `+ 5.000`/`+ 10.000` (`aporteAdd`)
+  + `zerar` (`aporteSetValor(0, true)`). Reusa `:active { transform: scale(.93) }`
+  (S.2); `--accent`-bordered no hero-chip.
+- **Scrubber "E se fosse mais?" (`.aporte-scrub-wrap`)** — 0–20.000, passo
+  100. Implementado como `<input type="range">` **nativo** (transparente,
+  `position:absolute; inset:0`) sobreposto a um trilho decorativo
+  (`.aporte-scrub-fill`/`.aporte-scrub-knob`, gradient `--accent`→`--accent-2`) —
+  decisão deliberada de acessibilidade sobre o padrão do mockup (2 `<div>`
+  com math manual de drag): o `<input>` nativo dá teclado (setas/Home/End)
+  e `aria-valuenow`/`min`/`max` de graça, sem reimplementar nada disso.
+  `@input` chama `aporteSetValor(valor, animar=false)` — arrasto nunca
+  anima (paridade com o mockup: `setAp(v, true)` só nos chips).
+- **Poster de valor** — em vez de um `.apval` separado (duplicaria o
+  display), o `.aporte-input` existente assumiu a escala tipográfica
+  poster (`--num-poster-lg`, token já reservado em S.1) + `--mono`.
+  Continua editável — sem redundância visual entre "número grande" e
+  "campo de texto".
+- **Plano se monta** — ao mudar o valor, `_aporteAnimarPlano(animar)`
+  (chamada via `$nextTick` ao fim de `recalcularAporte`) toca:
+  - **Stagger reveal** dos `.aporte-card` (`.aporte-card--in`, ~110ms +
+    30ms de base por categoria, 1x por categoria via o Set
+    `_aporteRevelados` — reseta quando o valor volta a 0, espelhando o
+    mockup `wrap.innerHTML=""` quando V≤0). `prefers-reduced-motion`:
+    a classe é aplicada no MESMO tick, sem `setTimeout`, e a regra de
+    transição fica dentro de `@media (prefers-reduced-motion: no-preference)`
+    — o card salta direto pro estado final sem qualquer intervalo.
+  - **Count-up de cotas** (`.aporte-compra-qty`) via
+    `window.drarthurNav.applyCountUp` — **dono exclusivo do `textContent`**
+    desse nó (SEM `x-text`; o valor final vem de `data-cotas`/
+    `data-cotas-frac`, atributos reativos via `:data-*`). Mesmo racional
+    do `#hero-patrimonio` (`ativarCountUpHero`): `aporteCategoriasRecebedoras`
+    é reatribuído por inteiro a cada recálculo, então um `x-text` reativo
+    nesse nó disputaria com o RAF e reverteria o frame no meio da animação.
+    `animar=false` (digitação/scrubber) escreve o valor final direto —
+    só os chips tocam a animação.
+  - **Tag "abaixo · aportar" → "fecha o gap"** (`aporteCatTagTexto(cat)`) —
+    só reescreve a leitura quando `cat.tag === "subexposta"` (o cálculo
+    invariante já diferencia subexposta/balanceado). Usa `atualPct`/`posPct`
+    já devolvidos por `calcularAporte` **contra o alvo RAW** (ver abaixo),
+    nunca `alvoPct` (arredondado). "no alvo"/"" passam direto.
+  - **Grifo do plano (`.aporte-grifo`, `.grifo` de S.1 — Apêndice B "Aportar
+    = box do plano", ÚNICO grifo desta tela)** — `aporteGrifoHtml()` narra
+    "Com **R$ X** você fecha **N%** do caminho de volta ao alvo — zero
+    sobra" (ou "o gap fecha inteiro" quando `N% ≥ 100`). `N%` = fração do
+    gap ORIGINAL fechada pela categoria subexposta com **menor** progresso
+    relativo (`deltaPct / (alvoRaw − atualPct)`, capado em 1) — a que
+    "trava" o caminho quando há mais de uma categoria recebedora. Estado
+    balanceado (nenhuma categoria subexposta) narra só o valor, sem "%".
+  - **Precisão RAW na math narrativa (CRB #1, Confiança nos Números)** — o
+    card de `aportar.js` carrega `alvoPct` **arredondado** (`Math.round`,
+    para a trilha DISPLAY "alvo 30%"). Grifo e tag **nunca** misturam esse
+    inteiro com os floats raw (`atualPct`/`posPct`/`deltaPct`): para um
+    `peso_alvo` não-redondo (0.304 → `alvoPct` 30 vs raw 30,4) a mistura
+    desviaria o "% do caminho" em até ~0,5pp e poderia flipar
+    **prematuramente** para "fecha o gap"/"gap fecha inteiro". O helper
+    `_aporteAlvoRawPct(nome)` recupera `peso_alvo × 100` de
+    `json.politica.categorias` (mesma origem que `aportar.js` usa p/ montar
+    o card, casada por nome; fallback ao arredondado só se a categoria
+    sumir do payload). `aportar.js` permanece intocado — a correção é 100%
+    na camada narrativa. A trilha DISPLAY continua arredondada por design.
+- **Nota zero-write (`.aporte-nota`)** — **NÃO** é o `.grifo` (distinção
+  deliberada: o grifo é o box do plano; a nota é texto simples) — "O plano
+  prioriza... zero sobra" + `.writes` "Simulação pura: nada é enviado,
+  nada é gravado." **Sempre visível**, independente do valor.
+- **Cross-screen (`#alocação` → `#aportar`, Task 4)** — um `.grifo`
+  (`.aloca-grifo`) em `#alocação`, entre `.compo` e `.aloca-lista`, aponta
+  a categoria com o **drift mais negativo** (mesmo threshold `-0.005` de
+  `formatDelta`) — "{Categoria} está **N pp abaixo** do alvo... **Simular
+  aporte ›**". Tocar/Enter/Space seta `_aportePresetPendente` (bridge de
+  estado, NÃO um parâmetro de URL — evita tocar no parser de hash/query
+  do router ou na faixa S.8) com o valor do **último aporte** (mesmo do
+  hero-chip "Repetir" — sugestão de ponto de partida familiar, não um
+  "aporte ideal" recalculado) e navega `location.hash = "#aportar"`;
+  `hidratarAportar()` consome o preset ANTES de tentar restaurar o valor
+  persistido em `localStorage` (o tap explícito tem prioridade).
+
+```css
+.aporte-input { font-family: var(--mono); font-size: var(--num-poster-lg); }
+.aporte-chip--hero { border-color: var(--accent); color: var(--accent); }
+.aporte-card { opacity: 0; transform: translateY(10px); }
+.aporte-card--in { opacity: 1; transform: translateY(0); }
+.aporte-scrub-input { position: absolute; inset: 0; opacity: 0; }
+.aporte-grifo, .aloca-grifo { /* .grifo base (S.1) — surface-2 + border-left accent */ }
+```
+
 ### PIN screen
 Input central grande (2rem text + tabular-nums + letter-spacing 0.5rem) + botão full-width primary teal.
 
@@ -659,6 +769,10 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 | Segmented Aloca (Atual/Alvo) | — | — | — | LEGADO: removido em 7a.E.31 (vista única); config `segmented` em transitions.js sem uso |
 
 **Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
+
+### Reveal stagger de app-shell (distinto do stagger de chart)
+
+Orçamento de motion **separado** do stagger de barras de dataviz (anti-pattern #23, que escopa 30ms/50ms a CHART/ECharts). O *reveal stagger de app-shell* é a chegada escalonada de **cards de tela** (não elementos de gráfico) — comunica "o plano/a home se monta peça por peça", uma dramaturgia deliberada, não atraso de leitura de dado. Orçamento sancionado: **≤ 110ms por passo**, sempre `prefers-reduced-motion`-gated (a classe de reveal é aplicada no mesmo tick, sem `setTimeout`, e a transição vive dentro de `@media (prefers-reduced-motion: no-preference)`). Consumidores atuais: `.aporte-card`/`.plan-cat` (7a.S.10, 110ms/passo + 30ms de base, via `_aporteAnimarPlano`) e A Abertura (7a.S.11, 100–550ms, PIN → home). Se um novo reveal precisar de passo > 110ms, documentar a exceção aqui.
 
 ### Contrato de refino — tokens de motion (7a.S.1)
 
@@ -769,7 +883,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · Alocação = callout "abaixo do alvo" · Proventos = leitura de run-rate · Aportar = box do plano · Relatório = âmbar "NÃO funcionando" · Rentabilidade = nenhum (grifo removido a pedido).
+14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho... zero sobra")** · Relatório = âmbar "NÃO funcionando" · Rentabilidade = nenhum (grifo removido a pedido).
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
 16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
@@ -778,7 +892,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos. O markPoint de "símbolo no último ponto" (7a.S.3, `criarMarkPointUltimo`) é a exceção deliberadamente compliant: círculo vazado + label sóbrio, sem estrela/balão/glow — instrumento de leitura, não celebração.
 21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre branco + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
 22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
-23. **Stagger entre elementos > 50ms.** Default em barras é 30ms.
+23. **Stagger > 50ms entre barras de CHART/dataviz.** Default em barras (ECharts) é 30ms — a regra escopa dataviz, onde stagger longo faz o gráfico "montar devagar" e atrasa a leitura do dado. **NÃO** se aplica ao *reveal stagger de app-shell* (chegada de cards de tela) — orçamento de motion distinto e sancionado (ver Motion → "Reveal stagger de app-shell"): `.plan-cat`/`.aporte-card` (7a.S.10, 110ms/passo) e A Abertura (7a.S.11, 100–550ms), todos reduced-motion-gated.
 24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600 inativa / 700 ativa + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
 25. **Bottom-underline cliché** em tab ativa (linha grossa colorida abaixo do label, padrão Material/Bootstrap). O app usa indicator 2px no **topo** da tab — escolha estética + reduz competição visual com border-top da própria tab bar.
 
@@ -845,6 +959,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      .grifo--amber (border-left 3px --amber + --amber-bg/--amber-bd; 7a.S.9 realiza em .rel-secao--destaque, Apêndice B "Relatório = âmbar")
                      .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total/.dy-chamada (#proventos) · .kpi-scroll-fade (KPI affordance)
                      .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
+                     .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

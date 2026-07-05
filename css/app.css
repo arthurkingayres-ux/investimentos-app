@@ -1419,6 +1419,18 @@ footer.rodape code {
   font-variant-numeric: tabular-nums;
 }
 
+/* 7a.S.10 Task 4: grifo cross-screen (.grifo base = S.1) — callout "abaixo
+   do alvo" que deep-linka pro simulador #aportar. */
+.aloca-grifo {
+  margin-top: 16px;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.aloca-grifo b { color: var(--ink); }
+.aloca-grifo-cta { color: var(--accent); font-weight: 700; white-space: nowrap; }
+
 /* 7a.E.31: tela #alocação unificada — cabeçalho .breadcrumb padrão (igual às
    demais telas) + lista única de cards de categoria colapsáveis. O corpo
    expandido reusa as cestas (.aloca-alvo__cesta/__ativo/__minibar) abaixo. */
@@ -2421,7 +2433,12 @@ footer.rodape code {
 
 .aporte-input {
   width: 100%;
-  font-size: 2rem;
+  /* 7a.S.10: escala do poster monument (token reservado em S.1 p/ o "apval"
+     do mockup) — o input de texto assume o tratamento tipográfico do
+     simulador em vez de um `.apval` separado (evita 2 displays do mesmo
+     valor na tela; continua editável). */
+  font-family: var(--mono);
+  font-size: var(--num-poster-lg);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.015em;
@@ -2437,7 +2454,114 @@ footer.rodape code {
 .aporte-helper {
   font-size: 0.875rem;
   color: var(--gray);
-  margin: 12px 0 20px;
+  margin: 12px 0 4px;
+}
+
+/* 7a.S.10: legenda do último aporte — pré-carrega + convida a repetir. */
+.aporte-cap {
+  font-size: 0.8125rem;
+  color: var(--gray);
+  margin: 0 0 16px;
+  line-height: 1.45;
+  max-width: 38ch;
+}
+.aporte-cap b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ── Chips rápidos (7a.S.10) ─────────────────────────────────────── */
+.aporte-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+.aporte-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--neutral-200);
+  background: var(--neutral-50);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aporte-chip { transition: transform var(--d1) var(--ease); }
+}
+.aporte-chip:active { transform: scale(.93); }
+.aporte-chip--hero {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── Scrubber "e se fosse mais?" (7a.S.10) ───────────────────────── */
+.aporte-scrub-wrap { margin: 0 0 18px; }
+.aporte-scrub-lbl {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.71875rem;
+  color: var(--faint);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.aporte-scrub {
+  position: relative;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.aporte-scrub-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  opacity: .9;
+  pointer-events: none;
+}
+.aporte-scrub-knob {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 22px;
+  border-radius: 11px;
+  background: var(--neutral-50);
+  border: 2px solid var(--accent);
+  transform: translateX(-50%);
+  box-shadow: var(--card-shadow);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aporte-scrub-knob { transition: transform var(--d1) ease; }
+}
+/* Range nativo: invisível por cima do trilho decorativo — dono real do
+   pointer/teclado/a11y (aria-valuenow implícito + arrows/Home/End grátis). */
+.aporte-scrub-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.aporte-scrub:focus-within .aporte-scrub-knob {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.aporte-nota {
+  font-size: 0.8125rem;
+  color: var(--ink);
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
+.aporte-nota .writes {
+  display: block;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 0.71875rem;
 }
 
 .aporte-banner {
@@ -2450,7 +2574,23 @@ footer.rodape code {
 }
 .aporte-banner p { margin: 0; }
 
-.aporte-card { margin-top: 1rem; }
+.aporte-card {
+  margin-top: 1rem;
+  /* 7a.S.10: reveal em stagger — estado inicial oculto/deslocado; JS
+     (_aporteAnimarPlano) adiciona .aporte-card--in ~110ms depois do card
+     anterior (30ms de base). Sob reduced-motion o JS já entrega a classe
+     no MESMO tick (sem setTimeout) — a transição abaixo fica 0s por
+     estar dentro do media query no-preference, então o card aparece
+     direto no estado final sem qualquer intervalo perceptível. */
+  opacity: 0;
+  transform: translateY(10px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aporte-card--in {
+    transition: opacity var(--d3) var(--ease), transform var(--d3) var(--ease);
+  }
+}
+.aporte-card--in { opacity: 1; transform: translateY(0); }
 
 .aporte-cat-head {
   display: flex;
@@ -2541,6 +2681,17 @@ footer.rodape code {
   color: var(--gray);
   font-variant-numeric: tabular-nums;
 }
+
+/* 7a.S.10: grifo do plano — Apêndice B "Aportar = box do plano" (.grifo
+   base já definido em S.1: --surface-2 + border-left --accent). Único
+   grifo desta tela — a .aporte-nota (zero-write) NÃO é grifo. */
+.aporte-grifo {
+  margin-top: 14px;
+  font-size: 0.78125rem;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.aporte-grifo b { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .aporte-outras {
   margin-top: 22px;

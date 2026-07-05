@@ -368,6 +368,15 @@ document.addEventListener("alpine:init", () => {
     aporteCategoriasNaoRecebedoras: [],
     aportePausados: [],
     aporteTickersSemPosicao: [],
+    // 7a.S.10 — simulador vivo: bookkeeping puro (nunca lido por template),
+    // não precisa ser reativo mas Alpine envolve mesmo assim por viver em
+    // data(). _aporteRevelados: nomes de categoria cujo .aporte-card já
+    // tocou o stagger-reveal 1x (reseta quando o valor volta a 0, ver
+    // recalcularAporte). _aportePresetPendente: ponte cross-screen do grifo
+    // #alocação → #aportar (evita tocar no parser de hash/query do router).
+    _aporteRevelados: new Set(),
+    _aportePresetPendente: null,
+    aporteScrubMax: 20000,
 
     async init() {
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
@@ -1115,6 +1124,40 @@ document.addEventListener("alpine:init", () => {
       return cats
         .slice()
         .sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0) || a.nome.localeCompare(b.nome));
+    },
+
+    // 7a.S.10 Task 4 (cross-screen, Apêndice B "Alocação = callout 'abaixo
+    // do alvo'"): categoria MAIS abaixo do alvo (drift mais negativo),
+    // mesmo threshold de .005 (0,5pp) usado por formatDelta p/ classificar
+    // "under". null quando nenhuma categoria está abaixo — grifo some.
+    _alocGrifoCategoriaPior() {
+      const cats = this.categoriasAlocacaoOrdenadas || [];
+      let pior = null;
+      for (const c of cats) {
+        if ((c.drift || 0) <= -0.005 && (!pior || c.drift < pior.drift)) pior = c;
+      }
+      return pior;
+    },
+
+    // HTML do grifo (mesma categoria acima); "" quando nada está abaixo do
+    // alvo — x-show usa a MESMA string (truthy/falsy), sem recomputar 2x
+    // com resultados divergentes.
+    get alocGrifoHtml() {
+      const cat = this._alocGrifoCategoriaPior();
+      if (!cat) return "";
+      const pp = Math.round(Math.abs(cat.drift) * 100);
+      return `${cat.nome} está <b>${pp} pp abaixo</b> do alvo — é onde o próximo aporte trabalha primeiro. <span class="aloca-grifo-cta">Simular aporte &rsaquo;</span>`;
+    },
+
+    // Deep-link cross-screen: preset = último aporte (mesmo valor do
+    // hero-chip "Repetir" em #aportar) — não recalcula um "aporte ideal"
+    // pro gap, só sugere um ponto de partida familiar pro simulador.
+    irSimularAporteAlvo() {
+      const cat = this._alocGrifoCategoriaPior();
+      if (!cat) return;
+      const total = (this.json && this.json.ultimo_aporte && this.json.ultimo_aporte.total_brl) || 0;
+      this._aportePresetPendente = total;
+      location.hash = "#aportar";
     },
 
     // 7a.S.8: faixa de composição 100% — segmentos (largura ∝ peso_atual).
@@ -2284,9 +2327,18 @@ document.addEventListener("alpine:init", () => {
       return this.escopoAtivo === "EUA" ? "S&P 500" : "CDI";
     },
 
-    // ── 7a.H.1: Tela #aportar ─────────────────────────────────────────
+    // ── 7a.H.1 / 7a.S.10: Tela #aportar (simulador vivo) ───────────────
     hidratarAportar() {
       if (!this.json) return;
+      // 7a.S.10: preset cross-screen (grifo #alocação → #aportar) tem
+      // prioridade sobre o valor persistido — o Dr. Arthur veio de um tap
+      // explícito "Simular aporte", não de reabrir a tela por conta própria.
+      if (this._aportePresetPendente != null) {
+        const preset = this._aportePresetPendente;
+        this._aportePresetPendente = null;
+        this.aporteSetValor(preset, true);
+        return;
+      }
       // Restaurar valor persistido se dentro da janela TTL 24h
       try {
         const ts = parseInt(localStorage.getItem("aporte.ts") || "0", 10);
@@ -2305,27 +2357,73 @@ document.addEventListener("alpine:init", () => {
       this.recalcularAporte();
     },
 
-    aporteHelperText() {
-      if (!this.aporteValor || String(this.aporteValor).trim() === "") {
-        return "Digite quanto você tem disponível para investir.";
-      }
-      const limpo = String(this.aporteValor)
+    // Parsing pt-BR compartilhado (extraído 7a.S.10 — antes duplicado em
+    // aporteHelperText/recalcularAporte). "" ou não-finito → 0 (mesmo
+    // comportamento anterior via `parseFloat(...) || 0`).
+    _parseAporteValor(raw) {
+      const limpo = String(raw || "")
         .replace(/[^\d.,]/g, "")
         .replace(/\./g, "")
         .replace(",", ".");
       const valor = parseFloat(limpo);
-      if (!isFinite(valor) || valor <= 0) {
+      return isFinite(valor) ? valor : 0;
+    },
+
+    aporteHelperText() {
+      const valor = this._parseAporteValor(this.aporteValor);
+      if (valor <= 0) {
         return "Digite quanto você tem disponível para investir.";
       }
       return `Com ${window.formatBrl(valor)} você compraria:`;
     },
 
-    recalcularAporte() {
-      const limpo = String(this.aporteValor || "")
-        .replace(/[^\d.,]/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".");
-      const valor = parseFloat(limpo) || 0;
+    // 7a.S.10: legenda acima dos chips — pré-carrega o último aporte
+    // (json.ultimo_aporte). Sem dado (ainda sem nenhuma compra no DB) cai
+    // num convite genérico; o hero-chip "Repetir" fica oculto (x-show).
+    aporteApcapHtml() {
+      const ua = this.json && this.json.ultimo_aporte;
+      if (!ua || !ua.total_brl) {
+        return "Toque nos atalhos ou arraste o controle abaixo para montar um plano.";
+      }
+      const dataFmt = window.formatDataExtenso ? window.formatDataExtenso(ua.data) : "";
+      const quando = dataFmt ? `, em ${dataFmt}` : "";
+      return `Seu último aporte foi <b>${this.aporteFmtBrl0(ua.total_brl)}</b>${quando}. Toque para repetir — ou monte outro valor.`;
+    },
+
+    // Currency pt-BR sem centavos — usado nos rótulos curtos (chips/apcap/
+    // grifo do plano). Distinto de window.formatBrl (sempre 2 casas).
+    aporteFmtBrl0(v) {
+      return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        maximumFractionDigits: 0,
+      }).format(v || 0);
+    },
+
+    // 7a.S.10: single source of truth do valor — chips/scrubber escrevem
+    // em `aporteValor` (o MESMO x-model do input de texto) e chamam
+    // recalcularAporte, exatamente como o @input.debounce já fazia. `animar`
+    // liga o count-up/stagger (chips) vs instantâneo (scrubber em arrasto,
+    // digitação — preserva o timing das specs pré-existentes).
+    aporteSetValor(v, animar = false) {
+      const num = Math.max(0, Math.round((Number(v) || 0) * 100) / 100);
+      this.aporteValor = String(num);
+      this.recalcularAporte(animar);
+    },
+
+    aporteAdd(delta) {
+      this.aporteSetValor(this._parseAporteValor(this.aporteValor) + delta, true);
+    },
+
+    // % (0–100) do valor atual sobre aporteScrubMax, clampado — usado pelo
+    // preenchimento visual (.aporte-scrub-fill/-knob) do scrubber 7a.S.10.
+    aporteScrubPct() {
+      const v = this._parseAporteValor(this.aporteValor);
+      return Math.max(0, Math.min(100, (v / this.aporteScrubMax) * 100));
+    },
+
+    recalcularAporte(animar = false) {
+      const valor = this._parseAporteValor(this.aporteValor);
       const aporteValorStr = String(this.aporteValor || "").trim();
       try {
         if (valor > 0) {
@@ -2338,6 +2436,11 @@ document.addEventListener("alpine:init", () => {
           localStorage.removeItem("aporte.ts");
         }
       } catch (_) {}
+      if (valor <= 0 && this._aporteRevelados) {
+        // Plano esvaziado — próxima vez que cards aparecerem, stagger de novo
+        // (espelha o mockup: wrap.innerHTML="" quando V<=0).
+        this._aporteRevelados.clear();
+      }
       if (!window.aporteCalculo || !this.json) {
         this.aporteBanner = null;
         this.aporteCategoriasRecebedoras = [];
@@ -2352,6 +2455,130 @@ document.addEventListener("alpine:init", () => {
       this.aporteCategoriasNaoRecebedoras = r.categoriasNaoRecebedoras || [];
       this.aportePausados = r.pausados || [];
       this.aporteTickersSemPosicao = r.tickersSemPosicao || [];
+      this.$nextTick(() => this._aporteAnimarPlano(animar));
+    },
+
+    // Alvo % em precisão RAW (7a.S.10, CRB #1 — Confiança nos Números): o
+    // card de aportar.js carrega `alvoPct` ARREDONDADO (Math.round, p/ a
+    // trilha DISPLAY). A math narrativa (grifo/tag) NÃO pode misturar esse
+    // inteiro com os floats raw (atualPct/posPct/deltaPct): p/ um peso_alvo
+    // não-redondo (0.304 → alvoPct 30 vs raw 30,4), o "% do caminho" desvia
+    // até ~0,5pp e pode flipar PREMATURAMENTE p/ "fecha o gap"/"gap fecha
+    // inteiro". Fonte raw = json.politica.categorias (mesma origem que
+    // aportar.js usa p/ montar o card), casada por nome. Fallback ao
+    // arredondado só se a categoria sumir do payload (defensivo — não
+    // acontece: o card DERIVA dela). aportar.js permanece intocado.
+    _aporteAlvoRawPct(nome) {
+      const cats =
+        (this.json && this.json.politica && this.json.politica.categorias) || [];
+      const c = cats.find((x) => x.nome === nome);
+      return c ? (c.peso_alvo || 0) * 100 : null;
+    },
+
+    // Tag de categoria no plano (7a.S.10): só reescreve a leitura quando a
+    // categoria está subexposta (aportar.js `cat.tag === "subexposta"`);
+    // "no alvo"/"" (estado balanceado) passam direto — não há "gap" a fechar
+    // nesse caso. Usa o alvo RAW (não o alvoPct arredondado) contra os
+    // floats raw atualPct/posPct — ver _aporteAlvoRawPct (CRB #1).
+    aporteCatTagTexto(cat) {
+      if (!cat || cat.tag !== "subexposta") return (cat && cat.tag) || "";
+      const alvoRawPct = this._aporteAlvoRawPct(cat.nome);
+      const alvo = alvoRawPct != null ? alvoRawPct : cat.alvoPct;
+      const restante = alvo - cat.atualPct;
+      const fechou = restante <= 0 || cat.posPct + 0.05 >= alvo;
+      return fechou ? "fecha o gap" : "abaixo · aportar";
+    },
+
+    // Grifo do plano (7a.S.10, Apêndice B "Aportar = box do plano"): narra
+    // quanto do caminho de volta ao alvo o aporte fecha. Usa a categoria
+    // subexposta com MENOR progresso relativo (a que "trava" o caminho) e o
+    // alvo RAW (não o alvoPct arredondado) — ver _aporteAlvoRawPct (CRB #1).
+    aporteGrifoHtml() {
+      const cats = this.aporteCategoriasRecebedoras || [];
+      if (cats.length === 0) return "";
+      const valorNum = this._parseAporteValor(this.aporteValor);
+      const valorFmt = this.aporteFmtBrl0(valorNum);
+      const sub = cats.filter((c) => c.tag === "subexposta");
+      if (sub.length === 0) {
+        return `Com <b>${valorFmt}</b>, o aporte segue os pesos-alvo da política — zero sobra.`;
+      }
+      let pior = null;
+      for (const c of sub) {
+        const alvoRawPct = this._aporteAlvoRawPct(c.nome);
+        const alvo = alvoRawPct != null ? alvoRawPct : c.alvoPct;
+        const restante = alvo - c.atualPct;
+        const percorrido = restante > 0 ? Math.min(1, c.deltaPct / restante) : 1;
+        if (pior === null || percorrido < pior) pior = percorrido;
+      }
+      const pct = Math.round((pior ?? 0) * 100);
+      if (pct >= 100) {
+        return `Com <b>${valorFmt}</b>, o gap fecha inteiro — as categorias abaixo do alvo voltam à política. Zero sobra.`;
+      }
+      return `Com <b>${valorFmt}</b>, você fecha <b>${pct}%</b> do caminho de volta ao alvo. Zero sobra.`;
+    },
+
+    // Formata cotas para os frames do count-up (7a.S.10). Espelha os
+    // formatters privados de aportar.js (formatCotasFracionarias/Inteiras)
+    // sem importar nada de lá — aportar.js permanece intocado (invariante).
+    _aporteFormatarCotas(valor, fracionario) {
+      if (fracionario) {
+        return (
+          new Intl.NumberFormat("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(valor) + " cotas"
+        );
+      }
+      const n = Math.trunc(valor);
+      return n + (n === 1 ? " cota" : " cotas");
+    },
+
+    // Coreografia aditiva (7a.S.10): stagger reveal dos .aporte-card (1x por
+    // categoria, via data-cat-nome) + count-up de cotas (.aporte-compra-qty,
+    // via data-cotas/data-cotas-frac). Dono exclusivo do textContent dos nós
+    // animados (mesmo racional de ativarCountUpHero — Alpine reatribui
+    // aporteCategoriasRecebedoras inteiro a cada recálculo; um x-text
+    // reativo nesses nós disputaria com o RAF e reverteria o frame no meio
+    // da animação). `animar=false` (digitação/scrubber) escreve o valor
+    // final direto — só chips tocam a animação (mesma nuance do mockup:
+    // setAp(v, true) nos chips vs setAp(v, false) no arrasto do scrubber).
+    _aporteAnimarPlano(animar) {
+      const tela = document.querySelector(".tela-aportar");
+      if (!tela) return;
+      const reduced = !!(
+        window.drarthurNav &&
+        window.drarthurNav.motion &&
+        window.drarthurNav.motion.reduced
+      );
+      if (!this._aporteRevelados) this._aporteRevelados = new Set();
+
+      const cards = tela.querySelectorAll(".aporte-card");
+      cards.forEach((card, idx) => {
+        const nome = card.getAttribute("data-cat-nome") || String(idx);
+        if (this._aporteRevelados.has(nome)) {
+          card.classList.add("aporte-card--in");
+          return;
+        }
+        this._aporteRevelados.add(nome);
+        if (reduced) {
+          card.classList.add("aporte-card--in");
+        } else {
+          setTimeout(() => card.classList.add("aporte-card--in"), idx * 110 + 30);
+        }
+      });
+
+      const qtyEls = tela.querySelectorAll(".aporte-compra-qty");
+      qtyEls.forEach((el) => {
+        const target = parseFloat(el.getAttribute("data-cotas"));
+        if (!isFinite(target)) return;
+        const fracionario = el.getAttribute("data-cotas-frac") === "1";
+        const formatter = (n) => this._aporteFormatarCotas(n, fracionario);
+        if (!animar || reduced) {
+          el.textContent = formatter(target);
+          return;
+        }
+        window.drarthurNav.applyCountUp(el, target, formatter);
+      });
     },
 
     limparSessao() {

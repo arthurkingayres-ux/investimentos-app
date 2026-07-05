@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=51">
+  <link rel="stylesheet" href="css/app.css?v=52">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
-  <script src="js/format.js?v=42"></script>
+  <script src="js/format.js?v=43"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=50"></script>
+  <script src="js/app.js?v=51"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -491,6 +491,17 @@
                narra "{categoria} em destaque" quando um segmento é tocado
                (dispara também sob reduced-motion — é a11y, não motion). -->
           <div class="sr-only" aria-live="polite" x-text="compoAnuncio"></div>
+        </div>
+
+        <!-- 7a.S.10 Task 4: grifo cross-screen — deep-link p/ #aportar com o
+             preset do último aporte (Apêndice B "Alocação = callout 'abaixo
+             do alvo'"). -->
+        <div class="grifo aloca-grifo" x-show="alocGrifoHtml" x-cloak
+             role="button" tabindex="0"
+             @click="irSimularAporteAlvo()"
+             @keydown.enter.prevent="irSimularAporteAlvo()"
+             @keydown.space.prevent="irSimularAporteAlvo()">
+          <div x-html="alocGrifoHtml"></div>
         </div>
 
         <div class="aloca-lista">
@@ -980,20 +991,56 @@
             class="aporte-input"
             placeholder="R$ 0,00"
             x-model="aporteValor"
-            @input.debounce.150ms="recalcularAporte"
+            @input.debounce.150ms="recalcularAporte()"
             autocomplete="off">
           <p class="aporte-helper" x-text="aporteHelperText()"></p>
+          <p class="aporte-cap" x-html="aporteApcapHtml()"></p>
         </div>
+
+        <!-- 7a.S.10: chips rápidos (Repetir/último aporte + atalhos) ────── -->
+        <div class="aporte-chips">
+          <button type="button" class="aporte-chip aporte-chip--hero"
+                  x-show="json && json.ultimo_aporte && json.ultimo_aporte.total_brl" x-cloak
+                  @click="aporteSetValor(json.ultimo_aporte.total_brl, true)"
+                  x-text="'Repetir · ' + aporteFmtBrl0(json && json.ultimo_aporte ? json.ultimo_aporte.total_brl : 0)"></button>
+          <button type="button" class="aporte-chip aporte-chip--add5k" @click="aporteAdd(5000)">+ 5.000</button>
+          <button type="button" class="aporte-chip aporte-chip--add10k" @click="aporteAdd(10000)">+ 10.000</button>
+          <button type="button" class="aporte-chip aporte-chip--zero" @click="aporteSetValor(0, true)">zerar</button>
+        </div>
+
+        <!-- 7a.S.10: scrubber "e se fosse mais?" (0–20.000, passo 100) ──── -->
+        <div class="aporte-scrub-wrap">
+          <div class="aporte-scrub-lbl">
+            <span>E se fosse mais?</span>
+            <span x-text="'R$ 0 — ' + aporteFmtBrl0(aporteScrubMax)"></span>
+          </div>
+          <div class="aporte-scrub">
+            <div class="aporte-scrub-fill" :style="`width: ${aporteScrubPct()}%`"></div>
+            <div class="aporte-scrub-knob" :style="`left: ${aporteScrubPct()}%`"></div>
+            <input type="range" class="aporte-scrub-input"
+                   min="0" :max="aporteScrubMax" step="100"
+                   :value="Math.min(_parseAporteValor(aporteValor), aporteScrubMax)"
+                   @input="aporteSetValor($event.target.valueAsNumber, false)"
+                   aria-label="Arrastar para escolher o valor do aporte"
+                   aria-valuemin="0" :aria-valuemax="aporteScrubMax"
+                   :aria-valuenow="Math.min(_parseAporteValor(aporteValor), aporteScrubMax)">
+          </div>
+        </div>
+
+        <p class="aporte-nota">
+          O plano prioriza as categorias abaixo do alvo, equal-weight nos picks — zero sobra.
+          <span class="writes">Simulação pura: nada é enviado, nada é gravado.</span>
+        </p>
 
         <div class="aporte-banner" x-show="aporteBanner" x-cloak>
           <p x-text="aporteBanner"></p>
         </div>
 
         <template x-for="cat in aporteCategoriasRecebedoras" :key="cat.nome">
-          <article class="card aporte-card">
+          <article class="card aporte-card" :data-cat-nome="cat.nome">
             <header class="aporte-cat-head">
               <span class="aporte-cat-name" x-text="cat.nome"></span>
-              <span class="aporte-cat-tag" x-text="cat.tag"></span>
+              <span class="aporte-cat-tag" x-text="aporteCatTagTexto(cat)"></span>
             </header>
             <div class="aloc-trilha aporte-trilha">
               <div class="aloc-preenchimento"
@@ -1017,7 +1064,14 @@
                     <span class="aporte-compra-sub" x-text="`${row.tipoLabel} · ${row.pesoIntraPct}% do bucket`"></span>
                   </span>
                   <span class="aporte-compra-qty-block">
-                    <span class="aporte-compra-qty" x-text="row.cotasFormatadas"></span>
+                    <!-- 7a.S.10: sem x-text — dono exclusivo do textContent é
+                         _aporteAnimarPlano (count-up via applyCountUp). Um
+                         x-text reativo aqui disputaria com o RAF (mesmo
+                         racional do #hero-patrimonio, ver ativarCountUpHero).
+                         data-cotas/-frac carregam o valor final pro JS ler. -->
+                    <span class="aporte-compra-qty"
+                          :data-cotas="row.cotas"
+                          :data-cotas-frac="row.cotasFormatadas.includes(',') ? 1 : 0"></span>
                     <span class="aporte-compra-qty-sub" x-text="row.valorFormatado"></span>
                   </span>
                 </li>
@@ -1025,6 +1079,8 @@
             </ul>
           </article>
         </template>
+
+        <div class="grifo aporte-grifo" x-show="aporteGrifoHtml()" x-cloak x-html="aporteGrifoHtml()"></div>
 
         <section class="aporte-outras" x-show="aporteCategoriasNaoRecebedoras.length > 0" x-cloak>
           <h2 class="aporte-section-label">Outras categorias (sem aporte)</h2>

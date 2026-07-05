@@ -574,6 +574,315 @@ test.describe("Tela #aportar", () => {
   });
 });
 
+test.describe("Tela #aportar · simulador vivo (7a.S.10)", () => {
+  test("apcap pré-carrega o último aporte + hero-chip 'Repetir'; +5k/+10k/zerar", async ({
+    page,
+  }) => {
+    await abrirAportar(page);
+    // Fixture default: ultimo_aporte = { data: "2026-04-20", total_brl: 5000 }.
+    await expect(page.locator(".aporte-input")).toHaveValue("");
+    await expect(page.locator(".aporte-cap")).toContainText("R$ 5.000");
+    await expect(page.locator(".aporte-cap")).toContainText("20 de abril");
+
+    const hero = page.locator(".aporte-chip--hero");
+    await expect(hero).toContainText("Repetir");
+    await expect(hero).toContainText("R$ 5.000");
+    await hero.click();
+    await expect(page.locator(".aporte-input")).toHaveValue("5000");
+
+    await page.locator(".aporte-chip--zero").click();
+    await expect(page.locator(".aporte-input")).toHaveValue("0");
+
+    await page.locator(".aporte-chip--add5k").click();
+    await expect(page.locator(".aporte-input")).toHaveValue("5000");
+
+    await page.locator(".aporte-chip--add10k").click();
+    await expect(page.locator(".aporte-input")).toHaveValue("15000");
+  });
+
+  test("apcap fallback + hero-chip oculto quando não há último aporte", async ({
+    page,
+  }) => {
+    await abrirAportarComMock(page, { ultimo_aporte: null });
+    await expect(page.locator(".aporte-chip--hero")).toBeHidden();
+    const texto = (await page.locator(".aporte-cap").textContent()) || "";
+    expect(texto.trim().length).toBeGreaterThan(0);
+    // Chips restantes seguem funcionais mesmo sem último aporte.
+    await page.locator(".aporte-chip--add5k").click();
+    await expect(page.locator(".aporte-input")).toHaveValue("5000");
+  });
+
+  test("scrubber 0–20.000 passo 100: move o valor + recalcula + a11y", async ({
+    page,
+  }) => {
+    await abrirAportar(page);
+    const range = page.locator(".aporte-scrub-input");
+    await expect(range).toHaveAttribute("min", "0");
+    await expect(range).toHaveAttribute("max", "20000");
+    await expect(range).toHaveAttribute("step", "100");
+    await expect(range).toHaveAttribute("aria-label", /.+/);
+    await expect(range).toHaveAttribute("aria-valuemin", "0");
+    await expect(range).toHaveAttribute("aria-valuemax", "20000");
+
+    await range.fill("5300");
+    await expect(page.locator(".aporte-input")).toHaveValue("5300");
+    await expect(range).toHaveAttribute("aria-valuenow", "5300");
+  });
+
+  test("plano se monta: stagger + count-up de cotas + tag 'abaixo · aportar' + grifo (gap parcial)", async ({
+    page,
+  }) => {
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: [{ ticker: "BBAS3", quantidade: 100, valor_mercado_brl: 2500 }],
+      politica: {
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 0.5,
+            peso_atual: 0.1,
+            drift: -0.4,
+            buckets: [
+              {
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: -0.4,
+                    peso_alvo: 0.5,
+                    peso_atual: 0.1,
+                    drift: -0.4,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await page.locator(".aporte-input").fill("5000");
+    await page.waitForTimeout(700); // > 520ms count-up + 30ms stagger delay
+
+    // Cap-5/zero-sobra INTACTOS: 1 pick, cotas inteiras (BR), sem residual.
+    const rows = await page.locator(".aporte-compra-row").count();
+    expect(rows).toBeLessThanOrEqual(5);
+    await expect(page.locator(".aporte-compra-qty").first()).toHaveText("200 cotas");
+
+    // Stagger reveal aplicado.
+    await expect(page.locator(".aporte-card").first()).toHaveClass(/aporte-card--in/);
+
+    // Tag: gap NÃO fecha inteiro (posPct 14,29% < alvoPct 50%).
+    await expect(page.locator(".aporte-cat-tag").first()).toContainText("abaixo");
+    await expect(page.locator(".aporte-cat-tag").first()).toContainText("aportar");
+
+    // Grifo do plano: "R$ 5.000" + "11%" (fração do gap fechada) + "zero sobra".
+    const grifo = page.locator(".aporte-grifo");
+    await expect(grifo).toContainText("R$ 5.000");
+    await expect(grifo).toContainText("11%");
+    await expect(grifo).toContainText(/zero sobra/i);
+  });
+
+  test("grifo do plano: tag 'fecha o gap' quando o aporte ultrapassa o alvo da categoria", async ({
+    page,
+  }) => {
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: [{ ticker: "ITSA4", quantidade: 100, valor_mercado_brl: 1000 }],
+      politica: {
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 0.1,
+            peso_atual: 0.08,
+            drift: -0.02,
+            buckets: [
+              {
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "ITSA4",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: -0.02,
+                    peso_alvo: 0.1,
+                    peso_atual: 0.08,
+                    drift: -0.02,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await page.locator(".aporte-input").fill("5000");
+    await page.waitForTimeout(700);
+    await expect(page.locator(".aporte-cat-tag").first()).toContainText("fecha o gap");
+    const grifo = page.locator(".aporte-grifo");
+    await expect(grifo).toContainText("R$ 5.000");
+    await expect(grifo).toContainText(/zero sobra/i);
+  });
+
+  test("grifo/tag usam precisão RAW do peso_alvo, não alvoPct arredondado (CRB #1)", async ({
+    page,
+  }) => {
+    // peso_alvo NÃO-REDONDO (0.304 → alvoPct arredonda p/ 30, mas o raw é 30,4).
+    // Cenário calibrado p/ pousar a posição pós-aporte ENTRE 30 e 30,4:
+    //   patrimonio 100.000 · categoria peso_atual 0,28 (28%) · pick ITSA4 @R$10.
+    //   aporte 3.150 → 315 cotas · valor_cat 3.150 (zero residual).
+    //   posPct = (28.000 + 3.150) / 103.150 = 30,199% · deltaPct = 2,199pp.
+    // Com o RAW (alvo 30,4): restante 2,4pp; percorrido 2,199/2,4 = 92%;
+    //   posPct 30,199 < 30,4 → NÃO fechou → tag "abaixo · aportar".  ← correto
+    // Com o ARREDONDADO (alvo 30): restante 2pp; percorrido 2,199/2 → capa 100%
+    //   → grifo "gap fecha inteiro"; posPct 30,199 ≥ 30 → tag "fecha o gap".
+    //   Ambos MATERIALMENTE ERRADOS — este teste falharia com a math antiga.
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: [{ ticker: "ITSA4", quantidade: 100, valor_mercado_brl: 1000 }],
+      politica: {
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 0.304,
+            peso_atual: 0.28,
+            drift: -0.024,
+            buckets: [
+              {
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "ITSA4",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: -0.024,
+                    peso_alvo: 0.304,
+                    peso_atual: 0.28,
+                    drift: -0.024,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await page.locator(".aporte-input").fill("3150");
+    await page.waitForTimeout(700);
+
+    // Tag: RAW → "abaixo · aportar" (não "fecha o gap").
+    await expect(page.locator(".aporte-cat-tag").first()).toContainText("abaixo");
+    await expect(page.locator(".aporte-cat-tag").first()).not.toContainText(
+      "fecha o gap",
+    );
+
+    // Grifo: RAW → "92%" parcial (não "gap fecha inteiro").
+    const grifo = page.locator(".aporte-grifo");
+    await expect(grifo).toContainText("92%");
+    await expect(grifo).not.toContainText("gap fecha inteiro");
+    await expect(grifo).toContainText(/zero sobra/i);
+
+    // Sanidade: a trilha DISPLAY pode continuar arredondada (alvo 30%) —
+    // só a math narrativa precisa ser raw-consistente.
+    await expect(page.locator(".aporte-trilha-line").first()).toContainText(
+      "alvo 30%",
+    );
+  });
+
+  test("zero-write: nota de simulação pura sempre visível", async ({ page }) => {
+    await abrirAportar(page);
+    await expect(page.locator(".aporte-nota .writes")).toContainText(
+      "Simulação pura",
+    );
+    await page.locator(".aporte-chip--add5k").click();
+    await expect(page.locator(".aporte-nota .writes")).toContainText(
+      "nada é gravado",
+    );
+  });
+});
+
+test.describe("Cross-screen: grifo #alocação → #aportar (7a.S.10 Task 4)", () => {
+  test("grifo 'abaixo do alvo' navega para #aportar com preset do último aporte", async ({
+    page,
+  }) => {
+    await page.route("**/portfolio.json.enc", (route) =>
+      route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
+    );
+    await page.addInitScript(() => {
+      localStorage.setItem("pin", "123456");
+      localStorage.setItem(
+        "pinTimestamp",
+        String(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      );
+    });
+    await page.goto("/");
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
+    await page.goto("/#alocacao");
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
+
+    // Fixture default: "Ações BR" peso_alvo 0.30 vs peso_atual 0.272 (~3pp abaixo).
+    const grifo = page.locator(".aloca-grifo");
+    await expect(grifo).toBeVisible();
+    await expect(grifo).toContainText("Ações BR");
+    await expect(grifo).toContainText("pp abaixo");
+    await expect(grifo).toContainText("Simular aporte");
+
+    await grifo.click();
+    await expect(page.locator(".tela-aportar")).toBeVisible();
+    expect(page.url()).toContain("#aportar");
+    // Preset = json.ultimo_aporte.total_brl (5000 na fixture default).
+    await expect(page.locator(".aporte-input")).toHaveValue("5000");
+  });
+});
+
+test.describe("Tela #aportar · reduced motion", () => {
+  test("prefers-reduced-motion: cards já revelados direto, sem stagger/count-up animado", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await abrirAportarComMock(page, {
+      patrimonio: { total_brl: 100000 },
+      posicoes: [{ ticker: "BBAS3", quantidade: 100, valor_mercado_brl: 2500 }],
+      politica: {
+        categorias: [
+          {
+            nome: "Ações BR",
+            peso_alvo: 0.5,
+            peso_atual: 0.1,
+            drift: -0.4,
+            buckets: [
+              {
+                tipo: "picks",
+                ativos: [
+                  {
+                    ticker: "BBAS3",
+                    tipo: "pick",
+                    peso_intra: 1.0,
+                    drift_intra: -0.4,
+                    peso_alvo: 0.5,
+                    peso_atual: 0.1,
+                    drift: -0.4,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await page.locator(".aporte-input").fill("5000");
+    await page.waitForTimeout(80); // bem menor que os 30ms+ da coreografia animada
+    await expect(page.locator(".aporte-card").first()).toHaveClass(/aporte-card--in/);
+    await expect(page.locator(".aporte-compra-qty").first()).toHaveText("200 cotas");
+    const transition = await page
+      .locator(".aporte-card")
+      .first()
+      .evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(transition).toBe("0s");
+  });
+});
+
 test.describe("Tela #aportar · reduced motion", () => {
   test("prefers-reduced-motion zera transição da trilha", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
