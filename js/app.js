@@ -1287,19 +1287,28 @@ document.addEventListener("alpine:init", () => {
     // arredondamento (fixture soma 100,2%) ou com categorias fora do escopo
     // da política publicada (mesmo recorte que .aloca-lista já usa — a faixa
     // nunca mostra mais nem menos categorias do que os cards abaixo dela).
-    // Label visível (.sl) só quando peso_atual ≥ 7% (regra dos estreitos);
-    // abaixo disso o segmento ainda fala via aria-label completo (a11y).
+    // Rótulo interno (.sl) = SÓ o percentual, e só quando o segmento é largo o
+    // bastante p/ o número caber (larguraPct ≥ 12% — ver comentário no map);
+    // abaixo disso o segmento fala só via aria-label completo (a11y).
     get composicaoSegmentos() {
       const cats = this.categoriasAlocacaoOrdenadas;
       const soma = cats.reduce((acc, c) => acc + (c.peso_atual || 0), 0) || 1;
       return cats.map((c) => {
         const atual = c.peso_atual || 0;
         const alvo = c.peso_alvo || 0;
+        const larguraPct = (atual / soma) * 100;
         return {
           nome: c.nome,
-          larguraPct: (atual / soma) * 100,
-          labelVisivel: atual >= 0.07,
-          label: `${c.nome} ${window.formatPctSemSinal(atual, 0)}`,
+          larguraPct,
+          // Rótulo interno = SÓ o percentual (o nome da categoria mora no card
+          // logo abaixo + no aria-label). E só aparece quando o segmento é
+          // largo o bastante p/ o número caber sem transbordar: ~12% da faixa
+          // (~34px na largura de tela mais estreita) segura "PP%". O threshold
+          // antigo (peso_atual ≥ 7%) foi calibrado p/ a fixture de 2 categorias
+          // largas; com as 5 categorias reais, nomes longos ("Renda Fixa BR")
+          // nunca cabiam num segmento estreito e os labels colidiam.
+          labelVisivel: larguraPct >= 12,
+          label: window.formatPctSemSinal(atual, 0),
           ariaLabel:
             `${c.nome}: ${window.formatPctSemSinal(atual, 0)} atual, ` +
             `${window.formatPctSemSinal(alvo, 0)} alvo`,
@@ -1318,15 +1327,29 @@ document.addEventListener("alpine:init", () => {
       const cats = this.categoriasAlocacaoOrdenadas;
       const somaAlvo = cats.reduce((acc, c) => acc + (c.peso_alvo || 0), 0) || 1;
       let acumulado = 0;
-      return cats.map((c) => {
+      const ticks = [];
+      cats.forEach((c) => {
         const alvo = c.peso_alvo || 0;
         acumulado += alvo;
-        return {
+        // Categoria de alvo ~0 (ex.: Cripto em quarentena) não tem régua
+        // própria: sua marca cumulativa cairia no mesmo ponto da anterior
+        // (soma 0 ao acumulado) e o label "0%" é só ruído — não emite tick.
+        // O acumulado já avançou (por 0), então as posições dos demais ficam
+        // intactas.
+        if (alvo < 0.005) return;
+        const leftPct = (acumulado / somaAlvo) * 100;
+        ticks.push({
           nome: c.nome,
-          leftPct: (acumulado / somaAlvo) * 100,
+          leftPct,
           label: window.formatPctSemSinal(alvo, 0),
-        };
+          // Clamp do label nas bordas: o último tick fica sempre em 100%
+          // (alvos somam 1.0) e, centralizado, seu label vazaria a borda
+          // direita da faixa. 'end' ancora o label pra dentro; 'start' faz o
+          // simétrico à esquerda. A marca (.mk) permanece no ponto exato.
+          edge: leftPct >= 96 ? "end" : leftPct <= 4 ? "start" : "center",
+        });
       });
+      return ticks;
     },
 
     // 7a.S.8: tap num segmento da faixa → esmaece os irmãos + faz o card

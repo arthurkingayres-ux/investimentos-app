@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=55">
+  <link rel="stylesheet" href="css/app.css?v=56">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=43"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=54"></script>
+  <script src="js/app.js?v=55"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -488,7 +488,9 @@
           </div>
           <div class="compo-ticks">
             <template x-for="tick in composicaoTicks" :key="tick.nome">
-              <div class="compo-tick" :style="`left: ${tick.leftPct}%;`">
+              <div class="compo-tick"
+                   :class="{ 'compo-tick--end': tick.edge === 'end', 'compo-tick--start': tick.edge === 'start' }"
+                   :style="`left: ${tick.leftPct}%;`">
                 <span class="mk" aria-hidden="true"></span>
                 <span class="tv" x-text="tick.label"></span>
               </div>

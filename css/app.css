@@ -1452,6 +1452,10 @@ footer.rodape code {
   place-items: center;
   background: var(--cat);
   -webkit-tap-highlight-color: transparent;
+  /* Safety net: o rótulo (.sl) nunca pode vazar pro segmento vizinho, para
+     qualquer dado/viewport futuro. O labelVisivel (≥12% de largura) já
+     esconde os estreitos; isto garante a contenção mesmo no caso-limite. */
+  overflow: hidden;
 }
 @media (prefers-reduced-motion: no-preference) {
   .compo-seg { transition: opacity var(--d2) ease, transform var(--d1) ease; }
@@ -1482,6 +1486,19 @@ footer.rodape code {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+/* Clamp do label nas bordas (fix 2026-07-05): o último tick fica em left:100%
+   e, centralizado, seu label ("PP%") vazaria a borda direita da faixa. 'end'
+   ancora a coluna pela direita (translateX(-100%) + align flex-end) — a marca
+   .mk continua exatamente no ponto (borda direita da coluna = leftPct), só o
+   label passa a crescer pra dentro. 'start' é o simétrico à esquerda. */
+.compo-tick--end {
+  transform: translateX(-100%);
+  align-items: flex-end;
+}
+.compo-tick--start {
+  transform: translateX(0);
+  align-items: flex-start;
 }
 .compo-tick .mk {
   width: 1.5px;

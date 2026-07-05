@@ -477,22 +477,39 @@ mais nem menos categorias do que `.aloca-lista`. Rótulo interno (`.sl`)
 mostra o `peso_atual` **real** (não a largura normalizada) — a normalização
 é só geometria do desenho, nunca o número reportado.
 
-**Regra dos estreitos:** `.compo-seg .sl` (label branco, `text-shadow`)
-só renderiza quando `peso_atual ≥ 7%`. Abaixo disso, o segmento não tem
-texto visível mas **sempre** carrega `aria-label` completo ("Categoria: X%
-atual, Y% alvo") — a11y não depende de espaço visual. Threshold escolhido
-(não 5%/10%) porque em 46px de altura um label de 2 palavras + `%` só
-cabe com folga a partir de ~7% de largura numa faixa de largura de tela
-inteira.
+**Rótulo interno — só o percentual (fix 2026-07-05):** `.compo-seg .sl`
+mostra **apenas** `PP%` (ex.: "58%") — nunca o nome da categoria. O nome
+vive no card logo abaixo (`.aloca-cat`) e no `aria-label` completo; repeti-lo
+dentro de um segmento estreito era o que colidia os labels no celular.
+**Regra dos estreitos:** o `.sl` só renderiza quando a **largura normalizada**
+do segmento (`larguraPct`) `≥ 12%` — ~34px na tela mais estreita (320px),
+o mínimo p/ "PP%" caber sem cortar. Abaixo disso, o segmento é só cor +
+`aria-label`. O threshold antigo (`peso_atual ≥ 7%`, com label "Nome PP%")
+foi calibrado p/ a fixture de 2 categorias largas e quebrava com as 5
+categorias reais (nomes longos como "Renda Fixa BR" num segmento de ~9%
+transbordavam e colidiam). Rede de segurança: `.compo-seg { overflow:
+hidden }` — nenhum rótulo pode vazar pro vizinho, p/ qualquer dado/viewport.
 
 **`.compo-ticks` — réguas do alvo:** abaixo da faixa, uma marca (`.mk`,
-1.5px × 7px) por categoria em posição **cumulativa** de `peso_alvo`
-(normalizada pela soma de `peso_alvo` — defensivo; por construção `/alocar`
-já bloqueia categorias que não somem 1.0). O valor exibido (`.tv`) é o
-`peso_alvo` **próprio** da categoria (não o acumulado) — leitura "esta
+1.5px × 7px) por categoria **com alvo > 0** em posição **cumulativa** de
+`peso_alvo` (normalizada pela soma de `peso_alvo` — defensivo; por construção
+`/alocar` já bloqueia categorias que não somem 1.0). O valor exibido (`.tv`)
+é o `peso_alvo` **próprio** da categoria (não o acumulado) — leitura "esta
 fatia vale X%", não "isto é X% do total". Como os segmentos usam `peso_atual`
 e os ticks usam `peso_alvo`, a régua compara visualmente atual × alvo sem
 precisar de dois gráficos separados.
+
+**Categoria de alvo 0% não emite tick (fix 2026-07-05):** uma categoria em
+quarentena com alvo zerado (ex.: Cripto) tem posição atual mas 0% de
+alvo — sua marca cumulativa cairia no mesmo ponto da anterior (soma 0 ao
+acumulado) e o label "0%" é só ruído. O tick é omitido (o acumulado ainda
+avança por 0, então as posições dos demais ficam intactas); o segmento
+correspondente **continua** na faixa (usa `peso_atual`). **Clamp nas bordas:**
+o último tick fica sempre em `left:100%` (alvos somam 1.0); centralizado, o
+label vazaria a borda direita. `composicaoTicks` marca `edge` (`'end'` se
+`leftPct ≥ 96`, `'start'` se `≤ 4`, senão `'center'`) e as classes
+`.compo-tick--end`/`--start` reancoram só o label pra dentro — a marca `.mk`
+permanece no ponto exato.
 
 **Tap → dim + flash + scroll:** tocar um segmento (`tocarSegmentoComposicao`)
 esmaece os irmãos (`.compo-seg.dim`, opacity .35, ~1400ms) sem esmaecer o
