@@ -774,6 +774,24 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 
 Orçamento de motion **separado** do stagger de barras de dataviz (anti-pattern #23, que escopa 30ms/50ms a CHART/ECharts). O *reveal stagger de app-shell* é a chegada escalonada de **cards de tela** (não elementos de gráfico) — comunica "o plano/a home se monta peça por peça", uma dramaturgia deliberada, não atraso de leitura de dado. Orçamento sancionado: **≤ 110ms por passo**, sempre `prefers-reduced-motion`-gated (a classe de reveal é aplicada no mesmo tick, sem `setTimeout`, e a transição vive dentro de `@media (prefers-reduced-motion: no-preference)`). Consumidores atuais: `.aporte-card`/`.plan-cat` (7a.S.10, 110ms/passo + 30ms de base, via `_aporteAnimarPlano`) e A Abertura (7a.S.11, 100–550ms, PIN → home). Se um novo reveal precisar de passo > 110ms, documentar a exceção aqui.
 
+### A Abertura — cerimônia PIN → home (Fase 7a.S.11)
+
+O ritual diário do produto (desbloqueio → home) vira **cena única**, orquestrada em `js/app.js` (`submitPin` + `iniciarAbertura`, x-init da `.raiox`) e `css/app.css`. Três movimentos, sempre nesta ordem:
+
+1. **Dissolve da PIN screen** — no `submitPin` bem-sucedido, `.pin-screen` ganha `.pin-dissolve` (opacity 1→0 + `scale(1.05)`, `--d3`/550ms) ANTES de `fase` virar `"raiox"`; a troca de fase só ocorre ~620ms depois (folga pós-transição, nó sai assentado — mesmo racional do 320ms de saída do `.hero-face`, 7a.S.5).
+2. **Reveal em stagger da home** — 4 grupos (`.eyebrow` → `#hero` → `.raiox-7d` → `.rel-card-home`) entram em **100 / 250 / 400 / 550ms** (opacity 0→1 + `translateY(12px)→0`, `--d3`/`--ease`). **Exceção documentada** ao orçamento "reveal stagger de app-shell" (≤110ms/passo, seção acima): aqui o passo é ~150ms — sancionado porque é uma cerimônia de UMA vez por sessão (não uma tela revisitada a cada navegação, como `.aporte-card`/`.plan-cat`), e o hero de facetas (7a.S.5) já materializa com o count-up existente (`ativarCountUpHero`, 1×/sessão via `heroCountUpDone` — a cerimônia não re-dispara, só orquestra o momento em que o card do hero fica visível ao redor dele).
+3. **Delta pill "respira"** — ao fim (~980ms), `.hero-delta` ganha `.abertura-breathe`: UM ciclo de `scale(1→1.045→1)` (`animation-iteration-count: 1`, `--d3`/550ms), removido pelo próprio JS no `animationend`. Não é decoração permanente nem loop.
+
+**Trigger e 1×/sessão:** `iniciarAbertura()` é o `x-init` da própria `.raiox` — dispara sempre que a fase vira `"raiox"`, seja via `submitPin` (PIN digitado) OU `tentarAutoResume` (sessão deslizante ≤7d, silencioso). A flag `aberturaFeita` (sessionStorage, mesmo padrão de `heroCountUpDone`/`heroFacetHintSeen`) garante que só a 1ª abertura da sessão toca a cena — refresh/re-navegação dentro da mesma aba mostra a home direto, sem reveal.
+
+**Reduced-motion:** `prefers-reduced-motion: reduce` zera os 3 movimentos — sem dissolve (fase troca instantânea, comportamento pré-7a.S.11), sem stagger (grupos renderizam com opacity 1 desde o início — a classe de reveal nunca é sequer adicionada), sem breathe. A checagem é em JS (`window.drarthurNav.motion.reduced`), e as regras CSS (`.pin-dissolve`/`.abertura-reveal`/`.abertura-breathe`) também vivem inteiras dentro de `@media (prefers-reduced-motion: no-preference)` — dupla blindagem, mesmo padrão de `.pin-screen.is-shaking`.
+
+**Sem celebração, sem loop** (anti-pattern #11): o breathe é um ciclo único que se autorremove; não há confetti/glow/badge. É uma cerimônia calma, não uma recompensa.
+
+**Ground-truth de testes:** `window.aberturaMotion` (`js/app.js`) expõe `{dissolveMs: 550, dissolveRemoveMs: 620, staggerMs: [100,250,400,550], breatheMs: 980}` — mesmo racional de `window.drarthurNav.motion` (7a.I.6), porém **standalone**: não estende o contrato de motion do app shell (`nav-reduced-motion.spec.ts` continua validando só `tabFade`/`tabIndicator`/`countUp`/`push`/`segmented`, intocado).
+
+**Keypad/dots — N/A:** o mockup "Monument v1 refino" desenha a Abertura com um keypad numérico + dots de PIN preenchendo um a um. O app real usa `.pin-input` (campo de texto único, `type=tel` com `pattern=\d{6}`) — não há keypad/dots para reconstruir; o PIN em si é 100% reusado do fluxo existente (`pin-flow.spec.ts` continua sendo a fonte de verdade da autenticação). A cerimônia começa no MOMENTO do submit bem-sucedido, não na digitação dígito-a-dígito.
+
 ### Contrato de refino — tokens de motion (7a.S.1)
 
 O Refresh Monument introduz um contrato de motion em `:root`, **aditivo** ao de navegação acima (que permanece 220/280/700ms, ground-truth em `transitions.js` e validado por `nav-reduced-motion.spec.ts`):
@@ -960,6 +978,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total/.dy-chamada (#proventos) · .kpi-scroll-fade (KPI affordance)
                      .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
                      .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
+                     .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
 
 /* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
 /* Padding base */   1.5rem (main) / 1.125rem (cards)

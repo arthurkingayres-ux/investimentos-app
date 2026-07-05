@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=52">
+  <link rel="stylesheet" href="css/app.css?v=53">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=40"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=43"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=51"></script>
+  <script src="js/app.js?v=53"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script>
     if ("serviceWorker" in navigator) {
@@ -38,7 +38,7 @@
     x-text="toast.mensagem"></div>
   <main>
     <template x-if="fase === 'pin'">
-      <section class="pin-screen" :class="{ 'is-shaking': shake }">
+      <section class="pin-screen" :class="{ 'is-shaking': shake, 'pin-dissolve': pinDissolvendo }">
         <h1>Carteira</h1>
         <label for="pin-input" class="subtitle" x-show="!estaBloqueado">Digite o PIN para visualizar</label>
         <p class="subtitle pin-block-msg" x-show="estaBloqueado"
@@ -71,7 +71,8 @@
 
     <template x-if="fase === 'raiox'">
       <div>
-      <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak>
+      <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak
+               x-init="iniciarAbertura()">
         <h1 class="eyebrow">Raio X</h1>
 
         <!-- 7a.S.5: o hero virou um card de facetas — tap/Enter/Space/dots
@@ -1307,7 +1308,7 @@
     <template x-if="fase === 'raiox'">
       <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
         <span class="tab-bar-indicator" aria-hidden="true"></span>
-        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname)">Raio-X</a>
+        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname); $nextTick(() => iniciarAbertura())">Raio-X</a>
         <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">Rentabilidade</a>
         <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">Alocação</a>
         <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">Proventos</a>

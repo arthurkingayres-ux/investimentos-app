@@ -262,6 +262,48 @@ h1 {
   }
 }
 
+/* 7a.S.11 — A Abertura: dissolve da PIN screen no unlock (submitPin). Toda a
+   regra vive dentro do guard reduced-motion (mesmo padrão de .is-shaking
+   acima) — sob prefers-reduced-motion:reduce a classe não tem NENHUM efeito,
+   então mesmo que ela seja adicionada (não é: JS já pula esse caminho), o
+   comportamento fica idêntico ao anterior (troca instantânea). */
+@media (prefers-reduced-motion: no-preference) {
+  .pin-screen.pin-dissolve {
+    transition: opacity var(--d3) var(--ease), transform var(--d3) var(--ease);
+    opacity: 0;
+    transform: scale(1.05);
+    pointer-events: none;
+  }
+}
+
+/* 7a.S.11 — reveal em stagger da home (eyebrow/hero/raiox-7d/rel-card-home),
+   1×/sessão via iniciarAbertura() (js/app.js). As classes só são adicionadas
+   pelo JS na 1ª abertura da sessão — nunca hardcoded no HTML — então um
+   refresh/reduced-motion que pule a cerimônia nunca deixa nada preso em
+   opacity 0. */
+@media (prefers-reduced-motion: no-preference) {
+  .abertura-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  .abertura-reveal.abertura-reveal-in {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--d3) var(--ease), transform var(--d3) var(--ease);
+  }
+
+  /* Delta pill "respira" ao fim da abertura — UM ciclo (animation-iteration-
+     count 1, nunca infinite): cerimônia, não celebração (anti-pattern #11). A
+     classe é removida no fim pelo próprio JS (animationend). */
+  @keyframes abertura-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.045); }
+  }
+  .hero-delta.abertura-breathe {
+    animation: abertura-breathe var(--d3) var(--ease) 1;
+  }
+}
+
 .raiox {
   padding-bottom: 2rem;
 }

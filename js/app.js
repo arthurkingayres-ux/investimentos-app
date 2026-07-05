@@ -4,6 +4,21 @@ const BLOCK_5_MS = 5 * 60 * 1000;
 const BLOCK_15_MS = 15 * 60 * 1000;
 const BLOCK_60_MS = 60 * 60 * 1000;
 
+// 7a.S.11 — A Abertura: orquestra o dissolve da PIN screen + o reveal em
+// stagger da home + o breathe do delta pill (cerimônia PIN → home, 1×/sessão,
+// reduced-motion-gated). Ground-truth exposta em window.aberturaMotion pros
+// specs Playwright (mesmo racional de window.drarthurNav.motion, 7a.I.6) —
+// STANDALONE: não estende o contrato de motion do app shell em
+// transitions.js (nav-reduced-motion.spec.ts continua validando só
+// tabFade/tabIndicator/countUp/push/segmented).
+const ABERTURA_MOTION = {
+  dissolveMs: 550,       // --d3: opacity + scale da .pin-screen ao desbloquear
+  dissolveRemoveMs: 620, // folga pós-transição antes de trocar `fase` (nó sai assentado)
+  staggerMs: [100, 250, 400, 550], // eyebrow, hero, raiox-7d, rel-card-home
+  breatheMs: 980,        // delta pill "respira" 1 ciclo, ao fim do stagger
+};
+window.aberturaMotion = ABERTURA_MOTION;
+
 // 7a.G.2 Pass 1 (colorize): cores resolvidas a partir dos tokens CSS em :root.
 // Lê via getComputedStyle pra que o JS consuma a mesma source-of-truth do CSS.
 const css = (token, fallback = "") =>
@@ -318,6 +333,10 @@ document.addEventListener("alpine:init", () => {
     agora: Date.now(),
     pinBlockUntil: 0,
     shake: false,
+    // 7a.S.11: dissolve da PIN screen no unlock — ver `iniciarAbertura()`/
+    // `submitPin`. Resetado em `bloquear()` e no handler multi-tab (senão a
+    // PRÓXIMA vez que a PIN screen montar já nasceria com opacity 0).
+    pinDissolvendo: false,
     toast: { visible: false, mensagem: "", tom: "verde", timer: null },
     agoraTimer: null,
     escopoAtivo: "Total",
@@ -396,6 +415,7 @@ document.addEventListener("alpine:init", () => {
           this.json = null;
           this.pin = "";
           this.pinError = "";
+          this.pinDissolvendo = false;
         }
       });
       window.addEventListener("hashchange", () => this.atualizarRota());
@@ -428,7 +448,14 @@ document.addEventListener("alpine:init", () => {
       const qIdx = raw.indexOf("?");
       const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
       const params = new URLSearchParams(qIdx === -1 ? "" : raw.slice(qIdx + 1));
-      if (path === "") { this.rota = ""; this.tab = "raiox"; return; }
+      if (path === "") {
+        this.rota = ""; this.tab = "raiox";
+        // 7a.S.11 CRB: dispara A Abertura quando a home é 1º vista (cobre o caso
+        // deep-link: sessão que nasce numa sub-rota e só depois vai à home).
+        // Idempotente — os guards jaFeita/fase/rota de iniciarAbertura garantem 1×.
+        setTimeout(() => this.iniciarAbertura(), 0);
+        return;
+      }
       if (path === "rentabilidade") {
         this.rota = "rentabilidade";
         this.tab = "rentab";
@@ -808,6 +835,59 @@ document.addEventListener("alpine:init", () => {
         // ainda pendente de remoção (transição de saída, 320ms).
         this.ativarCountUpHero(el.querySelector("#hero-patrimonio"), marcarCountUpPronto);
       }
+    },
+
+    // x-init da `.raiox` — dispara 1× por transição de fase pin→raiox
+    // (via submitPin OU tentarAutoResume, ambas montam esta subtree). "A
+    // Abertura" (7a.S.11): reveal em stagger de 4 grupos (eyebrow/hero/7d/
+    // relcard) + breathe do delta pill ao fim, tocada só na 1ª vez da sessão
+    // (flag aberturaFeita em sessionStorage — mesmo padrão de
+    // heroCountUpDone/heroFacetHintSeen). Reduced-motion ou sessão já servida
+    // = sem efeito nenhum (grupos renderizam normais, sem classe alguma —
+    // nunca ficam presos invisíveis).
+    iniciarAbertura() {
+      const marcarFeita = () => {
+        try { sessionStorage.setItem("aberturaFeita", "1"); } catch (_) {}
+      };
+      let jaFeita = false;
+      try { jaFeita = sessionStorage.getItem("aberturaFeita") === "1"; } catch (_) {}
+      if (jaFeita) return;
+      // 7a.S.11 CRB: cerimônia 1×/sessão, na 1ª vez que a HOME é vista. Só
+      // roda/marca com fase raiox + home visível (rota===''): se a 1ª montagem
+      // do raiox cair numa sub-rota (deep-link), NÃO roda off-screen — o trigger
+      // em atualizarRota() dispara quando a home é 1º navegada. Flag SÍNCRONO no
+      // entry (como heroCountUpDone) mata a janela de double-fire (re-lock < 980ms).
+      if (this.fase !== "raiox" || this.rota !== "") return;
+      marcarFeita();
+      if (window.drarthurNav.motion.reduced) return;
+
+      const secao = document.querySelector(".raiox");
+      const grupos = [
+        secao && secao.querySelector(".eyebrow"),
+        document.getElementById("hero"),
+        secao && secao.querySelector(".raiox-7d"),
+        secao && secao.querySelector(".rel-card-home"),
+      ];
+      grupos.forEach((el, i) => {
+        if (!el) return;
+        el.classList.add("abertura-reveal");
+        setTimeout(() => el.classList.add("abertura-reveal-in"), ABERTURA_MOTION.staggerMs[i]);
+      });
+      // Delta pill "respira" 1 ciclo ao fim (nunca loop — anti-pattern #11:
+      // sem celebração). A classe é removida pelo próprio JS no animationend
+      // (não fica presa; CSS já garante animation-iteration-count: 1).
+      setTimeout(() => {
+        const delta = secao && secao.querySelector(".hero-delta");
+        if (delta) {
+          delta.classList.add("abertura-breathe");
+          delta.addEventListener(
+            "animationend",
+            () => delta.classList.remove("abertura-breathe"),
+            { once: true },
+          );
+        }
+        // marcarFeita() já foi chamado no entry (7a.S.11 CRB) — não repetir.
+      }, ABERTURA_MOTION.breatheMs);
     },
 
     // x-init do #hero — mount inicial (faceta 0, instantâneo) + hidrata o
@@ -2773,6 +2853,7 @@ document.addEventListener("alpine:init", () => {
       this.json = null;
       this.pin = "";
       this.pinError = "";
+      this.pinDissolvendo = false;
     },
 
     get escoposRentabilidade12m() {
@@ -2850,7 +2931,16 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("pinTimestamp", String(Date.now()));
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         this.resetarFalhas();
-        this.fase = "raiox";
+        // 7a.S.11: dissolve da PIN screen antes de trocar de fase (a cena
+        // única "A Abertura"). Reduced-motion preserva o comportamento
+        // anterior — troca instantânea, sem dissolve.
+        if (window.drarthurNav.motion.reduced) {
+          this.fase = "raiox";
+        } else {
+          this.pinDissolvendo = true;
+          await new Promise((resolve) => setTimeout(resolve, ABERTURA_MOTION.dissolveRemoveMs));
+          this.fase = "raiox";
+        }
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
         if (this.rota === "relatorio") this.hidratarRelatorio();
