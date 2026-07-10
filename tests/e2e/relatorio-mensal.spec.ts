@@ -34,6 +34,18 @@ async function autenticar(page: Page) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
+// A tela de relatório é a única com fetch+decrypt tardio: `.tela-relatorio` é
+// x-show (visível de forma síncrona na troca de rota) enquanto as `.rel-secao`
+// vivem sob um x-if, que ADICIONA e REMOVE do DOM. Barrar em `.rel-corpo` — o
+// <div> interno ao x-if="relMes && !relCarregando && !relErro" — é a única
+// barreira que implica `relMes` populado. Usar APENAS nos testes que leem o
+// corpo; os estados loading/erro/vazio nunca o renderizam.
+async function abrirRelatorio(page: Page) {
+  await page.locator(".rel-card-home").click();
+  await expect(page.locator(".tela-relatorio")).toBeVisible();
+  await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
+}
+
 test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   test("card na home abre o relatório do último mês", async ({ page }) => {
     await autenticar(page);
@@ -50,8 +62,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
 
   test("renderiza as 9 seções na ordem canônica", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
-    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await abrirRelatorio(page);
     const ids = await page.locator(".tela-relatorio .rel-secao").evaluateAll(
       (els) => els.map((e) => e.getAttribute("data-secao")));
     expect(ids).toEqual([
@@ -67,8 +78,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
 
   test("selos de veredito com forma + texto + cor (a11y)", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
-    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await abrirRelatorio(page);
     const radar = page.locator('.rel-secao[data-secao="radar"]');
     await expect(radar.locator(".rel-radar-card")).toHaveCount(3);
     // texto do veredito presente (não só cor)
@@ -85,8 +95,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
 
   test("mini-cards do dossiê + lista de evidências", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
-    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await abrirRelatorio(page);
     // como_voce_foi: kpis de performance + decomposição (4 + 3 = 7)
     const cvf = page.locator('.rel-secao[data-secao="como_voce_foi"]');
     await expect(cvf.locator(".kpi")).toHaveCount(7);
@@ -104,7 +113,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   // ── B1: Month selector ──────────────────────────────────────────────────────
   test("seletor de mês troca o relatório e decifra sob demanda", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await abrirRelatorio(page);
     await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Maio 2026");
     await page.locator(".rel-seletor__btn").click();
     await expect(page.locator(".rel-seletor__lista")).toBeVisible();
@@ -288,8 +297,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   // fixture extra) e checa a derivação real da linha de veredito.
   test("veredito: separador de milhar pt-BR não trunca a 1ª frase", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
-    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await abrirRelatorio(page);
 
     await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
@@ -310,8 +318,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   // ── 7a.S.9 Task 3: grifo âmbar consagrado (Apêndice B: Relatório = âmbar) ────
   test("box 'NÃO funcionando' consagra o grifo âmbar (S.1); selos preservados", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
-    await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await abrirRelatorio(page);
     const dest = page.locator('.rel-secao[data-secao="nao_funcionando"]');
     await expect(dest).toHaveClass(/rel-secao--destaque/); // preservado
     await expect(dest).toHaveClass(/grifo--amber/);
