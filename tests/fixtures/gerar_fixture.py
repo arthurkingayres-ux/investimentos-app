@@ -7,6 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.24 (Fase 7a.E.32): ``dividend_yield`` ganha ``por_ativo`` — mapa
+``{ticker: dy}`` (fração, 4 casas) com só os tickers de DY válido. A ausência
+da chave é o "não há número aqui" (o `#alocacao` renderiza ``—``). BOVA11 fica
+de fora de propósito, para exercitar o traço. Os campeões repetem aqui o MESMO
+valor de ``campeoes`` (invariante da fase).
+
 Schema v2.23 (Fase 7a.S.7a backend / 7a.S.7b Task 0/1): ``dividend_yield``
 ganha ``campeoes`` — pódio top-3 yielders por categoria (``acao_br``/``fii``/
 ``eua``), cada item ``{ticker, dy, proventos_12m, valor, moeda, bandeira}``.
@@ -121,7 +127,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.23",
+    "versao": "2.24",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -298,6 +304,24 @@ PAYLOAD = {
                 {"ticker": "VOO", "dy": 0.019, "proventos_12m": 513.76,
                  "valor": 27040.0, "moeda": "USD", "bandeira": "🇺🇸"},
             ],
+        },
+        # Schema v2.24 (Fase 7a.E.32): DY por ticker, consumido pelo #alocacao.
+        # Valores 100% SINTÉTICOS (repo público). Os 9 campeões repetem o
+        # MESMO dy de `campeoes` — a invariante da fase é que pódio e linha
+        # nunca divergem. BOVA11 é omitido DE PROPÓSITO: é o ticker que
+        # exercita o traço "—" nos testes.
+        "por_ativo": {
+            "ITSA4": 0.082,
+            "BBAS3": 0.065,
+            "SMAL11": 0.034,
+            "HGLG11": 0.091,
+            "XPML11": 0.078,
+            "KISU11": 0.062,
+            "VWO": 0.036,
+            "IJS": 0.024,
+            "VOO": 0.019,
+            "KNIP11": 0.108,   # quarentena: a linha muda, o DY não some
+            "LREN3": 0.021,    # fora do alvo: idem
         },
     },
     "proventos": {

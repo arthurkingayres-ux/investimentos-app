@@ -434,6 +434,31 @@ mercado (`.aloca-alvo__valor-ativo`, mono `--num-xs`) sobre o delta/selo —
 evita que o R$ vire 4ª coluna e esprema o subtexto. Mini-bar 3px
 (`atual/alvo intra`) + delta pill mono direcional só para picks normais.
 
+**DY do ativo (`.aloca-alvo__dy`, 7a.E.32):** sufixo do ticker em
+`.aloca-alvo__ativo-row1` — o único slot que existe idêntico nos 3 estados de
+linha (normal / quarentena / fora-do-alvo). Voz secundária compartilhada com
+`.aloca-alvo__ativo-sub` (mono, `--gray`, `tnum`, peso 400): o propósito é
+**leitura de contexto**, então o DY não pode competir com o drift nem com o
+R$ — daí não usar `--num-xs` (13px/700, o tamanho do ticker). Cinza é decisão:
+`--cat-*` codifica identidade de categoria e `--sem-*` codifica drift; um yield
+alto não é "bom" nem "ruim", é um fato. O rótulo `DY` é obrigatório (a tela é
+saturada de percentuais; `9,1%` pelado leria como peso de carteira). Sem número
+confiável — sem provento nos 12m **ou** DY > 100% (dust de leilão de fração) —
+a linha mostra `—` com `aria-label="sem dividend yield"`. Fonte:
+`dividend_yield.por_ativo` (schema v2.24), que compartilha o predicado
+`_dy_valido` com o pódio de `#s-dy`: as duas telas **nunca** divergem para o
+mesmo ticker. Aluguel de ações (BTC/XP) fica fora do DY.
+
+É **um único `<span>`**, com texto e `aria-label` condicionais — não dois spans
+sob `x-show`. `x-show` esconde por `display:none` mas mantém os dois nós no DOM,
+o que deixaria um nó fantasma para o leitor de tela e faria o seletor
+`.aloca-alvo__dy` resolver a dois elementos.
+
+> **Drift de token conhecido:** `.aloca-alvo__ativo-sub` / `.aloca-alvo__dy`
+> usam `font-size: 0.625rem` hardcoded — a escala `--num-*` (FONTE ÚNICA,
+> 7a.E.27) não tem degrau abaixo de `--num-xs` (13px). Reconciliar (criar
+> `--num-2xs`) é polish transversal, ainda não feito.
+
 **Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
 do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do
 alvo" (`--sem-down-tint`/`--sem-down`, espelha o selo de quarentena) +

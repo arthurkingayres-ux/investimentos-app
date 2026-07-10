@@ -3408,12 +3408,28 @@ body:has(.tab-bar) main {
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.aloca-alvo__ativo-sub {
+/* 7a.E.32: `.aloca-alvo__dy` fala na MESMA voz secundária de `__ativo-sub`.
+   Não usa --num-xs (13px/700 do ticker): o DY é leitura de contexto e não pode
+   competir com o drift nem com o R$. Cinza é decisão, não omissão — --cat-*
+   codifica identidade de categoria e --sem-* codifica drift; um yield alto não
+   é "bom" nem "ruim", é um fato sobre o ativo.
+
+   Drift de token registrado (7a.E.32): `0.625rem` é hardcoded — a escala
+   --num-* (FONTE ÚNICA, 7a.E.27) não tem degrau abaixo de --num-xs (13px).
+   Criar `--num-2xs` e migrar os consumidores é polish transversal, fora do
+   escopo desta fase. O seletor agrupado mantém DUAS declarações do mesmo
+   valor, não três. */
+.aloca-alvo__ativo-sub,
+.aloca-alvo__dy {
   font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
   font-size: 0.625rem;
   color: var(--gray);
   letter-spacing: 0.02em;
+}
+.aloca-alvo__dy {
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .aloca-alvo__minibar {

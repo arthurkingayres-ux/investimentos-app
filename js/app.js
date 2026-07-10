@@ -974,6 +974,17 @@ document.addEventListener("alpine:init", () => {
     valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
     valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
 
+    // 7a.E.32: DY trailing-12m do ativo (schema v2.24). `por_ativo` carrega
+    // SÓ tickers com DY válido — a ausência da chave É o "não há número
+    // aqui", e vira "—" na linha. Nunca devolver 0: 0 é um DY legítimo
+    // impossível (o backend já o barra), e confundir os dois esconderia
+    // um ativo sem provento atrás de um número. Empty-safe: payload antigo
+    // (pré-v2.24) não tem o mapa -> todas as linhas mostram o traço.
+    dyAtivo(ticker) {
+      const dy = this.json?.dividend_yield?.por_ativo?.[ticker];
+      return typeof dy === "number" ? dy : null;
+    },
+
     voltar() {
       // history.length é heurística frágil — em link compartilhado aberto
       // numa aba com histórico prévio, history.back() saída do PWA.
