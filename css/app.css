@@ -53,16 +53,18 @@
   --sem-down-tint: rgba(184, 115, 31, 0.12);
 
   /* === Escala tipográfica numérica (7a.E.27, FONTE ÚNICA, NÃO DUPLICAR) ===
-     6 degraus semânticos para TODO valor numérico (R$, %, contagem, ticker-
+     7 degraus semânticos para TODO valor numérico (R$, %, contagem, ticker-
      poster). Escada de display (poster→xl→lg→md) com razão ≥1.25. Rótulos/
-     eyebrows uppercase ficam fora (tratamento próprio). Mudar um tamanho =
-     editar o token; font-size numérico hardcoded vira candidato a review. */
+     eyebrows uppercase ficam fora (tratamento próprio) — e quando caem na banda
+     de 10px, declaram o motivo com um marcador inline, verificado por
+     tests/e2e/escala-tokens-lint.spec.ts. Mudar um tamanho = editar o token. */
   --num-poster: 2.5rem;    /* 40px — hero patrimônio                          */
   --num-xl:     1.875rem;  /* 30px — ticker-vm-grande, rel-secao--manchete, aloca alvo */
   --num-lg:     1.25rem;   /* 20px — r7d-delta, aporte-data                   */
   --num-md:     1rem;      /* 16px — kpi, rent-metrica/periodo, classe %       */
   --num-sm:     0.9375rem; /* 15px — ticker-vm, aporte, tabelas, política      */
   --num-xs:     0.8125rem; /* 13px — ticker-pct, drift, anotações numéricas    */
+  --num-2xs:    0.625rem;  /* 10px — anotação numérica densa (DY por ativo, qty sub) */
 
   /* === Fase 7a.S — Refresh Monument (S.1 fundação, FONTE ÚNICA) ==============
      Substrato de tokens/motion. Valores LIGHT; o bloco [data-theme="dark"] é
@@ -1342,7 +1344,7 @@ footer.rodape code {
 }
 .prov-total .pt-val {
   font-family: var(--mono);
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 800;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -1829,7 +1831,7 @@ footer.rodape code {
 }
 .dy-row .yv {
   font-family: var(--mono);
-  font-size: 0.9375rem;
+  font-size: var(--num-sm);
   font-weight: 800;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -2430,7 +2432,7 @@ footer.rodape code {
   vertical-align: middle;
   background: rgba(26, 29, 28, 0.06);
   color: var(--gray, #5b605a);
-  font-size: 0.625rem;
+  font-size: 0.625rem;  /* fora-da-escala: badge uppercase */
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2440,7 +2442,7 @@ footer.rodape code {
 
 /* Hint discreto abaixo do gráfico quando há mês selecionado. */
 .proventos-hint-limpar {
-  font-size: 10px;
+  font-size: 10px;  /* fora-da-escala: rótulo uppercase */
   color: var(--gray, #5b605a);
   text-align: center;
   margin: 2px 0 8px;
@@ -2775,7 +2777,7 @@ footer.rodape code {
 }
 .aporte-compra-qty-sub {
   display: block;
-  font-size: 0.625rem;
+  font-size: var(--num-2xs);
   color: var(--gray);
   font-variant-numeric: tabular-nums;
 }
@@ -3084,7 +3086,7 @@ body:has(.tab-bar) main {
 
 .r7d-lista h3 {
   margin: 0 0 0.4rem;
-  font-size: 10px;
+  font-size: 10px;  /* fora-da-escala: rótulo uppercase */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -3167,7 +3169,7 @@ body:has(.tab-bar) main {
 }
 
 .r7d-movers-title {
-  font-size: 10px;
+  font-size: 10px;  /* fora-da-escala: rótulo uppercase */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -3177,7 +3179,7 @@ body:has(.tab-bar) main {
 .r7d-movers-star { color: var(--gray); }
 
 .r7d-movers-cap {
-  font-size: 10px;
+  font-size: 10px;  /* fora-da-escala: legenda de prosa, sem número */
   color: var(--gray);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3316,7 +3318,7 @@ body:has(.tab-bar) main {
   color: var(--ink);
 }
 .aloca-alvo__cmeta {
-  font-size: 0.625rem;
+  font-size: 0.625rem;  /* fora-da-escala: prosa, contagem incidental */
   color: var(--gray);
   font-weight: 500;
   margin-top: 2px;
@@ -3414,16 +3416,14 @@ body:has(.tab-bar) main {
    codifica identidade de categoria e --sem-* codifica drift; um yield alto não
    é "bom" nem "ruim", é um fato sobre o ativo.
 
-   Drift de token registrado (7a.E.32): `0.625rem` é hardcoded — a escala
-   --num-* (FONTE ÚNICA, 7a.E.27) não tem degrau abaixo de --num-xs (13px).
-   Criar `--num-2xs` e migrar os consumidores é polish transversal, fora do
-   escopo desta fase. O seletor agrupado mantém DUAS declarações do mesmo
+   O tamanho vem de --num-2xs (10px), criado no follow-up de 2026-07-10 para
+   fechar o drift de token. O seletor agrupado mantém DUAS declarações do mesmo
    valor, não três. */
 .aloca-alvo__ativo-sub,
 .aloca-alvo__dy {
   font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
   font-feature-settings: "tnum" 1;
-  font-size: 0.625rem;
+  font-size: var(--num-2xs);
   color: var(--gray);
   letter-spacing: 0.02em;
 }
@@ -3499,7 +3499,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__selo-quar-tag {
   background: rgba(26, 29, 28, 0.06);
   color: var(--gray);
-  font-size: 0.625rem;
+  font-size: 0.625rem;  /* fora-da-escala: badge uppercase */
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3508,7 +3508,7 @@ body:has(.tab-bar) main {
 }
 .aloca-alvo__selo-quar-sub {
   color: var(--gray);
-  font-size: 0.625rem;
+  font-size: 0.625rem;  /* fora-da-escala: subtexto do selo */
   letter-spacing: 0.01em;
 }
 
@@ -3538,7 +3538,7 @@ body:has(.tab-bar) main {
 .aloca-alvo__selo-fora-tag {
   background: var(--sem-down-tint);
   color: var(--sem-down);
-  font-size: 0.625rem;
+  font-size: 0.625rem;  /* fora-da-escala: badge uppercase */
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;

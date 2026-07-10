@@ -98,7 +98,7 @@ Renderização nativa por OS:
 ### Scale (rem-based, base 16px)
 
 **Escala numérica `--num-*` (7a.E.27 — FONTE ÚNICA).** Todo valor numérico
-(R$, %, contagem, ticker-poster) referencia um destes 6 tokens em `:root`;
+(R$, %, contagem, ticker-poster) referencia um destes 7 tokens em `:root`;
 mudar um tamanho = editar o token, nunca um `font-size` inline. Rótulos/
 eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 
@@ -110,6 +110,7 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
 | `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
 | `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
+| `--num-2xs` | 10px (0.625rem) | `.aloca-alvo__dy`, `.aloca-alvo__ativo-sub`, `.aporte-compra-qty-sub` |
 
 **Banda "monument display" (7a.S.1)** — posters de herói, degraus finos (razões <1.25), distinta da escada de dados acima:
 
@@ -123,6 +124,24 @@ Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 
 **Fora da escala (decisão consciente):** glifos de unidade que decoram um número
 poster são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
 Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`.
+
+Na banda de 10px essa política deixa de ser prosa e vira regra executável: toda
+declaração `font-size: 0.625rem` ou `font-size: 10px` precisa **ou** do token
+`--num-2xs`, **ou** de um marcador inline declarando o motivo, na mesma linha:
+
+```css
+font-size: 10px;  /* fora-da-escala: rótulo uppercase */
+```
+
+Verificado por `tests/e2e/escala-tokens-lint.spec.ts`. O critério de decisão é
+único: *o seletor renderiza um número formatado?* (olhe o `x-text` no
+`index.html`; `tnum`/`tabular-nums` corrobora). Se sim, token. Se não, marcador.
+
+A banda é estreita de propósito. 11px e 13px coincidem com tamanhos de prosa,
+chips e controles que não têm relação nenhuma com a escala numérica — ligá-los
+a `var(--num-xs)` faria a bandeira do Brasil em `.champ .flag` mudar de tamanho
+no dia em que o `--num-xs` mudasse. Um lint que grita em falso vinte vezes
+ensina todo mundo a calá-lo.
 
 | Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
 |---|---|---|---|---|---|
@@ -453,11 +472,6 @@ mesmo ticker. Aluguel de ações (BTC/XP) fica fora do DY.
 sob `x-show`. `x-show` esconde por `display:none` mas mantém os dois nós no DOM,
 o que deixaria um nó fantasma para o leitor de tela e faria o seletor
 `.aloca-alvo__dy` resolver a dois elementos.
-
-> **Drift de token conhecido:** `.aloca-alvo__ativo-sub` / `.aloca-alvo__dy`
-> usam `font-size: 0.625rem` hardcoded — a escala `--num-*` (FONTE ÚNICA,
-> 7a.E.27) não tem degrau abaixo de `--num-xs` (13px). Reconciliar (criar
-> `--num-2xs`) é polish transversal, ainda não feito.
 
 **Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
 do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do
