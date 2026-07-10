@@ -342,6 +342,11 @@ document.addEventListener("alpine:init", () => {
     // PRÓXIMA vez que a PIN screen montar já nasceria com opacity 0).
     pinDissolvendo: false,
     toast: { visible: false, mensagem: "", tom: "verde", timer: null },
+    // Aviso de nova versão do app (shell): setado true pelo evento window
+    // "sw:update-available" (js/sw-update.js). Dispensável na sessão
+    // (dispensarAtualizacao) — reaparece no próximo boot pois o worker segue
+    // em espera. Não persistido.
+    atualizacaoDisponivel: false,
     agoraTimer: null,
     escopoAtivo: "Total",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
@@ -429,6 +434,12 @@ document.addEventListener("alpine:init", () => {
         }
       });
       window.addEventListener("hashchange", () => this.atualizarRota());
+      // Aviso de nova versão: o módulo dono do ciclo do SW (js/sw-update.js)
+      // detecta o worker novo em espera e emite este evento; a UI mostra o
+      // snackbar. Listener no init() garante escopo `this` do Alpine data.
+      window.addEventListener("sw:update-available", () => {
+        this.atualizacaoDisponivel = true;
+      });
       this.atualizarRota();
       // 7a.I.6: posiciona indicator. A tab-bar só vira DOM quando fase virar
       // 'raiox' (template x-if), então também observamos `fase`.
@@ -476,6 +487,18 @@ document.addEventListener("alpine:init", () => {
       if (window.drarthurChart && typeof window.drarthurChart.reregister === "function") {
         window.drarthurChart.reregister();
       }
+    },
+
+    // Aviso de nova versão — delega ao módulo dono do ciclo do SW
+    // (js/sw-update.js). `?.` protege caso o módulo não tenha carregado.
+    recarregarVersao() {
+      window.swUpdate?.aplicar();
+    },
+
+    // Dispensa o aviso na sessão; reaparece no próximo boot (o worker segue
+    // em espera até um reload de verdade).
+    dispensarAtualizacao() {
+      this.atualizacaoDisponivel = false;
     },
 
     atualizarRota() {

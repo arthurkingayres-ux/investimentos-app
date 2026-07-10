@@ -2,7 +2,7 @@
 // Cache-first para o shell estático; network-first (timeout 2s) para os dados
 // cifrados *.json.enc (portfolio + relatórios mensais 7a.Q.3).
 
-const CACHE_VERSION = "v56";
+const CACHE_VERSION = "v57";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -12,6 +12,7 @@ const SHELL_PRECACHE = [
   "./manifest.webmanifest",
   "./css/app.css",
   "./js/app.js",
+  "./js/sw-update.js",
   "./js/crypto.js",
   "./js/format.js",
   "./js/transitions.js",
@@ -32,7 +33,9 @@ self.addEventListener("install", (event) => {
         console.warn("[sw] precache fail:", url, err);
       }
     }));
-    self.skipWaiting();
+    // 2026-07: sem skipWaiting automático. Um SW novo fica em "waiting"; a
+    // página detecta (js/sw-update.js) e mostra o snackbar. O skipWaiting só
+    // acontece sob demanda, via a mensagem SKIP_WAITING (listener abaixo).
   })());
 });
 
@@ -46,6 +49,12 @@ self.addEventListener("activate", (event) => {
     );
     await self.clients.claim();
   })());
+});
+
+// Aplicação sob demanda: a página (js/sw-update.js aplicar()) posta esta
+// mensagem ao worker em espera quando o usuário toca "Recarregar" no snackbar.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {

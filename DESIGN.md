@@ -778,6 +778,16 @@ Input central grande (2rem text + tabular-nums + letter-spacing 0.5rem) + botão
 ### Toast
 Fixed top com safe-area-inset, gradient verde, border-radius 999px (pill), pointer-events none.
 
+### Aviso de nova versão — snackbar (`.update-snackbar`)
+
+Snackbar inferior com ação, flutuando acima da tab bar (`bottom: calc(var(--tab-bar-height) + safe-area + 12px)`, `z-index: 95`), centralizado por `margin:auto` (NÃO `transform` — o transform fica livre pra entrada `translateY(8px→0)`). Superfície teal sólida `var(--g-900)` (linguagem "superfície importante" do hero/KPI), pílula `999px`, sem `border-left` (proibição impeccable). Copy sem travessão: **"Nova versão disponível"** + ação **"Recarregar"** + fechar `✕` (`aria-label="Dispensar aviso"`); ícone `↻` decorativo (`aria-hidden`).
+
+- **Surge** via evento window `sw:update-available` (`js/sw-update.js`, dono do ciclo do SW) → estado Alpine `atualizacaoDisponivel`. Dispensável na sessão; reaparece no próximo boot (o worker segue em espera).
+- **Motion:** entrada `opacity` + `translateY` em `--d2`/`--ease` (sem overshoot), via classes `.us-enter`/`.us-enter-start`/`.us-enter-end` (espelha `.push-enter`). A transição vive só em `@media (prefers-reduced-motion: no-preference)` → reduced-motion = instantâneo.
+- **Dark (Modo Plantão):** `--g-900` flipa p/ teal-claro → o snackbar entra na lista **"seg.on dark ink"** (texto/ícone/botões viram `#04130c`); sombra tintada e o chip da ação `Recarregar` ganham override dedicado. Contraste AA nos dois temas.
+- **Ação "Recarregar":** peso 700 + chip translúcido, herdando a tinta da superfície (que flipa por tema) em vez de `--accent-2` — `--accent-2` seria quase invisível sobre o teal-claro do dark. Alvos ≥44×44px; `:focus-visible` com `--accent`.
+- **A11y:** `role="status"` + `aria-live="polite"` anuncia ao surgir; ação e fechar são `<button>` reais.
+
 ### Tabela (movimentos / proventos)
 Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y interno em `.tabela-wrap`.
 
