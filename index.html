@@ -712,6 +712,17 @@
                 <span class="kpi-label">XIRR</span>
                 <span class="kpi-valor" x-text="formatPct(posicaoAtual.xirr_aa)"></span>
               </div>
+              <!-- 7a.E.33: DY trailing-12m como 7º card. Mesma fonte que
+                   #alocacao/#s-dy (dyAtivo → por_ativo). Rótulo por-extenso
+                   (a .kpi-grid já rotula por célula, sem ambiguidade com peso).
+                   null → formatPctSemSinal devolve "—" + aria-label acessível
+                   (Alpine remove o atributo quando o binding é null). -->
+              <div class="kpi">
+                <span class="kpi-label">Dividend Yield</span>
+                <span class="kpi-valor"
+                      x-text="formatPctSemSinal(dyAtivo(posicaoAtual.ticker), 1)"
+                      :aria-label="dyAtivo(posicaoAtual.ticker) === null ? 'sem dividend yield' : null"></span>
+              </div>
             </div>
 
             <h3 class="ativo-section-h">Movimentos · últimos 12 meses</h3>

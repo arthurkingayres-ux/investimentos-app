@@ -473,6 +473,17 @@ sob `x-show`. `x-show` esconde por `display:none` mas mantém os dois nós no DO
 o que deixaria um nó fantasma para o leitor de tela e faria o seletor
 `.aloca-alvo__dy` resolver a dois elementos.
 
+**DY do ativo — card KPI (`#ativo`, 7a.E.33):** o mesmo dado
+(`dividend_yield.por_ativo` via `dyAtivo`) ganha um 7º card na `.kpi-grid` da
+ficha do ativo, **depois do XIRR** — ponte com a seção "Proventos · últimos 12
+meses" logo abaixo. Aqui o rótulo é por-extenso **`Dividend Yield`** (não o `DY`
+compacto do `#alocacao`): a `.kpi-grid` já rotula cada célula, então não há
+ambiguidade com peso de carteira. 7 itens numa grade 2-col ⇒ o card cai sozinho
+na última linha, célula vizinha vazia — **por design, zero CSS novo**. Fallback
+`—` idêntico (`aria-label="sem dividend yield"`). Paridade travada nas **três**
+superfícies (`#alocacao`, `#s-dy`, `#ativo`): mesma fonte, mesmo `round(dy,4)` do
+backend, nunca divergem.
+
 **Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
 do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do
 alvo" (`--sem-down-tint`/`--sem-down`, espelha o selo de quarentena) +
