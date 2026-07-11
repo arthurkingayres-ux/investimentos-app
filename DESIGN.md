@@ -110,7 +110,7 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
 | `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
 | `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
-| `--num-2xs` | 10px (0.625rem) | `.aloca-alvo__dy`, `.aloca-alvo__ativo-sub`, `.aporte-compra-qty-sub` |
+| `--num-2xs` | 10px (0.625rem) | `.aloca-alvo__ativo-sub`, `.aporte-compra-qty-sub` |
 
 **Banda "monument display" (7a.S.1)** — posters de herói, degraus finos (razões <1.25), distinta da escada de dados acima:
 
@@ -453,25 +453,11 @@ mercado (`.aloca-alvo__valor-ativo`, mono `--num-xs`) sobre o delta/selo —
 evita que o R$ vire 4ª coluna e esprema o subtexto. Mini-bar 3px
 (`atual/alvo intra`) + delta pill mono direcional só para picks normais.
 
-**DY do ativo (`.aloca-alvo__dy`, 7a.E.32):** sufixo do ticker em
-`.aloca-alvo__ativo-row1` — o único slot que existe idêntico nos 3 estados de
-linha (normal / quarentena / fora-do-alvo). Voz secundária compartilhada com
-`.aloca-alvo__ativo-sub` (mono, `--gray`, `tnum`, peso 400): o propósito é
-**leitura de contexto**, então o DY não pode competir com o drift nem com o
-R$ — daí não usar `--num-xs` (13px/700, o tamanho do ticker). Cinza é decisão:
-`--cat-*` codifica identidade de categoria e `--sem-*` codifica drift; um yield
-alto não é "bom" nem "ruim", é um fato. O rótulo `DY` é obrigatório (a tela é
-saturada de percentuais; `9,1%` pelado leria como peso de carteira). Sem número
-confiável — sem provento nos 12m **ou** DY > 100% (dust de leilão de fração) —
-a linha mostra `—` com `aria-label="sem dividend yield"`. Fonte:
-`dividend_yield.por_ativo` (schema v2.24), que compartilha o predicado
-`_dy_valido` com o pódio de `#s-dy`: as duas telas **nunca** divergem para o
-mesmo ticker. Aluguel de ações (BTC/XP) fica fora do DY.
-
-É **um único `<span>`**, com texto e `aria-label` condicionais — não dois spans
-sob `x-show`. `x-show` esconde por `display:none` mas mantém os dois nós no DOM,
-o que deixaria um nó fantasma para o leitor de tela e faria o seletor
-`.aloca-alvo__dy` resolver a dois elementos.
+**DY do ativo em `#alocação` — removido (7a.E.34):** a 7a.E.32.b tinha posto
+`DY x%` como sufixo cinza do ticker na linha de ativo. Depois de conviver com
+ela, o número poluía a leitura de uma tela que é sobre **peso × drift × R$**, e
+foi removido. A linha volta a ser `ticker → sub-linha`. O DY continua onde a
+decisão é sobre o ativo em si: no card KPI de `#ativo` e no pódio de `#s-dy`.
 
 **DY do ativo — card KPI (`#ativo`, 7a.E.33):** o mesmo dado
 (`dividend_yield.por_ativo` via `dyAtivo`) ganha um 7º card na `.kpi-grid` da
@@ -480,9 +466,9 @@ meses" logo abaixo. Aqui o rótulo é por-extenso **`Dividend Yield`** (não o `
 compacto do `#alocacao`): a `.kpi-grid` já rotula cada célula, então não há
 ambiguidade com peso de carteira. 7 itens numa grade 2-col ⇒ o card cai sozinho
 na última linha, célula vizinha vazia — **por design, zero CSS novo**. Fallback
-`—` idêntico (`aria-label="sem dividend yield"`). Paridade travada nas **três**
-superfícies (`#alocacao`, `#s-dy`, `#ativo`): mesma fonte, mesmo `round(dy,4)` do
-backend, nunca divergem.
+`—` idêntico (`aria-label="sem dividend yield"`). Paridade travada nas **duas**
+superfícies visuais que restam (`#s-dy`, `#ativo`): mesma fonte, mesmo
+`round(dy,4)` do backend, nunca divergem.
 
 **Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
 do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do

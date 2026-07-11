@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=60">
+  <link rel="stylesheet" href="css/app.css?v=61">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=40"></script>
   <script src="js/format.js?v=43"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=58"></script>
+  <script src="js/app.js?v=59"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -587,18 +587,6 @@
                           <div class="aloca-alvo__ativo-body">
                             <div class="aloca-alvo__ativo-row1">
                               <span class="aloca-alvo__ticker" x-text="ativo.ticker"></span>
-                              <!-- 7a.E.32: DY como sufixo do ticker — único slot
-                                   idêntico nos 3 estados de linha. Ausência da chave
-                                   em `por_ativo` vira "—" com nome acessível (o
-                                   travessão sozinho não tem referente no leitor).
-                                   UM span só: `x-show` deixaria os dois no DOM
-                                   (display:none), e o leitor de tela veria um nó
-                                   fantasma — além de o locator resolver a 2. -->
-                              <span class="aloca-alvo__dy"
-                                    x-text="dyAtivo(ativo.ticker) !== null
-                                              ? 'DY ' + formatPctSemSinal(dyAtivo(ativo.ticker), 1)
-                                              : '—'"
-                                    :aria-label="dyAtivo(ativo.ticker) === null ? 'sem dividend yield' : null"></span>
                               <span class="aloca-alvo__ativo-sub" x-show="!ativo.quarentena && !ativo.fora_do_alvo">
                                 <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
                                 <span>&nbsp;de&nbsp;</span>
@@ -713,7 +701,7 @@
                 <span class="kpi-valor" x-text="formatPct(posicaoAtual.xirr_aa)"></span>
               </div>
               <!-- 7a.E.33: DY trailing-12m como 7º card. Mesma fonte que
-                   #alocacao/#s-dy (dyAtivo → por_ativo). Rótulo por-extenso
+                   o pódio #s-dy (dyAtivo → por_ativo). Rótulo por-extenso
                    (a .kpi-grid já rotula por célula, sem ambiguidade com peso).
                    null → formatPctSemSinal devolve "—" + aria-label acessível
                    (Alpine remove o atributo quando o binding é null). -->

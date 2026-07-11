@@ -68,26 +68,11 @@ test.describe("#ativo — Dividend Yield (7a.E.33)", () => {
     await expect(cardDY(page)).toHaveAttribute("aria-label", "sem dividend yield");
   });
 
-  test("paridade: DY do #ativo é idêntico ao sufixo do #alocacao para o mesmo ticker", async ({ page }) => {
-    await autenticar(page);
-    // VOO está em posicoes[] E na política (EUA) → aparece nas duas telas.
-    await page.goto("/#ativo/VOO");
-    await expect(cardDY(page)).toHaveText("1,9%");
-
-    // No #alocacao, o mesmo ticker mostra "DY 1,9%" (mesmo valor + prefixo).
-    await page.goto("/#alocacao");
-    const cardEUA = page.locator(".tela-alocacao .aloca-cat", {
-      has: page.locator(".aloca-cat__nome", { hasText: "EUA" }),
-    });
-    await cardEUA.locator(".aloca-cat__head").click();
-    await expect(cardEUA.locator(".aloca-cat__body")).toBeVisible();
-    const dyAloca = cardEUA
-      .locator(".aloca-alvo__ativo", {
-        has: page.locator(".aloca-alvo__ticker", { hasText: /^VOO$/ }),
-      })
-      .locator(".aloca-alvo__dy");
-    await expect(dyAloca).toHaveText("DY 1,9%");
-  });
+  // 7a.E.34 removeu o sufixo DY de #alocacao, então o antigo teste de
+  // paridade #ativo↔#alocacao (via `.aloca-alvo__dy`) não tem mais alvo. A
+  // paridade cross-superfície exata segue travada no backend por igualdade
+  // `round(dy,4)` (7a.E.32.a); as duas superfícies visuais que restam (#ativo
+  // e o pódio #s-dy) têm cobertura própria.
 
   test("empty-safe: payload sem o mapa por_ativo (pré-v2.24) renderiza o traço, sem erro de console", async ({ page }) => {
     const erros: string[] = [];

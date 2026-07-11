@@ -107,14 +107,12 @@ test.describe("Escala numérica (7a.E.27)", () => {
         return px;
       };
       return {
-        dy: medir("aloca-alvo__dy"),
         ativoSub: medir("aloca-alvo__ativo-sub"),
         qtySub: medir("aporte-compra-qty-sub"),
         ptVal: medir("pt-val", "prov-total"),
         yv: medir("yv", "dy-row"),
       };
     });
-    expect(medido.dy, ".aloca-alvo__dy deve usar --num-2xs (10px)").toBe("10px");
     expect(medido.ativoSub, ".aloca-alvo__ativo-sub deve usar --num-2xs (10px)").toBe("10px");
     expect(medido.qtySub, ".aporte-compra-qty-sub deve usar --num-2xs (10px)").toBe("10px");
     expect(medido.ptVal, ".prov-total .pt-val deve usar --num-sm (15px)").toBe("15px");

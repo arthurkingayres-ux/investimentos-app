@@ -997,12 +997,13 @@ document.addEventListener("alpine:init", () => {
     valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
     valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
 
-    // 7a.E.32: DY trailing-12m do ativo (schema v2.24). `por_ativo` carrega
-    // SÓ tickers com DY válido — a ausência da chave É o "não há número
-    // aqui", e vira "—" na linha. Nunca devolver 0: 0 é um DY legítimo
-    // impossível (o backend já o barra), e confundir os dois esconderia
-    // um ativo sem provento atrás de um número. Empty-safe: payload antigo
-    // (pré-v2.24) não tem o mapa -> todas as linhas mostram o traço.
+    // 7a.E.32/7a.E.33: DY trailing-12m do ativo (schema v2.24). `por_ativo`
+    // carrega SÓ tickers com DY válido — a ausência da chave É o "não há número
+    // aqui", e vira "—" no card. Nunca devolver 0: 0 é um DY legítimo impossível
+    // (o backend já o barra), e confundir os dois esconderia um ativo sem provento
+    // atrás de um número. Consumido pelo card DY de #ativo e pelo pódio #s-dy
+    // (o sufixo inline de #alocacao foi removido na 7a.E.34). Empty-safe: payload
+    // antigo (pré-v2.24) não tem o mapa -> o card mostra o traço.
     dyAtivo(ticker) {
       const dy = this.json?.dividend_yield?.por_ativo?.[ticker];
       return typeof dy === "number" ? dy : null;
