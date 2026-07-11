@@ -1824,6 +1824,14 @@ footer.rodape code {
   color: var(--red);
 }
 
+/* 7a.E.35 — selo "posição < 12 meses" sob o valor do card DY (#ativo).
+   Voz secundária, zero token novo. Prosa curta (não figura) → sem tnum/mono. */
+.kpi-nota-parcial {
+  font-size: var(--num-2xs);   /* 10px — degrau existente (7a.follow-up num-2xs) */
+  color: var(--gray);          /* AA claro + Plantão (7a.S.12) */
+  letter-spacing: 0.02em;
+}
+
 /* ── Fase 7a.S.7b — #s-dy: tela dedicada de Dividend Yield ─────────────
    Mapeia .poster/.dy-row/.dy-champs do mockup Monument (L461-621). Consome
    tokens S.1 (--accent/--accent-soft/--surface-2/--faint/--ease/--d1-3) +

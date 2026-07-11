@@ -7,6 +7,11 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.25 (Fase 7a.E.35): ``dividend_yield`` ganha ``por_ativo_parcial`` —
+lista ordenada de tickers de posição aberta < 12m (DY trailing-12m subestimado),
+que vira o selo "posição < 12 meses" no card DY de ``#ativo``. HGLG11 entra
+(sintético) para exercitar o selo; VOO fica de fora (exercita a ausência).
+
 Schema v2.24 (Fase 7a.E.32): ``dividend_yield`` ganha ``por_ativo`` — mapa
 ``{ticker: dy}`` (fração, 4 casas) com só os tickers de DY válido. A ausência
 da chave é o "não há número aqui" (o `#alocacao` renderiza ``—``). BOVA11 fica
@@ -127,7 +132,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.24",
+    "versao": "2.25",
     "atualizado_em": "2026-04-26T15:00:00",
     "patrimonio": {
         "total_brl": 258000.0,
@@ -323,6 +328,12 @@ PAYLOAD = {
             "KNIP11": 0.108,   # quarentena: a linha muda, o DY não some
             "LREN3": 0.021,    # fora do alvo: idem
         },
+        # Schema v2.25 (Fase 7a.E.35): tickers de posição aberta < 12m (DY
+        # trailing-12m subestimado) → selo "posição < 12 meses" no card DY de
+        # #ativo. Lista 100% SINTÉTICA (repo público): HGLG11 marcado só para
+        # exercitar o selo — nenhuma relação com o portfólio real do Dr. Arthur.
+        # VOO fica DE FORA (é o ticker que exercita a ausência do selo).
+        "por_ativo_parcial": ["HGLG11"],
     },
     "proventos": {
         "ytd_brl": 3240.0,

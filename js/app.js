@@ -1009,6 +1009,15 @@ document.addEventListener("alpine:init", () => {
       return typeof dy === "number" ? dy : null;
     },
 
+    // 7a.E.35: posição aberta < 12m → DY trailing-12m subestima (numerador não
+    // cobre a posição cheia por um ano). Empty-safe p/ payload pré-v2.25 (campo
+    // ausente → []). Consumido só pelo selo do card DY de #ativo. É propriedade
+    // da POSIÇÃO (idade), não do DY: pode ser true mesmo com dyAtivo(t) === null
+    // ("—").
+    dyParcial(ticker) {
+      return (this.json?.dividend_yield?.por_ativo_parcial || []).includes(ticker);
+    },
+
     voltar() {
       // history.length é heurística frágil — em link compartilhado aberto
       // numa aba com histórico prévio, history.back() saída do PWA.

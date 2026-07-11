@@ -88,4 +88,43 @@ test.describe("#ativo — Dividend Yield (7a.E.33)", () => {
     await expect(cardDY(page)).toHaveText("—");
     expect(erros, erros.join("\n")).toHaveLength(0);
   });
+
+  // ── Fase 7a.E.35: selo "posição < 12 meses" sob o card DY ────────────────
+  // `dyParcial(ticker)` lê `dividend_yield.por_ativo_parcial`. Fixture marca
+  // HGLG11 (sintético); VOO fica de fora. O selo é `x-show`+`x-cloak` (nó único
+  // sempre no DOM) → o caso "ausente" verifica visibilidade, não contagem.
+  function seloParcial(page: Page) {
+    return page
+      .locator(".tela-ativo .kpi", { hasText: "Dividend Yield" })
+      .locator(".kpi-nota-parcial");
+  }
+
+  test("posição parcial (< 12m) mostra o selo sob o card DY", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#ativo/HGLG11"); // HGLG11 ∈ por_ativo_parcial (fixture)
+    await expect(cardDY(page)).toHaveText("9,1%");
+    await expect(seloParcial(page)).toBeVisible();
+    await expect(seloParcial(page)).toHaveText("posição < 12 meses");
+  });
+
+  test("posição não-parcial (VOO) não mostra o selo", async ({ page }) => {
+    await autenticar(page);
+    await page.goto("/#ativo/VOO"); // VOO ∉ por_ativo_parcial
+    await expect(cardDY(page)).toBeVisible();
+    await expect(seloParcial(page)).not.toBeVisible();
+  });
+
+  test("selo aparece mesmo com DY '—' (posição parcial sem provento)", async ({ page }) => {
+    await autenticar(page);
+    // HGLG11 continua em por_ativo_parcial, mas sem DY → card mostra "—" e o
+    // selo (propriedade da idade, não do DY) segue visível.
+    await page.evaluate(() => {
+      const $data = (window as any).Alpine?.$data?.(document.body);
+      if (!$data) throw new Error("Alpine.$data ausente");
+      delete $data.json.dividend_yield.por_ativo.HGLG11;
+    });
+    await page.goto("/#ativo/HGLG11");
+    await expect(cardDY(page)).toHaveText("—");
+    await expect(seloParcial(page)).toBeVisible();
+  });
 });
