@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=62">
+  <link rel="stylesheet" href="css/app.css?v=63">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=40"></script>
-  <script src="js/format.js?v=43"></script>
+  <script src="js/format.js?v=44"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=60"></script>
+  <script src="js/app.js?v=61"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -776,6 +776,17 @@
                 </table>
               </div>
             </template>
+
+            <!-- 7a.R.3.b: entrada para a memória viva do ativo. `<a href>` real
+                 (deep-linkável); o @click só grava a origem ANTES do hash mudar,
+                 sem preventDefault. Sem selo de veredito aqui: o #ativo é a tela
+                 dos números, e o veredito é leitura. -->
+            <a class="dossie-entrada" x-show="temDossie(posicaoAtual.ticker)" x-cloak
+              :href="'#/dossie/' + posicaoAtual.ticker"
+              @click="registrarOrigemDossie()">
+              <span class="dossie-entrada__rot">Dossiê</span>
+              <span class="dossie-entrada__chevron" aria-hidden="true">›</span>
+            </a>
           </div>
         </template>
       </section>
@@ -1205,7 +1216,19 @@
                     <template x-for="r in radarFiltrado(false)" :key="r.ticker">
                       <li class="rel-radar-card">
                         <div class="rel-radar-card__head">
-                          <span class="rel-radar-card__ticker" x-text="r.ticker"></span>
+                          <!-- 7a.R.3.b: ticker com dossiê vira link; sem dossiê
+                               fica texto. Dois x-if mutuamente exclusivos (não
+                               x-show: este deixaria os DOIS nós no DOM). O
+                               .rel-selo ao lado não muda. -->
+                          <template x-if="temDossie(r.ticker)">
+                            <a class="rel-radar-card__ticker rel-radar-card__ticker--link"
+                              :href="'#/dossie/' + r.ticker"
+                              @click="registrarOrigemDossie()"
+                              x-text="r.ticker"></a>
+                          </template>
+                          <template x-if="!temDossie(r.ticker)">
+                            <span class="rel-radar-card__ticker" x-text="r.ticker"></span>
+                          </template>
                           <span class="rel-selo" :class="vereditoSelo(r.veredito).classe">
                             <span class="rel-selo__marca" aria-hidden="true"
                               x-text="vereditoSelo(r.veredito).marca"></span>
@@ -1298,7 +1321,15 @@
                   <ul class="rel-prestacao" x-show="(relMes.prestacao_contas || []).length > 0">
                     <template x-for="p in (relMes.prestacao_contas || [])" :key="'pc-' + p.ticker">
                       <li>
-                        <span class="rel-prestacao__ticker" x-text="p.ticker"></span>
+                        <template x-if="temDossie(p.ticker)">
+                          <a class="rel-prestacao__ticker rel-prestacao__ticker--link"
+                            :href="'#/dossie/' + p.ticker"
+                            @click="registrarOrigemDossie()"
+                            x-text="p.ticker"></a>
+                        </template>
+                        <template x-if="!temDossie(p.ticker)">
+                          <span class="rel-prestacao__ticker" x-text="p.ticker"></span>
+                        </template>
                         <span class="rel-prestacao__sin" x-text="p.sinalizado"></span>
                         <span class="rel-prestacao__res" x-text="p.resultado"></span>
                       </li>
@@ -1318,6 +1349,145 @@
                 </template>
               </section>
             </template>
+          </div>
+        </template>
+      </section>
+
+      <!-- ── Tela #/dossie/<TICKER> — dossiê de empresa (7a.R.3.b) ───────
+           Memória viva: por que eu tenho isso, e contra qual tese. NÃO é um
+           segundo #ativo (spec §6.1): zero preço, zero DY, zero KPI vivo. -->
+      <section class="tela-detalhes tela-dossie" x-show="rota === 'dossie'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltarDoDossie()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent">Dossiê</h1>
+        </header>
+
+        <!-- Estados espelham os do Relatório por seletor agrupado no CSS, mas
+             com classes PRÓPRIAS: um segundo `.rel-erro`/`.rel-vazio` no DOM
+             faria os locators sem escopo de relatorio-mensal.spec.ts
+             resolverem a 2 elementos (strict mode). -->
+        <div class="dossie-loading" x-show="dossieCarregando" x-cloak aria-live="polite">
+          <div class="dossie-skeleton"></div>
+          <div class="dossie-skeleton"></div>
+          <div class="dossie-skeleton dossie-skeleton--short"></div>
+        </div>
+
+        <div class="dossie-erro" x-show="!dossieCarregando && dossieErro" x-cloak>
+          <p x-text="dossieErro"></p>
+          <button class="dossie-erro__acao" type="button"
+            @click="carregarDossie(dossieTicker)">Tentar de novo</button>
+        </div>
+
+        <div class="dossie-vazio" x-show="!dossieCarregando && !dossieErro && !dossieAtual" x-cloak>
+          <p>Ainda não há dossiê para este ativo.</p>
+        </div>
+
+        <template x-if="dossieAtual && !dossieCarregando && !dossieErro">
+          <div class="dossie-corpo">
+            <!-- 1. Cabeçalho -->
+            <div class="dossie-cabecalho">
+              <div class="dossie-cabecalho__linha">
+                <span class="dossie-dot" aria-hidden="true"
+                  :style="dossieCatStyle(dossieAtual.categoria)"></span>
+                <span class="flag" aria-hidden="true"
+                  x-text="dossieBandeira(dossieAtual.escopo)"></span>
+                <span class="dossie-ticker" x-text="dossieAtual.ticker"></span>
+              </div>
+              <p class="dossie-sub" x-text="dossieSubtitulo"></p>
+            </div>
+
+            <!-- 2. Mini-mapa do arco: glifos de veredito sob os anos. Forma +
+                 texto (par .sr-only), nunca cor sozinha. -->
+            <div class="dossie-arco" x-show="dossieArco.length" x-cloak>
+              <ol class="dossie-arco__linha" aria-hidden="true">
+                <template x-for="(p, i) in dossieArco" :key="i">
+                  <li class="dossie-arco__ponto">
+                    <span class="dossie-arco__ano" x-text="p.rotuloAno"></span>
+                    <span class="dossie-arco__marca" x-text="p.marca"></span>
+                  </li>
+                </template>
+              </ol>
+              <span class="sr-only" x-text="'Arco da tese: ' + dossieArcoTexto"></span>
+            </div>
+
+            <!-- 3. Linha de frescor -->
+            <p class="dossie-frescor" x-show="dossieFrescor" x-cloak
+              x-text="dossieFrescor"></p>
+
+            <!-- 4. TESE — lidera a tela: é a invariante compartilhada pelos
+                 dois caminhos de chegada ("por que eu tenho isso?" e "sob
+                 pressão contra o quê?"). O grifo accent no `quebra_se` é a
+                 ÚNICA ocorrência da tela (anti-pattern #14). -->
+            <section class="dossie-tese">
+              <h2 class="dossie-h">Tese</h2>
+              <div class="rel-prosa" x-text="dossieAtual.tese?.resumo"></div>
+              <!-- x-if (não x-show): sem `quebra_se` o grifo não deve EXISTIR.
+                   Com x-show o nó ficaria no DOM, tornando a invariante "uma
+                   .grifo por tela" invisível ao teste e deixando um nó fantasma
+                   para o leitor de tela. -->
+              <template x-if="dossieAtual.tese?.quebra_se">
+                <div class="grifo dossie-grifo">
+                  <span class="dossie-grifo__rot">A tese quebra se</span>
+                  <p x-text="dossieAtual.tese?.quebra_se"></p>
+                </div>
+              </template>
+              <p class="dossie-revisada" x-show="dossieAtual.tese?.revisada_em" x-cloak
+                x-text="'Tese revisada em ' + formatDataIso(dossieAtual.tese?.revisada_em)"></p>
+            </section>
+
+            <!-- 5. LINHA DO TEMPO — ordem cronológica ASCENDENTE, todas as
+                 entradas abertas. Documento contínuo separado por hairline;
+                 sem card por entrada, sem espinha vertical, sem side-stripe
+                 (#14 já gasto no grifo da tese). Nada é colapsável: com 3 a 5
+                 entradas o scroll É a leitura, e o mini-mapa já orienta. -->
+            <section class="dossie-tl">
+              <h2 class="dossie-h">Linha do tempo</h2>
+              <p class="dossie-tl-vazio" x-show="!(dossieAtual.timeline || []).length"
+                x-cloak>sem entradas ainda</p>
+              <template x-for="(e, i) in (dossieAtual.timeline || [])" :key="e.data + '-' + i">
+                <article class="dossie-tl__item">
+                  <div class="dossie-tl__marco">
+                    <h3 class="dossie-tl__data" x-text="formatMarcoMes(e.data)"></h3>
+                    <span class="rel-selo" :class="vereditoSelo(e.veredito).classe">
+                      <span class="rel-selo__marca" aria-hidden="true"
+                        x-text="vereditoSelo(e.veredito).marca"></span>
+                      <span x-text="vereditoSelo(e.veredito).label"></span>
+                    </span>
+                  </div>
+                  <p class="dossie-tl__gatilho" x-show="e.gatilho" x-cloak
+                    x-text="e.gatilho"></p>
+                  <div class="rel-prosa" x-text="e.leitura"></div>
+                  <dl class="dossie-numeros"
+                    x-show="paresNumeros(e.numeros_reportados).length" x-cloak>
+                    <template x-for="(p, j) in paresNumeros(e.numeros_reportados)" :key="j">
+                      <div class="dossie-numeros__par">
+                        <dt x-show="p.rotulo" x-text="p.rotulo"></dt>
+                        <dd x-text="p.valor"></dd>
+                      </div>
+                    </template>
+                  </dl>
+                  <ul class="dossie-fontes">
+                    <template x-for="(f, k) in (e.fontes || [])" :key="k">
+                      <li>
+                        <!-- Dois x-if mutuamente exclusivos: x-show deixaria os
+                             DOIS nós no DOM (nó fantasma + locator a 2). -->
+                        <template x-if="urlFonteSegura(f.url)">
+                          <a :href="urlFonteSegura(f.url)" target="_blank" rel="noopener"
+                            x-text="f.titulo"></a>
+                        </template>
+                        <template x-if="!urlFonteSegura(f.url)">
+                          <span x-text="f.titulo"></span>
+                        </template>
+                      </li>
+                    </template>
+                  </ul>
+                </article>
+              </template>
+            </section>
           </div>
         </template>
       </section>

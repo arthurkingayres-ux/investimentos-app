@@ -3834,14 +3834,21 @@ body:has(.tab-bar) main {
 .rel-seletor__item:hover { background: var(--neutral-100); }
 .rel-seletor__item.is-atual { font-weight: 700; color: var(--g-700); }
 /* Estados loading / erro / vazio */
-.rel-loading { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
-.rel-skeleton { height: 18px; border-radius: 6px; background: var(--neutral-100);
+/* 7a.R.3.b: a tela do dossiê espelha estes estados, mas com classes PRÓPRIAS
+   (.dossie-*) em seletor agrupado — fonte única de estilo sem um segundo nó
+   `.rel-erro`/`.rel-vazio` no DOM, que faria os locators sem escopo do
+   relatorio-mensal.spec.ts resolverem a 2 elementos (strict mode). */
+.rel-loading, .dossie-loading { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.rel-skeleton, .dossie-skeleton { height: 18px; border-radius: 6px; background: var(--neutral-100);
   animation: rel-pulse 1.4s ease-in-out infinite; }
-.rel-skeleton--short { width: 55%; }
+.rel-skeleton--short, .dossie-skeleton--short { width: 55%; }
 @keyframes rel-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-@media (prefers-reduced-motion: reduce) { .rel-skeleton { animation: none; } }
-.rel-erro, .rel-vazio { padding: 32px 8px; color: var(--gray); text-align: center; }
-.rel-erro__voltar {
+@media (prefers-reduced-motion: reduce) {
+  .rel-skeleton, .dossie-skeleton { animation: none; }
+}
+.rel-erro, .rel-vazio,
+.dossie-erro, .dossie-vazio { padding: 32px 8px; color: var(--gray); text-align: center; }
+.rel-erro__voltar, .dossie-erro__acao {
   margin-top: 12px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--neutral-200);
   border-radius: 10px; background: var(--surface); color: var(--g-700); font-weight: 600; cursor: pointer;
 }
@@ -4036,3 +4043,153 @@ body:has(.tab-bar) main {
      override o selo de quarentena somia no dark (dark-ink sobre dark). CRB 7a.S.12. */
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* ============================================================================
+   Fase 7a.R.3.b — tela do dossiê de empresa (#/dossie/<TICKER>).
+   Documento contínuo de leitura, ZERO token novo: tudo se compõe de --num-*,
+   --cat-*, --g-*, --ink/--gray/--faint, --neutral-*, --mono, .flag, .grifo,
+   .rel-selo, .rel-prosa. Dark-ready pela cascata (todo valor é token).
+   ============================================================================ */
+
+.dossie-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-top: 4px;
+}
+
+/* 1. Cabeçalho — dot da categoria + bandeira do escopo + ticker. */
+.dossie-cabecalho { display: flex; flex-direction: column; gap: 4px; }
+.dossie-cabecalho__linha { display: flex; align-items: center; gap: 8px; }
+.dossie-dot {
+  /* --cat vem de dossieCatStyle(categoria) no inline style, igual .aloca-cat__dot. */
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cat); flex-shrink: 0;
+}
+.dossie-ticker {
+  font-size: var(--num-xl); font-weight: 800;
+  letter-spacing: -0.01em; color: var(--ink);
+}
+.dossie-sub { margin: 0; font-size: var(--num-xs); color: var(--gray); }
+
+/* 2. Mini-mapa do arco — lê 2 anos de tese em um segundo, antes do scroll. */
+.dossie-arco__linha {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 18px;
+}
+.dossie-arco__ponto {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.dossie-arco__ano {
+  font-family: var(--mono); font-size: var(--num-2xs);
+  letter-spacing: 0.06em; color: var(--faint);
+  /* O rótulo do ano é omitido nas entradas repetidas do mesmo ano; sem
+     reservar a linha, o span vazio colapsa e o glifo sobe ~11px, desalinhando
+     a fileira (medido na verificação visual com KNRI11, 3 entradas em 2026). */
+  display: block; min-height: 1em; line-height: 1;
+}
+.dossie-arco__marca {
+  font-family: var(--mono); font-size: var(--num-xs);
+  font-weight: 800; color: var(--gray); line-height: 1;
+}
+
+/* 3. Linha de frescor — --num-xs (13px), NÃO --num-2xs: é uma frase a ler, e
+   10px cai abaixo do piso de legibilidade de corpo em mobile. A voz
+   secundária vem de --faint, não do tamanho. */
+.dossie-frescor { margin: 0; font-size: var(--num-xs); color: var(--faint); }
+
+/* 4. TESE. .dossie-h espelha .rel-secao__titulo (mesma voz de leitura do
+   Relatório) sem herdar o prefixo `rel-` fora do seu escopo. */
+.dossie-tese { display: flex; flex-direction: column; gap: 10px; }
+.dossie-h {
+  font-size: var(--num-lg); font-weight: 700; color: var(--g-900); margin: 0;
+}
+.dossie-grifo { display: flex; flex-direction: column; gap: 4px; }
+.dossie-grifo__rot {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+}
+.dossie-grifo p {
+  margin: 0; font-size: var(--num-sm); color: var(--ink); line-height: 1.55;
+  /* `quebra_se` é prosa livre do dossiê — mesma guarda dos outros dois
+     contêineres de texto de fonte externa. */
+  overflow-wrap: anywhere;
+}
+.dossie-revisada { margin: 0; font-size: var(--num-xs); color: var(--faint); }
+
+/* 5. Linha do tempo — documento contínuo, hairline entre entradas. */
+.dossie-tl { display: flex; flex-direction: column; gap: 10px; }
+.dossie-tl-vazio { margin: 0; font-size: var(--num-xs); color: var(--faint); }
+.dossie-tl__item {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-top: 16px; margin-top: 6px;
+  border-top: 1px solid var(--neutral-200);
+}
+.dossie-tl__item:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.dossie-tl__marco {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.dossie-tl__data {
+  margin: 0; font-family: var(--mono); font-size: var(--num-2xs);
+  font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gray);
+}
+.dossie-tl__gatilho { margin: 0; font-size: var(--num-xs); color: var(--faint); }
+
+/* numeros_reportados = lista de DEFINIÇÃO, não grid de KPI: são citações
+   congeladas na data-base da fonte — frequentemente frases inteiras —, não
+   escalares vivos. Sem tnum, sem mono, sem cor semântica. Stack 1-col a 390px
+   E a 320px: não há grid para quebrar. */
+.dossie-numeros { margin: 0; display: flex; flex-direction: column; }
+.dossie-numeros__par { padding: 8px 0; border-bottom: 1px solid var(--neutral-100); }
+.dossie-numeros__par:last-child { border-bottom: none; }
+.dossie-numeros dt {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--gray); margin-bottom: 2px;
+}
+.dossie-numeros dd {
+  margin: 0; font-size: var(--num-sm); color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.dossie-fontes { list-style: none; margin: 0; padding: 0; }
+.dossie-fontes li {
+  font-size: var(--num-2xs); color: var(--faint); line-height: 1.5;
+  /* Título de fonte é texto livre vindo de fora e pode carregar um
+     identificador de documento sem espaço; sem isto ele estoura a 320px
+     (provado: 52px de transbordo). Mesma razão do `dd` acima. */
+  overflow-wrap: anywhere;
+}
+.dossie-fontes a {
+  color: var(--g-700); text-decoration: none;
+  /* WCAG 2.5.5 — alvo ≥44px sem inflar a voz tipográfica (a spec §5.4 pede
+     --num-2xs para as fontes; a altura vem do padding, não do font-size). */
+  display: inline-flex; align-items: center; min-height: 44px; padding: 2px 0;
+}
+.dossie-fontes a:hover { text-decoration: underline; }
+
+/* Entrada no #ativo — idioma do .rel-card-home, uma linha só (o dossiê não
+   tem "último mês" a anunciar; o que importa é o caminho). */
+.dossie-entrada {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 20px 0 0; padding: 14px 16px; min-height: 44px;
+  background: var(--surface); border: 1px solid var(--neutral-200);
+  border-radius: 14px; text-decoration: none; color: var(--ink);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dossie-entrada { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+}
+.dossie-entrada:active { transform: scale(.98); box-shadow: var(--shadow-pressed); }
+.dossie-entrada__rot { font-size: var(--num-md); font-weight: 600; color: var(--g-900); }
+.dossie-entrada__chevron { color: var(--g-700); font-size: 1.25rem; line-height: 1; }
+
+/* Ticker linkado no Relatório — mesma tipografia do texto, cor de link e alvo
+   de toque. Não muda o .rel-selo ao lado. */
+.rel-radar-card__ticker--link,
+.rel-prestacao__ticker--link {
+  color: var(--g-700); text-decoration: none;
+  display: inline-flex; align-items: center; min-height: 44px;
+}
+.rel-radar-card__ticker--link:hover,
+.rel-prestacao__ticker--link:hover { text-decoration: underline; }

@@ -330,6 +330,24 @@ document.addEventListener("alpine:init", () => {
           ? parsed : {};
       } catch (_) { return {}; }
     })(),
+    // 7a.R.3.b — Dossiê de empresa (payloads cifrados separados do portfolio:
+    // 1 índice leve no boot + 1 .enc por ticker, lazy). A tela é read-only e
+    // NÃO é um segundo #ativo: nenhum preço, DY, KPI vivo ou delta colorido.
+    dossieIndice: [],       // [{ticker,nome,categoria,escopo,arquivo,sha256}] — [] = sem índice
+    dossieTicker: "",       // ticker pedido pela rota #/dossie/<TICKER>
+    dossieAtual: null,      // dossie_empresa_v1 carregado | null
+    dossieCarregado: "",    // ticker já renderizado (evita refetch na re-entrada)
+    dossieCarregando: false,
+    dossieErro: "",
+    // Hash da tela de origem, gravado no clique da entrada. voltar() mapeia
+    // tab → home da seção, o que perderia o ticker — o dossiê chega de DUAS
+    // telas diferentes (#ativo e #relatorio), então precisa da origem literal.
+    dossieOrigem: "",
+    // Promise da carga do índice em voo. A carga é disparada em DOIS pontos
+    // (boot não-bloqueante + hidratarDossie de um deep-link) e cada decifra
+    // custa uma derivação PBKDF2 de 600k iterações — duas em paralelo custam
+    // o dobro e atrasariam a hidratação dos gráficos.
+    _dossieIndicePromise: null,
     pin: "",
     pinError: "",
     carregando: false,
@@ -431,6 +449,7 @@ document.addEventListener("alpine:init", () => {
           this.pin = "";
           this.pinError = "";
           this.pinDissolvendo = false;
+          this._limparEstadoDossie(); // CRB 7a.R.3.b: idem no logout multi-tab
         }
       });
       window.addEventListener("hashchange", () => this.atualizarRota());
@@ -561,6 +580,17 @@ document.addEventListener("alpine:init", () => {
         this.rota = "dy";
         this.tab = "provent";
         setTimeout(() => this.hidratarDY(), 0);
+        return;
+      }
+      // 7a.R.3.b: dossiê é push child alcançado de DUAS tabs (#ativo, que
+      // preserva a tab de origem, e #relatorio, que vive sob raiox). Por isso
+      // NÃO reseta `tab` — como `ativo/:ticker`. O voltar usa dossieOrigem.
+      // Charclass idêntica à de #ativo (16 chars cobrem BR/EUA + sintéticos).
+      const mdos = path.match(/^\/dossie\/([A-Z0-9_-]{2,16})$/);
+      if (mdos) {
+        this.rota = "dossie";
+        this.dossieTicker = mdos[1];
+        setTimeout(() => this.hidratarDossie(), 0);
         return;
       }
       const mr = path.match(/^\/raiox\/relatorio(?:\/(\d{4}-\d{2}))?$/);
@@ -1253,6 +1283,208 @@ document.addEventListener("alpine:init", () => {
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;
       return meses && meses.length ? meses[0] : null; // índice é mês DESC
+    },
+
+    // 7a.R.3.b: índice de dossiês (payload cifrado separado, decifrado no boot).
+    // 404 → [] silencioso: um PWA servido ANTES da primeira publicação continua
+    // funcionando, só sem as entradas (spec §5.2/§5.5).
+    // Chamadas concorrentes compartilham a promise em voo (ver
+    // _dossieIndicePromise). A promise é liberada no fim para que uma
+    // navegação posterior possa tentar de novo se a carga não trouxe nada.
+    carregarIndiceDossies() {
+      if (!this.pin) return Promise.resolve();
+      if (this._dossieIndicePromise) return this._dossieIndicePromise;
+      this._dossieIndicePromise = (async () => {
+        try {
+          const resp = await fetch("./dossies_index.json.enc", { cache: "no-cache" });
+          if (!resp.ok) { this.dossieIndice = []; return; }
+          const idx = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          this.dossieIndice =
+            idx && idx.schema === "dossies_index_v1" && Array.isArray(idx.dossies)
+              ? idx.dossies
+              : [];
+        } catch (err) {
+          console.warn("índice de dossiês indisponível", err);
+          this.dossieIndice = []; // degradação graciosa — o resto do app segue
+        } finally {
+          this._dossieIndicePromise = null;
+        }
+      })();
+      return this._dossieIndicePromise;
+    },
+
+    entradaDossie(ticker) {
+      return (this.dossieIndice || []).find((d) => d.ticker === ticker) || null;
+    },
+
+    // Predicado ÚNICO que decide se a entrada aparece (no #ativo e no Relatório).
+    temDossie(ticker) {
+      return !!this.entradaDossie(ticker);
+    },
+
+    async carregarDossie(ticker) {
+      if (this.dossieCarregado === ticker && this.dossieAtual) return; // já carregado
+      const entrada = this.entradaDossie(ticker);
+      if (!entrada) { // ticker fora do índice → estado vazio, sem fetch às cegas
+        this.dossieAtual = null; this.dossieCarregado = ""; this.dossieErro = "";
+        return;
+      }
+      this.dossieCarregando = true;
+      this.dossieErro = "";
+      try {
+        const resp = await fetch("./" + entrada.arquivo, { cache: "no-cache" });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const d = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+        if (!d || d.schema !== "dossie_empresa_v1") throw new Error("schema inesperado");
+        this.dossieAtual = d;
+        this.dossieCarregado = ticker;
+      } catch (err) {
+        console.warn("dossiê indisponível", err);
+        this.dossieAtual = null;
+        this.dossieCarregado = "";
+        this.dossieErro = "Não foi possível abrir o dossiê deste ativo.";
+      } finally {
+        this.dossieCarregando = false;
+      }
+    },
+
+    async hidratarDossie() {
+      if (this.rota !== "dossie") return;
+      if (!this.pin) return; // pré-auth: re-chamado no boot (submitPin/auto-resume)
+      if (!this.dossieIndice.length) await this.carregarIndiceDossies();
+      if (!this.dossieTicker) return;
+      await this.carregarDossie(this.dossieTicker);
+    },
+
+    // Grava a origem ANTES do hash mudar. As entradas do dossiê são <a href>
+    // REAIS (deep-linkáveis, middle-clicáveis) — o handler não navega, só
+    // registra de onde viemos e deixa o link fazer o resto. Um método nomeado
+    // em vez da expressão inline: são 3 call sites (entrada do #ativo + radar
+    // + prestação do Relatório) e um só lugar para mudar o comportamento.
+    registrarOrigemDossie() {
+      this.dossieOrigem = location.hash || "";
+    },
+
+    // URL de fonte só vira link se for http(s). O payload é auto-produzido e
+    // cifrado, mas o `href` é o único lugar da tela onde um valor do arquivo
+    // vira comportamento do browser — a guarda custa uma linha. Scheme
+    // não-http degrada para texto puro (o ramo `x-if` sem link).
+    urlFonteSegura(u) {
+      return typeof u === "string" && /^\s*https?:\/\//i.test(u) ? u.trim() : null;
+    },
+
+    // Descarta o payload decifrado do dossiê da memória. Chamado no lock
+    // manual e no logout multi-tab: sessão travada não deve reter a tese das
+    // empresas em memória. (`relMes`/`relIndice` da 7a.Q.3 têm a mesma lacuna
+    // e ficam como follow-up — fora do escopo desta sub-fase.)
+    _limparEstadoDossie() {
+      this.dossieIndice = [];
+      this.dossieAtual = null;
+      this.dossieCarregado = "";
+      this.dossieTicker = "";
+      this.dossieOrigem = "";
+      this.dossieErro = "";
+      this.dossieCarregando = false;
+    },
+
+    voltarDoDossie() {
+      // Mesmo racional de voltar(): replaceState + atualizarRota, NUNCA
+      // history.back() (em link compartilhado, back sai do PWA). A diferença é
+      // o destino: voltar() mapeia tab → home da seção e perderia o ticker;
+      // aqui o destino é a origem literal. Deep-link direto (sem origem) cai
+      // no #ativo do próprio ticker.
+      const fallback = this.dossieTicker ? "#ativo/" + this.dossieTicker : "";
+      const destino = this.dossieOrigem || fallback;
+      this.dossieOrigem = "";
+      history.replaceState(null, "", destino || location.pathname);
+      this.atualizarRota();
+    },
+
+    // O dossiê carrega o vocabulário do BACKEND (o bootstrap copia
+    // `posicoes_view.classe`: "Ação BR"/"Exterior"/"FII"/"Cripto"/"Renda Fixa
+    // BR"), que NÃO é o vocabulário da política lido por catCssVar
+    // ("Ações BR"/"EUA"/...). Sem esta ponte o dot cairia no fallback --g-700 e
+    // TODA categoria ficaria teal. catCssVar NÃO muda: ele é do #alocação.
+    dossieCatStyle(categoria) {
+      const ponte = { "Ação BR": "Ações BR", "Exterior": "EUA" };
+      return this.catStyleVar(ponte[categoria] || categoria);
+    },
+
+    dossieBandeira(escopo) {
+      return escopo === "EUA" ? "🇺🇸" : "🇧🇷";
+    },
+
+    // Sub-linha do cabeçalho: "nome · categoria". Em 29 dos 39 dossiês reais
+    // `nome` É o próprio ticker (o bootstrap não tinha razão social a copiar),
+    // e repeti-lo logo sob o ticker em corpo grande é ruído — nesses casos
+    // sobra só a categoria.
+    get dossieSubtitulo() {
+      const d = this.dossieAtual;
+      if (!d) return "";
+      const nome = (d.nome || "").trim();
+      const cat = (d.categoria || "").trim();
+      const partes = nome && nome.toUpperCase() !== String(d.ticker || "").toUpperCase()
+        ? [nome, cat] : [cat];
+      return partes.filter(Boolean).join(" · ");
+    },
+
+    // Mini-mapa do arco: um glifo de veredito por ENTRADA, em ordem
+    // cronológica — o arco de 2 anos lido em um segundo, antes de qualquer
+    // scroll. O RÓTULO do ano sai só na primeira entrada de cada ano: 12 dos
+    // 39 dossiês reais têm mais de uma entrada no mesmo ano (KNRI11 tem três
+    // em 2026) e "2026 2026 2026" gagueja sem informar nada. O par .sr-only
+    // (dossieArcoTexto) segue nomeando o ano de TODAS, senão a leitura
+    // auditiva perde a ancoragem temporal.
+    // Ano por `slice` da data ISO (NÃO `new Date`: data sem hora vira
+    // meia-noite UTC e volta um dia em America/Sao_Paulo).
+    get dossieArco() {
+      let anterior = null;
+      return (this.dossieAtual?.timeline || []).map((e) => {
+        const selo = this.vereditoSelo(e.veredito);
+        const ano = String(e.data || "").slice(0, 4);
+        const rotuloAno = ano === anterior ? "" : ano;
+        anterior = ano;
+        return { ano, rotuloAno, marca: selo.marca, label: selo.label };
+      });
+    },
+
+    // Par .sr-only do mini-mapa: forma + texto, nunca cor sozinha.
+    get dossieArcoTexto() {
+      return this.dossieArco.map((p) => `${p.ano} ${p.label.toLowerCase()}`).join(", ");
+    },
+
+    // Memória viva envelhece em silêncio — a tela diz a idade dela. A âncora é
+    // a data da ÚLTIMA entrada da timeline (existe sempre que há timeline). A
+    // cláusula de verificação leve é ADITIVA e condicional: 28 dos 39 dossiês
+    // reais têm `ultima_verificacao_leve: null`, então um "sem verificação
+    // leve" apareceria na maioria das telas e leria como defeito — quando é o
+    // estado normal (o carimbo é do motor /relatorio-mensal, não uma obrigação
+    // de todo dossiê).
+    get dossieFrescor() {
+      const tl = this.dossieAtual?.timeline || [];
+      if (!tl.length) return "";
+      let s = `última leitura em ${window.formatDataIso(tl[tl.length - 1].data)}`;
+      const uv = this.dossieAtual?.ultima_verificacao_leve;
+      if (uv) s += ` · verificação leve em ${window.formatDataIso(uv)}`;
+      return s;
+    },
+
+    // `dividend_yield` → `DIVIDEND YIELD`. O rótulo é DERIVADO da chave: as
+    // chaves de numeros_reportados são heterogêneas por tipo de ativo (FII,
+    // ação, ETF), então não há tabela fixa a manter.
+    rotuloNumero(chave) {
+      return String(chave || "").replace(/_/g, " ").toUpperCase();
+    },
+
+    // numeros_reportados é `dict OU list` no schema (validar_dossie aceita os
+    // dois; os 39 dossiês reais usam dict). Normaliza para pares — a lista
+    // entra sem rótulo, e o <dt> vazio some no template.
+    paresNumeros(nr) {
+      if (!nr) return [];
+      if (Array.isArray(nr)) return nr.map((v) => ({ rotulo: "", valor: String(v) }));
+      return Object.entries(nr).map(([k, v]) => ({
+        rotulo: this.rotuloNumero(k), valor: String(v),
+      }));
     },
 
     bandeiraDaPosicao(p) {
@@ -2852,7 +3084,16 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("pinTimestamp", String(Date.now()));
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
+        // 7a.R.3.b: índice de dossiês — carga NÃO-bloqueante, fora do caminho
+        // crítico. Nada na primeira pintura depende dele: as duas superfícies
+        // que o consomem (a entrada no #ativo e os links do Relatório) são
+        // reativas e acendem quando ele chega. Aguardá-lo aqui empurraria a
+        // hidratação dos gráficos por uma derivação PBKDF2 inteira (600k).
+        this.carregarIndiceDossies();
         if (this.rota === "relatorio") this.hidratarRelatorio();
+        // Deep-link direto no dossiê: hidratarDossie aguarda o índice por
+        // dentro, compartilhando a promise em voo disparada acima.
+        if (this.rota === "dossie") this.hidratarDossie();
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         // 7a.H.1: se a rota já é #aportar (reload), hidratar agora que temos json.
@@ -2980,6 +3221,7 @@ document.addEventListener("alpine:init", () => {
       this.pin = "";
       this.pinError = "";
       this.pinDissolvendo = false;
+      this._limparEstadoDossie(); // CRB 7a.R.3.b: não reter tese decifrada pós-lock
     },
 
     get escoposRentabilidade12m() {
@@ -3069,7 +3311,13 @@ document.addEventListener("alpine:init", () => {
         }
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
+        // 7a.R.3.b: índice de dossiês — não-bloqueante, mesmo racional do
+        // auto-resume. Cold-start em `#/dossie/<TICKER>` (bookmark/share-link)
+        // chega aqui sem pin ainda, então hidratarDossie roda agora que a
+        // sessão existe, aguardando o índice por dentro.
+        this.carregarIndiceDossies();
         if (this.rota === "relatorio") this.hidratarRelatorio();
+        if (this.rota === "dossie") this.hidratarDossie();
         // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;
         // sem re-hidratação de colapso necessária pós-PIN.
         // 7a.I.5: mesmo padrão — bookmark direto de `#/raiox/chart` precisa

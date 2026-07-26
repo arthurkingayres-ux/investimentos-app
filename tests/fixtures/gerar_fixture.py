@@ -760,12 +760,213 @@ def gerar_relatorios() -> None:
         print(f"Fixture gerada: {base / nome}")
 
 
+# ── Fase 7a.R.3.b: fixtures do dossiê de empresa (índice + 4 dossiês) ───────
+# CONTEÚDO 100% SINTÉTICO. O sibling é repo PÚBLICO e o `.enc` decifra com o
+# PIN de teste público 123456 — qualquer tese, número, nome de empresa ou URL
+# real aqui é efetivamente plaintext. Os TICKERS são reaproveitados do universo
+# já presente no fixture (posicoes/politica/relatorio) por coerência narrativa;
+# tudo o mais é inventado. URLs sem dígitos: uma URL terminando em 7 dígitos +
+# `.pdf` é lida como número de conta pelo detector de PII (gotcha 7a.R.2).
+def _fonte(slug: str, titulo: str, data_leitura: str) -> dict:
+    return {
+        "tipo": "primaria",
+        "categoria_fonte": "release_resultados",
+        "titulo": titulo,
+        "url": f"https://example.com/{slug}",
+        "data_leitura": data_leitura,
+        "confianca": "alta",
+    }
+
+
+def _entrada(data: str, veredito: str, gatilho: str, leitura: str,
+             numeros: dict, fontes: list[dict]) -> dict:
+    return {
+        "data": data,
+        "gatilho": gatilho,
+        "veredito": veredito,
+        "numeros_reportados": numeros,
+        "leitura": leitura,
+        "observar": "Sinal de exemplo a observar na próxima leitura.",
+        "gatilho_reavaliacao": "Gatilho de exemplo para reavaliar a tese.",
+        "fontes": fontes,
+    }
+
+
+def _dossie(ticker: str, nome: str, escopo: str, categoria: str,
+            tese: dict, timeline: list[dict], verificacao_leve) -> dict:
+    return {
+        "schema": "dossie_empresa_v1",
+        "ticker": ticker,
+        "nome": nome,
+        "escopo": escopo,
+        "categoria": categoria,
+        "ri_portal_url": f"https://example.com/ri/{ticker.lower()}",
+        "aberto_em": "2026-06-26",
+        "tese": tese,
+        "ultima_verificacao_leve": verificacao_leve,
+        "timeline": timeline,
+    }
+
+
+def _dossies_sinteticos() -> list[dict]:
+    # `nome` == ticker é o caso MAJORITÁRIO em produção (29 dos 39 dossiês
+    # reais), então é o que a fixture principal exercita: a sub-linha do
+    # cabeçalho não pode repetir o ticker que está logo acima em corpo grande.
+    hglg = _dossie(
+        "HGLG11", "HGLG11", "Brasil", "FII",
+        tese={
+            "resumo": "Veículo de exemplo usado só para exercitar a tela do dossiê. "
+                      "A tese sintética é que o ativo de exemplo compõe renda estável "
+                      "com contratos longos e inquilinos diversificados.",
+            "quebra_se": "A tese de exemplo quebra se a vacância de exemplo subir de "
+                         "forma estrutural ou se a distribuição de exemplo cair abaixo "
+                         "do piso combinado por dois trimestres seguidos.",
+            "revisada_em": "2026-06-27",
+        },
+        timeline=[
+            _entrada(
+                "2024-12-31", "intacta", "backfill histórico — leitura retrospectiva de FY2024",
+                "Leitura sintética de FY2024: os números de exemplo vieram em linha com a "
+                "tese e não houve deterioração observável no período.",
+                {"receita_exemplo": "R$ 00,0 mi (exemplo)",
+                 "vacancia_exemplo": "física de exemplo e financeira de exemplo, ambas estáveis no período",
+                 "distribuicao_exemplo": "R$ 0,00 por cota (exemplo)"},
+                [_fonte("relatorio-exemplo-um", "Relatório de exemplo do emissor (FY2024)", "2026-07-11")],
+            ),
+            _entrada(
+                "2025-12-31", "intacta", "backfill histórico — leitura retrospectiva de FY2025",
+                "Leitura sintética de FY2025: o ativo de exemplo manteve o padrão do ano "
+                "anterior, sem sinal novo que mude a tese.",
+                {"receita_exemplo": "R$ 00,0 mi (exemplo)",
+                 "distribuicao_exemplo": "R$ 0,00 por cota (exemplo)"},
+                [_fonte("relatorio-exemplo-dois", "Relatório de exemplo do emissor (FY2025)", "2026-07-11")],
+            ),
+            _entrada(
+                "2026-06-27", "sob_pressao", "leitura contemporânea de exemplo",
+                "Leitura sintética contemporânea: apareceu um sinal de exemplo que ainda não "
+                "quebra a tese, mas justifica acompanhamento mais próximo.",
+                # O token longo INDIVISÍVEL é deliberado: prova que o guard de
+                # overflow a 320px (`overflow-wrap: anywhere`) é real, e não um
+                # teste que passa só porque a fixture é curta. Sem hífens de
+                # propósito — o navegador quebra linha DEPOIS de um hífen, então
+                # um token hifenizado não estressaria nada. Valores de
+                # numeros_reportados são texto livre da fonte.
+                {"vacancia_exemplo": "acima do patamar de exemplo do ano anterior",
+                 "referencia_exemplo": "IDENTIFICADORSINTETICOMUITOLONGOSEMESPACONEMHIFENPARATESTARQUEBRA"},
+                [_fonte("comunicado-exemplo",
+                        "Comunicado de exemplo ao mercado com titulo sinteticamente longo "
+                        "para exercitar a quebra do rodape da entrada", "2026-06-27"),
+                 # Título de fonte também é texto livre vindo de fora e pode
+                 # trazer um identificador de documento sem espaço — o token
+                 # indivisível aqui prova o guard do rodapé da entrada.
+                 _fonte("apresentacao-exemplo",
+                        "Apresentação IDENTIFICADORDEDOCUMENTOSINTETICOLONGOSEMESPACONEMHIFEN",
+                        "2026-06-27")],
+            ),
+            # Segunda entrada NO MESMO ANO: 12 dos 39 dossiês reais têm mais de
+            # uma entrada por ano (KNRI11 tem três em 2026), e o mini-mapa não
+            # pode repetir o rótulo do ano em cada glifo.
+            _entrada(
+                "2026-07-15", "deteriorando", "leitura contemporânea de exemplo",
+                "Segunda leitura sintética do mesmo ano: o sinal de exemplo piorou.",
+                {"vacancia_exemplo": "acima do trimestre de exemplo anterior"},
+                [_fonte("fato-relevante-exemplo", "Fato relevante de exemplo", "2026-07-15")],
+            ),
+        ],
+        verificacao_leve=None,
+    )
+    smal = _dossie(
+        "SMAL11", "Empresa de Exemplo Dois", "Brasil", "Ação BR",
+        tese={
+            "resumo": "Tese sintética de crescimento composto usada só para exercitar a tela.",
+            "quebra_se": "A tese de exemplo quebra se a margem de exemplo comprimir de forma sustentada.",
+            "revisada_em": "2026-06-20",
+        },
+        timeline=[
+            _entrada(
+                "2024-12-31", "intacta", "backfill histórico — leitura retrospectiva de FY2024",
+                "Leitura sintética de FY2024 sem sinal de deterioração.",
+                {"margem_exemplo": "0,0% (exemplo)"},
+                [_fonte("release-exemplo-um", "Release de exemplo (FY2024)", "2026-07-12")],
+            ),
+            _entrada(
+                "2025-12-31", "deteriorando", "backfill histórico — leitura retrospectiva de FY2025",
+                "Leitura sintética de FY2025: o sinal de exemplo piorou o suficiente para "
+                "mudar o veredito nesta fixture.",
+                {"margem_exemplo": "0,0% (exemplo, abaixo do ano anterior)"},
+                [_fonte("release-exemplo-dois", "Release de exemplo (FY2025)", "2026-07-12")],
+            ),
+        ],
+        verificacao_leve="2026-06-15",
+    )
+    amzn = _dossie(
+        "AMZN", "Empresa de Exemplo Três", "EUA", "Exterior",
+        tese={
+            "resumo": "Tese sintética de plataforma usada só para exercitar o escopo EUA.",
+            "quebra_se": "A tese de exemplo quebra se a vantagem de exemplo deixar de existir.",
+            "revisada_em": "2026-06-18",
+        },
+        timeline=[
+            _entrada(
+                "2025-12-31", "intacta", "backfill histórico — leitura retrospectiva de FY2025",
+                "Leitura sintética de FY2025 em dólar de exemplo.",
+                {"receita_exemplo": "US$ 0,0 bi (exemplo)"},
+                [_fonte("annual-report-exemplo", "Annual report de exemplo (FY2025)", "2026-07-13")],
+            ),
+        ],
+        verificacao_leve=None,
+    )
+    itsa = _dossie(
+        "ITSA4", "Empresa de Exemplo Quatro", "Brasil", "Ação BR",
+        tese={
+            "resumo": "Tese sintética ainda não redigida — dossiê esqueleto de exemplo.",
+            "quebra_se": "",
+            "revisada_em": None,
+        },
+        timeline=[],
+        verificacao_leve=None,
+    )
+    return [amzn, hglg, itsa, smal]  # ordem por ticker
+
+
+def gerar_dossies() -> None:
+    from src.output.sync_dossies import hash_conteudo, nome_arquivo_cifrado
+
+    base = OUT.parent  # tests/fixtures/
+    dossies = _dossies_sinteticos()
+    indice = {
+        "schema": "dossies_index_v1",
+        "atualizado_em": "2026-07-26",
+        "dossies": [
+            {
+                "ticker": d["ticker"],
+                "nome": d["nome"],
+                "categoria": d["categoria"],
+                "escopo": d["escopo"],
+                # O NOME PUBLICADO (sem `.test`) é o que o frontend pede; só o
+                # arquivo em disco leva o sufixo de fixture — o page.route do
+                # Playwright faz a ponte entre os dois.
+                "arquivo": nome_arquivo_cifrado(d["ticker"]),
+                "sha256": hash_conteudo(d),
+            }
+            for d in dossies
+        ],
+    }
+    alvos = [("dossies_index.test.json.enc", indice)]
+    alvos += [(f"dossie_{d['ticker']}.test.json.enc", d) for d in dossies]
+    for nome, obj in alvos:
+        enc = encriptar_json(json.dumps(obj, ensure_ascii=False), PIN_TESTE)
+        (base / nome).write_text(enc, encoding="ascii")
+        print(f"Fixture gerada: {base / nome}")
+
+
 def main() -> None:
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")
     print(f"  Tamanho B64: {len(enc)} chars · PIN={PIN_TESTE}")
     gerar_relatorios()  # 7a.Q.3
+    gerar_dossies()     # 7a.R.3.b
 
 
 if __name__ == "__main__":

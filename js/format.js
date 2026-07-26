@@ -72,3 +72,25 @@ window.formatDataExtenso = (iso) => {
   if (!(mes >= 1 && mes <= 12)) return "";
   return `${parseInt(m[3], 10)} de ${_MESES_PT[mes - 1].toLowerCase()}`;
 };
+
+// 7a.R.3.b: "YYYY-MM-DD" → "31/12/2024" (linha de frescor + tese revisada em).
+// Parse por regex (NÃO `new Date(iso)`): data ISO sem hora vira meia-noite UTC
+// e, em America/Sao_Paulo (UTC-3), volta pro dia anterior — mesmo motivo já
+// documentado em formatDataExtenso.
+window.formatDataIso = (iso) => {
+  if (typeof iso !== "string") return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+};
+
+// 7a.R.3.b: "2024-12-31" → "DEZ 2024" — linha-marco da entrada de timeline.
+// Abreviação DERIVADA de _MESES_PT (sem segunda tabela de meses no arquivo);
+// regex pelo mesmo motivo de fuso acima.
+window.formatMarcoMes = (iso) => {
+  if (typeof iso !== "string") return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  const mm = parseInt(m[2], 10);
+  if (!(mm >= 1 && mm <= 12)) return "";
+  return `${_MESES_PT[mm - 1].slice(0, 3).toUpperCase()} ${m[1]}`;
+};
