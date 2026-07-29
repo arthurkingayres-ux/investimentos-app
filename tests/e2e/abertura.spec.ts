@@ -300,4 +300,35 @@ test.describe("A Abertura — 1×/sessão robusto (CRB 7a.S.11)", () => {
     flag = await page.evaluate(() => sessionStorage.getItem("aberturaFeita"));
     expect(flag).toBe("1");
   });
+
+  // 7a.U Task 6 (CRB round 2, Finding 1): o teste acima ("flag ... re-lock não
+  // replica") só prova o SET síncrono da flag — nunca aciona um lock de
+  // verdade. `submitPin()` passou a chamar `atualizarRota()` ao promover a
+  // fase (7a.U §4); na home (hash vazio) isso reagenda
+  // `setTimeout(() => this.iniciarAbertura(), 0)` a CADA destrava, não só na
+  // primeira. Este teste percorre o ciclo real do usuário — botão visível
+  // `.btn-bloquear` (não `$data.bloquear()`, que pula a tela/rota real) →
+  // PIN → home de novo — e prova que a 2ª passagem por `iniciarAbertura()`
+  // não repete o reveal. Mesmo vocabulário do teste de deep-link acima
+  // (`comEspiaDeClasses` + flag `aberturaFeita`), reusado aqui.
+  test("re-lock via botão real: destravar na home NÃO repete a cerimônia (regressão 7a.U §4)", async ({ page }) => {
+    await comEspiaDeClasses(page);
+    await autoResumir(page); // 1ª abertura roda no boot (sessão pré-existente na home).
+    await page.waitForTimeout(700); // > último passo do stagger — 1ª cerimônia termina.
+    await page.evaluate(() => { (window as any).__classAdds = []; }); // espião limpo: só o RE-lock conta daqui.
+
+    await page.getByRole("button", { name: /bloquear/i }).click();
+    await expect(page.locator(".pin-screen")).toBeVisible();
+    await page.locator("input.pin-input").fill("123456");
+    await page.locator("button.pin-submit").click();
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
+    await page.waitForTimeout(700); // folga > stagger inteiro, mesma margem dos testes acima.
+
+    const adds: string[] = await page.evaluate(() => (window as any).__classAdds);
+    expect(adds).not.toContain("abertura-reveal");
+    expect(adds).not.toContain("abertura-reveal-in");
+    // A flag segue "1" (nunca foi limpa pelo lock) — é ELA que barra o replay.
+    const flag = await page.evaluate(() => sessionStorage.getItem("aberturaFeita"));
+    expect(flag).toBe("1");
+  });
 });

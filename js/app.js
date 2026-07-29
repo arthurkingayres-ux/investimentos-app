@@ -153,6 +153,26 @@ function gerarTituloPeriodo(hist, iA, iB) {
   return `Período · ${fmt(hist[iA].data)} → ${fmt(hist[iB].data)}`;
 }
 
+// CRB final round (Finding E/7a.U): default vazio de `periodoCustom`,
+// extraído porque o literal aparecia duplicado (declaração + reset do lock)
+// — mudar o default num lugar deixaria o outro restaurando um valor velho,
+// o mesmo drift que o choke point único da fase combate. Função de
+// TOPO-DE-ARQUIVO (não método `this._periodoCustomVazio()`): a declaração
+// do `x-data` é um literal de objeto plano, sem `this` disponível para os
+// próprios vizinhos durante a construção — mesmo padrão já usado pelos
+// outros helpers puros de chart deste arquivo (`gerarTituloPeriodo` acima,
+// `parseMesData`, `construirFlows`).
+function periodoCustomVazio() {
+  return {
+    iniIdx: 0,
+    fimIdx: null,
+    twr: null,
+    xirr: null,
+    benchExtras: [],
+    titulo: "Origem",
+  };
+}
+
 // 7a.S.3 Task 1: "símbolo só no último ponto" — a série principal (linha)
 // não desenha marcador em cada ponto ("colar de contas"); só o ponto mais
 // recente ganha um marcador discreto (círculo vazado, não celebratório —
@@ -348,6 +368,20 @@ document.addEventListener("alpine:init", () => {
     // custa uma derivação PBKDF2 de 600k iterações — duas em paralelo custam
     // o dobro e atrasariam a hidratação dos gráficos.
     _dossieIndicePromise: null,
+    // 7a.U Task 6 (CRB round 2, Finding 2): mesmo racional do
+    // `_dossieIndicePromise` acima, agora nos outros 3 loaders que decifram
+    // payload — `submitPin()` chama `atualizarRota()` ao promover a fase, que
+    // agenda a MESMA hidratação (deep-link de Relatório/dossiê) que a linha
+    // explícita duas linhas abaixo já dispara; sem promise em voo, as duas
+    // cadeias corriam em paralelo e pagavam PBKDF2 em dobro. Os dois loaders
+    // COM CHAVE (`carregarDossie`/`carregarRelatorioMes`) guardam a chave
+    // junto — chave diferente NÃO compartilha (entregar o dossiê de HGLG11
+    // para quem pediu ITSA4 seria dado errado).
+    _relIndicePromise: null,
+    _dossiePromise: null,
+    _dossiePromiseTicker: null,
+    _relMesPromise: null,
+    _relMesPromiseAlvo: null,
     pin: "",
     pinError: "",
     carregando: false,
@@ -398,15 +432,26 @@ document.addEventListener("alpine:init", () => {
     rentabilidadeSubtitulo: "",
     // 7a.L.2.b: estado do 4º card "Período" sob #rentabilidade. fimIdx=null
     // = card oculto (default). Populado por recomputarPeriodo a cada datazoom
-    // ou após hidratarRentabilidade.
-    periodoCustom: {
-      iniIdx: 0,
-      fimIdx: null,
-      twr: null,
-      xirr: null,
-      benchExtras: [],
-      titulo: "Origem",
-    },
+    // ou após hidratarRentabilidade. Default via periodoCustomVazio() (CRB
+    // final round Finding E) — mesmo literal usado no reset do lock.
+    periodoCustom: periodoCustomVazio(),
+    // 7a.U: handles dos 3 gráficos ECharts + seus ResizeObserver + o contexto
+    // derivado do chart de rentabilidade, pré-declarados com `null` — um handle
+    // vazio deve ter UMA representação (`null`), não duas (ausente antes do
+    // 1º render, `null` depois do lock). Mesmo padrão de
+    // `_heroEyebrowSwapTimeout`/`_compoFlashTimer` acima; zero mudança de
+    // comportamento (todo consumidor usa checagem de truthy). Populados por
+    // renderProventosGrafico/renderPatrimonioGrafico/hidratarRentabilidade,
+    // zerados por _descartarProv/_descartarPatr/_descartarRent. Ver o
+    // comentário de ASSINATURA_FN em lock-higiene.spec.ts para o porquê da
+    // dupla representação quebrar o teste de invariante.
+    echartsProv: null,
+    resizeObserverProv: null,
+    echartsPatr: null,
+    resizeObserverPatr: null,
+    echartsRent: null,
+    resizeObserverChart: null,
+    _rentCtx: null,
     // 7a.H.1: estado da tela #aportar
     aporteValor: "",
     aporteBanner: null,
@@ -449,7 +494,7 @@ document.addEventListener("alpine:init", () => {
           this.pin = "";
           this.pinError = "";
           this.pinDissolvendo = false;
-          this._limparEstadoDossie(); // CRB 7a.R.3.b: idem no logout multi-tab
+          this._limparEstadoSensivel(); // 7a.U: idem no logout multi-tab
         }
       });
       window.addEventListener("hashchange", () => this.atualizarRota());
@@ -1144,7 +1189,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     // Recebe drift como FRAÇÃO (ex.: -0.0168 = -1,68 pp; convenção do backend
-    // espelhando formatPctSinalPP em app.js:428) e devolve
+    // espelhando formatPctSinalPP()) e devolve
     // { texto: "−1,68 pp" | "+4,30 pp" | "0,00 pp", classe: "under"|"over"|"hold", arrow: "↑"|"↓"|"·" }.
     // Threshold ±0.005 fraction = ±0,5 pp evita ruído de arredondamento como ação.
     // classe reflete posição vs alvo: "under" = atual<alvo (precisa aportar); "over" = acima.
@@ -1262,22 +1307,41 @@ document.addEventListener("alpine:init", () => {
       );
     },
 
-    // 7a.Q.3: carrega o índice de relatórios mensais (payload cifrado separado)
-    async carregarIndiceRelatorios() {
-      if (!this.pin) return;
-      try {
-        const resp = await fetch("./relatorios_index.json.enc", { cache: "no-cache" });
-        if (!resp.ok) { this.relIndice = null; return; }
-        const payloadB64 = (await resp.text()).trim();
-        const idx = JSON.parse(await window.decifrar(payloadB64, this.pin));
-        this.relIndice =
-          idx && idx.schema === "relatorios_index_v1" && Array.isArray(idx.meses)
-            ? idx
-            : null;
-      } catch (err) {
-        console.warn("índice de relatórios indisponível", err);
-        this.relIndice = null; // degradação graciosa — o resto do app segue
-      }
+    // 7a.Q.3: carrega o índice de relatórios mensais (payload cifrado separado).
+    // 7a.U Task 6 (CRB round 2): chamadas concorrentes compartilham a promise
+    // em voo — mesmo padrão de `carregarIndiceDossies()` (guarda síncrona
+    // ANTES do 1º await, então a 2ª chamada no mesmo tick já vê o handle
+    // setado). Sem chave: um único índice para todo o app.
+    carregarIndiceRelatorios() {
+      if (!this.pin) return Promise.resolve();
+      if (this._relIndicePromise) return this._relIndicePromise;
+      this._relIndicePromise = (async () => {
+        try {
+          const resp = await fetch("./relatorios_index.json.enc", { cache: "no-cache" });
+          if (!resp.ok) { this.relIndice = null; return; }
+          const payloadB64 = (await resp.text()).trim();
+          const idx = JSON.parse(await window.decifrar(payloadB64, this.pin));
+          // Race guard: bloquear() (ou o handler storage) pode ter rodado
+          // durante o await da decifra. Se o pin sumiu do $data, respeitar o
+          // lock e não popular o payload de volta.
+          if (!this.pin) return;
+          this.relIndice =
+            idx && idx.schema === "relatorios_index_v1" && Array.isArray(idx.meses)
+              ? idx
+              : null;
+        } catch (err) {
+          console.warn("índice de relatórios indisponível", err);
+          // Race guard (CRB final 7a.U Finding 3): um throw ANTES do guard de
+          // sucesso (HTTP != 200, schema inesperado) cai aqui incondicional —
+          // sem checar `this.pin`, um bloquear() no meio do await deixaria a
+          // sessão travada com erro fantasma na tela após o unlock.
+          if (!this.pin) return;
+          this.relIndice = null; // degradação graciosa — o resto do app segue
+        } finally {
+          this._relIndicePromise = null;
+        }
+      })();
+      return this._relIndicePromise;
     },
 
     get relUltimoMes() {
@@ -1299,12 +1363,19 @@ document.addEventListener("alpine:init", () => {
           const resp = await fetch("./dossies_index.json.enc", { cache: "no-cache" });
           if (!resp.ok) { this.dossieIndice = []; return; }
           const idx = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          // Race guard: bloquear() (ou o handler storage) pode ter rodado
+          // durante o await da decifra. Se o pin sumiu do $data, respeitar o
+          // lock e não popular o payload de volta.
+          if (!this.pin) return;
           this.dossieIndice =
             idx && idx.schema === "dossies_index_v1" && Array.isArray(idx.dossies)
               ? idx.dossies
               : [];
         } catch (err) {
           console.warn("índice de dossiês indisponível", err);
+          // Race guard (CRB final 7a.U Finding 3): mesmo racional do loader
+          // acima — um throw pré-guard não pode escrever no $data já travado.
+          if (!this.pin) return;
           this.dossieIndice = []; // degradação graciosa — o resto do app segue
         } finally {
           this._dossieIndicePromise = null;
@@ -1322,30 +1393,84 @@ document.addEventListener("alpine:init", () => {
       return !!this.entradaDossie(ticker);
     },
 
+    // 7a.U Task 6 (CRB round 2): promise em voo POR CHAVE (ticker). Duas
+    // chamadas para o MESMO ticker compartilham a requisição/decifra; chaves
+    // diferentes NÃO compartilham — cada uma corre em paralelo, mas só a
+    // requisição AINDA VIGENTE (CRB final round Finding A) escreve estado:
+    // `this._dossiePromise === promessa` é o mesmo guard usado pra limpar o
+    // handle no finally, reaplicado ANTES de qualquer escrita em `dossieAtual`/
+    // `dossieCarregado`/`dossieErro`. Sem isso, navegando A→B com A ainda em
+    // voo, quem RESOLVE por último vencia o estado final (não quem foi pedido
+    // por último) — e o finally da requisição alheia apagava o spinner
+    // (`dossieCarregando`) da vigente.
     async carregarDossie(ticker) {
       if (this.dossieCarregado === ticker && this.dossieAtual) return; // já carregado
+      if (this._dossiePromise && this._dossiePromiseTicker === ticker) {
+        return this._dossiePromise; // mesma chave em voo — compartilha
+      }
       const entrada = this.entradaDossie(ticker);
       if (!entrada) { // ticker fora do índice → estado vazio, sem fetch às cegas
+        // Review final pós-7a.U (Finding 1): esta chamada só chega aqui com
+        // uma chave DIFERENTE da que está em voo (a mesma chave já
+        // compartilhou/retornou acima). Sem anular os dois handles, a
+        // requisição anterior (outro ticker, ainda decifrando) seguia
+        // "vigente" pelo critério de identidade (`_dossiePromise ===
+        // promessa`) — quando resolvesse, escrevia o dossiê alheio por cima
+        // desta tela, e `dossieCarregando` ficava preso em `true` (herdado
+        // da requisição anterior) em vez de cair para `.dossie-vazio`.
         this.dossieAtual = null; this.dossieCarregado = ""; this.dossieErro = "";
+        this.dossieCarregando = false;
+        this._dossiePromise = null;
+        this._dossiePromiseTicker = null;
         return;
       }
       this.dossieCarregando = true;
       this.dossieErro = "";
-      try {
-        const resp = await fetch("./" + entrada.arquivo, { cache: "no-cache" });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const d = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
-        if (!d || d.schema !== "dossie_empresa_v1") throw new Error("schema inesperado");
-        this.dossieAtual = d;
-        this.dossieCarregado = ticker;
-      } catch (err) {
-        console.warn("dossiê indisponível", err);
-        this.dossieAtual = null;
-        this.dossieCarregado = "";
-        this.dossieErro = "Não foi possível abrir o dossiê deste ativo.";
-      } finally {
-        this.dossieCarregando = false;
-      }
+      const promessa = (async () => {
+        try {
+          const resp = await fetch("./" + entrada.arquivo, { cache: "no-cache" });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const d = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          // Race guard: bloquear() (ou o handler storage) pode ter rodado
+          // durante o await da decifra. Se o pin sumiu do $data, respeitar o
+          // lock e não popular o payload de volta.
+          if (!this.pin) return;
+          // Race guard (CRB final round Finding A): esta requisição pode ter
+          // sido SUPERADA por uma chamada mais nova para OUTRO ticker enquanto
+          // decifrava — se `_dossiePromise` já aponta para outra promise, a
+          // vigente já está resolvendo/resolvida e esta não pode sobrescrevê-la.
+          if (this._dossiePromise !== promessa) return;
+          if (!d || d.schema !== "dossie_empresa_v1") throw new Error("schema inesperado");
+          this.dossieAtual = d;
+          this.dossieCarregado = ticker;
+        } catch (err) {
+          console.warn("dossiê indisponível", err);
+          // Race guard (CRB final 7a.U Finding 3): idem — sem isso,
+          // `dossieErro` sobreviveria ao lock como texto estático (dano
+          // cosmético), mas também vira vetor de flake do teste-invariante
+          // se um fetch falhar dentro da janela do lock.
+          if (!this.pin) return;
+          // Idem guard de superada — um erro de uma requisição já superada
+          // não pode apagar o resultado bom que a vigente já escreveu.
+          if (this._dossiePromise !== promessa) return;
+          this.dossieAtual = null;
+          this.dossieCarregado = "";
+          this.dossieErro = "Não foi possível abrir o dossiê deste ativo.";
+        } finally {
+          // Só resolve o estado desta requisição (inclusive o spinner) se
+          // AINDA for a vigente — mesmo guard usado pra limpar o handle logo
+          // abaixo. Uma requisição SUPERADA que resolve depois não pode
+          // apagar `dossieCarregando` da requisição vigente ainda em voo.
+          if (this._dossiePromise === promessa) {
+            this.dossieCarregando = false;
+            this._dossiePromise = null;
+            this._dossiePromiseTicker = null;
+          }
+        }
+      })();
+      this._dossiePromise = promessa;
+      this._dossiePromiseTicker = ticker;
+      return promessa;
     },
 
     async hidratarDossie() {
@@ -1373,10 +1498,26 @@ document.addEventListener("alpine:init", () => {
       return typeof u === "string" && /^\s*https?:\/\//i.test(u) ? u.trim() : null;
     },
 
-    // Descarta o payload decifrado do dossiê da memória. Chamado no lock
-    // manual e no logout multi-tab: sessão travada não deve reter a tese das
-    // empresas em memória. (`relMes`/`relIndice` da 7a.Q.3 têm a mesma lacuna
-    // e ficam como follow-up — fora do escopo desta sub-fase.)
+    // Descarta o payload decifrado do dossiê da memória. Chamado via
+    // `_limparEstadoSensivel()` no lock manual e no logout multi-tab: sessão
+    // travada não deve reter a tese das empresas em memória. Segue nomeado (e
+    // não absorvido pelo agregador) porque a família tem dono próprio.
+    //
+    // Review final pós-7a.U (Finding 2): `_dossiePromise`/`_dossiePromiseTicker`
+    // TAMBÉM precisam ser anulados aqui, não só o estado visível. Sem isso,
+    // uma decifra em voo no instante do lock segue "vigente" pelo critério de
+    // identidade de `carregarDossie()` (`this._dossiePromise === promessa`) —
+    // e o guard `if (!this.pin) return` dessa promise só olha o PIN no
+    // instante em que ela resolve, não a identidade da sessão. Se o unlock
+    // devolver o PIN antes da decifra atrasada terminar (janela estreita, mas
+    // real — PBKDF2 pode ser mais lento que a digitação, mas nunca mais
+    // rápido que ela indefinidamente), o guard passa e a promise pré-lock
+    // escreve o payload decifrado direto no `$data` já destravado (ou pior,
+    // ainda travado). Anular os dois aqui fecha essa janela pela raiz: a
+    // promise antiga falha o teste de identidade e nunca escreve; o próximo
+    // `carregarDossie()` (pós-unlock) não encontra handle "em voo" para
+    // compartilhar e refaz o fetch+decifra do zero, com `dossieCarregando`
+    // corretamente ligado durante a espera.
     _limparEstadoDossie() {
       this.dossieIndice = [];
       this.dossieAtual = null;
@@ -1385,6 +1526,214 @@ document.addEventListener("alpine:init", () => {
       this.dossieOrigem = "";
       this.dossieErro = "";
       this.dossieCarregando = false;
+      this._dossiePromise = null;
+      this._dossiePromiseTicker = null;
+    },
+
+    // 7a.U — choke point único de higiene de sessão. Os DOIS caminhos de lock
+    // (bloquear() manual e o handler do evento `storage`) chamam este método, e
+    // só ele: cada família de dado decifrado tem um limpador nomeado, e o
+    // agregador é o lugar onde a próxima família entra. Um campo novo que
+    // retenha payload sem passar por aqui derruba `lock-higiene.spec.ts`
+    // (invariante de snapshot virgem × pós-lock).
+    _limparEstadoSensivel() {
+      this._limparEstadoDossie();
+      this._limparEstadoRelatorio();
+      this._limparEstadoAporte();
+      this._descartarGraficos();
+      this._limparEstadoProventosDY();
+      this._limparEstadoAlocacao();
+      this._limparEstadoAppShell();
+    },
+
+    // CRB final 7a.U (Finding 1): estado de SELEÇÃO das telas #proventos e
+    // #s-dy — não é o payload em si (isso é `json`), mas aponta para "qual
+    // pedaço do payload está em foco" e por isso é LIMPO, não justificado na
+    // allowlist (é derivado do conteúdo, não preferência/infra/ponteiro de
+    // hash). `proventosMesSelecionado` é o índice do drilldown mensal
+    // (7a.E.18); `dySelecionado` é a categoria em foco no pódio de campeões
+    // de #s-dy (7a.S.7b). Os dois voltam ao literal `null` da declaração —
+    // `atualizarRota()`/`hidratarDY()` repopulam `dySelecionado` sozinhos se
+    // a sessão destravar de volta em `#/proventos/dy` (mesmo padrão do
+    // dossiê/Relatório); `proventosMesSelecionado` só repopula com um clique
+    // novo do Dr. Arthur, por design (não é deep-linkável).
+    //
+    // Review final pós-7a.U (Finding 3): `proventosToggle` é a mesma classe
+    // de decisão dos dois campos acima — seleção em memória de qual corte do
+    // payload está em foco (Origem × Mensal, 7a.E.18), não-persistida. Não
+    // era limpo nem justificado na ALLOWLIST: escapava do teste-invariante
+    // porque o roteiro de `lock-higiene.spec.ts` nunca aciona o toggle
+    // (`setProventosToggle`/`hidratarProventos` são os únicos escritores).
+    // Volta ao literal exato da declaração (`proventosToggle: "origem"`) —
+    // o mesmo valor que `hidratarProventos()` já usa ao (re)entrar na tela.
+    _limparEstadoProventosDY() {
+      this.proventosMesSelecionado = null;
+      this.dySelecionado = null;
+      this.proventosToggle = "origem";
+    },
+
+    // CRB final 7a.U (Finding 1): quais categorias o Dr. Arthur tem abertas
+    // em #alocação (7a.E.31) — mesma classe de decisão do limpador acima
+    // (derivado do payload, não preferência persistida). Volta ao objeto
+    // vazio literal da declaração, que já é o comportamento documentado da
+    // tela (todas as categorias nascem fechadas, sem hidratação especial).
+    //
+    // CRB final round (Finding B): a faixa de composição 100% (7a.S.8, mesma
+    // tela) guarda o nome da categoria tocada — mesma classe de `catAberta`
+    // (deriva do conteúdo do payload, não preferência/infra). Os três voltam
+    // ao literal exato da declaração. `_compoFlashTimer` NÃO é tocado aqui:
+    // é handle de timer (infra, mesma classe de `_heroEyebrowSwapTimeout`),
+    // não payload — se um timer pendente de um tap pré-lock disparar depois,
+    // o callback só reescreve estes três campos com o mesmo valor que já
+    // restauramos (inofensivo).
+    _limparEstadoAlocacao() {
+      this.catAberta = {};
+      this.compoSegmentoAtivo = null;
+      this.compoCardFlash = null;
+      this.compoAnuncio = "";
+    },
+
+    // 7a.Q.3: o artefato `relatorio_mensal_v1` do mês aberto (prosa + radar +
+    // prestação de contas, com valores da carteira). `relRead` NÃO é limpo —
+    // meses lidos são metadado de leitura, e o dot de "não lido" sobrevive ao
+    // lock por design (7a.S.9).
+    //
+    // Review final pós-7a.U (Finding 2): mesmo racional de `_limparEstadoDossie()`
+    // acima — `_relMesPromise`/`_relMesPromiseAlvo` precisam ser anulados
+    // aqui, não só `relMes`/`relIndice`. Sem isso, uma decifra do mês em voo
+    // no instante do lock segue "vigente" pelo critério de identidade de
+    // `carregarRelatorioMes()`, e o guard `if (!this.pin) return` dessa
+    // promise só olha o PIN no instante da resolução — se o unlock devolver o
+    // PIN antes da decifra atrasada terminar, o payload pré-lock atravessa o
+    // lock. Anular os dois aqui faz a promise antiga falhar o teste de
+    // identidade (`this._relMesPromise !== promessa`) e força o próximo
+    // `carregarRelatorioMes()` a refazer o fetch+decifra do zero.
+    _limparEstadoRelatorio() {
+      this.relIndice = null;
+      this.relMes = null;
+      this.relMesAtual = "";
+      this.relRotaMes = null;
+      this.relErro = "";
+      this.relCarregando = false;
+      this.relSeletorAberto = false;
+      this._relMesPromise = null;
+      this._relMesPromiseAlvo = null;
+    },
+
+    // 7a.H.1/7a.S.10: a simulação (R$ por categoria, por ticker, cotas).
+    // `aporteScrubMax` fica: é configuração da régua do scrubber, não dado da
+    // carteira.
+    //
+    // CRB final round (Finding D): o localStorage `aporte.valor`/`aporte.ts`
+    // (TTL 24h, ver `hidratarAportar()`) NÃO é tocado aqui, de propósito —
+    // é entrada do usuário persistida (mesma classe de `tema`/`moeda`), não
+    // payload decifrado. `submitPin()` chama `atualizarRota()` no unlock, que
+    // re-hidrata #aportar quando essa é a rota corrente e repovoa o plano a
+    // partir do valor persistido. Comportamento correto: o que o lock
+    // descarta é o PLANO derivado (calculado sobre `json`, que É limpo); o
+    // valor digitado volta como preferência do usuário, não como dado da
+    // carteira retido em memória.
+    _limparEstadoAporte() {
+      this.aporteValor = "";
+      this.aporteBanner = null;
+      this.aporteCategoriasRecebedoras = [];
+      this.aporteCategoriasNaoRecebedoras = [];
+      this.aportePausados = [];
+      this.aporteTickersSemPosicao = [];
+      if (this._aporteRevelados) this._aporteRevelados.clear();
+      this._aportePresetPendente = null;
+    },
+
+    // Par dispose()/disconnect() do gráfico de #proventos. Chamado tanto do
+    // cleanup no topo de renderProventosGrafico() quanto de
+    // _descartarGraficos() — um só idioma de descarte, um só lugar por par:
+    // uma mudança futura no render (ex. novo listener, trocar o container)
+    // não fica esquecida no caminho do lock, que é o que importa para
+    // segurança (CRB Task 5 Finding 2/7a.U).
+    _descartarProv() {
+      if (this.echartsProv) { try { this.echartsProv.dispose(); } catch (_) {} this.echartsProv = null; }
+      if (this.resizeObserverProv) { try { this.resizeObserverProv.disconnect(); } catch (_) {} this.resizeObserverProv = null; }
+    },
+    // Idem para o gráfico de #patrimonio.
+    _descartarPatr() {
+      if (this.echartsPatr) { try { this.echartsPatr.dispose(); } catch (_) {} this.echartsPatr = null; }
+      if (this.resizeObserverPatr) { try { this.resizeObserverPatr.disconnect(); } catch (_) {} this.resizeObserverPatr = null; }
+    },
+    // Idem para o gráfico de #rentabilidade — o único dos 3 que registra um
+    // listener custom (chart.on("datazoom", aoMoverZoom), dentro de
+    // hidratarRentabilidade()).
+    // dispose() derruba a instância inteira e leva o listener junto, então
+    // nenhum chart.off("datazoom") explícito é necessário aqui; mas se esse
+    // padrão mudar um dia (ex. listener vivendo num objeto externo ao chart,
+    // sobrevivendo ao dispose), este é o lugar a atualizar — realocado do
+    // helper de #proventos, que nunca teve esse listener (CRB final 7a.U
+    // Finding 6).
+    _descartarRent() {
+      if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
+      if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
+    },
+
+    // Agrega o descarte dos 3 gráficos (cada um via seu próprio helper — o
+    // agregado continua POR-GRÁFICO; nenhum helper chama este método de
+    // volta, senão um render sozinho descartaria os outros dois indevidamente)
+    // + os derivados do render que carregam número da carteira: `_rentCtx`
+    // (série TWR + growth), `proventosTotal*` (soma em R$ das barras
+    // exibidas) e `periodoCustom` (TWR/XIRR da janela do dataZoom).
+    // `rentabilidadeSubtitulo` acompanha por ser texto derivado da mesma
+    // série. O estado derivado fica só aqui — os helpers não o tocam, os
+    // renders o repovoam em seguida.
+    _descartarGraficos() {
+      this._descartarProv();
+      this._descartarPatr();
+      this._descartarRent();
+      this._rentCtx = null;
+      this.proventosTotalLabel = "";
+      this.proventosTotalValor = 0;
+      this.rentabilidadeSubtitulo = "";
+      this.periodoCustom = periodoCustomVazio(); // CRB final round Finding E
+    },
+
+    // Fechamento de escopo 7a.U: `escopoAtivo` (seletor Total/Brasil/EUA,
+    // 7a.E.13) e `toast` (banner de notificação) são estado de APP-SHELL —
+    // não pertencem a nenhuma família de tela existente, e por isso ficavam
+    // no LIMBO: nem limpos pelo choke point, nem justificados na ALLOWLIST.
+    // `escopoAtivo` cai não porque o conteúdo seja sensível (vocabulário
+    // fixo de 3 strings, não deriva do payload) — cai porque limbo é
+    // exatamente a condição que produz o PRÓXIMO campo esquecido; a decisão
+    // é registrar cada campo como limpo ou justificado, nunca como "nenhum
+    // dos dois". `toast` cai porque `mostrarToast()` embute
+    // `formatDataHora(atualizado_em)` do payload na mensagem
+    // (`avaliarAtualizacao()`) — depois que o toast se esconde, só
+    // `visible` vira `false`; `mensagem` persiste com o texto derivado do
+    // payload.
+    //
+    // Review final pós-7a.U (Finding 4): o nome anterior deste método
+    // (`_limparEstadoEscopoEToast`) enumerava os dois campos de HOJE em vez
+    // de nomear a família — e este método é justamente o ponto de entrada
+    // para o PRÓXIMO campo de app-shell que aparecer (mesmo racional do
+    // parágrafo acima, aplicado ao próprio nome). Um nome-inventário ou
+    // envelhece mentindo (campo novo entra e o nome já não cobre) ou força
+    // um rename a cada adição — `_limparEstadoAppShell` nomeia o CRITÉRIO
+    // ("estado de app-shell", já usado acima), não o inventário.
+    //
+    // Review final pós-7a.U (Finding 5): `toast.timer` é handle de
+    // `setTimeout` (mesma classe de `_escListenerProventos`/
+    // `_compoFlashTimer`) e é cancelado ANTES de reatribuir `this.toast` —
+    // mas NÃO pelo motivo que uma versão anterior deste comentário afirmava
+    // ("o callback em voo escreveria em `toast`, que já é outro objeto,
+    // deixando um timer órfão"): o callback de `mostrarToast()` é
+    // `() => { this.toast.visible = false; }`, que resolve `this.toast`
+    // dinamicamente no INSTANTE do disparo (não por closure sobre o objeto
+    // antigo) — sem o clearTimeout, ele escreveria no objeto NOVO (já
+    // `visible: false`), o que é inofensivo. O motivo real é mais forte: um
+    // timer sobrevivente do toast pré-lock dispararia MAIS TARDE, já numa
+    // sessão destravada, e esconderia PREMATURAMENTE um toast LEGÍTIMO
+    // mostrado depois do unlock (ex.: "Carteira atualizada") antes da
+    // duração normal de 3s expirar.
+    _limparEstadoAppShell() {
+      this.escopoAtivo = "Total";
+      if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
+      this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
     },
 
     voltarDoDossie() {
@@ -1765,8 +2114,7 @@ document.addEventListener("alpine:init", () => {
       if (!container) return;
 
       // Cleanup
-      if (this.echartsProv) { try { this.echartsProv.dispose(); } catch (_) {} this.echartsProv = null; }
-      if (this.resizeObserverProv) { try { this.resizeObserverProv.disconnect(); } catch (_) {} this.resizeObserverProv = null; }
+      this._descartarProv();
       container.innerHTML = "";
 
       let labels, valores;
@@ -2074,27 +2422,61 @@ document.addEventListener("alpine:init", () => {
       await this.carregarRelatorioMes(alvo);
     },
 
+    // 7a.U Task 6 (CRB round 2): promise em voo POR CHAVE (mês) — mesmo
+    // desenho de `carregarDossie()` acima, inclusive o guard de requisição
+    // SUPERADA (CRB final round Finding A): chave diferente não compartilha,
+    // mas só a requisição AINDA VIGENTE (`this._relMesPromise === promessa`)
+    // pode escrever `relMes`/`relMesAtual`/`relErro` ou zerar o spinner.
     async carregarRelatorioMes(mes) {
       if (this.relMesAtual === mes && this.relMes) return; // já carregado
+      if (this._relMesPromise && this._relMesPromiseAlvo === mes) {
+        return this._relMesPromise; // mesma chave em voo — compartilha
+      }
       const entrada = (this.relIndice && this.relIndice.meses || []).find((m) => m.mes === mes);
       const arquivo = entrada ? entrada.arquivo : `relatorio_${mes}.json.enc`;
       this.relCarregando = true;
       this.relErro = "";
-      try {
-        const resp = await fetch("./" + arquivo, { cache: "no-cache" });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const art = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
-        if (!art || art.schema !== "relatorio_mensal_v1") throw new Error("schema inesperado");
-        this.relMes = art;
-        this.relMesAtual = mes;
-        this._marcarMesLido(mes);
-      } catch (err) {
-        console.warn("relatório do mês indisponível", err);
-        this.relMes = null;
-        this.relErro = "Não foi possível abrir o relatório deste mês.";
-      } finally {
-        this.relCarregando = false;
-      }
+      const promessa = (async () => {
+        try {
+          const resp = await fetch("./" + arquivo, { cache: "no-cache" });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const art = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          // Race guard: bloquear() (ou o handler storage) pode ter rodado
+          // durante o await da decifra. Se o pin sumiu do $data, respeitar o
+          // lock e não popular o payload de volta.
+          if (!this.pin) return;
+          // Race guard (CRB final round Finding A): idem carregarDossie() —
+          // uma chamada mais nova para OUTRO mês pode ter sobrescrito
+          // `_relMesPromise` enquanto esta decifrava; se já não é mais a
+          // vigente, esta resolução está SUPERADA e não escreve estado.
+          if (this._relMesPromise !== promessa) return;
+          if (!art || art.schema !== "relatorio_mensal_v1") throw new Error("schema inesperado");
+          this.relMes = art;
+          this.relMesAtual = mes;
+          this._marcarMesLido(mes);
+        } catch (err) {
+          console.warn("relatório do mês indisponível", err);
+          // Race guard (CRB final 7a.U Finding 3): idem carregarDossie() —
+          // `relErro` fantasma pós-unlock é o mesmo risco de flake.
+          if (!this.pin) return;
+          // Idem guard de superada — não sobrescreve o resultado bom da
+          // requisição vigente com o erro de uma já superada.
+          if (this._relMesPromise !== promessa) return;
+          this.relMes = null;
+          this.relErro = "Não foi possível abrir o relatório deste mês.";
+        } finally {
+          // Só resolve o estado desta requisição (inclusive o spinner) se
+          // AINDA for a vigente — mesma lógica de `carregarDossie()`.
+          if (this._relMesPromise === promessa) {
+            this.relCarregando = false;
+            this._relMesPromise = null;
+            this._relMesPromiseAlvo = null;
+          }
+        }
+      })();
+      this._relMesPromise = promessa;
+      this._relMesPromiseAlvo = mes;
+      return promessa;
     },
 
     selecionarMesRelatorio(mes) {
@@ -2201,8 +2583,7 @@ document.addEventListener("alpine:init", () => {
       if (!container) return;
 
       // Cleanup
-      if (this.echartsPatr) { try { this.echartsPatr.dispose(); } catch (_) {} this.echartsPatr = null; }
-      if (this.resizeObserverPatr) { try { this.resizeObserverPatr.disconnect(); } catch (_) {} this.resizeObserverPatr = null; }
+      this._descartarPatr();
       container.innerHTML = "";
 
       if (!ev.length) {
@@ -2328,8 +2709,7 @@ document.addEventListener("alpine:init", () => {
       serie = firstStable === -1 ? [] : serie.slice(firstStable);
 
       // Cleanup
-      if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
-      if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
+      this._descartarRent();
       target.innerHTML = "";
       if (serie.length === 0) {
         target.innerHTML = '<p class="placeholder">Dados insuficientes. Aguarde próximo aporte.</p>';
@@ -2652,14 +3032,9 @@ document.addEventListener("alpine:init", () => {
       // Reseta estado se contexto inválido (rota mudou, chart disposed).
       const ctx = this._rentCtx;
       if (!ctx || !ctx.histPeriodo || ctx.histPeriodo.length < 2) {
-        this.periodoCustom = {
-          iniIdx: 0,
-          fimIdx: null,
-          twr: null,
-          xirr: null,
-          benchExtras: [],
-          titulo: "Origem",
-        };
+        // CRB final round Finding E: 3ª cópia do mesmo literal-default
+        // (idêntico ao da declaração/`_descartarGraficos()`) — via factory.
+        this.periodoCustom = periodoCustomVazio();
         return;
       }
       const hist = ctx.histPeriodo;
@@ -3221,7 +3596,7 @@ document.addEventListener("alpine:init", () => {
       this.pin = "";
       this.pinError = "";
       this.pinDissolvendo = false;
-      this._limparEstadoDossie(); // CRB 7a.R.3.b: não reter tese decifrada pós-lock
+      this._limparEstadoSensivel(); // 7a.U: nenhum payload decifrado sobrevive ao lock
     },
 
     get escoposRentabilidade12m() {
@@ -3309,6 +3684,43 @@ document.addEventListener("alpine:init", () => {
           await new Promise((resolve) => setTimeout(resolve, ABERTURA_MOTION.dissolveRemoveMs));
           this.fase = "raiox";
         }
+        // 7a.U: o lock zera os campos que são CACHE da hash (dossieTicker,
+        // relRotaMes) e não toca a URL — sem re-derivar aqui, um deep-link
+        // destravado renderizaria vazio (dossiê, que sai na guarda
+        // `!dossieTicker`) ou no mês errado (Relatório, que cai no fallback do
+        // último mês). atualizarRota() é a função que já faz esse parsing e já
+        // roda no init() do boot — reusá-la evita duplicar os padrões de hash.
+        // (`tickerAtual` NÃO entra nessa lista — nada zera esse campo, nem
+        // mesmo o lock, CRB final 7a.U Finding 2; ele fica na ALLOWLIST do
+        // teste-invariante como ponteiro de hash. atualizarRota() segue
+        // necessária aqui pelos outros dois: sem ela, um `#ativo/<TICKER>`
+        // travado voltaria com `rota` errada mesmo com tickerAtual intacto.)
+        //
+        // Efeito colateral reconhecido (CRB final 7a.U Finding 5): o handler
+        // `storage` do logout multi-aba (init(), acima) zera `rota` mas nunca
+        // toca `location.hash`. Antes desta task, a aba derrubada por outra
+        // aba reentrava o PIN e pousava na home — nada re-derivava `rota` a
+        // partir do hash ainda presente, já que não havia hashchange. Agora
+        // ela também volta pelo deep-link, porque o MESMO submitPin() serve
+        // os dois caminhos até fase="raiox": corrigir o deep-link do lock
+        // manual corrige (e muda) o do logout multi-aba junto. Os dois
+        // handlers de lock seguem intocados, e a divergência que a fase
+        // promete preservar (bloquear() preserva `rota`; `storage` zera)
+        // continua valendo — só o efeito observável PÓS-unlock mudou.
+        //
+        // As hidratações que ela agenda via setTimeout(…, 0) se somam às
+        // chamadas explícitas abaixo. A duplicação é benigna: os 4 loaders
+        // que decifram payload (carregarIndiceRelatorios/carregarIndiceDossies/
+        // carregarDossie/carregarRelatorioMes) compartilham a MESMA promise em
+        // voo entre chamadas concorrentes — os dois últimos por CHAVE
+        // (ticker/mês), os dois primeiros sem chave (índice único). Nenhuma
+        // decifra PBKDF2 extra acontece: quem chega 2º nesta janela recebe o
+        // handle do 1º em vez de re-fazer o fetch+decifra (CRB round 2,
+        // Finding 2 — a versão anterior deste comentário afirmava isso citando
+        // só o guard de entrada sequencial de carregarDossie/carregarRelatorioMes,
+        // que protege reentrada em SÉRIE, não sobreposição CONCORRENTE; era falsa
+        // até esses dois loaders ganharem promise em voo nesta rodada).
+        this.atualizarRota();
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
         // 7a.R.3.b: índice de dossiês — não-bloqueante, mesmo racional do
