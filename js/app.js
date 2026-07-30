@@ -1558,6 +1558,74 @@ document.addEventListener("alpine:init", () => {
     // agregador é o lugar onde a próxima família entra. Um campo novo que
     // retenha payload sem passar por aqui derruba `lock-higiene.spec.ts`
     // (invariante de snapshot virgem × pós-lock).
+    // ── 7a.W.3.a — envelope local ────────────────────────────────────────────
+    // `localStorage.envelope` = o SEGREDO cifrado sob o PIN LOCAL, usando as
+    // mesmas primitivas do payload (nenhum formato novo, nenhum código novo de
+    // cripto). Desbloqueio = desenvelopa com o PIN, decifra o payload com o
+    // segredo.
+    //
+    // O que isto NÃO faz, e precisa estar escrito: não melhora nada contra
+    // roubo do aparelho. O `localStorage` guarda o PIN local em claro (é o que
+    // faz o auto-resume de 7 dias funcionar sem pedir nada) e o envelope mora
+    // ao lado. Quem tiver o celular destravado lê os dois e chega no segredo.
+    // Isso é aceitável — o aparelho é o perímetro de confiança — mas é decisão
+    // consciente, não problema resolvido. O propósito do envelope é impedir
+    // que um segredo de alta entropia seja a coisa digitada no dia a dia
+    // (spec §2.3).
+    //
+    // Custo: DUAS derivações PBKDF2 por unlock em vez de uma (~2× o anterior).
+    // Regra de decisão da spec §7.2: se a medição em aparelho real mostrar
+    // unlock acima de 3 s, baixar as iterações DO ENVELOPE (não as do payload)
+    // para 100k. As duas saídas já estão autorizadas; a medição decide.
+
+    _temEnvelope() {
+      const env = localStorage.getItem("envelope");
+      return typeof env === "string" && env.length > 0;
+    },
+
+    async _criarEnvelope(segredo, pinLocal) {
+      const env = await window.cifrar(segredo, pinLocal);
+      localStorage.setItem("envelope", env);
+    },
+
+    // Devolve o segredo, ou null se o PIN não abre / o envelope está corrompido.
+    // NÃO apaga o envelope em caso de falha: PIN errado é erro de digitação, e
+    // apagar despareria o aparelho a cada dedo trocado.
+    async _abrirEnvelope(pinLocal) {
+      const env = localStorage.getItem("envelope");
+      if (!env) return null;
+      try {
+        return await window.decifrar(env, pinLocal);
+      } catch (err) {
+        // InvalidTag (PIN errado) e base64 inválido (envelope corrompido) caem
+        // no mesmo lugar de propósito: do ponto de vista do usuário são o
+        // mesmo evento ("não abriu"), e distinguir só daria ao atacante um
+        // oráculo de "o envelope existe e é válido".
+        console.warn("envelope não abriu", err);
+        return null;
+      }
+    },
+
+    // Migração silenciosa dos aparelhos que já têm sessão (spec §7.1): se
+    // existe `pin` e não existe envelope, cria o envelope usando o valor
+    // guardado como segredo E como PIN local. Nada é pedido, nada quebra, e o
+    // aparelho já entra no modelo novo enquanto o payload ainda está na chave
+    // velha.
+    //
+    // Idempotente por construção (o guard `_temEnvelope()`), o que importa
+    // porque `init()` roda em toda carga de página.
+    async _migrarSePreciso() {
+      const pinGuardado = localStorage.getItem("pin");
+      if (!pinGuardado || this._temEnvelope()) return;
+      try {
+        await this._criarEnvelope(pinGuardado, pinGuardado);
+      } catch (err) {
+        // Falha na migração não pode trancar ninguém: o caminho de sempre
+        // (segredo = valor digitado) continua funcionando sem envelope.
+        console.warn("migração do envelope falhou", err);
+      }
+    },
+
     // 7a.W.3.a — o segredo DESENVELOPADO é estado sensível e sai no lock,
     // como o `pin` já saía. Nomeado (e não inline no `bloquear()`) para que os
     // DOIS caminhos de lock o percam: o manual e o handler do evento
@@ -3485,12 +3553,22 @@ document.addEventListener("alpine:init", () => {
         this.limparSessao();
         return;
       }
+      // 7a.W.3.a: migra ANTES de usar o envelope, e aqui (não no `init()`)
+      // porque este é o único caminho em que a derivação PBKDF2 já é
+      // obrigatória — no `init()` ela custaria 600k a mais no boot de todo
+      // aparelho, inclusive os que nem têm sessão.
+      await this._migrarSePreciso();
+      // O segredo vem do envelope. O fallback para `pin` cobre (a) envelope
+      // corrompido e (b) a janela entre o deploy e a primeira migração — nos
+      // dois casos o comportamento é o de antes da fase, que é exatamente a
+      // degradação desejada.
+      const segredo = (await this._abrirEnvelope(pin)) || pin;
       this.carregando = true;
       try {
         const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payloadB64 = (await response.text()).trim();
-        const plaintext = await window.decifrar(payloadB64, pin);
+        const plaintext = await window.decifrar(payloadB64, segredo);
         // Race guard: outra aba pode ter chamado bloquear() durante o await.
         // Se o pin sumiu do localStorage, respeitar o logout e não promover a fase.
         if (localStorage.getItem("pin") === null) {
@@ -3498,9 +3576,7 @@ document.addEventListener("alpine:init", () => {
         }
         this.json = JSON.parse(plaintext);
         this.pin = pin;
-        // 7a.W.3.a Task 8 (PROVISÓRIO) — a Task 9 troca isto pelo
-        // desenvelopamento do `localStorage.envelope` com o PIN local.
-        this.segredo = pin;
+        this.segredo = segredo;
         this.fase = "raiox";
         // Janela 7d deslizante — refresca o timestamp assim que o auto-resume
         // valida a sessão, ANTES do carregamento (lento) do índice de
@@ -3702,13 +3778,14 @@ document.addEventListener("alpine:init", () => {
         this.pinError = "PIN deve ter 6 dígitos";
         return;
       }
-      // 7a.W.3.a Task 8 (PROVISÓRIO): o segredo ainda É o PIN digitado. A
-      // Task 9 troca isto por desenvelopar o `localStorage.envelope` com o PIN
-      // local. Fica aqui, logo após a validação de formato, que é exatamente
-      // onde o desenvelopamento vai entrar.
-      this.segredo = this.pin;
       this.pinError = "";
       this.carregando = true;
+      // 7a.W.3.a: o valor digitado é o PIN LOCAL. O segredo vem do envelope;
+      // sem envelope (aparelho virgem), o digitado é os dois — que é o
+      // comportamento pré-fase e o que a 7a.W.3.b substitui pela tela de
+      // enrollment.
+      const pinLocal = this.pin;
+      const segredo = (await this._abrirEnvelope(pinLocal)) || pinLocal;
       let payloadB64;
       try {
         const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
@@ -3721,12 +3798,20 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       try {
-        const plaintext = await window.decifrar(payloadB64, this.segredo);
+        const plaintext = await window.decifrar(payloadB64, segredo);
         this.json = JSON.parse(plaintext);
+        this.segredo = segredo;
         this.avaliarAtualizacao(this.json.atualizado_em);
-        localStorage.setItem("pin", this.pin);
+        localStorage.setItem("pin", pinLocal);
         localStorage.setItem("pinTimestamp", String(Date.now()));
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        // Só cria o envelope DEPOIS que a decifra do payload provou que o
+        // segredo está certo. Criar antes gravaria um envelope de segredo
+        // errado, e o aparelho passaria a "abrir" para um segredo que não
+        // decifra nada. Por isso está DENTRO do try e DEPOIS do JSON.parse.
+        if (!this._temEnvelope()) {
+          await this._criarEnvelope(segredo, pinLocal);
+        }
         this.resetarFalhas();
         // 7a.S.11: dissolve da PIN screen antes de trocar de fase (a cena
         // única "A Abertura"). Reduced-motion preserva o comportamento

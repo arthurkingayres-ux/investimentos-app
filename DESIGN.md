@@ -1167,3 +1167,43 @@ Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + ar
 - **Sub-linha do cabeçalho não repete o ticker.** Em 29 dos 39 dossiês reais `nome` **é** o próprio ticker (o bootstrap não tinha razão social a copiar); nesses casos `dossieSubtitulo` deixa só a categoria, em vez de estampar "KNRI11 · FII" logo sob o "KNRI11" em corpo grande.
 - **Estados com classes próprias, não as do Relatório.** `.dossie-loading`/`.dossie-skeleton`/`.dossie-erro`/`.dossie-vazio` espelham `.rel-*` por **seletor agrupado** no CSS (fonte única de estilo), mas nunca reusam a classe no DOM: um segundo `.rel-erro`/`.rel-vazio` faz os locators sem escopo de `relatorio-mensal.spec.ts` resolverem a 2 elementos (strict mode). Regressão real, pega e travada por teste.
 - **Índice fora do caminho crítico do boot.** `carregarIndiceDossies()` é disparado **sem `await`** no auto-resume e no `submitPin`: nada da primeira pintura depende dele (as duas superfícies que o consomem são reativas e acendem quando ele chega), e cada decifra custa uma derivação PBKDF2 de **600k iterações** — aguardá-lo empurrava a hidratação dos gráficos o bastante para quebrar o teste de tooltip do `#patrimonio`. Chamadas concorrentes compartilham a promise em voo (`_dossieIndicePromise`) para não pagar a derivação duas vezes.
+
+## Frase de acesso — envelope local (Fase 7a.W.3.a)
+
+O app trata o segredo que decifra os payloads como **string opaca**. Isso é o que
+permitiu trocar o PIN de 6 dígitos por uma frase de 6 palavras sem dois códigos, dois
+formatos nem duas branches: `encriptar_json(json_str, pin: str)` sempre aceitou
+qualquer string, dos dois lados.
+
+- `segredo` (em memória, nunca no `localStorage`) = o que decifra os payloads.
+- `pin` (no `localStorage`, em claro) = os 6 dígitos digitados **neste aparelho**, que
+  só abrem o envelope.
+- `localStorage.envelope` = o segredo cifrado sob o PIN local, mesmas primitivas do
+  payload (PBKDF2-600k + AES-256-GCM).
+
+**O envelope sobrevive ao lock, e isso é desenho.** `limparSessao()` remove `pin`,
+`pinTimestamp` e `atualizadoEm`; o envelope fica. É ciphertext em repouso, inútil sem
+o PIN, e sua persistência é o que separa "trancar a sessão" (pede o PIN de novo) de
+"desparear o aparelho" (pede a frase de novo). Travado por teste em
+`lock-higiene.spec.ts`.
+
+**O que o envelope NÃO faz:** não melhora nada contra roubo do aparelho. O PIN local
+fica em claro no `localStorage` (é o que faz o auto-resume de 7 dias funcionar sem
+pedir nada) e o envelope mora ao lado. O aparelho é o **perímetro de confiança**, por
+decisão consciente.
+
+### Custo do unlock — MEDIDO (30/07/2026), regra de decisão da spec §7.2
+
+Duas derivações PBKDF2 por unlock em vez de uma. Medido com **CPU 4× throttle**
+(aproximação de celular; não é o aparelho real do Dr. Arthur):
+
+| Cenário | Tempo |
+|---|---|
+| Unlock em aparelho virgem (decifra payload + cria envelope) | **1379 ms** |
+| Unlock com envelope (abre envelope + decifra payload) — o caso do dia a dia | **1976 ms** |
+
+A régua da spec era: `< 3 s` ⇒ manter 600k no envelope; `≥ 3 s` ⇒ baixar **as do
+envelope** (nunca as do payload) para 100k. **1976 ms < 3 s ⇒ mantido em 600k**, com
+uma constante só e uma primitiva só. Se um aparelho real medir acima de 3 s, a saída
+autorizada é `PBKDF2_ITERATIONS_ENVELOPE` separada em `crypto.js` — nunca um ajuste
+global, que afetaria o payload publicado.
