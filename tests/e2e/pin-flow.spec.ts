@@ -15,7 +15,15 @@ async function mockPortfolio(page: Page) {
 
 test.describe("PIN flow", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+    // 7a.W.3.b: storage limpo passou a levar ao ENROLLMENT (parear o
+    // aparelho), não à tela de PIN. Estes testes medem o desbloqueio do dia a
+    // dia, então semeiam um aparelho já pareado: `pin` sem `pinTimestamp` faz
+    // a migração criar o envelope no boot e o auto-resume sair cedo, deixando
+    // a tela de PIN em cena, que é exatamente o cenário sob teste.
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
     await mockPortfolio(page);
   });
 

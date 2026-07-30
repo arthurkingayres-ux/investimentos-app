@@ -398,6 +398,31 @@ document.addEventListener("alpine:init", () => {
     segredo: "",
     pin: "",
     pinError: "",
+
+    // 7a.W.3.b — três fases, não duas. `frase` é a cerimônia de PAREAMENTO do
+    // aparelho (uma vez por aparelho); `pin` é o desbloqueio do dia a dia.
+    //
+    //   sem `pin` e sem envelope        → "frase" (virgem)
+    //   com envelope                    → "pin"
+    //   com `pin` e sem envelope        → migra em silêncio → "pin"
+    //   envelope abre mas payload não   → "frase" com voz de republicação
+    //
+    // O último caso é o único que NÃO é decidido no boot: só se descobre
+    // tentando decifrar o payload de verdade.
+    //
+    // Governa a voz da tela de enrollment. "" enquanto ela não está em cena.
+    fraseMotivo: "",
+    frase: "",
+    fraseErro: "",
+    // Duas etapas: as palavras e, só em aparelho virgem, a escolha do PIN
+    // local. Aparelho que JÁ tem PIN guardado reusa o existente e digita só as
+    // palavras (refinamento sobre o brief, spec §7.4).
+    fraseEtapa: "frase",
+    frasePinNovo: "",
+
+    get fraseTokens() {
+      return window.canonicalizarFrase(this.frase).split(" ").filter(Boolean).length;
+    },
     carregando: false,
     json: null,
     agora: Date.now(),
@@ -534,6 +559,19 @@ document.addEventListener("alpine:init", () => {
           this.updateTabIndicator();
         });
       });
+      // 7a.W.3.b: decide a fase inicial DEPOIS da migração e ANTES do
+      // auto-resume. A migração é idempotente e barata quando não há o que
+      // migrar (guard `_temEnvelope()`), então chamá-la aqui não custa
+      // derivação nenhuma no aparelho virgem — que é justamente o caso que
+      // desvia para o enrollment.
+      await this._migrarSePreciso();
+      if (!localStorage.getItem("pin") && !this._temEnvelope()) {
+        // Aparelho virgem: nem PIN guardado, nem envelope. Nada a desbloquear
+        // — o que falta é PAREAR o aparelho.
+        this.fase = "frase";
+        this.fraseMotivo = "virgem";
+        return;   // sem auto-resume: não há o que retomar
+      }
       await this.tentarAutoResume();
     },
 
@@ -3564,10 +3602,23 @@ document.addEventListener("alpine:init", () => {
       // degradação desejada.
       const segredo = (await this._abrirEnvelope(pin)) || pin;
       this.carregando = true;
+      // 7a.W.3.b: rede e decifra em `try` SEPARADOS. Antes os dois caíam no
+      // mesmo catch, e o estado novo ("a carteira foi republicada") precisa
+      // distingui-los: só é honesto pedir a frase de novo quando o payload
+      // chegou EM MÃOS e não abriu.
+      let payloadB64;
       try {
         const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const payloadB64 = (await response.text()).trim();
+        payloadB64 = (await response.text()).trim();
+      } catch (err) {
+        // Rede. NÃO é motivo para desparear o aparelho nem para pedir a frase:
+        // o segredo pode estar perfeito e o metrô estar sem sinal.
+        console.warn("auto-resume: fetch falhou", err);
+        this.carregando = false;
+        return;
+      }
+      try {
         const plaintext = await window.decifrar(payloadB64, segredo);
         // Race guard: outra aba pode ter chamado bloquear() durante o await.
         // Se o pin sumiu do localStorage, respeitar o logout e não promover a fase.
@@ -3613,8 +3664,17 @@ document.addEventListener("alpine:init", () => {
         // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
         if (this.rota === "dy") this.hidratarDY();
       } catch (err) {
-        console.warn("auto-resume falhou, limpando sessão", err);
+        // 7a.W.3.b: chegamos aqui com o payload EM MÃOS e ele não abriu com o
+        // segredo que este aparelho guarda. Isso não é "PIN errado" (o PIN
+        // abriu o envelope) — é a carteira ter sido republicada com uma frase
+        // nova. A tela tem voz própria e não acusa o PIN (spec §7.4).
+        console.warn("auto-resume: payload não abriu com o segredo guardado", err);
         this.limparSessao();
+        this.fase = "frase";
+        this.fraseMotivo = "republicado";
+        // O envelope velho fica: ele será SOBRESCRITO quando a frase nova for
+        // cadastrada. Apagar aqui não adiantaria nada e criaria um estado
+        // intermediário sem envelope.
       } finally {
         this.carregando = false;
       }

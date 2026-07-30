@@ -708,6 +708,10 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await mockTudo(abaB);
 
     // A autentica pelo PIN (semeia o localStorage compartilhado do origin).
+    // 7a.W.3.b: sem o seed abaixo, storage limpo cairia no ENROLLMENT e não
+    // haveria `input.pin-input`. O teste mede o logout multi-aba, não o
+    // pareamento, então o aparelho entra já pareado.
+    await abaA.addInitScript(() => localStorage.setItem("pin", "123456"));
     await abaA.goto("/");
     await abaA.locator("input.pin-input").fill("123456");
     await abaA.locator("button.pin-submit").click();
@@ -1011,8 +1015,12 @@ test.describe("7a.U — higiene de sessão no lock", () => {
 
   test("invariante: nenhum campo do $data retém dado decifrado pós-lock", async ({ page }) => {
     await mockTudo(page);
-    // SEM pin no localStorage: o snapshot virgem precisa da tela de PIN antes
-    // de qualquer decifra.
+    // 7a.W.3.b: storage limpo agora leva ao enrollment. O snapshot VIRGEM
+    // continua tendo de ser tirado ANTES de qualquer decifra de payload —
+    // semear `pin` sem `pinTimestamp` dá exatamente isso: a migração cifra o
+    // envelope (não decifra nada) e o auto-resume sai cedo por falta de
+    // timestamp, deixando a tela de PIN em cena, sem `json` no $data.
+    await page.addInitScript(() => localStorage.setItem("pin", "123456"));
     await page.goto("/");
     await expect(page.locator(".pin-screen")).toBeVisible({ timeout: 10_000 });
     const virgem = await assinatura(page);
