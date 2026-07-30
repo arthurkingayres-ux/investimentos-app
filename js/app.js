@@ -1477,6 +1477,14 @@ document.addEventListener("alpine:init", () => {
       if (this.rota !== "dossie") return;
       if (!this.pin) return; // pré-auth: re-chamado no boot (submitPin/auto-resume)
       if (!this.dossieIndice.length) await this.carregarIndiceDossies();
+      // 7a.V (Item E): mesmo guard de `hidratarRelatorio()` — re-checa o pin no
+      // ponto onde a função retoma o controle. Hoje o furo é mascarado duas
+      // vezes (o choke point zera `dossieTicker` e o índice vazio manda
+      // `carregarDossie` pro ramo sem fetch), mas o mascaramento é incidental:
+      // basta reclassificar `dossieTicker` como ponteiro-de-hash sobrevivente
+      // (o argumento que a ALLOWLIST já aceita para `tickerAtual`) para o
+      // trabalho sob lock voltar a acontecer.
+      if (!this.pin) return;
       if (!this.dossieTicker) return;
       await this.carregarDossie(this.dossieTicker);
     },
@@ -2417,6 +2425,13 @@ document.addEventListener("alpine:init", () => {
       if (this.rota !== "relatorio") return;
       if (!this.json || !this.pin) return; // pré-auth: re-chamado no boot
       if (!this.relIndice) await this.carregarIndiceRelatorios();
+      // 7a.V (Item E): re-checa o pin no ponto onde a função RETOMA o controle
+      // depois de ceder o thread. O guard não pertence a `carregarRelatorioMes`
+      // — ela já protege o próprio ciclo de vida (7a.U) e não pode saber que
+      // não deveria ter sido CHAMADA. Sem esta linha, um lock durante o await
+      // acima deixava a continuação disparar fetch + decifra PBKDF2 com pin
+      // vazio numa sessão travada, e o erro emergia depois do unlock.
+      if (!this.pin) return;
       const alvo = this.relRotaMes || (this.relUltimoMes ? this.relUltimoMes.mes : null);
       if (!alvo) { this.relMes = null; this.relMesAtual = ""; this.relErro = ""; return; }
       await this.carregarRelatorioMes(alvo);

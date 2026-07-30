@@ -827,6 +827,181 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     expect(hitsMes).toBe(1);
   });
 
+  // ── Fase 7a.V (Item E) ────────────────────────────────────────────────
+  // MESMA CLASSE fechada pela 7a.U, um nível acima: o guard que falta não é
+  // dentro da carregadora, é no CHAMADOR que decide iniciar trabalho novo.
+  // `hidratarRelatorio()` cede o thread no `await carregarIndiceRelatorios()`
+  // e, ao retomar, chamava `carregarRelatorioMes()` mesmo se um lock tivesse
+  // rodado no meio — disparando fetch + decifra PBKDF2 com `pin` vazio numa
+  // sessão travada, cujo erro emerge depois do unlock (erro fantasma).
+  //
+  // Duas escolhas de roteiro que NÃO são decorativas:
+  //
+  // 1. O índice é servido por um PORTÃO (promise resolvida pelo teste), não por
+  //    um atraso de relógio: a janela do await tem duração determinística e o
+  //    teste não depende do custo de PBKDF2 da máquina.
+  //
+  // 2. `atualizarRota()` é chamada DEPOIS do lock. O choke point
+  //    (`_limparEstadoRelatorio`) zera `relRotaMes`, então sem re-derivar o
+  //    ponteiro da hash o `alvo` sairia null e a função pararia no
+  //    early-return — o furo ficaria MASCARADO e este teste passaria por
+  //    VACUIDADE, medindo o mascaramento em vez do guard. Um back/forward do
+  //    browser na tela de PIN é exatamente o que re-deriva o ponteiro na vida
+  //    real (o hash sobrevive ao lock por design, 7a.U §3.2), e nada garante
+  //    que `relRotaMes` siga sendo limpo: `tickerAtual` já vive na ALLOWLIST
+  //    com a justificativa de "ponteiro derivado da hash", que se aplica
+  //    igualmente a ele.
+  //
+  // Asserção PRIMÁRIA = contagem de fetch do payload do mês: determinística,
+  // não depende de relógio, e é literalmente "trabalho novo iniciado sob lock".
+  test("lock durante a carga do índice não deixa hidratarRelatorio buscar o mês", async ({ page }) => {
+    await autenticar(page);
+    await abrirRelatorio(page, "2026-04");
+
+    // Portão do índice: o fulfill só acontece quando `liberar()` roda.
+    let liberar!: () => void;
+    const portao = new Promise<void>((r) => { liberar = r; });
+    await page.route("**/relatorios_index.json.enc", async (r) => {
+      await portao;
+      return r.fulfill({ status: 200, body: IDX_REL, contentType: "text/plain" });
+    });
+
+    // Contador do payload do mês. Registrado DEPOIS da carga inicial (no
+    // Playwright o handler mais recente tem precedência, LIFO) — só a janela
+    // do lock→unlock→lock interessa. 0 é o veredito da fase.
+    let hitsMes = 0;
+    await page.route("**/relatorio_2026-04.json.enc", (r) => {
+      hitsMes++;
+      return r.fulfill({ status: 200, body: ABRIL, contentType: "text/plain" });
+    });
+
+    // 1º lock: zera relIndice (é o que força o await do índice no unlock).
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
+    await expect(page.locator(".pin-screen")).toBeVisible();
+
+    // Unlock REAL (sem await do fim): submitPin promove a fase, chama
+    // atualizarRota() (que re-deriva relRotaMes e agenda hidratarRelatorio via
+    // setTimeout 0) e então PARA no `await carregarIndiceRelatorios()` — que
+    // está preso no portão. A hidratação agendada entra no mesmo await.
+    await page.locator("input.pin-input").fill("123456");
+    await page.locator("button.pin-submit").click();
+
+    // Self-guard contra vacuidade: prova que a janela do await está ABERTA.
+    // Sem isto, um portão que não segurasse nada faria o resto do teste passar
+    // sem nenhuma corrida real acontecer.
+    await page.waitForFunction(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      return !!d._relIndicePromise && !!d.pin;
+    }, undefined, { timeout: 10_000 });
+
+    // 2º lock, DENTRO da janela: pin vai a "", relRotaMes é zerado.
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
+    await expect(page.locator(".pin-screen")).toBeVisible();
+
+    // Re-deriva o ponteiro da hash durante o lock (o back/forward do browser).
+    // Sem esta linha o teste mede o mascaramento, não o guard.
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).atualizarRota());
+    expect(
+      await page.evaluate(() => (window as any).Alpine.$data(document.body).relRotaMes),
+    ).toBe("2026-04");
+
+    // Libera o índice: a decifra roda com pin "" e o loader respeita o lock
+    // (relIndice segue null). A continuação de hidratarRelatorio é retomada
+    // agora — é aqui que o guard novo age.
+    liberar();
+    await page.waitForFunction(
+      () => (window as any).Alpine.$data(document.body)._relIndicePromise === null,
+      undefined, { timeout: 10_000 },
+    );
+    // Folga para a continuação retomada disparar (ou não) o fetch do mês.
+    await page.waitForTimeout(500);
+
+    // Veredito: nenhum trabalho novo foi iniciado sob lock.
+    expect(hitsMes).toBe(0);
+    const estado = await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      return {
+        promessa: d._relMesPromise, alvo: d._relMesPromiseAlvo,
+        carregando: d.relCarregando, erro: d.relErro, indice: d.relIndice,
+      };
+    });
+    expect(estado).toEqual({
+      promessa: null, alvo: null, carregando: false, erro: "", indice: null,
+    });
+    await expect(page.locator(".pin-screen")).toBeVisible();
+  });
+
+  // Fase 7a.V (Item E), fechamento de CLASSE: `hidratarDossie()` tem a mesma
+  // estrutura de `hidratarRelatorio()` — await do índice, sem re-checar o pin
+  // na retomada — e o mesmo racional de guard-no-chamador se aplica.
+  //
+  // Por que a asserção aqui NÃO é contagem de rede (como no teste acima): o
+  // caminho do dossiê é mascarado DUAS vezes. Além de `dossieTicker` ser
+  // zerado pelo choke point, o índice fica `[]` sob lock, então
+  // `carregarDossie()` cai no ramo `!entrada` ("sem fetch às cegas") e nenhuma
+  // requisição sai — a contagem de rede seria 0 com ou sem o guard, ou seja,
+  // passaria por vacuidade. O único observável que discrimina é a INVOCAÇÃO da
+  // carregadora, daí o contador instalado sobre o método no $data.
+  test("lock durante a carga do índice não deixa hidratarDossie chamar a carregadora", async ({ page }) => {
+    await autenticar(page);
+    await abrirDossie(page, "HGLG11");
+
+    let liberar!: () => void;
+    const portao = new Promise<void>((r) => { liberar = r; });
+    await page.route("**/dossies_index.json.enc", async (r) => {
+      await portao;
+      return r.fulfill({ status: 200, body: IDX_DOSSIES, contentType: "text/plain" });
+    });
+
+    // 1º lock: zera dossieIndice (força o await) e dossieTicker.
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
+    await expect(page.locator(".pin-screen")).toBeVisible();
+
+    // Contador sobre a carregadora, instalado ANTES do unlock.
+    await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      const real = d.carregarDossie.bind(d);
+      (window as any).__chamadasCarregarDossie = [];
+      d.carregarDossie = function (ticker: string) {
+        (window as any).__chamadasCarregarDossie.push({ ticker, pin: !!this.pin });
+        return real(ticker);
+      };
+    });
+
+    // Unlock real, sem aguardar o fim: submitPin re-deriva dossieTicker via
+    // atualizarRota() e agenda hidratarDossie, que entra no await do índice
+    // preso no portão.
+    await page.locator("input.pin-input").fill("123456");
+    await page.locator("button.pin-submit").click();
+
+    // Self-guard contra vacuidade: a janela do await tem de estar ABERTA.
+    await page.waitForFunction(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      return !!d._dossieIndicePromise && !!d.pin;
+    }, undefined, { timeout: 10_000 });
+
+    // 2º lock dentro da janela + re-derivação do ponteiro da hash (sem ela o
+    // early-return `!dossieTicker` mascara o furo e o teste mede nada).
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
+    await expect(page.locator(".pin-screen")).toBeVisible();
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).atualizarRota());
+    expect(
+      await page.evaluate(() => (window as any).Alpine.$data(document.body).dossieTicker),
+    ).toBe("HGLG11");
+
+    liberar();
+    await page.waitForFunction(
+      () => (window as any).Alpine.$data(document.body)._dossieIndicePromise === null,
+      undefined, { timeout: 10_000 },
+    );
+    await page.waitForTimeout(500);
+
+    // Veredito: a carregadora não foi chamada em nenhuma sessão sem pin.
+    const chamadas = await page.evaluate(() => (window as any).__chamadasCarregarDossie);
+    expect(chamadas.filter((c: { pin: boolean }) => !c.pin)).toEqual([]);
+    await expect(page.locator(".pin-screen")).toBeVisible();
+  });
+
   test("invariante: nenhum campo do $data retém dado decifrado pós-lock", async ({ page }) => {
     await mockTudo(page);
     // SEM pin no localStorage: o snapshot virgem precisa da tela de PIN antes
