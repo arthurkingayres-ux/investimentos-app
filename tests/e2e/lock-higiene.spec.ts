@@ -154,7 +154,7 @@ async function bloquearEDestravar(page: Page) {
 // window.decifrar para atrasar a RESOLUÇÃO (não o fetch de rede) — reproduz
 // fielmente a janela real de PBKDF2 (~centenas de ms): o pin ainda válido já
 // foi passado POR VALOR quando a chamada começa (como todo call site faz —
-// `window.decifrar(payloadB64, this.pin)`), só o retorno chega tarde, depois
+// `window.decifrar(payloadB64, this.segredo)`), só o retorno chega tarde, depois
 // que bloquear() já pode ter rodado.
 //
 // Chamar SÓ DEPOIS de `autenticar()`/boot, nunca via addInitScript antes da
@@ -351,8 +351,8 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     });
   });
 
-  // CRB Task 5 Finding 1: carregarRelatorioMes() lê `this.pin` e chama
-  // window.decifrar(payloadB64, this.pin) — a pin é capturada POR VALOR no
+  // CRB Task 5 Finding 1: carregarRelatorioMes() lê `this.segredo` e chama
+  // window.decifrar(payloadB64, this.segredo) — o segredo é capturado POR VALOR no
   // argumento nesse instante, então um bloquear() que rode DEPOIS da chamada
   // mas ANTES da promise resolver não impede a decifra de terminar com
   // sucesso; sem um guard pós-await, a linha `this.relMes = art` reescreveria
@@ -368,7 +368,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await page.waitForTimeout(300);
 
     // Bloqueia durante a janela: a decifra em voo já capturou o pin correto
-    // por valor; this.pin some do $data agora.
+    // por valor; this.segredo some do $data agora.
     await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
     await expect(page.locator(".pin-screen")).toBeVisible();
 
@@ -385,7 +385,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
   });
 
   // CRB Task 5 Finding 1, round 2 — mesma classe de corrida no 4º loader
-  // (carregarIndiceRelatorios(), que também lê `this.pin` e atribui
+  // (carregarIndiceRelatorios(), que também lê `this.segredo` e atribui
   // `this.relIndice` só depois do await de window.decifrar). Chamada direta
   // via $data (em vez de navegação): carregarIndiceRelatorios() já roda uma
   // vez no boot (tentarAutoResume), então chamá-la de novo aqui isola
@@ -402,7 +402,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await page.waitForTimeout(300);
 
     // Bloqueia durante a janela: a decifra em voo já capturou o pin correto
-    // por valor; this.pin some do $data agora.
+    // por valor; this.segredo some do $data agora.
     await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
     await expect(page.locator(".pin-screen")).toBeVisible();
 
@@ -491,7 +491,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
   // Review final pós-7a.U, Finding 2 — `_limparEstadoDossie()` (chamado por
   // `bloquear()`) zerava o estado mas deixava `_dossiePromise`/
   // `_dossiePromiseTicker` apontando pra a requisição anterior em voo. O
-  // guard pós-await de carregarDossie() só olha `this.pin` (afere pin no
+  // guard pós-await de carregarDossie() só olha `this.segredo` (afere o segredo no
   // INSTANTE DA RESOLUÇÃO, não identidade de sessão) — se o pin voltar
   // (unlock) ANTES da decifra atrasada resolver, o guard passa e o payload
   // pré-lock atravessa o lock pra dentro do $data já travado.
@@ -534,15 +534,15 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     // "Destrava" no sentido mínimo do guard afetado: o pin volta ao $data —
     // é literalmente o que `x-model="pin"` faz a cada tecla digitada, antes
     // mesmo do submit completar — SEM re-navegar/re-chamar carregarDossie,
-    // pra isolar exatamente o guard `if (!this.pin) return` da resolução
+    // pra isolar exatamente o guard `if (!this.segredo) return` da resolução
     // atrasada, sem se misturar com um fetch novo e legítimo.
     await page.evaluate(() => {
-      (window as any).Alpine.$data(document.body).pin = "123456";
+      (window as any).Alpine.$data(document.body).segredo = "123456";
     });
 
     // Espera a decifra pré-lock de A terminar (1.5s + folga). O guard de
     // identidade (`_dossiePromise === promessa`) é a única coisa que pode
-    // impedir a escrita agora que `this.pin` voltou.
+    // impedir a escrita agora que `this.segredo` voltou.
     await page.waitForTimeout(1_800);
 
     const posUnlock = await page.evaluate(() => {
@@ -898,7 +898,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     // sem nenhuma corrida real acontecer.
     await page.waitForFunction(() => {
       const d = (window as any).Alpine.$data(document.body);
-      return !!d._relIndicePromise && !!d.pin;
+      return !!d._relIndicePromise && !!d.segredo;
     }, undefined, { timeout: 10_000 });
 
     // 2º lock, DENTRO da janela: pin vai a "", relRotaMes é zerado.
@@ -970,7 +970,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
       const real = d.carregarDossie.bind(d);
       (window as any).__chamadasCarregarDossie = [];
       d.carregarDossie = function (ticker: string) {
-        (window as any).__chamadasCarregarDossie.push({ ticker, pin: !!this.pin });
+        (window as any).__chamadasCarregarDossie.push({ ticker, pin: !!this.segredo });
         return real(ticker);
       };
     });
@@ -984,7 +984,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     // Self-guard contra vacuidade: a janela do await tem de estar ABERTA.
     await page.waitForFunction(() => {
       const d = (window as any).Alpine.$data(document.body);
-      return !!d._dossieIndicePromise && !!d.pin;
+      return !!d._dossieIndicePromise && !!d.segredo;
     }, undefined, { timeout: 10_000 });
 
     // 2º lock dentro da janela + re-derivação do ponteiro da hash (sem ela o
@@ -1075,5 +1075,42 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     // segunda asserção a lista apodrece em carta-branca.
     const mortas = Object.keys(ALLOWLIST).filter((k) => !divergentes.includes(k));
     expect(mortas, "entradas da ALLOWLIST que não divergem mais — remova").toEqual([]);
+  });
+
+  // ── Fase 7a.W.3.a ─────────────────────────────────────────────────────────
+  test("o segredo desenvelopado nao sobrevive ao lock", async ({ page }) => {
+    await autenticar(page);
+    const antes = await page.evaluate(
+      () => !!(window as any).Alpine.$data(document.body).segredo,
+    );
+    // Sem esta asserção o `depois` passaria por vacuidade: um campo que nunca
+    // foi populado "não sobrevive" trivialmente.
+    expect(antes).toBe(true);
+
+    const depois = await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      d.bloquear();
+      return { segredo: d.segredo, pin: d.pin };
+    });
+    expect(depois).toEqual({ segredo: "", pin: "" });
+  });
+
+  test("o envelope SOBREVIVE ao lock (senao o aparelho se desparearia toda semana)", async ({ page }) => {
+    await autenticar(page);
+    const antes = await page.evaluate(() => localStorage.getItem("envelope"));
+    expect(antes).not.toBeNull();
+
+    const depois = await page.evaluate(() => {
+      (window as any).Alpine.$data(document.body).bloquear();
+      return {
+        envelope: localStorage.getItem("envelope"),
+        pin: localStorage.getItem("pin"),
+      };
+    });
+    // O envelope é ciphertext em repouso, inútil sem o PIN. Sua persistência é
+    // o que separa "trancar a sessão" de "desparear o aparelho" (spec §7.6).
+    expect(depois.envelope).toBe(antes);
+    // A credencial de sessão, essa sim, some.
+    expect(depois.pin).toBeNull();
   });
 });

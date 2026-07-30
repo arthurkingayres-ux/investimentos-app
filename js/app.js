@@ -382,6 +382,20 @@ document.addEventListener("alpine:init", () => {
     _dossiePromiseTicker: null,
     _relMesPromise: null,
     _relMesPromiseAlvo: null,
+    // 7a.W.3.a — o app trata o segredo como STRING OPACA (é o que
+    // `encriptar_json(json_str, pin: str)` sempre fez no backend). Foi isso
+    // que permitiu trocar 6 dígitos por uma frase de 6 palavras sem dois
+    // códigos, dois formatos nem duas branches.
+    //
+    // `segredo` = o que decifra os payloads. Argumento de TODA chamada de
+    //   window.decifrar e marcador de "sessão viva" nos guards pós-await.
+    //   NUNCA vai para o localStorage em claro.
+    // `pin`     = os 6 dígitos digitados NESTE aparelho, que só abrem o
+    //   envelope. Ligado a x-model na tela de PIN. Vai para o localStorage em
+    //   claro, e isso é decisão consciente: é o que faz o auto-resume de 7
+    //   dias funcionar sem pedir nada. O aparelho é o perímetro de confiança
+    //   e a 7a.W não muda isso (spec §2.3).
+    segredo: "",
     pin: "",
     pinError: "",
     carregando: false,
@@ -1313,18 +1327,18 @@ document.addEventListener("alpine:init", () => {
     // ANTES do 1º await, então a 2ª chamada no mesmo tick já vê o handle
     // setado). Sem chave: um único índice para todo o app.
     carregarIndiceRelatorios() {
-      if (!this.pin) return Promise.resolve();
+      if (!this.segredo) return Promise.resolve();
       if (this._relIndicePromise) return this._relIndicePromise;
       this._relIndicePromise = (async () => {
         try {
           const resp = await fetch("./relatorios_index.json.enc", { cache: "no-cache" });
           if (!resp.ok) { this.relIndice = null; return; }
           const payloadB64 = (await resp.text()).trim();
-          const idx = JSON.parse(await window.decifrar(payloadB64, this.pin));
+          const idx = JSON.parse(await window.decifrar(payloadB64, this.segredo));
           // Race guard: bloquear() (ou o handler storage) pode ter rodado
           // durante o await da decifra. Se o pin sumiu do $data, respeitar o
           // lock e não popular o payload de volta.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           this.relIndice =
             idx && idx.schema === "relatorios_index_v1" && Array.isArray(idx.meses)
               ? idx
@@ -1333,9 +1347,9 @@ document.addEventListener("alpine:init", () => {
           console.warn("índice de relatórios indisponível", err);
           // Race guard (CRB final 7a.U Finding 3): um throw ANTES do guard de
           // sucesso (HTTP != 200, schema inesperado) cai aqui incondicional —
-          // sem checar `this.pin`, um bloquear() no meio do await deixaria a
+          // sem checar `this.segredo`, um bloquear() no meio do await deixaria a
           // sessão travada com erro fantasma na tela após o unlock.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           this.relIndice = null; // degradação graciosa — o resto do app segue
         } finally {
           this._relIndicePromise = null;
@@ -1356,17 +1370,17 @@ document.addEventListener("alpine:init", () => {
     // _dossieIndicePromise). A promise é liberada no fim para que uma
     // navegação posterior possa tentar de novo se a carga não trouxe nada.
     carregarIndiceDossies() {
-      if (!this.pin) return Promise.resolve();
+      if (!this.segredo) return Promise.resolve();
       if (this._dossieIndicePromise) return this._dossieIndicePromise;
       this._dossieIndicePromise = (async () => {
         try {
           const resp = await fetch("./dossies_index.json.enc", { cache: "no-cache" });
           if (!resp.ok) { this.dossieIndice = []; return; }
-          const idx = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          const idx = JSON.parse(await window.decifrar((await resp.text()).trim(), this.segredo));
           // Race guard: bloquear() (ou o handler storage) pode ter rodado
           // durante o await da decifra. Se o pin sumiu do $data, respeitar o
           // lock e não popular o payload de volta.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           this.dossieIndice =
             idx && idx.schema === "dossies_index_v1" && Array.isArray(idx.dossies)
               ? idx.dossies
@@ -1375,7 +1389,7 @@ document.addEventListener("alpine:init", () => {
           console.warn("índice de dossiês indisponível", err);
           // Race guard (CRB final 7a.U Finding 3): mesmo racional do loader
           // acima — um throw pré-guard não pode escrever no $data já travado.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           this.dossieIndice = []; // degradação graciosa — o resto do app segue
         } finally {
           this._dossieIndicePromise = null;
@@ -1430,11 +1444,11 @@ document.addEventListener("alpine:init", () => {
         try {
           const resp = await fetch("./" + entrada.arquivo, { cache: "no-cache" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const d = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          const d = JSON.parse(await window.decifrar((await resp.text()).trim(), this.segredo));
           // Race guard: bloquear() (ou o handler storage) pode ter rodado
           // durante o await da decifra. Se o pin sumiu do $data, respeitar o
           // lock e não popular o payload de volta.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           // Race guard (CRB final round Finding A): esta requisição pode ter
           // sido SUPERADA por uma chamada mais nova para OUTRO ticker enquanto
           // decifrava — se `_dossiePromise` já aponta para outra promise, a
@@ -1449,7 +1463,7 @@ document.addEventListener("alpine:init", () => {
           // `dossieErro` sobreviveria ao lock como texto estático (dano
           // cosmético), mas também vira vetor de flake do teste-invariante
           // se um fetch falhar dentro da janela do lock.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           // Idem guard de superada — um erro de uma requisição já superada
           // não pode apagar o resultado bom que a vigente já escreveu.
           if (this._dossiePromise !== promessa) return;
@@ -1475,7 +1489,7 @@ document.addEventListener("alpine:init", () => {
 
     async hidratarDossie() {
       if (this.rota !== "dossie") return;
-      if (!this.pin) return; // pré-auth: re-chamado no boot (submitPin/auto-resume)
+      if (!this.segredo) return; // pré-auth: re-chamado no boot (submitPin/auto-resume)
       if (!this.dossieIndice.length) await this.carregarIndiceDossies();
       // 7a.V (Item E): mesmo guard de `hidratarRelatorio()` — re-checa o pin no
       // ponto onde a função retoma o controle. Hoje o furo é mascarado duas
@@ -1484,7 +1498,7 @@ document.addEventListener("alpine:init", () => {
       // basta reclassificar `dossieTicker` como ponteiro-de-hash sobrevivente
       // (o argumento que a ALLOWLIST já aceita para `tickerAtual`) para o
       // trabalho sob lock voltar a acontecer.
-      if (!this.pin) return;
+      if (!this.segredo) return;
       if (!this.dossieTicker) return;
       await this.carregarDossie(this.dossieTicker);
     },
@@ -1515,7 +1529,7 @@ document.addEventListener("alpine:init", () => {
     // TAMBÉM precisam ser anulados aqui, não só o estado visível. Sem isso,
     // uma decifra em voo no instante do lock segue "vigente" pelo critério de
     // identidade de `carregarDossie()` (`this._dossiePromise === promessa`) —
-    // e o guard `if (!this.pin) return` dessa promise só olha o PIN no
+    // e o guard `if (!this.segredo) return` dessa promise só olha o PIN no
     // instante em que ela resolve, não a identidade da sessão. Se o unlock
     // devolver o PIN antes da decifra atrasada terminar (janela estreita, mas
     // real — PBKDF2 pode ser mais lento que a digitação, mas nunca mais
@@ -1544,7 +1558,17 @@ document.addEventListener("alpine:init", () => {
     // agregador é o lugar onde a próxima família entra. Um campo novo que
     // retenha payload sem passar por aqui derruba `lock-higiene.spec.ts`
     // (invariante de snapshot virgem × pós-lock).
+    // 7a.W.3.a — o segredo DESENVELOPADO é estado sensível e sai no lock,
+    // como o `pin` já saía. Nomeado (e não inline no `bloquear()`) para que os
+    // DOIS caminhos de lock o percam: o manual e o handler do evento
+    // `storage`. O `envelope` em localStorage NÃO entra aqui — ver
+    // `limparSessao()`.
+    _limparSegredo() {
+      this.segredo = "";
+    },
+
     _limparEstadoSensivel() {
+      this._limparSegredo();
       this._limparEstadoDossie();
       this._limparEstadoRelatorio();
       this._limparEstadoAporte();
@@ -1610,7 +1634,7 @@ document.addEventListener("alpine:init", () => {
     // acima — `_relMesPromise`/`_relMesPromiseAlvo` precisam ser anulados
     // aqui, não só `relMes`/`relIndice`. Sem isso, uma decifra do mês em voo
     // no instante do lock segue "vigente" pelo critério de identidade de
-    // `carregarRelatorioMes()`, e o guard `if (!this.pin) return` dessa
+    // `carregarRelatorioMes()`, e o guard `if (!this.segredo) return` dessa
     // promise só olha o PIN no instante da resolução — se o unlock devolver o
     // PIN antes da decifra atrasada terminar, o payload pré-lock atravessa o
     // lock. Anular os dois aqui faz a promise antiga falhar o teste de
@@ -2423,7 +2447,7 @@ document.addEventListener("alpine:init", () => {
     // 7a.Q.3: hidratação + lazy-load + navegação do relatório mensal
     async hidratarRelatorio() {
       if (this.rota !== "relatorio") return;
-      if (!this.json || !this.pin) return; // pré-auth: re-chamado no boot
+      if (!this.json || !this.segredo) return; // pré-auth: re-chamado no boot
       if (!this.relIndice) await this.carregarIndiceRelatorios();
       // 7a.V (Item E): re-checa o pin no ponto onde a função RETOMA o controle
       // depois de ceder o thread. O guard não pertence a `carregarRelatorioMes`
@@ -2431,7 +2455,7 @@ document.addEventListener("alpine:init", () => {
       // não deveria ter sido CHAMADA. Sem esta linha, um lock durante o await
       // acima deixava a continuação disparar fetch + decifra PBKDF2 com pin
       // vazio numa sessão travada, e o erro emergia depois do unlock.
-      if (!this.pin) return;
+      if (!this.segredo) return;
       const alvo = this.relRotaMes || (this.relUltimoMes ? this.relUltimoMes.mes : null);
       if (!alvo) { this.relMes = null; this.relMesAtual = ""; this.relErro = ""; return; }
       await this.carregarRelatorioMes(alvo);
@@ -2455,11 +2479,11 @@ document.addEventListener("alpine:init", () => {
         try {
           const resp = await fetch("./" + arquivo, { cache: "no-cache" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const art = JSON.parse(await window.decifrar((await resp.text()).trim(), this.pin));
+          const art = JSON.parse(await window.decifrar((await resp.text()).trim(), this.segredo));
           // Race guard: bloquear() (ou o handler storage) pode ter rodado
           // durante o await da decifra. Se o pin sumiu do $data, respeitar o
           // lock e não popular o payload de volta.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           // Race guard (CRB final round Finding A): idem carregarDossie() —
           // uma chamada mais nova para OUTRO mês pode ter sobrescrito
           // `_relMesPromise` enquanto esta decifrava; se já não é mais a
@@ -2473,7 +2497,7 @@ document.addEventListener("alpine:init", () => {
           console.warn("relatório do mês indisponível", err);
           // Race guard (CRB final 7a.U Finding 3): idem carregarDossie() —
           // `relErro` fantasma pós-unlock é o mesmo risco de flake.
-          if (!this.pin) return;
+          if (!this.segredo) return;
           // Idem guard de superada — não sobrescreve o resultado bom da
           // requisição vigente com o erro de uma já superada.
           if (this._relMesPromise !== promessa) return;
@@ -3412,6 +3436,13 @@ document.addEventListener("alpine:init", () => {
     limparSessao() {
       // Remove apenas credenciais de sessão. NÃO toca pinBlockUntil/pinFails/pinFirstFailAt
       // — rate-limit persiste intencionalmente (atacante não escapa via bloquear manual).
+      //
+      // 7a.W.3.a: NÃO toca `envelope` tampouco, e isso é decisão, não
+      // esquecimento. O envelope é ciphertext em repouso, inútil sem o PIN, e
+      // sua persistência é o que separa "trancar a sessão" (pede o PIN de
+      // novo) de "desparear o aparelho" (pede a frase de novo). Limpá-lo aqui
+      // faria o Dr. Arthur recadastrar a frase toda semana e o modelo inteiro
+      // perderia o sentido (spec §7.6). Travado por teste em lock-higiene.spec.ts.
       localStorage.removeItem("pin");
       localStorage.removeItem("pinTimestamp");
       localStorage.removeItem("atualizadoEm");
@@ -3467,6 +3498,9 @@ document.addEventListener("alpine:init", () => {
         }
         this.json = JSON.parse(plaintext);
         this.pin = pin;
+        // 7a.W.3.a Task 8 (PROVISÓRIO) — a Task 9 troca isto pelo
+        // desenvelopamento do `localStorage.envelope` com o PIN local.
+        this.segredo = pin;
         this.fase = "raiox";
         // Janela 7d deslizante — refresca o timestamp assim que o auto-resume
         // valida a sessão, ANTES do carregamento (lento) do índice de
@@ -3668,6 +3702,11 @@ document.addEventListener("alpine:init", () => {
         this.pinError = "PIN deve ter 6 dígitos";
         return;
       }
+      // 7a.W.3.a Task 8 (PROVISÓRIO): o segredo ainda É o PIN digitado. A
+      // Task 9 troca isto por desenvelopar o `localStorage.envelope` com o PIN
+      // local. Fica aqui, logo após a validação de formato, que é exatamente
+      // onde o desenvelopamento vai entrar.
+      this.segredo = this.pin;
       this.pinError = "";
       this.carregando = true;
       let payloadB64;
@@ -3682,7 +3721,7 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       try {
-        const plaintext = await window.decifrar(payloadB64, this.pin);
+        const plaintext = await window.decifrar(payloadB64, this.segredo);
         this.json = JSON.parse(plaintext);
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("pin", this.pin);
