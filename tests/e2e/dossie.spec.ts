@@ -18,11 +18,20 @@ const DOSSIES: Record<string, string> = {
   ITSA4: F("dossie_ITSA4.test.json.enc"),
   SMAL11: F("dossie_SMAL11.test.json.enc"),
 };
+// 7a.W.2: o nome PEDIDO virou HMAC e não carrega mais o ticker — que é
+// exatamente o ponto da mudança. O nome EM DISCO segue `dossie_<TICKER>.test`,
+// legível para quem mantém o teste; o mapa (gerado por gerar_fixture.py) faz a
+// ponte URL → fixture.
+const MAPA: Record<string, string> = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../fixtures/dossies_map.test.json"), "utf-8"),
+);
+const arqDe = (ticker: string) =>
+  Object.keys(MAPA).find((k) => MAPA[k] === ticker)!;
 
 test.use({ viewport: { width: 390, height: 844 } });
 
-// `**/dossie_*.json.enc` NÃO casa `dossies_index.json.enc` (é `dossies`, não
-// `dossie_`) — as duas rotas convivem sem ordem de registro importar.
+// `**/d_*.json.enc` NÃO casa `dossies_index.json.enc` — as duas rotas convivem
+// sem ordem de registro importar.
 async function mockTudo(page: Page, opts: { indice?: "ok" | "404" } = {}) {
   await page.route("**/portfolio.json.enc", (r) =>
     r.fulfill({ status: 200, body: PORTFOLIO, contentType: "text/plain" }));
@@ -34,9 +43,10 @@ async function mockTudo(page: Page, opts: { indice?: "ok" | "404" } = {}) {
     opts.indice === "404"
       ? r.fulfill({ status: 404, body: "", contentType: "text/plain" })
       : r.fulfill({ status: 200, body: IDX_DOSSIES, contentType: "text/plain" }));
-  await page.route("**/dossie_*.json.enc", (r) => {
-    const m = r.request().url().match(/dossie_([A-Z0-9]+)\.json\.enc/);
-    const body = m && DOSSIES[m[1]];
+  await page.route("**/d_*.json.enc", (r) => {
+    const nome = r.request().url().split("/").pop()!.split("?")[0];
+    const ticker = MAPA[nome];
+    const body = ticker && DOSSIES[ticker];
     return body
       ? r.fulfill({ status: 200, body, contentType: "text/plain" })
       : r.fulfill({ status: 404, body: "", contentType: "text/plain" });
@@ -92,7 +102,7 @@ test.describe("7a.R.3.b Task 2 — rota, carga e estados", () => {
 
   test("erro de fetch do dossiê: mensagem calma + tentar de novo", async ({ page }) => {
     await autenticar(page);
-    await page.route("**/dossie_HGLG11.json.enc", (r) =>
+    await page.route("**/" + arqDe("HGLG11"), (r) =>
       r.fulfill({ status: 500, body: "", contentType: "text/plain" }));
     await page.goto("/#/dossie/HGLG11");
     await expect(page.locator(".tela-dossie .dossie-erro")).toBeVisible();

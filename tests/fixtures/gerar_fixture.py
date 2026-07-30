@@ -50,6 +50,10 @@ from pathlib import Path
 
 from src.output.crypto import encriptar_json
 
+# 7a.W: o validador de PUBLICAÇÃO (src/output/segredo.py) recusa 6 dígitos,
+# mas ele guarda `resolver_configuracao`, não `encriptar_json`. A fixture
+# cifra direto, então o segredo de teste segue "123456" — curto de propósito:
+# o sibling é público e o `.enc` de teste decifra com ele por design.
 PIN_TESTE = "123456"
 OUT = Path(__file__).resolve().parent / "portfolio.test.json.enc"
 
@@ -934,6 +938,10 @@ def gerar_dossies() -> None:
 
     base = OUT.parent  # tests/fixtures/
     dossies = _dossies_sinteticos()
+    # 7a.W.2: o nome publicado virou HMAC-SHA256(segredo, ticker) — o frontend
+    # nunca o calcula, só lê `arquivo` do índice. O mapa abaixo existe para o
+    # page.route do Playwright saber qual fixture servir para cada URL, já que
+    # a URL não carrega mais o ticker (que é o ponto da mudança).
     indice = {
         "schema": "dossies_index_v1",
         "atualizado_em": "2026-07-26",
@@ -946,12 +954,18 @@ def gerar_dossies() -> None:
                 # O NOME PUBLICADO (sem `.test`) é o que o frontend pede; só o
                 # arquivo em disco leva o sufixo de fixture — o page.route do
                 # Playwright faz a ponte entre os dois.
-                "arquivo": nome_arquivo_cifrado(d["ticker"]),
+                "arquivo": nome_arquivo_cifrado(d["ticker"], PIN_TESTE),
                 "sha256": hash_conteudo(d),
             }
             for d in dossies
         ],
     }
+    mapa = {nome_arquivo_cifrado(d["ticker"], PIN_TESTE): d["ticker"] for d in dossies}
+    (base / "dossies_map.test.json").write_text(
+        json.dumps(mapa, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    print(f"Fixture gerada: {base / 'dossies_map.test.json'} ({len(mapa)} nomes)")
+
     alvos = [("dossies_index.test.json.enc", indice)]
     alvos += [(f"dossie_{d['ticker']}.test.json.enc", d) for d in dossies]
     for nome, obj in alvos:

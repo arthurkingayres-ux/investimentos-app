@@ -19,10 +19,16 @@ const DOSSIES: Record<string, string> = {
   ITSA4: F("dossie_ITSA4.test.json.enc"),
   SMAL11: F("dossie_SMAL11.test.json.enc"),
 };
+// 7a.W.2: o nome PEDIDO virou HMAC e não carrega mais o ticker. O mapa
+// (gerado por gerar_fixture.py) faz a ponte URL → fixture; o nome EM DISCO
+// segue legível.
+const MAPA: Record<string, string> = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "../fixtures/dossies_map.test.json"), "utf-8"),
+);
 
 test.use({ viewport: { width: 390, height: 844 } });
 
-// `**/dossie_*.json.enc` NÃO casa `dossies_index.json.enc` — as duas rotas
+// `**/d_*.json.enc` NÃO casa `dossies_index.json.enc` — as duas rotas
 // convivem sem ordem de registro importar (mesmo padrão de dossie.spec.ts).
 async function mockTudo(page: Page) {
   await page.route("**/portfolio.json.enc", (r) =>
@@ -37,9 +43,10 @@ async function mockTudo(page: Page) {
     }));
   await page.route("**/dossies_index.json.enc", (r) =>
     r.fulfill({ status: 200, body: IDX_DOSSIES, contentType: "text/plain" }));
-  await page.route("**/dossie_*.json.enc", (r) => {
-    const m = r.request().url().match(/dossie_([A-Z0-9]+)\.json\.enc/);
-    const body = m && DOSSIES[m[1]];
+  await page.route("**/d_*.json.enc", (r) => {
+    const nome = r.request().url().split("/").pop()!.split("?")[0];
+    const ticker = MAPA[nome];
+    const body = ticker && DOSSIES[ticker];
     return body
       ? r.fulfill({ status: 200, body, contentType: "text/plain" })
       : r.fulfill({ status: 404, body: "", contentType: "text/plain" });
