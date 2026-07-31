@@ -43,7 +43,11 @@ test.describe("7a.W.3.b — enrollment", () => {
     await mock(page);
     await page.addInitScript((s) => {
       localStorage.clear();
-      localStorage.setItem("pin", s);   // migração cria o envelope no boot
+      // Basta o `pin`: `init()` decide a fase por "tem pin OU envelope", e
+      // com pin presente o aparelho não é virgem. A MIGRAÇÃO não roda aqui
+      // (sem `pinTimestamp`, `tentarAutoResume` sai antes dela) — quem
+      // exercita a migração é o teste dedicado em envelope.spec.ts.
+      localStorage.setItem("pin", s);
     }, SEGREDO);
     await page.goto("/");
     await expect(page.locator(".pin-screen")).toBeVisible({ timeout: 10_000 });

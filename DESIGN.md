@@ -1170,6 +1170,17 @@ Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + ar
 
 ## Frase de acesso — envelope local (Fase 7a.W.3.a)
 
+> **ESTADO: implementado, NÃO no ar.** Tudo nesta seção e na seguinte descreve
+> código que existe na branch mas **ainda não foi publicado**. Em produção o
+> segredo que cifra os payloads **ainda é o PIN de 6 dígitos**, e a tela de
+> cadastro da frase **nunca aparece**. A virada é a sub-fase **7a.W.4**, que exige
+> o Dr. Arthur presente. Este aviso sai quando ela rodar.
+>
+> Está aqui porque a Fase 7a.W inteira existe por dois runbooks que afirmavam
+> confidencialidade que ninguém tinha medido, e a 7a.W.1 já levou finding do CRB
+> por escrever no presente um estado futuro. Repetir isso no DESIGN.md seria
+> cometer, no documento, o erro que a fase corrige no sistema.
+
 O app trata o segredo que decifra os payloads como **string opaca**. Isso é o que
 permitiu trocar o PIN de 6 dígitos por uma frase de 6 palavras sem dois códigos, dois
 formatos nem duas branches: `encriptar_json(json_str, pin: str)` sempre aceitou
