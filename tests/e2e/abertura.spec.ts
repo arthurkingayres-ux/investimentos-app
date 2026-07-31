@@ -58,7 +58,12 @@ async function autoResumir(page: Page) {
 
 test.describe("A Abertura — dissolve da PIN screen (Task 1)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+    // 7a.W.3.b: storage sem `pin` levaria ao ENROLLMENT. Estes testes medem o
+  // desbloqueio do dia a dia (aparelho já pareado), então semeiam o PIN.
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
   });
 
   test("PIN correto: .pin-screen ganha .pin-dissolve antes de virar raio-x", async ({ page }) => {
@@ -81,7 +86,10 @@ test.describe("A Abertura — dissolve da PIN screen (Task 1)", () => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
     await comEspiaDeClasses(page);
-    await page.addInitScript(() => localStorage.clear());
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
     await mockPortfolio(page);
     await page.goto("/");
     await page.locator("input.pin-input").fill("123456");

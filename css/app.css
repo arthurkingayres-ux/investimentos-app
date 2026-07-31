@@ -250,6 +250,90 @@ h1 {
   font-weight: 600;
 }
 
+/* 7a.W.3.b — cadastro da frase de acesso. Restrained: zero cor nova, zero
+   token novo. O peso vem de espaço e tipografia, no eixo da .pin-screen
+   (mesmo padding-top de 3rem), para as duas telas de entrada do app pousarem
+   no mesmo lugar. Sem card e sem container de propósito: a cerimônia é a
+   página, não uma caixa nela. */
+.frase-screen {
+  padding-top: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.frase-screen h1 {
+  margin-top: 0.5rem;
+}
+
+.frase-razao {
+  max-width: 34ch;
+  margin: 0.75rem auto 1.5rem;
+  color: var(--gray);
+  font-size: var(--num-sm);
+  line-height: 1.5;
+}
+
+/* Campo de TEXTO, não de dígito: sem tabular-nums e sem letter-spacing de
+   PIN. `overflow-wrap: anywhere` porque seis palavras não cabem em uma linha
+   a 320px e a quebra tem de ser previsível. */
+.frase-input {
+  width: 100%;
+  max-width: 320px;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--neutral-200);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.125rem;
+  text-align: center;
+  outline: none;
+  overflow-wrap: anywhere;
+  transition: border-color 160ms ease;
+}
+
+.frase-input:focus {
+  border-color: var(--g-700);
+}
+
+.frase-contador {
+  margin-top: 0.5rem;
+  color: var(--gray);
+  font-family: var(--mono);
+  font-size: var(--num-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.frase-submit {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 320px;
+  min-height: 48px;
+  border: none;
+  border-radius: 14px;
+  background: var(--g-900);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.frase-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.frase-submit:not(:disabled):active { background: var(--g-700); }
+
+.frase-erro {
+  color: var(--red);
+  margin-top: 0.75rem;
+  max-width: 34ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   @keyframes pin-shake {
     0%, 100% { transform: translateX(0); }
@@ -3942,6 +4026,7 @@ body:has(.tab-bar) main {
    --red agora "claros" no dark. Um único valor de tinta (#04130c), igual ao
    mockup (.seg.on). ──────────────────────────────────────────────────────── */
 [data-theme="dark"] .pin-submit,
+[data-theme="dark"] .frase-submit,
 [data-theme="dark"] .aporte-pill,
 [data-theme="dark"] .toast,
 [data-theme="dark"] .escopo-toggle button.active,

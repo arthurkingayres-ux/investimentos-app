@@ -559,12 +559,17 @@ document.addEventListener("alpine:init", () => {
           this.updateTabIndicator();
         });
       });
-      // 7a.W.3.b: decide a fase inicial DEPOIS da migração e ANTES do
-      // auto-resume. A migração é idempotente e barata quando não há o que
-      // migrar (guard `_temEnvelope()`), então chamá-la aqui não custa
-      // derivação nenhuma no aparelho virgem — que é justamente o caso que
-      // desvia para o enrollment.
-      await this._migrarSePreciso();
+      // 7a.W.3.b: decide a fase inicial ANTES do auto-resume.
+      //
+      // NÃO chama `_migrarSePreciso()` aqui, de propósito. A pergunta "este
+      // aparelho é virgem?" não depende de ter migrado: quem tem `pin` não é
+      // virgem, com ou sem envelope, e quem não tem nem `pin` nem envelope não
+      // tem o que migrar. Chamar a migração aqui custaria uma derivação
+      // PBKDF2 de 600k no boot de TODO aparelho e atrasaria o auto-resume o
+      // suficiente para o `limparSessao()` da sessão expirada chegar tarde
+      // demais (medido: `session.spec.ts` "sessao > 7d" lia o `pin` ainda
+      // presente). A migração roda onde a derivação já é obrigatória, dentro
+      // de `tentarAutoResume`.
       if (!localStorage.getItem("pin") && !this._temEnvelope()) {
         // Aparelho virgem: nem PIN guardado, nem envelope. Nada a desbloquear
         // — o que falta é PAREAR o aparelho.
@@ -3669,12 +3674,27 @@ document.addEventListener("alpine:init", () => {
         // abriu o envelope) — é a carteira ter sido republicada com uma frase
         // nova. A tela tem voz própria e não acusa o PIN (spec §7.4).
         console.warn("auto-resume: payload não abriu com o segredo guardado", err);
-        this.limparSessao();
         this.fase = "frase";
         this.fraseMotivo = "republicado";
-        // O envelope velho fica: ele será SOBRESCRITO quando a frase nova for
-        // cadastrada. Apagar aqui não adiantaria nada e criaria um estado
-        // intermediário sem envelope.
+        // NÃO chama `limparSessao()` aqui, e isso é decisão medida, não
+        // esquecimento. Três razões, nesta ordem:
+        //
+        // 1. O PIN LOCAL continua válido — ele abriu o envelope. Quem mudou foi
+        //    o segredo lá dentro. Apagar o `pin` faria o enrollment perder o
+        //    PIN que deveria REUSAR, e a tela pediria ao Dr. Arthur para
+        //    escolher um PIN novo num aparelho que ele nunca despareou
+        //    (contraria o refinamento da spec §7.4, e o teste de re-enrollment
+        //    pega isso).
+        // 2. Apagar o `pinTimestamp` seria pior no boot SEGUINTE: sem ele o
+        //    auto-resume sai cedo, a fase fica "pin", e o Dr. Arthur veria
+        //    "PIN incorreto" — exatamente a mensagem que a spec §7.4 proíbe,
+        //    porque acusa o PIN por um problema que é do segredo.
+        // 3. A sessão não expirou. Republicação da carteira não é logout, e
+        //    tratá-la como tal aplica o remédio errado ao evento.
+        //
+        // O envelope velho também fica: ele será SOBRESCRITO quando a frase
+        // nova for cadastrada. Apagá-lo aqui criaria um estado intermediário
+        // sem envelope, sem nada em troca.
       } finally {
         this.carregando = false;
       }
@@ -3830,6 +3850,97 @@ document.addEventListener("alpine:init", () => {
           benchmarks: Object.entries(r[k].benchmarks || {}),
           isFirst: i === 0,
         }));
+    },
+
+    // 7a.W.3.b — a ÚNICA validação possível da frase é tentar decifrar o
+    // payload de verdade. Não há lista embarcada para conferir (spec §6.4:
+    // milhares de palavras no bundle por nada, e validar contra lista criaria
+    // falso-negativo se a frase um dia mudar de forma), e não dá para saber
+    // qual palavra errou — nem deve.
+    async submitFrase() {
+      if (this.carregando || this.fraseTokens !== 6) return;
+      this.fraseErro = "";
+      this.carregando = true;
+      const candidato = window.canonicalizarFrase(this.frase);
+      let payloadB64;
+      try {
+        const response = await fetch("./portfolio.json.enc", { cache: "no-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        payloadB64 = (await response.text()).trim();
+      } catch (err) {
+        // Estado próprio: o cadastro exige rede UMA vez, porque valida contra
+        // o payload real. Confundir isto com "frase errada" mandaria ele
+        // reconferir palavras que estão certas.
+        console.warn("enrollment: fetch falhou", err);
+        this.fraseErro = "Sem conexão. O primeiro acesso neste aparelho precisa de internet.";
+        this.carregando = false;
+        return;
+      }
+      try {
+        const plaintext = await window.decifrar(payloadB64, candidato);
+        this.json = JSON.parse(plaintext);
+      } catch (err) {
+        console.warn("enrollment: frase não abriu o payload", err);
+        this.fraseErro = "Não foi possível abrir a carteira com essa frase. Confira as palavras e a ordem.";
+        this.carregando = false;
+        return;
+      }
+      this.segredo = candidato;
+      // Aparelho que JÁ tem PIN local reusa o existente e entra direto; virgem
+      // vai para a etapa 2 (spec §7.4).
+      const pinExistente = localStorage.getItem("pin");
+      if (pinExistente) {
+        await this._concluirEnrollment(pinExistente);
+      } else {
+        this.fraseEtapa = "pin";
+        this.carregando = false;
+      }
+    },
+
+    async submitFrasePin() {
+      if (this.carregando || !/^\d{6}$/.test(this.frasePinNovo)) return;
+      this.fraseErro = "";
+      this.carregando = true;
+      await this._concluirEnrollment(this.frasePinNovo);
+    },
+
+    // Fecha o pareamento: envelopa o segredo sob o PIN local, grava a sessão,
+    // limpa os campos da cerimônia e entra. O sucesso cai n'A Abertura
+    // existente (7a.S.11), não numa tela de "pronto" — a cerimônia de entrada
+    // do app já existe e é ela que celebra.
+    async _concluirEnrollment(pinLocal) {
+      try {
+        await this._criarEnvelope(this.segredo, pinLocal);
+        localStorage.setItem("pin", pinLocal);
+        localStorage.setItem("pinTimestamp", String(Date.now()));
+        if (this.json && this.json.atualizado_em) {
+          localStorage.setItem("atualizadoEm", this.json.atualizado_em);
+        }
+      } catch (err) {
+        console.error("enrollment: falha ao gravar o envelope", err);
+        this.fraseErro = "Não foi possível concluir neste aparelho. Tente de novo.";
+        this.carregando = false;
+        return;
+      }
+      this.pin = pinLocal;
+      // Campos da cerimônia não sobrevivem a ela: a frase em claro sai do
+      // $data assim que deixa de ser necessária.
+      this.frase = "";
+      this.frasePinNovo = "";
+      this.fraseErro = "";
+      this.fraseEtapa = "frase";
+      this.fraseMotivo = "";
+      this.resetarFalhas();
+      this.fase = "raiox";
+      this.carregando = false;
+      this.atualizarRota();
+      await this.carregarIndiceRelatorios();
+      this.carregarIndiceDossies();
+      if (this.rota === "relatorio") this.hidratarRelatorio();
+      if (this.rota === "dossie") this.hidratarDossie();
+      if (this.rota === "patrimonio") this.hidratarPatrimonio();
+      if (this.rota === "dy") this.hidratarDY();
+      if (this.rota === "aportar") this.hidratarAportar();
     },
 
     async submitPin() {

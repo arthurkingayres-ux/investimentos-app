@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=63">
+  <link rel="stylesheet" href="css/app.css?v=66">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=44"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=65"></script>
+  <script src="js/app.js?v=66"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -29,6 +29,82 @@
     aria-live="polite"
     x-text="toast.mensagem"></div>
   <main>
+    <!-- 7a.W.3.b — cadastro da frase de acesso. Cerimônia sóbria, vista uma
+         vez por aparelho: a gravidade comunica que aquela frase importa.
+         Estratégia Restrained (default do produto), nenhuma cor nova, peso
+         vindo de espaço e tipografia. Âncoras: página de rosto de livro,
+         recibo de cartório, o hero Monument. Rejeitados por reflexo de
+         categoria: cadeado, escudo, terminal escuro, mono-verde. -->
+    <template x-if="fase === 'frase'">
+      <section class="frase-screen">
+        <p class="eyebrow" x-text="fraseMotivo === 'republicado'
+             ? 'A CARTEIRA FOI REPUBLICADA'
+             : 'PRIMEIRO ACESSO NESTE APARELHO'"></p>
+        <h1 x-text="fraseMotivo === 'republicado'
+             ? 'Uma frase nova'
+             : 'Sua frase de acesso'"></h1>
+
+        <template x-if="fraseEtapa === 'frase'">
+          <form @submit.prevent="submitFrase">
+            <p class="frase-razao" x-text="fraseMotivo === 'republicado'
+                 ? 'A carteira foi republicada com uma frase nova. Digite a frase atual para voltar a abrir neste aparelho.'
+                 : 'Seis palavras. Elas abrem a carteira neste aparelho e não ficam em nenhum servidor.'"></p>
+            <!-- Campo ÚNICO de texto, não seis caixinhas: caixinhas viram OTP,
+                 brigam com colar e forçam navegação entre campos no teclado do
+                 celular. VISÍVEL, porque ele precisa conferir as palavras.
+                 autocapitalize/autocorrect/spellcheck desligados: o corretor do
+                 celular destrói palavras diceware em silêncio, e este é o
+                 detalhe que mais provavelmente arruinaria o fluxo. -->
+            <label for="frase-input" class="sr-only">Frase de acesso</label>
+            <input
+              id="frase-input"
+              class="frase-input"
+              type="text"
+              inputmode="text"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              autocomplete="off"
+              x-model="frase"
+              :disabled="carregando"
+              placeholder="seis palavras separadas por espaço"
+              autofocus>
+            <p class="frase-contador" x-text="fraseTokens + ' de 6 palavras'"></p>
+            <button type="submit" class="frase-submit"
+              :disabled="carregando || fraseTokens !== 6">
+              <span x-show="!carregando">Abrir a carteira</span>
+              <span x-show="carregando">Abrindo…</span>
+            </button>
+            <p class="frase-erro" x-show="fraseErro" x-cloak role="alert" x-text="fraseErro"></p>
+          </form>
+        </template>
+
+        <!-- Etapa 2, SÓ em aparelho virgem: o PIN local. Aparelho que já tem
+             PIN guardado reusa o existente (spec §7.4). -->
+        <template x-if="fraseEtapa === 'pin'">
+          <form @submit.prevent="submitFrasePin">
+            <p class="frase-razao">Escolha 6 dígitos para desbloquear no dia a dia. Eles ficam só neste aparelho.</p>
+            <label for="frase-pin-input" class="sr-only">PIN deste aparelho</label>
+            <input
+              id="frase-pin-input"
+              class="frase-pin-input pin-input"
+              type="tel"
+              inputmode="numeric"
+              pattern="\d{6}"
+              maxlength="6"
+              autocomplete="off"
+              x-model="frasePinNovo"
+              :disabled="carregando"
+              placeholder="••••••"
+              autofocus>
+            <button type="submit" class="frase-pin-submit pin-submit"
+              :disabled="carregando || frasePinNovo.length !== 6">Guardar e entrar</button>
+            <p class="frase-erro" x-show="fraseErro" x-cloak role="alert" x-text="fraseErro"></p>
+          </form>
+        </template>
+      </section>
+    </template>
+
     <template x-if="fase === 'pin'">
       <section class="pin-screen" :class="{ 'is-shaking': shake, 'pin-dissolve': pinDissolvendo }">
         <h1>Carteira</h1>

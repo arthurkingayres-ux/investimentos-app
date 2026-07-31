@@ -96,6 +96,9 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
 
   test("cold-start submitPin em #/raiox/chart renderiza o gráfico", async ({ page }) => {
     // 7a.I.5 finding iter 1: mesmo bug pelo caminho submitPin (sem PIN salvo).
+    // 7a.W.3.b: "sem PIN salvo" passou a significar ENROLLMENT. O que este
+    // teste mede é o cold-start pelo submitPin num aparelho pareado.
+    await page.addInitScript(() => localStorage.setItem("pin", "123456"));
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
     );

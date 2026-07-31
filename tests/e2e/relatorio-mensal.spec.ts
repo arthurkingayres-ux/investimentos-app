@@ -167,6 +167,8 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   });
 
   test("cold-start submitPin em #/raiox/relatorio renderiza o último mês", async ({ page }) => {
+    // 7a.W.3.b: aparelho pareado (sem seed cairia no enrollment).
+    await page.addInitScript(() => localStorage.setItem("pin", "123456"));
     await mockTudo(page);
     await page.goto("/#/raiox/relatorio");
     await expect(page.locator(".pin-screen")).toBeVisible({ timeout: 10_000 });

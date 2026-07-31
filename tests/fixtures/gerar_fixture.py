@@ -974,13 +974,30 @@ def gerar_dossies() -> None:
         print(f"Fixture gerada: {base / nome}")
 
 
+# 7a.W.3.b: a tela de enrollment exige SEIS palavras, então uma fixture cifrada
+# com `PIN_TESTE` (1 token) não consegue exercitar o fluxo — o submit nunca
+# habilita. Esta segunda fixture representa o mundo PÓS-VIRADA, que é o único em
+# que a tela de cadastro tem sentido. Frase 100% genérica, sem qualquer relação
+# com a frase de acesso real (que nunca aparece em teste, log ou commit).
+FRASE_TESTE = "alfa beta gama delta epsilon zeta"
+
+
+def gerar_portfolio_frase() -> None:
+    base = OUT.parent
+    enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), FRASE_TESTE)
+    alvo = base / "portfolio_frase.test.json.enc"
+    alvo.write_text(enc, encoding="ascii")
+    print(f"Fixture gerada: {alvo} (cifrada com a FRASE de teste, não com o PIN)")
+
+
 def main() -> None:
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")
     print(f"  Tamanho B64: {len(enc)} chars · PIN={PIN_TESTE}")
-    gerar_relatorios()  # 7a.Q.3
-    gerar_dossies()     # 7a.R.3.b
+    gerar_relatorios()       # 7a.Q.3
+    gerar_dossies()          # 7a.R.3.b
+    gerar_portfolio_frase()  # 7a.W.3.b
 
 
 if __name__ == "__main__":

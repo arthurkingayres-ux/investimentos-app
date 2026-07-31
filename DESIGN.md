@@ -1207,3 +1207,42 @@ envelope** (nunca as do payload) para 100k. **1976 ms < 3 s ⇒ mantido em 600k*
 uma constante só e uma primitiva só. Se um aparelho real medir acima de 3 s, a saída
 autorizada é `PBKDF2_ITERATIONS_ENVELOPE` separada em `crypto.js` — nunca um ajuste
 global, que afetaria o payload publicado.
+
+### A tela de cadastro da frase (7a.W.3.b)
+
+Cerimônia **sóbria**, vista uma vez por aparelho: a gravidade comunica que aquela
+frase importa. Estratégia **Restrained** (o default do produto), **zero cor nova, zero
+token novo** — o peso vem de espaço e tipografia, no mesmo eixo da `.pin-screen`
+(`padding-top: 3rem`), para as duas telas de entrada do app pousarem no mesmo lugar.
+**Sem card e sem container**, de propósito: a cerimônia é a página, não uma caixa nela.
+
+Cena que forçou o tema: *em casa, à noite, sentado, com a frase na mão ou na cabeça,
+uma vez só neste aparelho, com atenção inteira*. Âncoras: página de rosto de livro,
+recibo de cartório, o hero Monument do próprio app.
+
+**Rejeitados por reflexo de categoria:** cadeado, escudo, terminal escuro, mono-verde.
+"Tela de segurança" convergiria nisso sozinha, e é exatamente o que esta fase não quer.
+
+**Campo único de texto, não seis caixinhas.** Caixinhas viram OTP, brigam com colar e
+forçam navegação entre campos no teclado do celular. O campo é **visível** (não
+`type=password`), porque ele precisa conferir as palavras.
+
+**`autocapitalize` / `autocorrect` / `spellcheck` desligados** — este é o detalhe que
+mais provavelmente arruinaria o fluxo se esquecido: o corretor do celular destrói
+palavras diceware em silêncio. Travado por teste.
+
+**Duas etapas, e a segunda só em aparelho virgem:** as palavras e, depois, a escolha do
+PIN local. Aparelho que já tem PIN guardado reusa o existente e digita só as palavras.
+
+**Dois motivos, duas vozes:** `virgem` ("PRIMEIRO ACESSO NESTE APARELHO" / "Sua frase
+de acesso") e `republicado` ("A CARTEIRA FOI REPUBLICADA" / "Uma frase nova"). O
+segundo **nunca acusa o PIN**: o PIN local está certo, quem mudou foi o segredo.
+
+**Erro genérico por construção.** A única validação possível é tentar decifrar o
+payload de verdade — não há lista de palavras embarcada, e não dá para saber qual
+palavra errou, nem deve. Erro de rede tem estado próprio, distinto de frase errada:
+confundir os dois mandaria ele reconferir palavras que estão certas.
+
+Verificado ao vivo (Playwright MCP): 390×844 claro e 320×640 Modo Plantão, as duas
+etapas e os dois motivos, alvos de 49px e 48px (≥44), **zero overflow horizontal** a
+320px.

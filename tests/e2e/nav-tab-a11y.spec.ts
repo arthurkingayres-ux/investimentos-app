@@ -58,6 +58,9 @@ test.describe("Tab bar a11y (7a.I.7)", () => {
   });
 
   test("tab bar NAO aparece na tela PIN (gate antes do shell)", async ({ page }) => {
+    // 7a.W.3.b: storage sem `pin` levaria ao ENROLLMENT. Este teste mede o
+    // fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+    await page.addInitScript(() => localStorage.setItem("pin", "123456"));
     await page.route("**/portfolio.json.enc", (route) =>
       route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
     );

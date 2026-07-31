@@ -20,8 +20,16 @@ async function mock(page: Page) {
 }
 
 test.describe("7a.W.3.a — envelope local", () => {
-  test("unlock cria o envelope e o segredo NAO vai em claro pro localStorage", async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+  test("apos entrar existe envelope e o segredo NAO vai em claro pro localStorage", async ({ page }) => {
+    // 7a.W.3.b: com `pin` semeado (aparelho pareado), quem cria o envelope é
+    // a migração no boot; o cadastro em aparelho virgem é coberto por
+    // enrollment.spec.ts. O invariante medido aqui é o mesmo dos dois
+    // caminhos: existe envelope, ele não contém o segredo, e nenhuma chave
+    // inesperada aparece no localStorage.
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
     await mock(page);
     await page.goto("/");
     await page.locator("input.pin-input").fill(SEGREDO);
@@ -45,7 +53,11 @@ test.describe("7a.W.3.a — envelope local", () => {
   });
 
   test("o envelope decifra de volta pro segredo com o PIN local", async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+    // 7a.W.3.b: aparelho pareado (sem seed cairia no enrollment).
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
     await mock(page);
     await page.goto("/");
     await page.locator("input.pin-input").fill(SEGREDO);
@@ -79,7 +91,11 @@ test.describe("7a.W.3.a — envelope local", () => {
   });
 
   test("PIN errado nao abre o envelope e nao destroi o envelope bom", async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+    // 7a.W.3.b: aparelho pareado (sem seed cairia no enrollment).
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "123456");
+    });
     await mock(page);
     await page.goto("/");
     await page.locator("input.pin-input").fill(SEGREDO);

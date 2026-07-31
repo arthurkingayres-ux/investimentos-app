@@ -23,6 +23,9 @@ test.describe("Multi-tab sync", () => {
     await mockPortfolio(pageB);
 
     // Log in na aba A
+    // 7a.W.3.b: storage sem `pin` levaria ao ENROLLMENT. Este teste mede o
+    // fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+    await pageA.addInitScript(() => localStorage.setItem("pin", "123456"));
     await pageA.goto("/");
     await pageA.locator("input.pin-input").fill("123456");
     await pageA.locator("button.pin-submit").click();
@@ -58,6 +61,9 @@ test.describe("Multi-tab sync", () => {
     const pageB = await context.newPage();
 
     // Log in na aba A para semear localStorage com pin + pinTimestamp
+    // 7a.W.3.b: storage sem `pin` levaria ao ENROLLMENT. Este teste mede o
+    // fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+    await pageA.addInitScript(() => localStorage.setItem("pin", "123456"));
     await pageA.goto("/");
     await pageA.locator("input.pin-input").fill("123456");
     await pageA.locator("button.pin-submit").click();

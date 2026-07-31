@@ -77,6 +77,9 @@ test.describe("Tab bar shell (7a.I.1)", () => {
   });
 
   test("tab bar NAO aparece na tela PIN", async ({ page }) => {
+    // 7a.W.3.b: storage sem `pin` passou a levar ao ENROLLMENT. Este teste
+    // mede o fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+    await page.addInitScript(() => localStorage.setItem("pin", "123456"));
     await mockPortfolio(page);
     await page.goto("/");
     await expect(page.locator(".pin-screen")).toBeVisible();

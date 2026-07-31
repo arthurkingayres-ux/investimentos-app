@@ -6,7 +6,16 @@ import fs from "fs";
 const FIXTURE = fs.readFileSync(
   path.join(__dirname, "../fixtures/portfolio.test.json.enc"), "utf-8");
 const SEGREDO = "123456";           // o segredo do fixture (público, por design)
+const PIN_LOCAL = "246810";
 const FRASE_SEIS = "alfa beta gama delta epsilon zeta";
+
+// 7a.W.3.b: a tela exige SEIS palavras, então o fluxo completo de cadastro só
+// pode ser exercitado contra um payload cifrado com uma FRASE — que é o mundo
+// pós-virada, o único em que essa tela tem sentido. Com a fixture cifrada com
+// `SEGREDO` (1 token) o submit nunca habilitaria, e o teste mediria o gate em
+// vez do fluxo.
+const FIXTURE_FRASE = fs.readFileSync(
+  path.join(__dirname, "../fixtures/portfolio_frase.test.json.enc"), "utf-8");
 
 async function mock(page: Page, opts: { portfolio?: string } = {}) {
   await page.route("**/portfolio.json.enc", (r) =>
@@ -131,5 +140,81 @@ test.describe("7a.W.3.b — enrollment", () => {
     // NÃO acusa o PIN: o PIN local está certo, quem mudou foi o segredo.
     await expect(page.locator(".frase-screen")).not.toContainText("PIN incorreto");
     await expect(page.locator(".pin-screen")).toHaveCount(0);
+  });
+
+  test("layout: coluna unica no mesmo eixo da tela de PIN, sem card", async ({ page }) => {
+    await page.addInitScript(() => localStorage.clear());
+    await mock(page);
+    await page.goto("/");
+    const tela = page.locator(".frase-screen");
+    await expect(tela).toBeVisible();
+    // Mesmo token de topo da .pin-screen (3rem = 48px): as duas telas de
+    // entrada do app pousam no mesmo eixo.
+    expect(await tela.evaluate((el) => getComputedStyle(el).paddingTop)).toBe("48px");
+    // Sem card, sem container: a spec pede a página, não uma caixa nela.
+    expect(await tela.evaluate((el) => getComputedStyle(el).borderWidth)).toBe("0px");
+    // Ordem do DOM: eyebrow → título → razão → campo → contador → botão.
+    const ordem = await tela.evaluate((el) =>
+      Array.from(el.querySelectorAll(".eyebrow, h1, .frase-razao, .frase-input, .frase-contador, .frase-submit"))
+        .map((n) => n.className || n.tagName.toLowerCase()));
+    expect(ordem.length).toBe(6);
+  });
+
+  test("alvos de toque >= 44px e sem overflow horizontal a 320px", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.addInitScript(() => localStorage.clear());
+    await mock(page);
+    await page.goto("/");
+    await expect(page.locator(".frase-screen")).toBeVisible();
+    for (const sel of [".frase-input", ".frase-submit"]) {
+      const box = await page.locator(sel).boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    const overflow = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("aparelho virgem: apos a frase, escolhe o PIN local e entra", async ({ page }) => {
+    await page.addInitScript(() => localStorage.clear());
+    await mock(page, { portfolio: FIXTURE_FRASE });
+    await page.goto("/");
+    await page.locator(".frase-input").fill(FRASE_SEIS);
+    await page.locator(".frase-submit").click();
+
+    // Etapa 2: o PIN local. Só existe em aparelho virgem.
+    await expect(page.locator(".frase-pin-input")).toBeVisible({ timeout: 15_000 });
+    await page.locator(".frase-pin-input").fill(PIN_LOCAL);
+    await page.locator(".frase-pin-submit").click();
+
+    // Sucesso cai n'A Abertura existente (7a.S.11), não numa tela de "pronto".
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 15_000 });
+
+    const ls = await page.evaluate(() => ({
+      pin: localStorage.getItem("pin"),
+      envelope: localStorage.getItem("envelope"),
+    }));
+    expect(ls.pin).toBe(PIN_LOCAL);
+    const aberto = await page.evaluate(async () =>
+      await (window as any).decifrar(localStorage.getItem("envelope")!, localStorage.getItem("pin")!));
+    expect(aberto).toBe(FRASE_SEIS);
+  });
+
+  test("re-enrollment num aparelho que ja tem PIN nao pede PIN de novo", async ({ page }) => {
+    // Refinamento sobre o brief (spec §7.4): o passo do PIN local só aparece
+    // em aparelho virgem. Quem já tem PIN guardado digita só as palavras.
+    await mock(page, { portfolio: FIXTURE_FRASE });
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem("pin", "999999");
+      localStorage.setItem("pinTimestamp", String(Date.now()));
+    });
+    await page.goto("/");
+    await expect(page.locator(".frase-screen")).toBeVisible({ timeout: 15_000 });
+    await page.locator(".frase-input").fill(FRASE_SEIS);
+    await page.locator(".frase-submit").click();
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".frase-pin-input")).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("pin"))).toBe("999999");
   });
 });

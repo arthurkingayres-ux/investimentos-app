@@ -20,6 +20,9 @@ test.describe("Toast de atualizacao", () => {
   }) => {
     await page.addInitScript(() => {
       localStorage.setItem("atualizadoEm", "2026-04-10T09:00:00");
+      // 7a.W.3.b: storage sem `pin` passou a levar ao ENROLLMENT. Este teste
+      // mede o fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+      localStorage.setItem("pin", "123456");
     });
     await mockPortfolio(page);
     await page.goto("/");
@@ -34,6 +37,9 @@ test.describe("Toast de atualizacao", () => {
   test("mesmo atualizado_em -> sem toast verde", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("atualizadoEm", "2026-04-26T15:00:00");
+      // 7a.W.3.b: storage sem `pin` levaria ao ENROLLMENT. Este teste mede o
+      // fluxo do dia a dia (aparelho já pareado), então semeia o PIN.
+      localStorage.setItem("pin", "123456");
     });
     await mockPortfolio(page);
     await page.goto("/");
