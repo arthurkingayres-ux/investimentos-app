@@ -90,11 +90,28 @@ test.describe("guard: fixtures referenciados estão no git", () => {
     const referenciados = fixturesReferenciados(fontes);
     expect(referenciados.length).toBeGreaterThan(0);
 
-    const rastreados = new Set(
-      execFileSync("git", ["ls-files", "tests/fixtures"], {
+    // RELANÇA com contexto, nunca engole. Se o `git` sumir ou RAIZ não for um
+    // worktree (rodar a suíte de um tarball sem `.git`, por exemplo), o erro cru
+    // é um ENOENT/exit-128 que não diz nada sobre fixture nenhuma. Um `catch` que
+    // devolvesse conjunto vazio seria pior que não ter `catch`: todo fixture
+    // viraria "ausente" e o guard passaria a mentir com confiança.
+    let saidaLsFiles: string;
+    try {
+      saidaLsFiles = execFileSync("git", ["ls-files", "tests/fixtures"], {
         cwd: RAIZ,
         encoding: "utf-8",
-      })
+      });
+    } catch (e) {
+      throw new Error(
+        `Este guard precisa do git para saber o que está rastreado, e ` +
+          `'git ls-files tests/fixtures' falhou em ${RAIZ}. Confira que o git ` +
+          `está no PATH e que este diretório é um worktree (rodar a suíte de um ` +
+          `tarball sem .git cai aqui). Erro original: ${(e as Error).message}`,
+      );
+    }
+
+    const rastreados = new Set(
+      saidaLsFiles
         .split("\n")
         .map((l) => l.trim())
         .filter(Boolean),
