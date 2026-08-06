@@ -6,6 +6,13 @@ playwright-report/
 test-results/
 tests/fixtures/*.json
 !tests/fixtures/portfolio.test.json.enc
+# 7a.AA.2: unico fixture em .json PURO — o glob acima o engoliu e o CI ficou
+# vermelho de 31/07 a 06/08/2026 (12 runs, ENOENT em dossie.spec.ts:26 e
+# lock-higiene.spec.ts:26). Excecao NOMINAL de proposito: abrir o glob para
+# `*.test.json` transferiria a protecao contra payload em claro para uma
+# convencao de nome, e convencao nao e gate. Conteudo verificado 100%
+# sintetico (PIN_TESTE publico, nao a frase de acesso).
+!tests/fixtures/dossies_map.test.json
 __pycache__/
 *.pyc
 
