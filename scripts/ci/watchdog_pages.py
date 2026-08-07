@@ -37,8 +37,20 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from alertar_falha import config_smtp, enviar, montar_alerta  # noqa: E402
 
-_WORKFLOW_PAGES = "pages build and deployment"
 _API = "https://api.github.com"
+
+# O workflow dinamico do Pages tem DOIS nomes, e a diferenca custou uma
+# conclusao errada em 07/08/2026:
+#
+#   /actions/workflows  ->  name: "pages-build-deployment"    (hifens)
+#   /actions/runs       ->  name: "pages build and deployment" (espacos)
+#
+# Conferir "o nome literal contra a API" no endpoint de RUNS e depois usa-lo
+# onde se espera o nome do WORKFLOW passa despercebido: os dois existem, os dois
+# parecem certos, e o erro se manifesta como silencio. O `path` nao tem essa
+# ambiguidade.
+_PATH_PAGES = "dynamic/pages/pages-build-deployment"
+_NOMES_PAGES = ("pages-build-deployment", "pages build and deployment")
 
 # `cancelled` fica DE FORA de proposito: e ruido de outage (limitacao 4 da §9.6
 # do runbook), e o gate do canal de evento tambem e `failure`. Os dois criterios
@@ -101,6 +113,21 @@ def ctx_do_run(run: dict, repo: str) -> dict:
     }
 
 
+def escolher_workflow_pages(workflows: list) -> dict | None:
+    """O workflow dinamico do Pages, por `path` e com os nomes como reserva.
+
+    `path` primeiro porque e o unico identificador que nao muda de forma
+    conforme o endpoint que o devolve.
+    """
+    for w in workflows:
+        if w.get("path") == _PATH_PAGES:
+            return w
+    for w in workflows:
+        if w.get("name") in _NOMES_PAGES:
+            return w
+    return None
+
+
 def _get(url: str, token: str | None) -> dict:
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json",
@@ -121,14 +148,14 @@ def buscar_runs_do_pages(repo: str, token: str | None) -> list:
     nome literal tem, e que esta fase inteira existe para nao repetir.
     """
     wfs = _get(f"{_API}/repos/{repo}/actions/workflows?per_page=100", token)
-    ids = [w["id"] for w in wfs.get("workflows", [])
-           if w.get("name") == _WORKFLOW_PAGES]
-    if not ids:
+    alvo = escolher_workflow_pages(wfs.get("workflows", []))
+    if alvo is None:
         raise RuntimeError(
-            f"nenhum workflow chamado '{_WORKFLOW_PAGES}' em {repo} — "
-            f"o nome mudou, e um watchdog que nao acha o alvo e MUDO"
+            f"nenhum workflow de Pages em {repo} (procurei o path "
+            f"'{_PATH_PAGES}' e os nomes {_NOMES_PAGES}) — "
+            f"um watchdog que nao acha o alvo e MUDO"
         )
-    dados = _get(f"{_API}/repos/{repo}/actions/workflows/{ids[0]}/runs"
+    dados = _get(f"{_API}/repos/{repo}/actions/workflows/{alvo['id']}/runs"
                  f"?per_page=10&status=completed", token)
     return dados.get("workflow_runs", [])
 

@@ -34,6 +34,19 @@ function nomeDoWorkflow(arquivo: string): string {
   return m[1].replace(/^["']|["']$/g, "");
 }
 
+/**
+ * Os ITENS da lista `workflows:` do observador.
+ *
+ * Casa os itens de lista com aspas em vez de fatiar o texto entre
+ * `indexOf("workflows:")` e `indexOf("types:")`: a chave `workflows:` também
+ * aparece dentro do COMENTÁRIO que explica a armadilha do nome literal, e a
+ * fatia arrastaria junto a prosa. Um assert que lê comentário mede
+ * documentação, não configuração — e passaria verde sobre um YAML errado.
+ */
+function itensObservados(): string[] {
+  return [...ler(ALERTA).matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map((m) => m[1]);
+}
+
 test.describe("guard: workflow de alerta de falha", () => {
   test("dispara em workflow_run completed", () => {
     const t = ler(ALERTA);
@@ -53,8 +66,8 @@ test.describe("guard: workflow de alerta de falha", () => {
   test("observa TODO workflow com arquivo neste repo, por igualdade de conjunto", () => {
     // Workflow novo nasce MUDO: `workflows:` é lista de nomes literais, sem
     // glob. Enumeração envelhece, então a defesa não é repetir as strings — é
-    // DERIVAR dos próprios arquivos e exigir igualdade. Workflow novo no repo
-    // ⇒ este teste vermelho até ser observado (ou isento aqui, com motivo).
+    // DERIVAR dos próprios arquivos e exigir cobertura. Workflow novo no repo
+    // ⇒ este teste vermelho até ser observado.
     const arquivos = fs
       .readdirSync(DIR_WF)
       .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
@@ -63,33 +76,38 @@ test.describe("guard: workflow de alerta de falha", () => {
       // O próprio alerta fica de fora: auto-observação é loop (teste abaixo).
       .filter((n) => n !== nomeDoWorkflow(ALERTA));
 
-    const t = ler(ALERTA);
-    const bloco = t.slice(t.indexOf("workflows:"), t.indexOf("types:"));
-    const observados = [...bloco.matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map((m) => m[1]);
+    const observados = itensObservados();
+    expect(observados).toEqual(expect.arrayContaining(esperados));
 
-    expect(observados.sort()).toEqual(esperados.sort());
+    // Os extras são ALLOWLIST justificada, não sobra: o Pages é dinâmico e não
+    // tem arquivo neste repo, então não pode ser derivado. Exigir igualdade
+    // exata deixaria este teste vermelho para sempre; aceitar qualquer extra
+    // deixaria entrar lixo. A allowlist nomeada é o meio-termo que envelhece
+    // visivelmente.
+    const extras = observados.filter((n) => !esperados.includes(n));
+    expect(extras).toEqual(["pages-build-deployment"]);
   });
 
-  test("NÃO observa o Pages por workflow_run — foi medido que não funciona", () => {
-    // 07/08/2026: o Pages concluiu 10:51:34Z e nenhum run de alerta apareceu
-    // nos 3,7 min seguintes; o CI concluiu 10:55:16Z e o run nasceu 2 s depois.
-    // O nome literal batia byte a byte com a API, então não era typo — e job
-    // pulado por `if:` cria run listável, provado no mesmo experimento, então a
-    // ausência é informativa.
+  test("observa o Pages pelo nome do WORKFLOW (hífens), não pelo do RUN", () => {
+    // O achado de 07/08/2026, e ele custou uma conclusão errada. O workflow
+    // dinâmico do Pages tem DOIS nomes conforme o endpoint:
     //
-    // Este assert é uma trava contra o reflexo de "acrescentar o Pages de
-    // volta": declarar cobertura que não existe é a falsa confiança que matou
-    // o canal nativo do GitHub. O Pages vai pelo `watchdog-pages.yml`.
+    //   /actions/workflows  ->  "pages-build-deployment"     (hífens)
+    //   /actions/runs       ->  "pages build and deployment" (espaços)
+    //
+    // `workflow_run` casa pelo nome do WORKFLOW. A 1ª versão usou a forma com
+    // espaços e a sonda concluiu "workflow_run não observa o Pages" — errado:
+    // o nome é que estava errado, e o erro se manifesta como SILÊNCIO, que é
+    // indistinguível de "o GitHub não emite isto". Conferir o nome contra a
+    // API não basta se for contra o endpoint errado.
     //
     // Extrai os ITENS da lista, não uma fatia de texto: `indexOf("workflows:")`
-    // casa primeiro no COMENTÁRIO que explica a armadilha do nome literal, e a
-    // fatia arrastaria junto toda a prosa que — corretamente — cita o Pages.
-    // Um assert que lê comentário mede documentação, não configuração.
-    const observados = [...ler(ALERTA).matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map(
-      (m) => m[1],
-    );
+    // casa primeiro no COMENTÁRIO que explica a armadilha, e a fatia arrastaria
+    // junto a prosa que — corretamente — cita as duas formas. Um assert que lê
+    // comentário mede documentação, não configuração.
+    const observados = itensObservados();
+    expect(observados).toContain("pages-build-deployment");
     expect(observados).not.toContain("pages build and deployment");
-    expect(observados.length).toBeGreaterThan(0);
   });
 
   test("não observa a si mesmo", () => {

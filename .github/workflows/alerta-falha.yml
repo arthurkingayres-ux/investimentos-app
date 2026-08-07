@@ -8,25 +8,27 @@ name: Alerta de falha
 # acrescentar o nome. A vantagem que sobra, e basta, e centralizar a logica e os
 # secrets num lugar so, em vez de espalhar um passo `if: failure()` por workflow.
 #
-# `pages build and deployment` SAIU desta lista em 07/08/2026, e a saida e o
-# achado da sub-fase: MEDIDO que `workflow_run` NAO o observa. O Pages concluiu
-# 10:51:34Z e nenhum run deste workflow apareceu nos 3,7 min seguintes; o CI
-# concluiu 10:55:16Z e o run nasceu 10:55:18Z, 2 segundos depois. O nome literal
-# foi conferido contra a API antes do teste e batia byte a byte, entao nao era
-# typo — e job pulado por `if:` CRIA run listavel (`conclusion: skipped`),
-# provado no mesmo experimento, entao a ausencia e informativa e nao ambigua.
+# O Pages e enumerado como `pages-build-deployment` — COM HIFENS, e isso e o
+# achado que custou uma conclusao errada em 07/08/2026. O workflow dinamico tem
+# DOIS nomes conforme o endpoint que o devolve:
 #
-# Manter o nome aqui seria DECLARAR uma cobertura que nao existe — a mesma falsa
-# confianca do canal nativo do GitHub, que esta fase existe para nao repetir. O
-# Pages vai pelo `watchdog-pages.yml`, que PERGUNTA em vez de esperar o evento.
+#   /actions/workflows  ->  name: "pages-build-deployment"    (hifens)
+#   /actions/runs       ->  name: "pages build and deployment" (espacos)
 #
-# `Watchdog do Pages` entra na lista porque um vigia que morre em silencio nao
-# vigia nada.
+# `workflow_run` casa pelo nome do WORKFLOW. A primeira versao deste arquivo
+# usava a forma com espacos — o nome do RUN —, e a sonda concluiu que
+# "workflow_run nao observa o Pages". Errado: o nome e que estava errado, e o
+# erro se manifesta como SILENCIO, indistinguivel de "o GitHub nao emite isto".
+# Conferir "o nome literal contra a API" nao basta se for no endpoint errado.
+#
+# `Watchdog do Pages` tambem entra: um vigia que morre em silencio nao vigia
+# nada, e ele cobre o buraco que o evento nao cobre (ver watchdog-pages.yml).
 on:
   workflow_run:
     workflows:
       - "CI"
       - "Watchdog do Pages"
+      - "pages-build-deployment"
     types: [completed]
 
 permissions:
