@@ -124,10 +124,16 @@ test.describe("guard: workflow de alerta de falha", () => {
 
   test("não observa a si mesmo", () => {
     // Auto-observação faria o alerta que falha disparar um alerta, em loop.
-    const t = ler(ALERTA);
-    const proprioNome = nomeDoWorkflow(ALERTA);
-    const bloco = t.slice(t.indexOf("workflows:"), t.indexOf("types:"));
-    expect(bloco).not.toContain(proprioNome);
+    //
+    // Usa `itensObservados()` e não uma fatia entre `indexOf("workflows:")` e
+    // `indexOf("types:")`: a substring `workflows:` aparece ANTES, dentro do
+    // comentário que explica a armadilha do nome literal, então a fatia começa
+    // ~25 linhas cedo demais e mede prosa junto com configuração. Passava hoje
+    // só porque o próprio nome não aparece naquele trecho — e este arquivo é
+    // densamente comentado, narrando a própria história, então é questão de
+    // tempo até alguém escrever "Alerta de falha" ali e ficar vermelho por um
+    // motivo que nada tem a ver com a invariante.
+    expect(itensObservados()).not.toContain(nomeDoWorkflow(ALERTA));
   });
 
   test("só age em falha", () => {
