@@ -38,7 +38,17 @@ permissions:
 
 jobs:
   alertar:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    # Forma NEGATIVA de proposito. `== 'failure'` cobria 1 de ~9 conclusoes, e
+    # os que ficavam mudos nao sao exoticos: `timed_out` e `startup_failure` por
+    # YAML invalido. Enumerar o que alerta envelhece pelo mesmo motivo que
+    # `workflows:` envelhece. `skipped` sai porque e o que ESTE workflow conclui
+    # a cada sucesso do observado — inclui-lo faria o canal alertar sobre si
+    # mesmo o dia inteiro.
+    #
+    # Medido em 07/08/2026: os 8 runs de Pages falhos do historico (inclusive os
+    # 2 do outage de 06/08) saem `conclusion: failure`, entao o gate antigo JA
+    # cobria o caso originador. O alargamento e para os modos ainda nao vistos.
+    if: ${{ github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

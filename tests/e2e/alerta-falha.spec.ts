@@ -136,8 +136,22 @@ test.describe("guard: workflow de alerta de falha", () => {
     expect(itensObservados()).not.toContain(nomeDoWorkflow(ALERTA));
   });
 
-  test("só age em falha", () => {
-    expect(ler(ALERTA)).toContain("conclusion == 'failure'");
+  test("age em TODA conclusão ruim, não só em 'failure'", () => {
+    // O gate é por forma NEGATIVA, e isso é o ponto: `== 'failure'` cobria 1 de
+    // ~9 conclusões possíveis, e os que ficavam mudos não são exóticos
+    // (`timed_out`, `startup_failure` por YAML inválido). Um canal criado para
+    // substituir outro que "parou sozinho" não pode nascer mudo num modo de
+    // falha plausível — e enumerar o que alerta envelhece pelo mesmo motivo que
+    // `workflows:` envelhece.
+    //
+    // `skipped` fica de fora porque é o que ESTE workflow conclui a cada
+    // sucesso do observado; incluí-lo faria o canal alertar sobre si mesmo.
+    const t = ler(ALERTA);
+    expect(t).toContain("conclusion != 'success'");
+    expect(t).toContain("conclusion != 'skipped'");
+    expect(t, "gate voltou a enumerar um valor único").not.toContain(
+      "conclusion == 'failure'",
+    );
   });
 
   test("contexto vai por ENV, nunca interpolado em run:", () => {
