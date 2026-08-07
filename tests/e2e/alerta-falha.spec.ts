@@ -50,11 +50,46 @@ test.describe("guard: workflow de alerta de falha", () => {
     expect(ler(ALERTA)).toContain(`"${nomeCI}"`);
   });
 
-  test("observa também o deploy do Pages", () => {
-    // `pages build and deployment` é o workflow DINÂMICO do GitHub: não tem
-    // arquivo neste repo, por isso é literal aqui e não derivado. Foi o deploy
-    // falho do Pages em 06/08/2026 que originou esta sub-fase.
-    expect(ler(ALERTA)).toContain("pages build and deployment");
+  test("observa TODO workflow com arquivo neste repo, por igualdade de conjunto", () => {
+    // Workflow novo nasce MUDO: `workflows:` é lista de nomes literais, sem
+    // glob. Enumeração envelhece, então a defesa não é repetir as strings — é
+    // DERIVAR dos próprios arquivos e exigir igualdade. Workflow novo no repo
+    // ⇒ este teste vermelho até ser observado (ou isento aqui, com motivo).
+    const arquivos = fs
+      .readdirSync(DIR_WF)
+      .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
+    const esperados = arquivos
+      .map((f) => nomeDoWorkflow(path.join(DIR_WF, f)))
+      // O próprio alerta fica de fora: auto-observação é loop (teste abaixo).
+      .filter((n) => n !== nomeDoWorkflow(ALERTA));
+
+    const t = ler(ALERTA);
+    const bloco = t.slice(t.indexOf("workflows:"), t.indexOf("types:"));
+    const observados = [...bloco.matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map((m) => m[1]);
+
+    expect(observados.sort()).toEqual(esperados.sort());
+  });
+
+  test("NÃO observa o Pages por workflow_run — foi medido que não funciona", () => {
+    // 07/08/2026: o Pages concluiu 10:51:34Z e nenhum run de alerta apareceu
+    // nos 3,7 min seguintes; o CI concluiu 10:55:16Z e o run nasceu 2 s depois.
+    // O nome literal batia byte a byte com a API, então não era typo — e job
+    // pulado por `if:` cria run listável, provado no mesmo experimento, então a
+    // ausência é informativa.
+    //
+    // Este assert é uma trava contra o reflexo de "acrescentar o Pages de
+    // volta": declarar cobertura que não existe é a falsa confiança que matou
+    // o canal nativo do GitHub. O Pages vai pelo `watchdog-pages.yml`.
+    //
+    // Extrai os ITENS da lista, não uma fatia de texto: `indexOf("workflows:")`
+    // casa primeiro no COMENTÁRIO que explica a armadilha do nome literal, e a
+    // fatia arrastaria junto toda a prosa que — corretamente — cita o Pages.
+    // Um assert que lê comentário mede documentação, não configuração.
+    const observados = [...ler(ALERTA).matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map(
+      (m) => m[1],
+    );
+    expect(observados).not.toContain("pages build and deployment");
+    expect(observados.length).toBeGreaterThan(0);
   });
 
   test("não observa a si mesmo", () => {

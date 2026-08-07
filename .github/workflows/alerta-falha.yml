@@ -8,14 +8,25 @@ name: Alerta de falha
 # acrescentar o nome. A vantagem que sobra, e basta, e centralizar a logica e os
 # secrets num lugar so, em vez de espalhar um passo `if: failure()` por workflow.
 #
-# `pages build and deployment` e o workflow DINAMICO do GitHub, sem arquivo neste
-# repo. Que `workflow_run` consiga observa-lo NAO e documentado — se nao
-# disparar, o caminho dedicado e `on: deployment_status`.
+# `pages build and deployment` SAIU desta lista em 07/08/2026, e a saida e o
+# achado da sub-fase: MEDIDO que `workflow_run` NAO o observa. O Pages concluiu
+# 10:51:34Z e nenhum run deste workflow apareceu nos 3,7 min seguintes; o CI
+# concluiu 10:55:16Z e o run nasceu 10:55:18Z, 2 segundos depois. O nome literal
+# foi conferido contra a API antes do teste e batia byte a byte, entao nao era
+# typo — e job pulado por `if:` CRIA run listavel (`conclusion: skipped`),
+# provado no mesmo experimento, entao a ausencia e informativa e nao ambigua.
+#
+# Manter o nome aqui seria DECLARAR uma cobertura que nao existe — a mesma falsa
+# confianca do canal nativo do GitHub, que esta fase existe para nao repetir. O
+# Pages vai pelo `watchdog-pages.yml`, que PERGUNTA em vez de esperar o evento.
+#
+# `Watchdog do Pages` entra na lista porque um vigia que morre em silencio nao
+# vigia nada.
 on:
   workflow_run:
     workflows:
       - "CI"
-      - "pages build and deployment"
+      - "Watchdog do Pages"
     types: [completed]
 
 permissions:

@@ -1,0 +1,55 @@
+name: Watchdog do Pages
+
+# O caminho DEDICADO da 7a.AA.3, e por que ele nao e um observador de evento.
+# Medido em 07/08/2026:
+#
+#   1. `workflow_run` NAO observa `pages build and deployment`. Sonda: o Pages
+#      concluiu 10:51:34Z e nenhum run de "Alerta de falha" apareceu nos 3,7 min
+#      seguintes; o CI concluiu 10:55:16Z e o alerta nasceu 2 segundos depois. O
+#      nome literal foi conferido contra a API e bate byte a byte, entao nao e
+#      typo — e job pulado por `if:` CRIA run listavel, provado no mesmo
+#      experimento, entao a ausencia e informativa e nao ambigua.
+#
+#   2. `on: deployment_status` NAO cobre o caso originador. Nos dois runs de
+#      Pages falhos de 06/08 o job `deploy` saiu `skipped` e NENHUM deployment
+#      foi criado — a falha acontece antes de existir deployment.
+#
+# Sobra perguntar, em vez de esperar ser avisado. Mais barulhento e com
+# latencia, e INDEPENDENTE do que o GitHub decide emitir.
+on:
+  schedule:
+    # A cada 6h. A janela default de 8h da folga sobre o intervalo, entao cada
+    # falha grita uma ou duas vezes e cala — alerta repetido e alerta ignorado.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      janela_horas:
+        description: 'Janela em horas para considerar a falha recente'
+        required: false
+        default: '8'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  vigiar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Vigiar o deploy do Pages
+        env:
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Vai por ENV, nunca interpolado numa linha de shell — mesmo padrao da
+          # 7a.X.2. Aqui o input e do proprio dono do repo, mas a regra vale por
+          # construcao e nao por quem a preenche hoje.
+          WATCHDOG_JANELA_HORAS: ${{ inputs.janela_horas || '8' }}
+        run: python scripts/ci/watchdog_pages.py
