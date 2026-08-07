@@ -1,0 +1,46 @@
+name: Alerta de falha
+
+# `workflow_run` e SAME-REPO: este arquivo existe tambem no repo principal
+# `investimentos`, com a lista de la (os 2 crons).
+#
+# `workflows:` e lista de nomes LITERAIS, sem glob documentado — entao este
+# observador TAMBEM e enumeracao, e workflow novo nasce mudo ate alguem
+# acrescentar o nome. A vantagem que sobra, e basta, e centralizar a logica e os
+# secrets num lugar so, em vez de espalhar um passo `if: failure()` por workflow.
+#
+# `pages build and deployment` e o workflow DINAMICO do GitHub, sem arquivo neste
+# repo. Que `workflow_run` consiga observa-lo NAO e documentado — se nao
+# disparar, o caminho dedicado e `on: deployment_status`.
+on:
+  workflow_run:
+    workflows:
+      - "CI"
+      - "pages build and deployment"
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  alertar:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Enviar alerta
+        env:
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+          ALERTA_REPO: ${{ github.event.workflow_run.repository.full_name }}
+          ALERTA_WORKFLOW: ${{ github.event.workflow_run.name }}
+          ALERTA_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          ALERTA_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          ALERTA_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          ALERTA_EVENT: ${{ github.event.workflow_run.event }}
+        run: python scripts/ci/alertar_falha.py
