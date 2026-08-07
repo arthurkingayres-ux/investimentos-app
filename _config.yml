@@ -1,0 +1,19 @@
+# ARQUIVO DE SMOKE — DELIBERADAMENTE INVALIDO. SERA REVERTIDO EM MINUTOS.
+#
+# Existe para fazer o build do GitHub Pages FALHAR de proposito, e com isso
+# provar o ultimo elo do canal de alerta da Fase 7a.AA.3: a conjuncao
+# Pages + falha -> workflow_run -> gate -> e-mail RECEBIDO.
+#
+# Autorizado pelo Dr. Arthur em 07/08/2026. O run vermelho que este commit
+# produz e DELIBERADO — nao investigue como incidente.
+#
+# Por que um `_config.yml` NOVO e nao a edicao de um arquivo servido: o repo nao
+# tem `.nojekyll`, entao o Jekyll ja processa o site com defaults. Um config que
+# PARSEIA mudaria comportamento e o build PASSARIA, publicando um site parcial
+# em producao. YAML sintaticamente invalido falha o build sem nunca chegar a
+# publicar nada.
+#
+# O site NAO sai do ar: o Pages preserva o ultimo deployment bem-sucedido.
+title: "aspas que nunca fecham
+plugins: [isto, nao, fecha
+  indentacao: impossivel
