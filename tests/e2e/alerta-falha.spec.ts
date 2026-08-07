@@ -110,6 +110,18 @@ test.describe("guard: workflow de alerta de falha", () => {
     expect(observados).not.toContain("pages build and deployment");
   });
 
+  test("o script standalone não importa nada que não exista neste repo", () => {
+    // Este repo não tem `src/`. A cópia é standalone de propósito, e um import
+    // relativo introduzido por engano falharia só no runner — ou seja, o alerta
+    // ficaria mudo justamente quando fosse preciso.
+    const script = fs.readFileSync(
+      path.resolve(__dirname, "..", "..", "scripts", "ci", "alertar_falha.py"),
+      "utf-8",
+    );
+    expect(script).not.toContain("from src.");
+    expect(script).not.toContain("import src");
+  });
+
   test("não observa a si mesmo", () => {
     // Auto-observação faria o alerta que falha disparar um alerta, em loop.
     const t = ler(ALERTA);

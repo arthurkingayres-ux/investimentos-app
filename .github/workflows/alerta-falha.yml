@@ -21,13 +21,15 @@ name: Alerta de falha
 # erro se manifesta como SILENCIO, indistinguivel de "o GitHub nao emite isto".
 # Conferir "o nome literal contra a API" nao basta se for no endpoint errado.
 #
-# `Watchdog do Pages` tambem entra: um vigia que morre em silencio nao vigia
-# nada, e ele cobre o buraco que o evento nao cobre (ver watchdog-pages.yml).
+# Com o nome certo, o evento chega: MEDIDO em 07/08/2026, o Pages concluiu
+# 11:15:57Z e o run deste observador nasceu 11:15:59Z, 2 segundos depois. Um
+# watchdog agendado chegou a ser escrito enquanto a conclusao errada valia, e
+# foi REMOVIDO ao ser medido que o evento funciona — a spec §6.2 condicionava o
+# caminho dedicado a "se o Pages nao disparar workflow_run", e ele dispara.
 on:
   workflow_run:
     workflows:
       - "CI"
-      - "Watchdog do Pages"
       - "pages-build-deployment"
     types: [completed]
 
