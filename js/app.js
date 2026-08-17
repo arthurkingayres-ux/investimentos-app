@@ -1961,6 +1961,28 @@ document.addEventListener("alpine:init", () => {
       return s;
     },
 
+    // 7a.AD.2 — "esta tese pede revisão": estado DERIVADO do payload que já é
+    // publicado (`tese.revisada_em` + a `timeline`). Nada é gravado no dossiê:
+    // um campo no cabeçalho seria mutável pelo agente unattended e exigiria
+    // alargar a fronteira de ingestão que a 7a.X fechou. O selo aparece sozinho
+    // quando o confronto dispara e some sozinho quando o Dr. Arthur revisa a
+    // tese, porque `revisada_em` avança — não há estado a limpar.
+    //
+    // O `|| ""` NÃO é defensivo: `abrir_dossie` cria a tese placeholder com
+    // `revisada_em: null`, e em JS `"2026-09-06" > null` avalia FALSO — o
+    // dossiê NUNCA revisado com confronto disparado, que é o caso mais urgente,
+    // ficaria sem selo. Com `|| ""`, "nunca revisada" ordena como infinitamente
+    // antiga. Espelha `tese_pede_revisao` (src/output/dossie_empresa.py).
+    get dossiePedeRevisao() {
+      const d = this.dossieAtual;
+      if (!d) return false;
+      const revisada = (d.tese && d.tese.revisada_em) || "";
+      return (d.timeline || []).some(
+        (e) => e && e.confronto_tese && e.confronto_tese.estado === "disparado"
+          && String(e.data || "") > revisada,
+      );
+    },
+
     // `dividend_yield` → `DIVIDEND YIELD`. O rótulo é DERIVADO da chave: as
     // chaves de numeros_reportados são heterogêneas por tipo de ativo (FII,
     // ação, ETF), então não há tabela fixa a manter.

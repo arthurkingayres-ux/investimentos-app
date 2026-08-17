@@ -4202,6 +4202,22 @@ body:has(.tab-bar) main {
 }
 .dossie-revisada { margin: 0; font-size: var(--num-xs); color: var(--faint); }
 
+/* Selo derivado "esta tese pede revisão" (7a.AD.2). --num-xs, NÃO --num-2xs,
+   pela mesma razão já documentada no bloco 3 desta tela: é uma frase a ler, e
+   10px cai abaixo do piso de legibilidade de corpo em mobile. A distinção vem
+   da COR, não do tamanho — e a cor é --amber-700, o token semântico de warning
+   do projeto, que já tem variante no bloco [data-theme="dark"] (zero token
+   novo, dark-ready de graça). Não compete com o grifo do `quebra_se`: aquele é
+   um cartão com border-left accent, este é uma linha de texto. */
+.dossie-pede-revisao {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--num-xs);
+  color: var(--amber-700);
+}
+
 /* 5. Linha do tempo — documento contínuo, hairline entre entradas. */
 .dossie-tl { display: flex; flex-direction: column; gap: 10px; }
 .dossie-tl-vazio { margin: 0; font-size: var(--num-xs); color: var(--faint); }

@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=66">
+  <link rel="stylesheet" href="css/app.css?v=67">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=44"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=66"></script>
+  <script src="js/app.js?v=67"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1513,6 +1513,16 @@
               </template>
               <p class="dossie-revisada" x-show="dossieAtual.tese?.revisada_em" x-cloak
                 x-text="'Tese revisada em ' + formatDataIso(dossieAtual.tese?.revisada_em)"></p>
+              <!-- Selo DERIVADO (7a.AD.2): fora do `.grifo` de propósito — a
+                   tela já gastou seu único grifo no `quebra_se` (anti-pattern
+                   #14) e o selo não pode competir com ele. Fecha o bloco da
+                   tese porque é a leitura FINAL dela: "esta aqui envelheceu".
+                   A11y em forma + TEXTO: o glifo é decorativo, o texto é real
+                   e é o que o leitor de tela lê — nunca cor sozinha. -->
+              <p class="dossie-pede-revisao" x-show="dossiePedeRevisao" x-cloak>
+                <span aria-hidden="true">⟳</span>
+                <span>esta tese pede revisão</span>
+              </p>
             </section>
 
             <!-- 5. LINHA DO TEMPO — ordem cronológica ASCENDENTE, todas as

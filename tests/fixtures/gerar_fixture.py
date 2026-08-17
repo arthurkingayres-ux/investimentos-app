@@ -783,8 +783,9 @@ def _fonte(slug: str, titulo: str, data_leitura: str) -> dict:
 
 
 def _entrada(data: str, veredito: str, gatilho: str, leitura: str,
-             numeros: dict, fontes: list[dict]) -> dict:
-    return {
+             numeros: dict, fontes: list[dict],
+             confronto: dict | None = None) -> dict:
+    e = {
         "data": data,
         "gatilho": gatilho,
         "veredito": veredito,
@@ -794,6 +795,12 @@ def _entrada(data: str, veredito: str, gatilho: str, leitura: str,
         "gatilho_reavaliacao": "Gatilho de exemplo para reavaliar a tese.",
         "fontes": fontes,
     }
+    # 7a.AD.2: `confronto_tese` é OPCIONAL. A AUSÊNCIA da chave é o que faz o
+    # dossiê do AMZN representar o mundo PRÉ-AD.1 (payload antigo, selo ausente)
+    # — por isso ela não entra com valor default.
+    if confronto is not None:
+        e["confronto_tese"] = confronto
+    return e
 
 
 def _dossie(ticker: str, nome: str, escopo: str, categoria: str,
@@ -870,11 +877,18 @@ def _dossies_sinteticos() -> list[dict]:
             # Segunda entrada NO MESMO ANO: 12 dos 39 dossiês reais têm mais de
             # uma entrada por ano (KNRI11 tem três em 2026), e o mini-mapa não
             # pode repetir o rótulo do ano em cada glifo.
+            # 7a.AD.2: confronto DISPARADO e datado DEPOIS de tese.revisada_em
+            # (2026-06-27) ⇒ este dossiê exercita o selo PRESENTE.
             _entrada(
                 "2026-07-15", "deteriorando", "leitura contemporânea de exemplo",
                 "Segunda leitura sintética do mesmo ano: o sinal de exemplo piorou.",
                 {"vacancia_exemplo": "acima do trimestre de exemplo anterior"},
                 [_fonte("fato-relevante-exemplo", "Fato relevante de exemplo", "2026-07-15")],
+                confronto={
+                    "estado": "disparado",
+                    "justificativa": "O indício de exemplo tensiona o critério de "
+                                     "falsificação de exemplo declarado na tese.",
+                },
             ),
         ],
         verificacao_leve=None,
@@ -893,12 +907,20 @@ def _dossies_sinteticos() -> list[dict]:
                 {"margem_exemplo": "0,0% (exemplo)"},
                 [_fonte("release-exemplo-um", "Release de exemplo (FY2024)", "2026-07-12")],
             ),
+            # 7a.AD.2: confronto DISPARADO, mas datado ANTES de tese.revisada_em
+            # (2026-06-20) ⇒ o Dr. Arthur já revisou a tese depois do disparo,
+            # e o selo NÃO deve aparecer. É o par negativo do HGLG11.
             _entrada(
                 "2025-12-31", "deteriorando", "backfill histórico — leitura retrospectiva de FY2025",
                 "Leitura sintética de FY2025: o sinal de exemplo piorou o suficiente para "
                 "mudar o veredito nesta fixture.",
                 {"margem_exemplo": "0,0% (exemplo, abaixo do ano anterior)"},
                 [_fonte("release-exemplo-dois", "Release de exemplo (FY2025)", "2026-07-12")],
+                confronto={
+                    "estado": "disparado",
+                    "justificativa": "Disparo de exemplo ANTERIOR à revisão da tese — "
+                                     "o selo não deve aparecer.",
+                },
             ),
         ],
         verificacao_leve="2026-06-15",
@@ -968,6 +990,23 @@ def gerar_dossies() -> None:
 
     alvos = [("dossies_index.test.json.enc", indice)]
     alvos += [(f"dossie_{d['ticker']}.test.json.enc", d) for d in dossies]
+
+    # 7a.AD.2 — variante do edge `revisada_em: null` + confronto disparado: o
+    # caso que falha sem o `|| ""` do predicado, porque em JS `"data" > null`
+    # avalia FALSO e o dossiê NUNCA revisado (o mais urgente) ficaria sem selo.
+    # Vive FORA do índice de propósito: `dossie.spec.ts` afirma `indice: 4` na
+    # contagem exata do teste de lock, e um 5º dossiê no índice a quebraria. O
+    # teste do edge serve este corpo por override de rota no nome de arquivo do
+    # AMZN — mecânica que aquele arquivo já usa (`page.route("**/" + arqDe(...))`).
+    variante = json.loads(json.dumps(
+        next(d for d in dossies if d["ticker"] == "AMZN"), ensure_ascii=False))
+    variante["tese"]["revisada_em"] = None
+    variante["timeline"][-1]["confronto_tese"] = {
+        "estado": "disparado",
+        "justificativa": "Disparo de exemplo num dossiê cuja tese nunca foi revisada.",
+    }
+    alvos.append(("dossie_AMZN_tese_nula.test.json.enc", variante))
+
     for nome, obj in alvos:
         enc = encriptar_json(json.dumps(obj, ensure_ascii=False), PIN_TESTE)
         (base / nome).write_text(enc, encoding="ascii")
