@@ -1249,3 +1249,49 @@ confundir os dois mandaria ele reconferir palavras que estão certas.
 Verificado ao vivo (Playwright MCP): 390×844 claro e 320×640 Modo Plantão, as duas
 etapas e os dois motivos, alvos de 49px e 48px (≥44), **zero overflow horizontal** a
 320px.
+
+## Frescor do hero — publicação → fechamento (Fase 7a.AE.3)
+
+O slot `.hero-updated`, no canto direito do `.hero-meta`, **mudou de assunto**. Ele
+mostrava `formatDataHora(json.atualizado_em)` — o carimbo de **publicação**, com hora
+(`19 ago · 00:27`). Agora mostra `frescorTexto()`: de quando é o **fechamento de
+pregão** que a tela está exibindo, sem hora.
+
+- `Fechamento de 18/08` quando todos os tickers têm a mesma data.
+- `Fechamentos de 17/08–18/08` quando o escopo carrega datas mistas — e a divergência
+  **não** é ruído a esconder: ela é a assinatura da degradação por ticker.
+- Payload sem o bloco (pré-v2.26), ou com `min`/`max` nulos, degrada para o carimbo.
+  Hero mudo seria pior que o rótulo antigo.
+
+**Por que a mudança:** numa noite ruim o app dizia "19 ago · 00:27" enquanto exibia o
+fechamento de 17/08. Não era ausência de informação — era um sinal de frescor **errado**
+ocupando o lugar, e o slot de frescor é o primeiro lugar onde o olho procura.
+
+**O toast NÃO mudou, e isso é decisão, não resquício.** `avaliarAtualizacao` continua
+usando `atualizado_em`, porque ele anuncia um **evento** ("a carteira foi republicada
+agora"), e sobre um evento o carimbo de publicação é a data correta. O que mudou é que
+ele deixou de ser o **único** sinal de frescor e deixou de ser lido como se fosse a data
+do preço.
+
+**`.hero-meta` ganhou `flex-wrap: wrap` e `gap: 0 0.5rem`, e o motivo é medido.** O
+container é flex row com `space-between`, então o eyebrow e este slot dividem a mesma
+linha — e o texto novo tem ~2× o comprimento do carimbo que substituiu. Medição antes do
+conserto: a **360px** a folga entre os dois caía para **3,4px**, e a **320px** para
+**zero** (label 99,9px + slot 136,1px = 236,0px, exatamente a largura do container). Não
+estourava, mas dois textos distintos encostados leem como um só, e um caractere a mais
+transbordaria. As duas regras são **inertes a 390px** (o `space-between` já dá 33,4px);
+elas só agem onde já estava quebrado, e valem igualmente para o texto crescendo por
+dynamic type. Travado por teste (`raiox-frescor.spec.ts`, folga mínima de 8px em
+390/360/320), provado vermelho à mão.
+
+**Contraste:** `#fff` a `opacity: 0.6` sobre `--g-900` = **4,58:1**, e **idêntico nos
+dois temas** — o card do hero é escuro no claro e no Plantão.
+
+**Drift observado e NÃO corrigido (fora do escopo desta sub-fase):** a 320px o
+`.hero-valor` transborda o próprio container com um valor de 6 dígitos (292px de texto
+em 236px de caixa). Medido com e sem a regra nova: **idêntico nos dois casos**, logo
+pré-existente. O card tem `overflow: hidden` e a página não ganha scroll horizontal.
+
+Verificado ao vivo (Playwright MCP, fixture sintética): 390px e 320px, claro **e** Modo
+Plantão. A 390px o slot fica na mesma linha do eyebrow; a 320px desce para a linha de
+baixo, cada texto em uma linha, sem truncar e sem overflow horizontal do documento.

@@ -73,6 +73,20 @@ window.formatDataExtenso = (iso) => {
   return `${parseInt(m[3], 10)} de ${_MESES_PT[mes - 1].toLowerCase()}`;
 };
 
+// 7a.AE.3: "YYYY-MM-DD" -> "18/08" (dia/mes, sem ano — o hero e o slot mais
+// apertado da tela e o ano e redundante numa data de pregao recente).
+// Parse por REGEX e nao `new Date(iso)`, pelo mesmo motivo de fuso ja
+// documentado em formatDataExtenso: data ISO sem hora vira meia-noite UTC e,
+// em America/Sao_Paulo (UTC-3), volta pro dia anterior
+// (`new Date("2026-08-18").getDate() === 17`). Aqui o bug seria especialmente
+// cruel: uma linha errada de fuso faria o app confessar o PREGAO ERRADO, que e
+// exatamente o defeito que a fase 7a.AE existe para corrigir.
+window.formatDataDiaMes = (iso) => {
+  if (typeof iso !== "string") return "";
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}` : "";
+};
+
 // 7a.R.3.b: "YYYY-MM-DD" → "31/12/2024" (linha de frescor + tese revisada em).
 // Parse por regex (NÃO `new Date(iso)`): data ISO sem hora vira meia-noite UTC
 // e, em America/Sao_Paulo (UTC-3), volta pro dia anterior — mesmo motivo já

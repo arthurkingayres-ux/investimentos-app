@@ -7,6 +7,13 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.26 (Fase 7a.AE.2): ``frescor_cotacoes`` — de quando e o fechamento
+que valorou cada escopo, como intervalo ``{min, max}`` mais a contagem de
+tickers por data. A fixture usa DATAS MISTAS de proposito (Total 17->18/08),
+porque o intervalo e o caso que a tela precisa saber exibir e o homogeneo e o
+facil. Os numeros sao SINTETICOS: o sibling e repo publico e esta fixture
+decifra com o PIN de teste publico.
+
 Schema v2.25 (Fase 7a.E.35): ``dividend_yield`` ganha ``por_ativo_parcial`` —
 lista ordenada de tickers de posição aberta < 12m (DY trailing-12m subestimado),
 que vira o selo "posição < 12 meses" no card DY de ``#ativo``. HGLG11 entra
@@ -136,8 +143,21 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
 
 
 PAYLOAD = {
-    "versao": "2.25",
+    "versao": "2.26",
     "atualizado_em": "2026-04-26T15:00:00",
+    # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
+    # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
+    # precisa saber exibir, e o homogeneo e o facil. Numeros sinteticos.
+    "frescor_cotacoes": {
+        "Total": {"min": "2026-08-17", "max": "2026-08-18",
+                  "por_data": {"2026-08-17": 5, "2026-08-18": 33},
+                  "sem_cotacao": 0},
+        "Brasil": {"min": "2026-08-17", "max": "2026-08-18",
+                   "por_data": {"2026-08-17": 5, "2026-08-18": 21},
+                   "sem_cotacao": 0},
+        "EUA": {"min": "2026-08-18", "max": "2026-08-18",
+                "por_data": {"2026-08-18": 12}, "sem_cotacao": 0},
+    },
     "patrimonio": {
         "total_brl": 258000.0,
         "br_brl": 149640.0,

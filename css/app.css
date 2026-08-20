@@ -3044,6 +3044,18 @@ footer.rodape code {
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 0.5rem;
+  /* 7a.AE.3: o slot da direita passou a carregar a data do FECHAMENTO
+     ("Fechamentos de 17/08-18/08") no lugar do carimbo de publicacao, e o texto
+     praticamente dobrou. Medido a 320px ANTES desta regra: label 99,9px + slot
+     136,1px = 236,0px, exatamente a largura do container — os dois encostavam
+     com folga ZERO, e dois textos distintos sem separacao leem como um so.
+     `gap` impede que se toquem por construcao; `wrap` faz o excedente descer
+     para a linha de baixo em vez de colidir. A 390px as duas sao inertes (o
+     space-between ja da 33px de folga), entao isto nao mexe no layout comum —
+     ele so muda onde ja estava quebrado. Vale tambem para o texto crescendo por
+     dynamic type, que e a mesma falha com outra causa. */
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
 }
 
 .hero-meta .hero-label {

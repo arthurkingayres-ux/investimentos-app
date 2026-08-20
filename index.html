@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=67">
+  <link rel="stylesheet" href="css/app.css?v=68">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
-  <script src="js/format.js?v=44"></script>
+  <script src="js/format.js?v=45"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=67"></script>
+  <script src="js/app.js?v=68"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -167,7 +167,14 @@
              @keydown.space.prevent="ciclarHeroFacet()">
           <div class="hero-meta">
             <p class="hero-label" id="hero-eyebrow">Patrimônio total</p>
-            <p class="hero-updated" x-text="formatDataHora(json.atualizado_em)"></p>
+            <!-- 7a.AE.3: este slot mostrava `atualizado_em` — o carimbo de
+                 PUBLICAÇÃO. Numa noite ruim ele dizia "19 ago · 00:27" enquanto
+                 a tela exibia o fechamento de 17/08. Não era ausência de
+                 informação: era um sinal de frescor ERRADO ocupando o lugar.
+                 O carimbo continua existindo (toast de `avaliarAtualizacao`),
+                 mas deixou de ser o único sinal de frescor e deixou de ser
+                 lido como se fosse a data do preço. -->
+            <p class="hero-updated" x-text="frescorTexto()"></p>
           </div>
           <div class="hero-body" id="hero-body" aria-live="polite"></div>
           <div class="hero-facets" aria-label="Facetas do patrimônio">

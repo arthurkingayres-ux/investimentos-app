@@ -3591,6 +3591,29 @@ document.addEventListener("alpine:init", () => {
       };
     },
 
+    // 7a.AE.3 — de quando e o fechamento que esta tela esta exibindo.
+    //
+    // Ancorado em `frescor_cotacoes.Total`, que ja E a uniao de Brasil e EUA:
+    // divergencia ENTRE escopos aparece automaticamente como min != max, sem o
+    // helper precisar comparar escopo a escopo. E a divergencia nao e ruido a
+    // esconder — ela e a assinatura da degradacao por ticker, e escondê-la
+    // reintroduziria a cegueira que a fase existe para tirar.
+    //
+    // Empty-safe em DOIS estados distintos, e os dois acontecem: a chave
+    // AUSENTE (payload pre-v2.26, que o sibling serve entre o merge desta
+    // sub-fase e o primeiro run do cron) e a chave PRESENTE com min/max nulos
+    // (o que `frescor_por_escopo` devolve para escopo sem posicao). Os dois
+    // caem no carimbo de publicacao: hero mudo seria pior que o rotulo antigo.
+    frescorTexto() {
+      const t = this.json?.frescor_cotacoes?.Total;
+      const min = t?.min;
+      const max = t?.max;
+      if (!min || !max) return window.formatDataHora(this.json?.atualizado_em);
+      const dMin = window.formatDataDiaMes(min);
+      if (min === max) return `Fechamento de ${dMin}`;
+      return `Fechamentos de ${dMin}–${window.formatDataDiaMes(max)}`;
+    },
+
     avaliarAtualizacao(atualizadoEmNovo) {
       const anterior = localStorage.getItem("atualizadoEm");
       if (!navigator.onLine) {
