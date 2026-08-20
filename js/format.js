@@ -91,9 +91,19 @@ window.formatDataDiaMes = (iso) => {
   // impossivel afirmada com a mesma confianca de uma real, no slot cuja
   // unica funcao e ser confiavel sobre a data. Achado do general-swe-reviewer
   // no CRB da 7a.AE.3.
+  const ano = parseInt(m[1], 10);
   const mes = parseInt(m[2], 10);
   const dia = parseInt(m[3], 10);
-  if (!(mes >= 1 && mes <= 12) || !(dia >= 1 && dia <= 31)) return "";
+  // Round-trip em UTC: `Date.UTC` normaliza silenciosamente (2026-02-30 vira
+  // 02/03), entao comparar de volta rejeita a data civil impossivel — inclusive
+  // ano bissexto, de graca. Usar `Date.UTC` + `getUTC*` NAO reintroduz o bug de
+  // fuso que este helper existe para evitar: aquele vem de `new Date(iso)`, que
+  // interpreta a string como meia-noite UTC e depois e lida em hora LOCAL. Aqui
+  // a construcao e a leitura estao no mesmo fuso, entao nao ha deslocamento.
+  const d = new Date(Date.UTC(ano, mes - 1, dia));
+  if (d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia) {
+    return "";
+  }
   return `${m[3]}/${m[2]}`;
 };
 

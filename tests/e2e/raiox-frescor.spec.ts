@@ -142,9 +142,20 @@ test.describe("Raio-X — data do fechamento no hero (7a.AE.3)", () => {
     await autenticar(page);
     const formatados = await page.evaluate(() => {
       const f = (window as any).formatDataDiaMes;
-      return [f("2026-13-01"), f("2026-00-10"), f("2026-08-40"), f("2026-08-00")];
+      return [
+        f("2026-13-01"), f("2026-00-10"), f("2026-08-40"), f("2026-08-00"),
+        // Faixa OK, calendario impossivel (iteracao 2 do CRB): sem o round-trip
+        // em UTC, estas quatro renderizariam "30/02", "31/04", "31/06", "29/02".
+        f("2026-02-30"), f("2026-04-31"), f("2026-06-31"), f("2026-02-29"),
+      ];
     });
     for (const s of formatados) expect(s).toBe("");
+
+    // ...e o ano bissexto continua VALIDO — a guarda nao pode virar zelo cego.
+    const bissexto = await page.evaluate(() =>
+      (window as any).formatDataDiaMes("2024-02-29"),
+    );
+    expect(bissexto).toBe("29/02");
 
     await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
