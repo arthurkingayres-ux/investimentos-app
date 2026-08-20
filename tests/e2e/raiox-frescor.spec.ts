@@ -129,6 +129,38 @@ test.describe("Raio-X — data do fechamento no hero (7a.AE.3)", () => {
     for (const s of saidas) expect(s).toBe("");
   });
 
+  test("data com forma valida mas faixa impossivel nao vira texto pendurado", async ({
+    page,
+  }) => {
+    // Dois achados do CRB numa cadeia so. (1) `formatDataDiaMes` validava a
+    // FORMA e nao a FAIXA, entao "2026-13-40" renderizava "40/13" — uma data
+    // impossivel afirmada com a mesma confianca de uma real, no slot cuja
+    // unica funcao e ser confiavel sobre a data. (2) Corrigir so o (1) criaria
+    // um estado pior: o helper devolve "" e o slot exibiria "Fechamento de "
+    // pendurado. Por isso `frescorTexto` tambem cai no carimbo quando a
+    // formatacao falha.
+    await autenticar(page);
+    const formatados = await page.evaluate(() => {
+      const f = (window as any).formatDataDiaMes;
+      return [f("2026-13-01"), f("2026-00-10"), f("2026-08-40"), f("2026-08-00")];
+    });
+    for (const s of formatados) expect(s).toBe("");
+
+    await page.evaluate(() => {
+      const $data = (window as any).Alpine?.$data?.(document.body);
+      if (!$data) throw new Error("Alpine.$data(document.body) é undefined");
+      $data.json.frescor_cotacoes.Total = {
+        min: "2026-13-40",
+        max: "2026-13-40",
+        por_data: { "2026-13-40": 1 },
+        sem_cotacao: 0,
+      };
+    });
+    const slot = page.locator(".hero-updated");
+    await expect(slot).not.toHaveText(/Fechamento de\s*$/);
+    await expect(slot).toHaveText(/\d{2}:\d{2}/); // caiu no carimbo
+  });
+
   test("o slot e o eyebrow NUNCA se encostam (achado da verificacao visual)", async ({
     page,
   }) => {

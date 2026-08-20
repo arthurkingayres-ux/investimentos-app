@@ -3610,8 +3610,14 @@ document.addEventListener("alpine:init", () => {
       const max = t?.max;
       if (!min || !max) return window.formatDataHora(this.json?.atualizado_em);
       const dMin = window.formatDataDiaMes(min);
+      const dMax = window.formatDataDiaMes(max);
+      // Terceiro estado de degradacao, achado no CRB da 7a.AE.3: a chave existe
+      // e nao e nula, mas nao formata (data impossivel vinda de um bug de
+      // backend). Sem esta linha o slot exibiria "Fechamento de " pendurado —
+      // pior que o carimbo, e pior que ficar mudo.
+      if (!dMin || !dMax) return window.formatDataHora(this.json?.atualizado_em);
       if (min === max) return `Fechamento de ${dMin}`;
-      return `Fechamentos de ${dMin}–${window.formatDataDiaMes(max)}`;
+      return `Fechamentos de ${dMin}–${dMax}`;
     },
 
     avaliarAtualizacao(atualizadoEmNovo) {

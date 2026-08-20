@@ -84,7 +84,17 @@ window.formatDataExtenso = (iso) => {
 window.formatDataDiaMes = (iso) => {
   if (typeof iso !== "string") return "";
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}` : "";
+  if (!m) return "";
+  // Valida a FAIXA, e nao so a forma — os irmaos formatDataExtenso e
+  // formatMesAno ja validam, e ali a razao e indexar _MESES_PT. Aqui nao ha
+  // indexacao, entao "2026-13-40" renderizaria "40/13" sem erro: uma data
+  // impossivel afirmada com a mesma confianca de uma real, no slot cuja
+  // unica funcao e ser confiavel sobre a data. Achado do general-swe-reviewer
+  // no CRB da 7a.AE.3.
+  const mes = parseInt(m[2], 10);
+  const dia = parseInt(m[3], 10);
+  if (!(mes >= 1 && mes <= 12) || !(dia >= 1 && dia <= 31)) return "";
+  return `${m[3]}/${m[2]}`;
 };
 
 // 7a.R.3.b: "YYYY-MM-DD" → "31/12/2024" (linha de frescor + tese revisada em).
