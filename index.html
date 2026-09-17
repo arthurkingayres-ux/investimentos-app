@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=68">
+  <link rel="stylesheet" href="css/app.css?v=69">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=45"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=68"></script>
+  <script src="js/app.js?v=69"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1318,8 +1318,19 @@
                             <span x-text="vereditoSelo(r.veredito).label"></span>
                           </span>
                         </div>
-                        <p class="rel-radar-card__obs"><span>Observar:</span> <span x-text="r.observar"></span></p>
-                        <p class="rel-radar-card__gat"><span>Gatilho:</span> <span x-text="r.gatilho"></span></p>
+                        <!-- 7a.AT.1: blocos rotulados. O conteudo passa pelo
+                             renderizador de marcacao: o `gatilho` agora carrega
+                             o evento numa linha e as duas condicoes em lista. -->
+                        <div class="rel-bloco">
+                          <span class="rel-bloco__rotulo">Observar</span>
+                          <div class="rel-bloco__corpo"
+                            x-html="prosaParaHtml(r.observar, relMes.citacoes)"></div>
+                        </div>
+                        <div class="rel-bloco">
+                          <span class="rel-bloco__rotulo">Gatilho</span>
+                          <div class="rel-bloco__corpo"
+                            x-html="prosaParaHtml(r.gatilho, relMes.citacoes)"></div>
+                        </div>
                       </li>
                     </template>
                   </ul>
@@ -1404,17 +1415,38 @@
                   <ul class="rel-prestacao" x-show="(relMes.prestacao_contas || []).length > 0">
                     <template x-for="p in (relMes.prestacao_contas || [])" :key="'pc-' + p.ticker">
                       <li>
-                        <template x-if="temDossie(p.ticker)">
-                          <a class="rel-prestacao__ticker rel-prestacao__ticker--link"
-                            :href="'#/dossie/' + p.ticker"
-                            @click="registrarOrigemDossie()"
-                            x-text="p.ticker"></a>
-                        </template>
-                        <template x-if="!temDossie(p.ticker)">
-                          <span class="rel-prestacao__ticker" x-text="p.ticker"></span>
-                        </template>
-                        <span class="rel-prestacao__sin" x-text="p.sinalizado"></span>
-                        <span class="rel-prestacao__res" x-text="p.resultado"></span>
+                        <div class="rel-prestacao__head">
+                          <template x-if="temDossie(p.ticker)">
+                            <a class="rel-prestacao__ticker rel-prestacao__ticker--link"
+                              :href="'#/dossie/' + p.ticker"
+                              @click="registrarOrigemDossie()"
+                              x-text="p.ticker"></a>
+                          </template>
+                          <template x-if="!temDossie(p.ticker)">
+                            <span class="rel-prestacao__ticker" x-text="p.ticker"></span>
+                          </template>
+                          <!-- 7a.AT.1: pertencimento ANTES de vereditoSelo — aquela
+                               funcao devolve "Tese intacta" p/ valor desconhecido,
+                               entao um typo renderizaria o selo mais otimista.
+                               Relatorio antigo nao tem `veredito`: fica sem selo. -->
+                          <template x-if="temSeloVeredito(p.veredito)">
+                            <span class="rel-selo" :class="vereditoSelo(p.veredito).classe">
+                              <span class="rel-selo__marca" aria-hidden="true"
+                                x-text="vereditoSelo(p.veredito).marca"></span>
+                              <span x-text="vereditoSelo(p.veredito).label"></span>
+                            </span>
+                          </template>
+                        </div>
+                        <div class="rel-bloco">
+                          <span class="rel-bloco__rotulo">O que eu disse</span>
+                          <div class="rel-bloco__corpo rel-prestacao__sin"
+                            x-html="prosaParaHtml(p.sinalizado, relMes.citacoes)"></div>
+                        </div>
+                        <div class="rel-bloco">
+                          <span class="rel-bloco__rotulo">O que aconteceu</span>
+                          <div class="rel-bloco__corpo rel-prestacao__res"
+                            x-html="prosaParaHtml(p.resultado, relMes.citacoes)"></div>
+                        </div>
                       </li>
                     </template>
                   </ul>
@@ -1423,7 +1455,15 @@
                   <ol class="rel-evidencias" id="rel-evidencias">
                     <template x-for="c in (relMes.citacoes || [])" :key="'cit-' + c.id">
                       <li :value="c.id">
-                        <a class="rel-cit" :href="c.url" target="_blank" rel="noopener" x-text="c.afirmacao"></a>
+                        <!-- 7a.AT.1: a lista de fontes injetava `c.url` CRU, sem
+                             checar esquema — segundo vetor do mesmo furo que o
+                             renderizador fechou, achado pelo teste da fase (o
+                             varredor olha TODO `a.rel-cit` da pagina, nao so os
+                             da prosa). Mesma allowlist, mesmo alvo condicional. -->
+                        <a class="rel-cit" :href="_hrefCitacaoSegura(c.url)"
+                          :target="_hrefCitacaoSegura(c.url) === '#rel-evidencias' ? null : '_blank'"
+                          :rel="_hrefCitacaoSegura(c.url) === '#rel-evidencias' ? null : 'noopener'"
+                          x-text="c.afirmacao"></a>
                         <span class="rel-evid__fonte" x-text="' — ' + c.fonte"></span>
                         <span class="rel-evid__incerto" x-show="c.confianca === 'baixa'"> · <em>sinal incerto</em></span>
                       </li>
@@ -1553,7 +1593,7 @@
                   </div>
                   <p class="dossie-tl__gatilho" x-show="e.gatilho" x-cloak
                     x-text="e.gatilho"></p>
-                  <div class="rel-prosa" x-text="e.leitura"></div>
+                  <div class="rel-prosa" x-html="leituraParaHtml(e.leitura)"></div>
                   <dl class="dossie-numeros"
                     x-show="paresNumeros(e.numeros_reportados).length" x-cloak>
                     <template x-for="(p, j) in paresNumeros(e.numeros_reportados)" :key="j">

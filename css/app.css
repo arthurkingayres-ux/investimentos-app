@@ -3844,6 +3844,24 @@ body:has(.tab-bar) main {
 .rel-prosa { max-width: 68ch; color: var(--ink); line-height: 1.62; }
 .rel-prosa p { margin: 0 0 10px; }
 .rel-prosa p:last-child { margin-bottom: 0; }
+/* 7a.AT.1 — marcação mínima. Recuo curto (1,1em) preserva a linha a 320px. */
+.rel-lista {
+  list-style: disc; margin: 0 0 10px; padding-left: 1.1em;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.rel-lista:last-child { margin-bottom: 0; }
+.rel-lista > li { margin: 0; }
+.rel-prosa strong, .rel-bloco__corpo strong { font-weight: 700; color: var(--g-900); }
+/* Bloco rotulado do card do radar e do item da prestação: mesmo idioma de
+   rótulo que .rel-radar-card__obs span:first-child usava antes desta fase. */
+.rel-bloco { display: flex; flex-direction: column; gap: 3px; }
+.rel-bloco__rotulo {
+  color: var(--gray); font-size: var(--num-xs);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.rel-bloco__corpo { font-size: var(--num-sm); color: var(--ink); line-height: 1.55; }
+.rel-bloco__corpo p { margin: 0 0 8px; }
+.rel-bloco__corpo p:last-child { margin-bottom: 0; }
 .rel-cit {
   color: var(--g-700); font-weight: 600; text-decoration: none;
   font-variant-numeric: tabular-nums; padding: 0 1px;
@@ -3879,10 +3897,6 @@ body:has(.tab-bar) main {
 }
 .rel-radar-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rel-radar-card__ticker { font-weight: 700; color: var(--g-900); }
-.rel-radar-card__obs, .rel-radar-card__gat { margin: 0; font-size: var(--num-sm); color: var(--ink); }
-.rel-radar-card__obs span:first-child, .rel-radar-card__gat span:first-child {
-  color: var(--gray); font-size: var(--num-xs); text-transform: uppercase; letter-spacing: 0.3px;
-}
 /* Mini-cards dossiê */
 .rel-kpis {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -3893,15 +3907,31 @@ body:has(.tab-bar) main {
 .rel-conc__ticker { font-weight: 600; color: var(--g-900); }
 .rel-conc__peso, .rel-conc__valor { margin-left: auto; font-variant-numeric: tabular-nums; }
 .rel-conc__peso { color: var(--gray); }
-.rel-prestacao li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--neutral-100); font-size: var(--num-sm); }
+/* 7a.AT.1: `> li` — filho DIRETO, e não descendente. Desde que o item da
+   prestação passou a conter listas de marcação, um seletor descendente
+   aplicava `flex column` + gap TAMBÉM aos <li> de dentro, e cada pedaço do
+   item ("**Prêmio:**", o texto, o `[1]`, o ponto final) caía numa linha
+   própria. Pego pela verificação visual, não por contagem de teste. */
+.rel-prestacao > li { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--neutral-100); font-size: var(--num-sm); }
 .rel-prestacao__ticker { font-weight: 700; color: var(--g-900); }
-.rel-prestacao__sin { color: var(--gray); font-size: var(--num-xs); }
+/* 7a.AT.1: o `sinalizado` deixa de ser nota cinza de 13px e vira texto de
+   corpo — agora e conteudo estruturado (evento + duas condicoes em lista), nao
+   um rodape. NAO ha regra propria: quem da a cor e o `.rel-bloco__corpo` que o
+   envolve, e `.rel-prestacao__sin` fica so como gancho semantico/de teste —
+   simetrico com `.rel-prestacao__res`, que nunca teve regra. */
+.rel-prestacao__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rel-evidencias { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
 .rel-evidencias li { font-size: var(--num-sm); color: var(--ink); }
 .rel-evid__fonte { color: var(--gray); }
 .rel-evid__incerto em { color: var(--sem-down); font-style: italic; }
 /* Seletor de mês (arquivo) */
-.rel-seletor { margin-left: auto; position: relative; }
+/* 7a.AT.1: `min-width: 0` é o que deixa este item flex ENCOLHER. Sem ele, o
+   `white-space: nowrap` abaixo trocava quebra-de-linha por TRANSBORDO
+   horizontal — medido a 390px: "Maio 2026" cabia (369px) e todo mês de nome
+   longo saía da tela ("Setembro 2026" 425px, "Dezembro 2026" 433px). Achado
+   pela verificação visual desta fase, que usou uma fixture de Março; o defeito
+   é anterior a ela e atinge 8 dos 12 meses. */
+.rel-seletor { margin-left: auto; position: relative; min-width: 0; }
 .rel-seletor__btn {
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
   background: none; border: 1px solid var(--neutral-200); border-radius: 10px;
@@ -3909,6 +3939,12 @@ body:has(.tab-bar) main {
   /* 7a.S.9 Task 1: corrige o micro-atrito Fable §3 — "Maio 2026 ▾" nunca
      quebra em 2 linhas em viewports estreitos (320px). */
   white-space: nowrap;
+  max-width: 100%;
+}
+/* O mês trunca com reticências; o `▾` (span seguinte) nunca some, senão o
+   affordance de "isto abre uma lista" ia junto. */
+.rel-seletor__btn > span:first-child {
+  overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 @media (prefers-reduced-motion: no-preference) {
   .rel-seletor__btn { transition: transform var(--d1) var(--ease); }

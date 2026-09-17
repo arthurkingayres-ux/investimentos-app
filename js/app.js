@@ -2702,8 +2702,11 @@ document.addEventListener("alpine:init", () => {
     // o ponto, então não quebram a frase indevidamente.
     _primeiraFrase(texto) {
       if (!texto) return "";
-      const m = String(texto).match(/^.*?[.!?](?=\s|$)/);
-      return m ? m[0] : String(texto);
+      // 7a.AT.1: tira `**` ANTES de cortar a frase — um negrito contendo ponto
+      // cortaria a frase no lugar errado, e a capa não renderiza marcação.
+      const limpo = String(texto).replace(/\*\*/g, "");
+      const m = limpo.match(/^.*?[.!?](?=\s|$)/);
+      return m ? m[0] : limpo;
     },
 
     // 7a.Q.3: helpers de renderização das seções
@@ -2730,23 +2733,126 @@ document.addEventListener("alpine:init", () => {
       return apenasAtencao ? r.filter((x) => x.veredito !== "intacta") : r;
     },
 
-    prosaParaHtml(corpo, citacoes) {
-      const esc = (s) => String(s)
+    // 7a.AT.1 — marcação mínima (spec §3.4): parágrafo, lista `- `, negrito
+    // `**`, citação `[n]`. Nada além disso.
+    //
+    // ORDEM É SEGURANÇA: `_escHtml` roda ANTES de negrito e de `[n]`. O texto
+    // vem do agente unattended e é conteúdo, não template — inverter a ordem
+    // deixaria `<img onerror>` autorado virar nó vivo. `*` e `[` não são
+    // tocados pelo escape, então a marcação sobrevive a ele intacta.
+    _escHtml(s) {
+      return String(s)
         .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    },
+
+    // Allowlist POSITIVA e ancorada. Uma denylist de `javascript:` é furada por
+    // maiúsculas, espaços e entidades; `^https?://` só deixa passar o que é
+    // literalmente http(s). Defeito anterior a esta fase, corrigido aqui porque
+    // a fase reescreve a função que injeta o href.
+    _hrefCitacaoSegura(url) {
+      const u = String(url || "").trim();
+      return /^https?:\/\//i.test(u) ? u : "#rel-evidencias";
+    },
+
+    // Inline: negrito e citação sobre texto JÁ escapado.
+    // `[^*]+` no negrito: não-guloso por construção, e `**` órfão fica literal.
+    // `porId === null` = esta tela NÃO linkifica: o `[n]` fica texto literal.
+    _inlineParaHtml(texto, porId) {
+      const comNegrito = String(texto).replace(
+        /\*\*([^*]+)\*\*/g, (m, t) => `<strong>${t}</strong>`);
+      if (porId === null) return comNegrito;
+      return comNegrito.replace(/\[(\d+)\]/g, (m, n) => {
+        const c = porId[parseInt(n, 10)];
+        const url = this._hrefCitacaoSegura(c && c.url);
+        const href = this._escHtml(url);
+        // `target="_blank"` só quando o destino é EXTERNO. O fallback
+        // `#rel-evidencias` é âncora da própria página: abri-la em aba nova
+        // seria abrir o app de novo em vez de rolar até as fontes.
+        const alvo = url === "#rel-evidencias"
+          ? "" : ` target="_blank" rel="noopener"`;
+        return `<a class="rel-cit" href="${href}"${alvo} `
+             + `aria-label="Fonte ${n}">[${n}]</a>`;
+      });
+    },
+
+    // Blocos: linha em branco separa blocos (como antes). DENTRO de um bloco,
+    // linhas consecutivas com `- ` viram <ul>; linhas sem marcador viram <p>
+    // unidas por espaço — que é o que o navegador já fazia com quebra simples,
+    // então relatório ANTIGO renderiza exatamente como antes.
+    _blocosParaHtml(texto, porId) {
+      const normalizado = String(texto || "")
+        .replace(/\r\n?/g, "\n")
+        // Uma linha só com espaço/tab NÃO produz `\n\n` literal, então o split
+        // abaixo a atravessaria e fundiria os dois blocos num parágrafo só.
+        // Esvaziá-la antes faz a separação valer para o que o autor viu como
+        // linha em branco.
+        .replace(/[ \t]+$/gm, "");
+      const html = [];
+      normalizado.split(/\n{2,}/).forEach((bloco) => {
+        let paragrafo = [];
+        let itens = [];
+        const fecharParagrafo = () => {
+          if (!paragrafo.length) return;
+          html.push(`<p>${this._inlineParaHtml(paragrafo.join(" "), porId)}</p>`);
+          paragrafo = [];
+        };
+        const fecharLista = () => {
+          if (!itens.length) return;
+          const lis = itens
+            .map((t) => `<li>${this._inlineParaHtml(t, porId)}</li>`).join("");
+          html.push(`<ul class="rel-lista">${lis}</ul>`);
+          itens = [];
+        };
+        bloco.split("\n").forEach((linhaCrua) => {
+          const linha = this._escHtml(linhaCrua.trim());
+          if (!linha) return;
+          // `linha === "-"` é o marcador SEM conteúdo: a normalização de espaço
+          // à direita, logo acima, já comeu o espaço que o separava do vazio.
+          // Sem este ramo ele cairia em parágrafo e a tela mostraria um traço
+          // solto — que foi o que o teste desta borda pegou.
+          if (linha === "-" || linha.startsWith("- ")) {
+            fecharParagrafo();
+            // Item sem conteúdo não vira `<li></li>` vazio: marcador sozinho é
+            // ruído do autor, e um item mudo na tela é saída degradada em
+            // silêncio.
+            const conteudo = linha === "-" ? "" : linha.slice(2).trim();
+            if (conteudo) itens.push(conteudo);
+          } else {
+            fecharLista();
+            paragrafo.push(linha);
+          }
+        });
+        fecharParagrafo();
+        fecharLista();
+      });
+      return html.join("");
+    },
+
+    prosaParaHtml(corpo, citacoes) {
       const porId = {};
       (citacoes || []).forEach((c) => { porId[c.id] = c; });
-      const linkify = (txt) =>
-        txt.replace(/\[(\d+)\]/g, (m, n) => {
-          const c = porId[parseInt(n, 10)];
-          const href = c && c.url ? esc(c.url) : "#rel-evidencias";
-          return `<a class="rel-cit" href="${href}" target="_blank" rel="noopener" `
-               + `aria-label="Fonte ${n}">[${n}]</a>`;
-        });
-      return (corpo || "")
-        .split(/\n{2,}/)
-        .map((par) => `<p>${linkify(esc(par.trim()))}</p>`)
-        .join("");
+      return this._blocosParaHtml(corpo, porId);
+    },
+
+    // A `leitura` do dossiê usa a MESMA marcação, com `[n]` ficando TEXTO
+    // LITERAL. `porId` vazio não basta: o replace ainda rodaria e produziria
+    // `href="#rel-evidencias"` — uma âncora que não existe nesta tela e que,
+    // neste SPA, É ROTA: tocar nela mudaria `location.hash` e engataria a
+    // re-derivação de rota da 7a.U. Medido em 17/09/2026: 7 das 188 entradas
+    // reais de timeline já têm `[n]` na `leitura`, então o caso é corrente, não
+    // hipotético. Daí o `porId` ser `null` e não `{}` — a distinção entre "não
+    // achei a citação" e "esta tela não linkifica".
+    leituraParaHtml(texto) {
+      return this._blocosParaHtml(texto, null);
+    },
+
+    // O selo da prestação só sai para veredito CONHECIDO. `vereditoSelo`
+    // devolve "Tese intacta" para qualquer valor não-reconhecido (fallback que
+    // o radar e o dossiê dependem), então mostrar o selo sem checar antes
+    // renderizaria o selo mais OTIMISTA para um erro de digitação.
+    temSeloVeredito(v) {
+      return v === "intacta" || v === "sob_pressao" || v === "deteriorando";
     },
 
     renderPatrimonioGrafico() {

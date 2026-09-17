@@ -756,9 +756,91 @@ def _relatorio(mes: str, mes_label: str, gerado_para: str, *, mes1: bool) -> dic
     }
 
 
+# ── Fase 7a.AT.1: fixture com MARCAÇÃO (lista, negrito, [n] em item) ─────────
+# CONTEÚDO 100% SINTÉTICO — repo público, PIN de teste público.
+# O `url` em `javascript:` e o payload em `<img onerror>` são DELIBERADOS: são o
+# controle da allowlist de esquema e do escape-antes-da-marcação. Nenhum dos
+# dois é conteúdo que o agente produziria; existem para que o teste falhe se a
+# proteção sumir.
+#
+# É o mês MAIS ANTIGO de propósito: o índice é DESC e `abrirRelatorio()` abre o
+# ÚLTIMO mês — um mês novo no topo mudaria o alvo de todos os testes existentes.
+def _relatorio_marcado() -> dict:
+    base = _relatorio("2026-03", "Março 2026", "2026-03-31", mes1=False)
+    base["secoes"] = [
+        {"id": "prestacao_contas", "titulo": "Prestação de contas",
+         "corpo": "Dois nomes sinalizados em fevereiro."},
+        {"id": "leitura_mes", "titulo": "Leitura do mês",
+         "corpo": "**Março** fechou de lado. O detalhe vive nas seções abaixo."},
+        {"id": "como_voce_foi", "titulo": "Como você foi",
+         "corpo": "Por escopo:\n- **Brasil:** de lado, puxado por FIIs [1].\n"
+                  "- **EUA:** avanço em dólar."},
+        {"id": "funcionando", "titulo": "O que está funcionando",
+         "corpo": "VOO seguiu firme."},
+        {"id": "nao_funcionando", "titulo": "O que NÃO está funcionando",
+         "corpo": "HASH11 recuou.\n\nUm bloco depois da lista fecha a lista."},
+        {"id": "renda", "titulo": "Renda",
+         "corpo": "Proventos em linha com o run-rate [3]."},
+        {"id": "alinhamento", "titulo": "Alinhamento",
+         "corpo": "Drift dentro do esperado."},
+        {"id": "radar", "titulo": "Radar", "corpo": "Três nomes adiante."},
+        {"id": "evidencias", "titulo": "Evidências & fontes",
+         "corpo": "Fontes citadas ao longo do relatório."},
+    ]
+    base["radar"] = [
+        {"ticker": "HASH11",
+         "observar": "- prêmio/desconto\n- fluxo de cripto",
+         "gatilho": "Fechamento de fevereiro (~março/2026).\n"
+                    "- **Segue intacta se:** o desconto voltar a menos de 3%.\n"
+                    "- **Vira sob pressão se:** o desconto passar de 5% por dois meses.",
+         "veredito": "intacta"},
+        {"ticker": "SMAL11",
+         "observar": "- juros longos",
+         "gatilho": "Ata do Copom.\n- **Volta a intacta se:** a curva ceder [2].\n"
+                    "- **Vira deteriorando se:** a curva abrir de novo.",
+         "veredito": "sob_pressao"},
+        {"ticker": "KISU11", "observar": "- vacância", "gatilho": "Relatório gerencial.",
+         "veredito": "deteriorando"},
+    ]
+    base["prestacao_contas"] = [
+        # Item COM selo conhecido + marcação nos dois campos.
+        {"ticker": "HASH11", "veredito": "intacta",
+         "sinalizado": "Fechamento de fevereiro.\n- **Segue intacta se:** desconto < 3%.\n"
+                       "- **Vira sob pressão se:** desconto > 5%.",
+         "resultado": "O desconto fechou em 2%.\n- **Prêmio:** voltou ao normal [1].\n"
+                      "- **Fluxo:** estável."},
+        # Item SEM veredito → nenhum selo (relatório antigo é assim).
+        {"ticker": "SMAL11", "sinalizado": "Ata do Copom.",
+         "resultado": "A curva cedeu de leve."},
+        # Veredito DESCONHECIDO → nenhum selo, e em nenhuma hipótese o otimista.
+        {"ticker": "KISU11", "veredito": "Intacta",
+         "sinalizado": "Relatório gerencial.", "resultado": "Vacância estável."},
+        # Escape hostil dentro de negrito e dentro de item de lista.
+        {"ticker": "VOO", "veredito": "intacta",
+         "sinalizado": "- **<img src=x onerror=alert(1)>** rótulo hostil",
+         "resultado": "<script>alert(2)</script> fora de lista"},
+    ]
+    base["citacoes"] = [
+        {"id": 1, "afirmacao": "FIIs puxaram o Brasil", "fonte": "Dossiê",
+         "url": "https://example.com/fii", "confianca": "alta"},
+        # Esquema hostil: tem de cair em #rel-evidencias, nunca virar link vivo.
+        {"id": 2, "afirmacao": "Curva de juros", "fonte": "Fonte suspeita",
+         "url": "javascript:alert(3)", "confianca": "baixa"},
+        # ASPA dentro de uma URL que PASSA na allowlist de esquema. Exercita o
+        # unico ponto do renderizador que monta um atributo HTML a mao
+        # (`href="${href}"` em `_inlineParaHtml`): sem o `_escHtml` da URL, a
+        # aspa fecharia o atributo e o resto viraria markup. O teste do
+        # `javascript:` NAO cobre este caminho — ele so prova o esquema.
+        {"id": 3, "afirmacao": "Aspa na URL", "fonte": "Fonte com aspa",
+         "url": 'https://example.com/a"onmouseover=alert(1)//', "confianca": "media"},
+    ]
+    return base
+
+
 def gerar_relatorios() -> None:
     maio = _relatorio("2026-05", "Maio 2026", "2026-05-31", mes1=False)
     abril = _relatorio("2026-04", "Abril 2026", "2026-04-30", mes1=True)
+    marco = _relatorio_marcado()
     indice = {
         "schema": "relatorios_index_v1",
         "atualizado_em": "2026-06-01",
@@ -767,6 +849,8 @@ def gerar_relatorios() -> None:
              "arquivo": "relatorio_2026-05.json.enc"},
             {"mes": "2026-04", "titulo": abril["titulo"], "gerado_para": "2026-04-30",
              "arquivo": "relatorio_2026-04.json.enc"},
+            {"mes": "2026-03", "titulo": marco["titulo"], "gerado_para": "2026-03-31",
+             "arquivo": "relatorio_2026-03.json.enc"},
         ],
     }
     # Payload decifrável (PIN de teste) mas com schema ERRADO — exercita o branch
@@ -777,6 +861,7 @@ def gerar_relatorios() -> None:
         ("relatorios_index.test.json.enc", indice),
         ("relatorio_2026-05.test.json.enc", maio),
         ("relatorio_2026-04.test.json.enc", abril),
+        ("relatorio_2026-03.test.json.enc", marco),
         ("relatorio_badschema.test.json.enc", schema_ruim),
     ):
         enc = encriptar_json(json.dumps(obj, ensure_ascii=False), PIN_TESTE)
@@ -955,7 +1040,13 @@ def _dossies_sinteticos() -> list[dict]:
         timeline=[
             _entrada(
                 "2025-12-31", "intacta", "backfill histórico — leitura retrospectiva de FY2025",
-                "Leitura sintética de FY2025 em dólar de exemplo.",
+                # 7a.AT.1: a `leitura` exercita a marcação (lista + negrito) e o
+                # `[1]`, que nesta tela tem de ficar TEXTO — a tela do dossiê não
+                # tem lista de evidências, e `#rel-evidencias` é ROTA neste SPA.
+                # Medido em produção: 7 das 188 entradas reais já têm `[n]` aqui.
+                "Leitura sintética de FY2025 em dólar de exemplo [1].\n"
+                "- **Receita:** de exemplo, estável.\n"
+                "- **Margem:** de exemplo, sem mudança.",
                 {"receita_exemplo": "US$ 0,0 bi (exemplo)"},
                 [_fonte("annual-report-exemplo", "Annual report de exemplo (FY2025)", "2026-07-13")],
             ),
