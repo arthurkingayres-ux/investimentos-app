@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=69">
+  <link rel="stylesheet" href="css/app.css?v=70">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=45"></script>
   <script src="js/transitions.js?v=41"></script>
-  <script src="js/aportar.js?v=40"></script>
-  <script src="js/app.js?v=69"></script>
+  <script src="js/aportar.js?v=41"></script>
+  <script src="js/app.js?v=70"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1097,6 +1097,24 @@
           <h1 class="eyebrow">Próximo aporte</h1>
         </header>
 
+        <!-- 7a.AU: onde está o dinheiro, antes de quanto. Reusa o
+             .escopo-toggle (nenhum componente novo), com o padrão a11y de
+             #proventos: role="tab" + aria-selected. -->
+        <div class="escopo-toggle aporte-mercado-toggle" role="tablist" aria-label="Mercado do aporte">
+          <button data-mercado="tudo" type="button"
+            @click="selecionarAporteMercado('tudo')"
+            role="tab" :aria-selected="aporteMercado === 'tudo'"
+            :class="{ active: aporteMercado === 'tudo' }">Tudo</button>
+          <button data-mercado="brasil" type="button" aria-label="Brasil"
+            @click="selecionarAporteMercado('brasil')"
+            role="tab" :aria-selected="aporteMercado === 'brasil'"
+            :class="{ active: aporteMercado === 'brasil' }"><span aria-hidden="true">🇧🇷</span> Brasil</button>
+          <button data-mercado="eua" type="button" aria-label="Estados Unidos"
+            @click="selecionarAporteMercado('eua')"
+            role="tab" :aria-selected="aporteMercado === 'eua'"
+            :class="{ active: aporteMercado === 'eua' }"><span aria-hidden="true">🇺🇸</span> EUA</button>
+        </div>
+
         <div class="aporte-input-block">
           <label for="aporte-valor" class="aporte-label">Valor disponível</label>
           <input
@@ -1143,7 +1161,11 @@
         </div>
 
         <p class="aporte-nota">
-          O plano prioriza as categorias abaixo do alvo, equal-weight nos picks — zero sobra.
+          <span x-text="aporteNotaTexto()">O plano prioriza as categorias abaixo do alvo, equal-weight nos picks — zero sobra.</span>
+          <!-- 7a.AU: x-if, não x-show — no modo Tudo a linha não existe no DOM. -->
+          <template x-if="aporteMercado !== 'tudo'">
+            <span class="aporte-nota-mercado" x-text="aporteNotaMercado()"></span>
+          </template>
           <span class="writes">Simulação pura: nada é enviado, nada é gravado.</span>
         </p>
 

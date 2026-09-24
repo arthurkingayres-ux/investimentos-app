@@ -10,11 +10,43 @@
 //
 // Fonte de verdade: docs/superpowers/specs/2026-05-14-fase-7a-h1-aportar-design.md
 // (seções 4 e 8).
+//
+// 7a.AU: opcoes.mercado restringe o plano a uma categoria-mercado; ver
+// docs/superpowers/specs/2026-09-24-fase-7a-au-aporte-por-mercado-design.md.
 
 (function () {
   "use strict";
 
   const PICKS_MAX = 5;
+
+  // ── 7a.AU: mercado do aporte ──────────────────────────────────────────
+  // Mercado = CATEGORIA da política, não moeda (decisão do Dr. Arthur,
+  // spec 2026-09-24 §2): INTR/XP são USD mas categoria "Ações BR", logo
+  // entram no Brasil. É a ÚNICA definição de mercado deste arquivo —
+  // candidatos, diagnósticos e cards leem daqui. O literal "EUA" é o mesmo
+  // de `fracionario: cat.nome === "EUA"`; nenhuma fonte nova de verdade.
+  const MERCADOS = Object.freeze(["tudo", "brasil", "eua"]);
+
+  // Valor desconhecido cai em "tudo": falha para o comportamento de hoje,
+  // nunca para um plano vazio silencioso.
+  function _normalizarMercado(mercado) {
+    return MERCADOS.includes(mercado) ? mercado : "tudo";
+  }
+
+  function _categoriaNoMercado(nomeCategoria, mercado) {
+    if (mercado === "eua") return nomeCategoria === "EUA";
+    if (mercado === "brasil") return nomeCategoria !== "EUA";
+    return true;
+  }
+
+  // Fonte única dos rótulos de mercado (7a.AU CRB #2): app.js lê daqui via
+  // window.aporteCalculo.ROTULO_MERCADO em vez de manter cópia própria —
+  // duas cópias do mesmo "dos EUA"/"do Brasil" dessincronizam na primeira
+  // edição feita num só lado.
+  const _ROTULO_MERCADO = Object.freeze({
+    eua: Object.freeze({ onde: "nos EUA", de: "dos EUA", curto: "EUA" }),
+    brasil: Object.freeze({ onde: "no Brasil", de: "do Brasil", curto: "Brasil" }),
+  });
 
   // ── Helpers de formatação ─────────────────────────────────────────────
   function formatBrl(v) {
@@ -52,10 +84,12 @@
   }
 
   // Itera (cat, bucket, ativo) — schema v3 (7a.E.22). Status derivado de drift_intra.
-  function _iterarAtivos(portfolio) {
+  // 7a.AU: só categorias do `mercado` (default "tudo" = todas).
+  function _iterarAtivos(portfolio, mercado = "tudo") {
     const cats = (portfolio.politica && portfolio.politica.categorias) || [];
     const out = [];
     for (const cat of cats) {
+      if (!_categoriaNoMercado(cat.nome, mercado)) continue;
       const buckets = cat.buckets || [];
       for (const bucket of buckets) {
         const ativos = bucket.ativos || [];
@@ -68,9 +102,9 @@
   }
 
   // ── Ranking + seleção top-K dos candidatos ────────────────────────────
-  function _candidatosOrdenados(portfolio, preco_brl_por_ticker, patrimonio_atual, patrimonio_pos) {
+  function _candidatosOrdenados(portfolio, preco_brl_por_ticker, patrimonio_atual, patrimonio_pos, mercado) {
     const candidatos = [];
-    for (const { cat, bucket, ativo: a } of _iterarAtivos(portfolio)) {
+    for (const { cat, bucket, ativo: a } of _iterarAtivos(portfolio, mercado)) {
       // 7a.E.28: quarentena genuína (investidor qualificado) — alvo 0%, nunca
       // recomendar, mesmo com drift_intra ≤ 0 (posição residual ou zerada).
       if (a.quarentena) continue;
@@ -217,8 +251,28 @@
     };
   }
 
+  function _linhaNaoRecebedora(cat, label) {
+    return {
+      nome: cat.nome,
+      atualPct: (cat.peso_atual || 0) * 100,
+      alvoPct: Math.round((cat.peso_alvo || 0) * 100),
+      label: label,
+    };
+  }
+
+  // Resíduo não alocado, em reais com centavos. `0` abaixo de 1 centavo:
+  // a absorção fracionária deixa ruído de ponto flutuante (1e-12), e ele
+  // não pode virar "Sobram R$ 0,00" na tela.
+  function _sobra(valorAporte, allocs) {
+    const alocado = allocs.reduce((s, a) => s + a.valor_real, 0);
+    const sobra = Math.round((valorAporte - alocado) * 100) / 100;
+    return sobra >= 0.01 ? sobra : 0;
+  }
+
   // ── Algoritmo principal ───────────────────────────────────────────────
-  function calcularAporte(valorAporte, portfolio) {
+  function calcularAporte(valorAporte, portfolio, opcoes) {
+    const mercado = _normalizarMercado(opcoes && opcoes.mercado);
+    const rot = _ROTULO_MERCADO[mercado];
     const vazio = {
       estado: "vazio",
       categorias: [],
@@ -226,6 +280,7 @@
       banner: null,
       pausados: [],
       tickersSemPosicao: [],
+      sobra: _sobra(valorAporte > 0 ? valorAporte : 0, []),
     };
     if (!portfolio || !portfolio.politica || !portfolio.politica.categorias) {
       return vazio;
@@ -245,7 +300,7 @@
     // Predicado simétrico ao filtro em _candidatosOrdenados.
     const pausados = [];
     const tickersSemPosicao = [];
-    for (const { ativo: a } of _iterarAtivos(portfolio)) {
+    for (const { ativo: a } of _iterarAtivos(portfolio, mercado)) {
       if (a.quarentena) continue; // quarentena genuína: fora do aporte, sem rótulo "pausar"
       if ((a.drift_intra || 0) > 0) {
         pausados.push(a.ticker);
@@ -259,16 +314,27 @@
       preco_brl_por_ticker,
       patrimonio_atual,
       patrimonio_pos,
+      mercado,
     );
 
     if (candidatos.length === 0) {
+      // 7a.AU: no modo restrito "nada aparece" precisa de explicação. Texto
+      // NEUTRO de propósito (G1): a condição inclui quarentena e falta de
+      // cotação, então "acima do alvo" afirmaria uma causa não garantida.
+      // As listas de pausados/sem-posição logo abaixo dizem a causa de cada
+      // ticker. No modo "tudo" segue sem banner, como antes.
       return {
         estado: "vazio",
         categorias: [],
-        categoriasNaoRecebedoras: [],
-        banner: null,
+        categoriasNaoRecebedoras: rot
+          ? cats
+              .filter((c) => !_categoriaNoMercado(c.nome, mercado))
+              .map((c) => _linhaNaoRecebedora(c, "fora deste aporte"))
+          : [],
+        banner: rot ? `Nenhum ativo ${rot.de} disponível para compra dentro da política.` : null,
         pausados: pausados,
         tickersSemPosicao: tickersSemPosicao,
+        sobra: _sobra(valorAporte, []), // Σ = 0: sobra = valor (spec §3.1)
       };
     }
 
@@ -285,6 +351,7 @@
           "Valor abaixo do mínimo para 1 cota completa. Aumente o valor ou guarde para o próximo mês.",
         pausados: pausados,
         tickersSemPosicao: tickersSemPosicao,
+        sobra: _sobra(valorAporte, []),
       };
     }
 
@@ -310,22 +377,34 @@
     const categoriasNaoRecebedoras = [];
     for (const cat of cats) {
       if (categoriasRecebedoras.some((c) => c.nome === cat.nome)) continue;
-      const atualPct = (cat.peso_atual || 0) * 100;
-      const alvoPct = (cat.peso_alvo || 0) * 100;
-      const drift = (cat.peso_atual || 0) - (cat.peso_alvo || 0);
-      const label =
-        drift > 0.005 ? "acima do alvo" : drift < -0.005 ? "abaixo, sem aporte" : "no alvo";
-      categoriasNaoRecebedoras.push({
-        nome: cat.nome,
-        atualPct: atualPct,
-        alvoPct: Math.round(alvoPct),
-        label: label,
-      });
+      let label;
+      if (!_categoriaNoMercado(cat.nome, mercado)) {
+        // 7a.AU: sem isto, um Só EUA mostraria FIIs "abaixo, sem aporte",
+        // como se o algoritmo tivesse esquecido a categoria.
+        label = "fora deste aporte";
+      } else {
+        const drift = (cat.peso_atual || 0) - (cat.peso_alvo || 0);
+        label =
+          drift > 0.005 ? "acima do alvo" : drift < -0.005 ? "abaixo, sem aporte" : "no alvo";
+      }
+      categoriasNaoRecebedoras.push(_linhaNaoRecebedora(cat, label));
     }
 
     const nPicks = allocsValidos.length;
     let banner;
-    if (algumGapPositivo) {
+    if (rot && algumGapPositivo) {
+      banner =
+        nPicks === 1
+          ? `Aporte só ${rot.onde}, concentrado no ativo ${rot.de} mais abaixo do alvo.`
+          : `Aporte só ${rot.onde}, distribuído entre os ${nPicks} ativos mais abaixo do alvo.`;
+    } else if (rot) {
+      // A spec §3.2 fixa a forma de N ativos; a de 1 ativo é a flexão
+      // gramatical dela, no molde do N=1 do modo Tudo logo abaixo.
+      banner =
+        nPicks === 1
+          ? `Nenhum ativo ${rot.de} está abaixo do alvo. Aporte concentrado no único ativo ${rot.de} alinhado aos pesos-alvo.`
+          : `Nenhum ativo ${rot.de} está abaixo do alvo. Aporte distribuído pelos pesos-alvo dos ${nPicks} ativos ${rot.de}.`;
+    } else if (algumGapPositivo) {
       banner =
         nPicks === 1
           ? "Aporte concentrado no ativo mais subexposto."
@@ -344,6 +423,7 @@
       banner: banner,
       pausados: pausados,
       tickersSemPosicao: tickersSemPosicao,
+      sobra: _sobra(valorAporte, allocs),
     };
   }
 
@@ -352,5 +432,7 @@
     calcularAporte: calcularAporte,
     derivarPrecoBrlPorTicker: derivarPrecoBrlPorTicker,
     PICKS_MAX: PICKS_MAX,
+    MERCADOS: MERCADOS,
+    ROTULO_MERCADO: _ROTULO_MERCADO,
   };
 })();

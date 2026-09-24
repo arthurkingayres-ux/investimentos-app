@@ -2843,6 +2843,12 @@ footer.rodape code {
   color: var(--faint);
   font-size: 0.71875rem;
 }
+/* 7a.AU: o desvio aceito do aporte restrito, dito sem cor de alerta — é
+   escolha do Dr. Arthur, não erro. Mesmo corpo da nota, linha própria. */
+.aporte-nota-mercado {
+  display: block;
+  margin-top: 6px;
+}
 
 .aporte-banner {
   background: var(--neutral-100);

@@ -498,6 +498,11 @@ document.addEventListener("alpine:init", () => {
     aporteCategoriasNaoRecebedoras: [],
     aportePausados: [],
     aporteTickersSemPosicao: [],
+    // 7a.AU: mercado do aporte. Em memória só: volta a "tudo" em toda
+    // entrada na tela (hidratarAportar) e no lock. "Voltar sozinho num
+    // Só EUA de ontem" é o erro caro, por isso NÃO vai ao localStorage.
+    aporteMercado: "tudo",
+    aporteSobra: 0,
     // 7a.S.10 — simulador vivo: bookkeeping puro (nunca lido por template),
     // não precisa ser reativo mas Alpine envolve mesmo assim por viver em
     // data(). _aporteRevelados: nomes de categoria cujo .aporte-card já
@@ -714,6 +719,14 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       if (path === "aportar") {
+        // 7a.AU (correção pré-merge, achada pela suíte completa): entrada na tela abre em Tudo (spec §3.3).
+        // Guardado em `this.rota !== "aportar"` porque atualizarRota()/
+        // hidratarAportar() são re-chamadas DEPOIS de um await (boot em
+        // tentarAutoResume, unlock em submitPin) mesmo já estando na tela —
+        // sem o guard, um toque em EUA feito durante essa espera era desfeito
+        // pela re-hidratação tardia, silenciosamente. Lock reseta à parte,
+        // em `_limparEstadoAporte`.
+        if (this.rota !== "aportar") this.aporteMercado = "tudo";
         this.rota = "aportar";
         this.tab = "aportar";
         this.hidratarAportar();
@@ -1785,6 +1798,8 @@ document.addEventListener("alpine:init", () => {
       this.aporteTickersSemPosicao = [];
       if (this._aporteRevelados) this._aporteRevelados.clear();
       this._aportePresetPendente = null;
+      this.aporteMercado = "tudo";
+      this.aporteSobra = 0;
     },
 
     // Par dispose()/disconnect() do gráfico de #proventos. Chamado tanto do
@@ -3420,6 +3435,11 @@ document.addEventListener("alpine:init", () => {
 
     // ── 7a.H.1 / 7a.S.10: Tela #aportar (simulador vivo) ───────────────
     hidratarAportar() {
+      // 7a.AU (correção pré-merge, achada pela suíte completa): o reset para "tudo" na ENTRADA da tela mora em
+      // atualizarRota() (guard `this.rota !== "aportar"`), não aqui — esta
+      // função é re-chamada depois de um await (boot/unlock) mesmo já
+      // estando na tela, e resetar aqui desfazia um toque feito durante essa
+      // espera. Ver o comentário lá para o racional completo.
       if (!this.json) return;
       // 7a.S.10: preset cross-screen (grifo #alocação → #aportar) tem
       // prioridade sobre o valor persistido — o Dr. Arthur veio de um tap
@@ -3513,6 +3533,39 @@ document.addEventListener("alpine:init", () => {
       return Math.max(0, Math.min(100, (v / this.aporteScrubMax) * 100));
     },
 
+    // 7a.AU: toque no seletor Tudo/Brasil/EUA. Valor fora da lista cai em
+    // "tudo" (mesma regra de aportar.js). Remonta o plano com a animação de
+    // chips (respeita prefers-reduced-motion por dentro).
+    selecionarAporteMercado(mercado) {
+      const lista = (window.aporteCalculo && window.aporteCalculo.MERCADOS) || ["tudo"];
+      const m = lista.includes(mercado) ? mercado : "tudo";
+      if (m === this.aporteMercado) return;
+      this.aporteMercado = m;
+      this.recalcularAporte(true);
+    },
+
+    // null no modo Tudo; rótulos da copy restrita (spec §3.2) nos outros.
+    // Fonte única em aportar.js (7a.AU CRB #2) — sem cópia própria aqui.
+    // Retorna null se aportar.js nao carregou (window.aporteCalculo ausente); grifo e nota tratam null como Tudo.
+    _aporteMercadoRotulo() {
+      const rotulos = window.aporteCalculo && window.aporteCalculo.ROTULO_MERCADO;
+      return (rotulos && rotulos[this.aporteMercado]) || null;
+    },
+
+    // "zero sobra" só é verdade quando não sobra nada (spec §3.2).
+    aporteNotaTexto() {
+      return this.aporteSobra > 0
+        ? "O plano prioriza as categorias abaixo do alvo, equal-weight nos picks."
+        : "O plano prioriza as categorias abaixo do alvo, equal-weight nos picks — zero sobra.";
+    },
+
+    aporteNotaMercado() {
+      const r = this._aporteMercadoRotulo();
+      return r
+        ? `Só ${r.curto}: o plano cobre apenas a parte ${r.de} da política; o resto fica para outro aporte.`
+        : "";
+    },
+
     recalcularAporte(animar = false) {
       const valor = this._parseAporteValor(this.aporteValor);
       const aporteValorStr = String(this.aporteValor || "").trim();
@@ -3538,14 +3591,18 @@ document.addEventListener("alpine:init", () => {
         this.aporteCategoriasNaoRecebedoras = [];
         this.aportePausados = [];
         this.aporteTickersSemPosicao = [];
+        this.aporteSobra = 0;
         return;
       }
-      const r = window.aporteCalculo.calcularAporte(valor, this.json);
+      const r = window.aporteCalculo.calcularAporte(valor, this.json, {
+        mercado: this.aporteMercado,
+      });
       this.aporteBanner = r.banner;
       this.aporteCategoriasRecebedoras = r.categorias || [];
       this.aporteCategoriasNaoRecebedoras = r.categoriasNaoRecebedoras || [];
       this.aportePausados = r.pausados || [];
       this.aporteTickersSemPosicao = r.tickersSemPosicao || [];
+      this.aporteSobra = r.sobra || 0;
       this.$nextTick(() => this._aporteAnimarPlano(animar));
     },
 
@@ -3558,7 +3615,9 @@ document.addEventListener("alpine:init", () => {
     // inteiro". Fonte raw = json.politica.categorias (mesma origem que
     // aportar.js usa p/ montar o card), casada por nome. Fallback ao
     // arredondado só se a categoria sumir do payload (defensivo — não
-    // acontece: o card DERIVA dela). aportar.js permanece intocado.
+    // acontece: o card DERIVA dela). aportar.js permanece intocado (até a
+    // 7a.AU, que o estendeu com opcoes.mercado; os formatters seguem
+    // espelhados).
     _aporteAlvoRawPct(nome) {
       const cats =
         (this.json && this.json.politica && this.json.politica.categorias) || [];
@@ -3589,9 +3648,23 @@ document.addEventListener("alpine:init", () => {
       if (cats.length === 0) return "";
       const valorNum = this._parseAporteValor(this.aporteValor);
       const valorFmt = this.aporteFmtBrl0(valorNum);
+      const rot = this._aporteMercadoRotulo();
+      // 7a.AU: a sobra existe sempre que nenhum pick fracionário (EUA) entra
+      // no plano — Só Brasil por construção, Tudo quando o top 5 não tem EUA.
+      // Antes ela sumia calada sob um "zero sobra" falso.
+      const sobra =
+        this.aporteSobra > 0
+          ? ` Sobram ${window.formatBrl(this.aporteSobra)}, que ficam para o próximo aporte.`
+          : "";
+      const fim = sobra || " Zero sobra.";
       const sub = cats.filter((c) => c.tag === "subexposta");
       if (sub.length === 0) {
-        return `Com <b>${valorFmt}</b>, o aporte segue os pesos-alvo da política — zero sobra.`;
+        if (rot) {
+          return `Com <b>${valorFmt}</b>, o aporte segue os pesos-alvo dos ativos ${rot.de}.${fim}`;
+        }
+        return sobra
+          ? `Com <b>${valorFmt}</b>, o aporte segue os pesos-alvo da política.${sobra}`
+          : `Com <b>${valorFmt}</b>, o aporte segue os pesos-alvo da política — zero sobra.`;
       }
       let pior = null;
       for (const c of sub) {
@@ -3603,14 +3676,16 @@ document.addEventListener("alpine:init", () => {
       }
       const pct = Math.round((pior ?? 0) * 100);
       if (pct >= 100) {
-        return `Com <b>${valorFmt}</b>, o gap fecha inteiro — as categorias abaixo do alvo voltam à política. Zero sobra.`;
+        return `Com <b>${valorFmt}</b>, o gap fecha inteiro — as categorias abaixo do alvo voltam à política.${fim}`;
       }
-      return `Com <b>${valorFmt}</b>, você fecha <b>${pct}%</b> do caminho de volta ao alvo. Zero sobra.`;
+      return `Com <b>${valorFmt}</b>, você fecha <b>${pct}%</b> do caminho de volta ao alvo.${fim}`;
     },
 
     // Formata cotas para os frames do count-up (7a.S.10). Espelha os
     // formatters privados de aportar.js (formatCotasFracionarias/Inteiras)
-    // sem importar nada de lá — aportar.js permanece intocado (invariante).
+    // sem importar nada de lá — aportar.js permanece intocado (invariante
+    // até a 7a.AU, que o estendeu com opcoes.mercado; os formatters seguem
+    // espelhados).
     _aporteFormatarCotas(valor, fracionario) {
       if (fracionario) {
         return (

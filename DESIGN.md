@@ -667,7 +667,8 @@ Yield" + botão voltar.
 recebedores, sem coreografia). A 7a.S.10 o transforma num **laboratório
 vivo** que ensina *por que* o plano é o que é — **aditivo**: o cálculo
 cap-5/zero-sobra/gap de `js/aportar.js` (`window.aporteCalculo.calcularAporte`)
-permanece **intocado**; toda a nova camada vive em `app.js`/`index.html`/
+permanece **intocado** (até a 7a.AU, que estendeu `calcularAporte` com
+`opcoes.mercado` e `sobra`); toda a nova camada vive em `app.js`/`index.html`/
 `app.css`.
 
 **Single source of truth do valor:** `aporteValor` (string, o mesmo
@@ -728,8 +729,10 @@ do valor.
     nunca `alvoPct` (arredondado). "no alvo"/"" passam direto.
   - **Grifo do plano (`.aporte-grifo`, `.grifo` de S.1 — Apêndice B "Aportar
     = box do plano", ÚNICO grifo desta tela)** — `aporteGrifoHtml()` narra
-    "Com **R$ X** você fecha **N%** do caminho de volta ao alvo — zero
-    sobra" (ou "o gap fecha inteiro" quando `N% ≥ 100`). `N%` = fração do
+    "Com **R$ X** você fecha **N%** do caminho de volta ao alvo" (ou "o gap
+    fecha inteiro" quando `N% ≥ 100`), seguido da nota de sobra: "Zero
+    sobra" quando não sobra nada; senão, "Sobram R$ Y, que ficam para o
+    próximo aporte" (7a.AU). `N%` = fração do
     gap ORIGINAL fechada pela categoria subexposta com **menor** progresso
     relativo (`deltaPct / (alvoRaw − atualPct)`, capado em 1) — a que
     "trava" o caminho quando há mais de uma categoria recebedora. Estado
@@ -744,12 +747,16 @@ do valor.
     `_aporteAlvoRawPct(nome)` recupera `peso_alvo × 100` de
     `json.politica.categorias` (mesma origem que `aportar.js` usa p/ montar
     o card, casada por nome; fallback ao arredondado só se a categoria
-    sumir do payload). `aportar.js` permanece intocado — a correção é 100%
-    na camada narrativa. A trilha DISPLAY continua arredondada por design.
+    sumir do payload). `aportar.js` permanece intocado (até a 7a.AU, que o
+    estendeu com `opcoes.mercado`) — a correção é 100% na camada narrativa.
+    A trilha DISPLAY continua arredondada por design.
 - **Nota zero-write (`.aporte-nota`)** — **NÃO** é o `.grifo` (distinção
-  deliberada: o grifo é o box do plano; a nota é texto simples) — "O plano
-  prioriza... zero sobra" + `.writes` "Simulação pura: nada é enviado,
-  nada é gravado." **Sempre visível**, independente do valor.
+  deliberada: o grifo é o box do plano; a nota é texto simples) —
+  `aporteNotaTexto()` diz "O plano prioriza as categorias abaixo do alvo,
+  equal-weight nos picks — zero sobra" quando `aporteSobra === 0`, e omite
+  o sufixo quando há sobra (já narrada no grifo acima, 7a.AU) + `.writes`
+  "Simulação pura: nada é enviado, nada é gravado." **Sempre visível**,
+  independente do valor.
 - **Cross-screen (`#alocação` → `#aportar`, Task 4)** — um `.grifo`
   (`.aloca-grifo`) em `#alocação`, entre `.compo` e `.aloca-lista`, aponta
   a categoria com o **drift mais negativo** (mesmo threshold `-0.005` de
@@ -770,6 +777,19 @@ do valor.
 .aporte-scrub-input { position: absolute; inset: 0; opacity: 0; }
 .aporte-grifo, .aloca-grifo { /* .grifo base (S.1) — surface-2 + border-left accent */ }
 ```
+
+### Aporte por mercado (7a.AU)
+
+Seletor `.aporte-mercado-toggle` (Tudo/Brasil/EUA) reusa `.escopo-toggle`
+com o padrão a11y de `#proventos` (`role="tab"` + `aria-selected`),
+posicionado ANTES do campo de valor. Mercado é a CATEGORIA da política, não
+moeda: INTR/XP são USD mas ficam em "Ações BR", logo caem em Brasil. Modo
+não persistido: volta a Tudo em toda entrada na tela (inclusive no preset
+do grifo de `#alocação`) e no lock (`_limparEstadoAporte()`). Sobra
+declarada em qualquer modo. Nos modos restritos, `.aporte-nota-mercado`
+(`x-if`, some do DOM em Tudo) avisa que o plano cobre só aquela parte.
+Aceito: em ~305px de largura útil os três botões quebram em duas linhas,
+igual ao `.escopo-toggle` de `#rentabilidade`.
 
 ### PIN screen
 Input central grande (2rem text + tabular-nums + letter-spacing 0.5rem) + botão full-width primary teal.
@@ -979,7 +999,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho... zero sobra")** · Relatório = âmbar "NÃO funcionando" · **Dossiê = `quebra_se` da tese (realizado em 7a.R.3.b — `.dossie-grifo`)** · Rentabilidade = nenhum (grifo removido a pedido).
+14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho..."; sobra declarada em qualquer modo desde a 7a.AU)** · Relatório = âmbar "NÃO funcionando" · **Dossiê = `quebra_se` da tese (realizado em 7a.R.3.b — `.dossie-grifo`)** · Rentabilidade = nenhum (grifo removido a pedido).
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
 16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo.
