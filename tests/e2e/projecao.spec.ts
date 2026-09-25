@@ -400,9 +400,15 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
   // posicionar: no Linux do CI "Mediana" foi medida em y = -1,5 (no TOPO do
   // canvas), enquanto no Windows ficava no fundo. Em HTML ela é fluxo normal
   // do documento e quebra linha como qualquer texto.
-  test("legenda em HTML abaixo do gráfico, com a mediana e a série histórica", async ({ page }) => {
+  // Em light E dark: fora do canvas, o tema do ECharts não cuida mais das
+  // cores da legenda — quem cuida são os tokens do CSS, e isso tem de valer
+  // também no Plantão.
+  for (const tema of ["light", "dark"]) {
+  test(`${tema}: legenda em HTML abaixo do gráfico, com a mediana e a série histórica`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 844 });
+    await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
     await autenticar(page);
+    expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe(tema);
     await abrirProjecao(page);
     await expect(page.locator("#chart-projecao canvas")).toBeVisible();
     const leg = page.locator(".tela-projecao .proj-legenda");
@@ -430,10 +436,35 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
     const l = await leg.boundingBox();
     expect(l!.y).toBeGreaterThanOrEqual(g!.y + g!.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    // Cores dos traços = tokens do tema ativo. O token é resolvido para rgb
+    // por um elemento-sonda (o valor declarado pode ser hex), e comparado com
+    // a cor computada do traço sólido e com a cor dentro do gradiente do
+    // tracejado.
+    const cores = await page.evaluate(() => {
+      const sonda = document.createElement("span");
+      document.body.appendChild(sonda);
+      const resolve = (tok: string) => {
+        sonda.style.color = getComputedStyle(document.documentElement).getPropertyValue(tok).trim();
+        return getComputedStyle(sonda).color;
+      };
+      const r = { g700: resolve("--g-700"), gray: resolve("--gray") };
+      sonda.remove();
+      const [solido, hist] = Array.from(document.querySelectorAll(".proj-legenda__traco")) as HTMLElement[];
+      return { ...r, solido: getComputedStyle(solido).backgroundColor,
+               hist: getComputedStyle(hist).backgroundImage };
+    });
+    expect(cores.solido).toBe(cores.g700);
+    expect(cores.hist).toContain(cores.gray);
+    // Contra vacuidade: os dois tokens são cores distintas e não-vazias.
+    expect(cores.g700).not.toBe(cores.gray);
   });
+  }
 
-  test("legenda sem a série histórica quando o payload não traz historico", async ({ page }) => {
+  for (const tema of ["light", "dark"]) {
+  test(`${tema}: legenda sem a série histórica quando o payload não traz historico`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
     await autenticar(page);
+    expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe(tema);
     await page.evaluate(() => {
       const $data = (window as any).Alpine?.$data?.(document.body);
       if (!$data) throw new Error("Alpine.$data ausente");
@@ -450,6 +481,7 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
     });
     expect(nomes.some((n: string) => n.includes("últimos"))).toBe(false);
   });
+  }
 
   // O nome do eixo X ("idade no ano") abaixo dos rótulos de idade, e dentro
   // do container. Mantido dentro do canvas porque é AUTO-CONSISTENTE: o
