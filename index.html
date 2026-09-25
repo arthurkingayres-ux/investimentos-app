@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=71">
+  <link rel="stylesheet" href="css/app.css?v=72">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=41"></script>
-  <script src="js/app.js?v=71"></script>
+  <script src="js/app.js?v=72"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1135,6 +1135,16 @@
                  teclado, então o aria-label diz o resultado por extenso. -->
             <div id="chart-projecao" class="proj-chart" role="img"
                  :aria-label="projChartLabel()"></div>
+            <!-- Legenda em HTML, não no canvas: a do ECharts se posicionava pela
+                 métrica da fonte do sistema e mudava de lugar por SO. Os traços
+                 são decorativos (aria-hidden); o resultado por extenso está no
+                 aria-label do gráfico, e o texto aqui é legível como texto. -->
+            <ul class="proj-legenda">
+              <li><span class="proj-legenda__traco" aria-hidden="true"></span>Mediana</li>
+              <template x-if="projNomeHist()">
+                <li><span class="proj-legenda__traco proj-legenda__traco--hist" aria-hidden="true"></span><span x-text="projNomeHist()"></span></li>
+              </template>
+            </ul>
 
             <h2 class="proj-h">E se</h2>
             <ul class="proj-sens">

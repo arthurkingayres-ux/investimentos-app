@@ -256,6 +256,24 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
     expect(r).toEqual(["R$ 1,0 mi", "R$ 999 mil", "R$ 1,0 mi", "R$ 2,4 mi", "−R$ 1,1 mi", "R$ 850 mil", "R$ 400"]);
   });
 
+  // Largura MÍNIMA de conteúdo de cada tabela (o que ela ocupa quando só as
+  // quebras permitidas acontecem). scrollWidth sozinho não mede folga: a
+  // tabela tem width:100%, então scrollWidth == clientWidth sempre que cabe, e
+  // o teste antigo passava com folga desconhecida no Windows e estourava 3 px
+  // no Linux do CI. O app usa fontes do SISTEMA (Segoe/Consolas no Windows,
+  // DejaVu no Linux, SF no iPhone), então a métrica muda por aparelho e a
+  // folga tem de existir de verdade, não só no aparelho onde se mediu.
+  async function larguraMinimaTabelas(page: Page) {
+    return page.evaluate(() => Array.from(document.querySelectorAll(".proj-premissas")).map((t) => {
+      const el = t as HTMLElement;
+      const antes = el.style.width;
+      el.style.width = "min-content";
+      const min = el.getBoundingClientRect().width;
+      el.style.width = antes;
+      return { classe: el.className, min, disponivel: (el.parentElement as HTMLElement).clientWidth };
+    }));
+  }
+
   test("320 px sem overflow horizontal (página e tabelas)", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
     await autenticar(page);
@@ -267,6 +285,31 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
     }));
     expect(m.pagina).toBeLessThanOrEqual(320);
     for (const [sw, cw] of m.tabelas) expect(sw).toBeLessThanOrEqual(cw);
+  });
+
+  // FOLGA de 12 px (~5% da coluna de 232 px) na fonte do sistema, E caber sem
+  // estourar com uma fonte LARGA forçada (Verdana no Windows, DejaVu Sans no
+  // Linux, a mesma família de largura). O segundo assert é o que pega a classe
+  // do defeito: medido em 25/09/2026, forçar Verdana levava a tabela de
+  // classes de 191 para 233 px, a mesma direção e ordem de grandeza do 235
+  // que o CI mediu no Linux.
+  test("320 px: tabelas de premissas cabem com folga, também em fonte larga", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await autenticar(page);
+    await abrirProjecao(page);
+    const FOLGA = 12;
+    const sistema = await larguraMinimaTabelas(page);
+    expect(sistema).toHaveLength(2);
+    for (const t of sistema) {
+      expect(t.min, `${t.classe} na fonte do sistema`).toBeLessThanOrEqual(t.disponivel - FOLGA);
+    }
+    await page.addStyleTag({ content:
+      '.tela-projecao, .tela-projecao * { font-family: Verdana, "DejaVu Sans", sans-serif !important; }' });
+    const larga = await larguraMinimaTabelas(page);
+    for (const t of larga) {
+      expect(t.min, `${t.classe} em fonte larga`).toBeLessThanOrEqual(t.disponivel - FOLGA);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   });
 
   // Task 12: gráfico em leque. Lê a option real do ECharts (não o canvas):
@@ -352,12 +395,103 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
     expect(erros).toEqual([]);
   });
 
-  // Fix round Task 12: a 320 px a legenda quebrava em 2 linhas e "Mediana"
-  // caía em cima do nome do eixo X. Mede o layout RENDERIZADO: os retângulos
-  // (em coordenadas do canvas) dos textos que o zrender realmente desenhou.
+  // Legenda em HTML, logo abaixo do gráfico (não mais dentro do canvas). A
+  // legenda do ECharts dependia da métrica da fonte do sistema para se
+  // posicionar: no Linux do CI "Mediana" foi medida em y = -1,5 (no TOPO do
+  // canvas), enquanto no Windows ficava no fundo. Em HTML ela é fluxo normal
+  // do documento e quebra linha como qualquer texto.
+  // Em light E dark: fora do canvas, o tema do ECharts não cuida mais das
+  // cores da legenda — quem cuida são os tokens do CSS, e isso tem de valer
+  // também no Plantão.
+  for (const tema of ["light", "dark"]) {
+  test(`${tema}: legenda em HTML abaixo do gráfico, com a mediana e a série histórica`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
+    await autenticar(page);
+    expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe(tema);
+    await abrirProjecao(page);
+    await expect(page.locator("#chart-projecao canvas")).toBeVisible();
+    const leg = page.locator(".tela-projecao .proj-legenda");
+    await expect(leg).toBeVisible();
+    const itens = leg.locator("li");
+    await expect(itens).toHaveCount(2);
+    const nomeHist = await page.evaluate(() => {
+      // @ts-ignore
+      const o = echarts.getInstanceByDom(document.getElementById("chart-projecao")).getOption();
+      return o.series.find((s: any) => s.name.includes("últimos")).name;
+    });
+    await expect(itens.nth(0)).toHaveText("Mediana");
+    await expect(itens.nth(1)).toHaveText(nomeHist);
+    // Traço é decorativo: o texto é o que se lê.
+    await expect(leg.locator("[aria-hidden='true']")).toHaveCount(2);
+    // Sem legenda dentro do canvas.
+    const legendaCanvas = await page.evaluate(() => {
+      // @ts-ignore
+      const o = echarts.getInstanceByDom(document.getElementById("chart-projecao")).getOption();
+      return (o.legend || []).length;
+    });
+    expect(legendaCanvas).toBe(0);
+    // Abaixo do container do gráfico, sem invadi-lo.
+    const g = await page.locator("#chart-projecao").boundingBox();
+    const l = await leg.boundingBox();
+    expect(l!.y).toBeGreaterThanOrEqual(g!.y + g!.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    // Cores dos traços = tokens do tema ativo. O token é resolvido para rgb
+    // por um elemento-sonda (o valor declarado pode ser hex), e comparado com
+    // a cor computada do traço sólido e com a cor dentro do gradiente do
+    // tracejado.
+    const cores = await page.evaluate(() => {
+      const sonda = document.createElement("span");
+      document.body.appendChild(sonda);
+      const resolve = (tok: string) => {
+        sonda.style.color = getComputedStyle(document.documentElement).getPropertyValue(tok).trim();
+        return getComputedStyle(sonda).color;
+      };
+      const r = { g700: resolve("--g-700"), gray: resolve("--gray") };
+      sonda.remove();
+      const [solido, hist] = Array.from(document.querySelectorAll(".proj-legenda__traco")) as HTMLElement[];
+      return { ...r, solido: getComputedStyle(solido).backgroundColor,
+               hist: getComputedStyle(hist).backgroundImage };
+    });
+    expect(cores.solido).toBe(cores.g700);
+    expect(cores.hist).toContain(cores.gray);
+    // Contra vacuidade: os dois tokens são cores distintas e não-vazias.
+    expect(cores.g700).not.toBe(cores.gray);
+  });
+  }
+
+  for (const tema of ["light", "dark"]) {
+  test(`${tema}: legenda sem a série histórica quando o payload não traz historico`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
+    await autenticar(page);
+    expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe(tema);
+    await page.evaluate(() => {
+      const $data = (window as any).Alpine?.$data?.(document.body);
+      if (!$data) throw new Error("Alpine.$data ausente");
+      $data.json.projecao.historico = null;
+    });
+    await abrirProjecao(page);
+    await expect(page.locator("#chart-projecao canvas")).toBeVisible();
+    const itens = page.locator(".tela-projecao .proj-legenda li");
+    await expect(itens).toHaveCount(1);
+    await expect(itens.nth(0)).toHaveText("Mediana");
+    const nomes = await page.evaluate(() => {
+      // @ts-ignore
+      return echarts.getInstanceByDom(document.getElementById("chart-projecao")).getOption().series.map((s: any) => s.name);
+    });
+    expect(nomes.some((n: string) => n.includes("últimos"))).toBe(false);
+  });
+  }
+
+  // O nome do eixo X ("idade no ano") abaixo dos rótulos de idade, e dentro
+  // do container. Mantido dentro do canvas porque é AUTO-CONSISTENTE: o
+  // ECharts mede e desenha os ticks e o nome com a mesma fonte, e a distância
+  // entre eles é nameGap (26 px) contra margem + altura de UMA linha de 11 px
+  // do rótulo; depende da altura da linha, não da largura da fonte. Foi o
+  // único assert daquele bloco que passou no Linux do CI.
   for (const w of [320, 390]) {
     for (const tema of ["light", "dark"]) {
-      test(`${w} px ${tema}: legenda, rótulos do eixo X e nome do eixo não se sobrepõem`, async ({ page }) => {
+      test(`${w} px ${tema}: nome do eixo X abaixo dos rótulos de idade e dentro do gráfico`, async ({ page }) => {
         await page.setViewportSize({ width: w, height: 844 });
         await page.addInitScript((t) => localStorage.setItem("tema", t), tema);
         await autenticar(page);
@@ -368,7 +502,6 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
           // @ts-ignore
           const chart = echarts.getInstanceByDom(el);
           const o = chart.getOption();
-          const legenda: string[] = o.legend[0].data.map((d: any) => (typeof d === "string" ? d : d.name));
           const ticks: string[] = o.xAxis[0].data;
           const nomeEixo: string = o.xAxis[0].name;
           const caixas: { txt: string; x: number; y: number; w: number; h: number }[] = [];
@@ -379,37 +512,18 @@ test.describe("Projeção até os 65 (7a.AV.2)", () => {
             b.applyTransform(d.getComputedTransform());
             caixas.push({ txt, x: b.x, y: b.y, w: b.width, h: b.height });
           });
-          return { legenda, ticks, nomeEixo, caixas };
+          return { ticks, nomeEixo, caixas };
         });
-        const pega = (pred: (t: string) => boolean) => r.caixas.filter((c) => pred(c.txt));
-        const leg = pega((t) => r.legenda.includes(t));
-        const nome = pega((t) => t === r.nomeEixo);
-        const ticks = pega((t) => r.ticks.includes(t));
+        const nome = r.caixas.filter((c) => c.txt === r.nomeEixo);
+        const ticks = r.caixas.filter((c) => r.ticks.includes(c.txt));
         // Contra vacuidade: tudo que se compara foi de fato desenhado.
-        expect(leg.length).toBe(r.legenda.length);
         expect(nome.length).toBe(1);
         expect(ticks.length).toBeGreaterThanOrEqual(3);
-        const FOLGA = 4; // px de ar visível entre os blocos
-        const sobrepoe = (a: any, b: any) =>
-          a.x < b.x + b.w + FOLGA && b.x < a.x + a.w + FOLGA &&
-          a.y < b.y + b.h + FOLGA && b.y < a.y + a.h + FOLGA;
-        for (const l of leg) {
-          expect(sobrepoe(l, nome[0]), `legenda "${l.txt}" x nome do eixo`).toBe(false);
-          for (const t of ticks) expect(sobrepoe(l, t), `legenda "${l.txt}" x tick "${t.txt}"`).toBe(false);
-        }
-        for (const t of ticks) expect(sobrepoe(t, nome[0]), `tick "${t.txt}" x nome do eixo`).toBe(false);
-        // Camadas, não só ausência de interseção: a 320 px o defeito original
-        // era "Mediana" na MESMA linha do nome do eixo, 6 px ao lado dele
-        // (sem intersectar), lendo como "Mediana idade no ano". Ticks, depois
-        // o nome, depois a legenda inteira, cada faixa com folga vertical.
+        const FOLGA = 4;
         const fundoTicks = Math.max(...ticks.map((t) => t.y + t.h));
         expect(nome[0].y, "nome do eixo abaixo dos ticks").toBeGreaterThanOrEqual(fundoTicks + FOLGA);
-        for (const l of leg) {
-          expect(l.y, `legenda "${l.txt}" abaixo do nome do eixo`).toBeGreaterThanOrEqual(nome[0].y + nome[0].h + FOLGA);
-        }
-        // E nada sai do container (o texto não pode ser cortado embaixo).
         const alt = await page.locator("#chart-projecao").evaluate((e) => e.clientHeight);
-        for (const c of [...leg, ...nome]) expect(c.y + c.h).toBeLessThanOrEqual(alt);
+        expect(nome[0].y + nome[0].h, "nome do eixo dentro do container").toBeLessThanOrEqual(alt);
       });
     }
   }
