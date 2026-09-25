@@ -1486,6 +1486,14 @@ document.addEventListener("alpine:init", () => {
         + this.formatBrlCompacto(f.p10) + " e " + this.formatBrlCompacto(f.p90)
         + ", valor central " + this.formatBrlCompacto(f.p50) + ", em reais de hoje";
     },
+    // Nome da série histórica: FONTE ÚNICA para a série do gráfico e para a
+    // legenda HTML abaixo dele. null quando o payload não traz `historico`
+    // (a série e o item da legenda somem juntos).
+    projNomeHist() {
+      const P = this.projecao;
+      if (!P || !P.historico || !Array.isArray(P.historico.pontos)) return null;
+      return "Se repetir seus últimos " + (P.ano_atual - P.historico.desde) + " anos";
+    },
     // Gráfico em leque (spec 7a.AV §3.5). Faixas por empilhamento de área
     // (série base invisível com o limite inferior + série com a diferença,
     // `stack` comum), preenchimento PLANO translúcido: é a exceção registrada
@@ -1536,9 +1544,8 @@ document.addEventListener("alpine:init", () => {
               fontSize: 10, fontFamily: dc.fontFamily },
             data: [{ xAxis: iMarco }] } : undefined },
       ];
-      let nomeHist = null;
-      if (P.historico && Array.isArray(P.historico.pontos)) {
-        nomeHist = "Se repetir seus últimos " + (P.ano_atual - P.historico.desde) + " anos";
+      const nomeHist = this.projNomeHist();
+      if (nomeHist) {
         series.push({ name: nomeHist, type: "line",
           data: P.historico.pontos.map((p) => p.valor), symbol: "none",
           lineStyle: { type: [6, 4], width: 1.6, color: dc.tokens.gray },
@@ -1548,23 +1555,20 @@ document.addEventListener("alpine:init", () => {
       const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
       const option = {
         // right 40: o rótulo do markPoint centra no último ponto, na borda.
-        // bottom 58 = legenda VERTICAL (2 linhas, ~28 px) + nome do eixo X
-        // (que o containLabel não conta: fica ~12 px abaixo dos ticks) + folga.
-        grid: { top: 28, right: 40, bottom: 58, left: 8, containLabel: true },
+        // bottom 28 = só o nome do eixo X (que o containLabel não conta: fica
+        // ~12 px abaixo dos ticks) + folga. A legenda saiu do canvas.
+        grid: { top: 28, right: 40, bottom: 28, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
           formatter: (ps) => {
             const i = (Array.isArray(ps) ? ps[0] : ps).dataIndex, p = pts[i];
             return (i === 0 ? "hoje" : p.idade + " anos, em " + p.ano) +
               "<br>p90 " + fmt(p.p90) + "<br>valor central " + fmt(p.p50) + "<br>p10 " + fmt(p.p10);
           } }),
-        // Legenda SEMPRE vertical e ancorada no fundo: horizontal, a 320 px
-        // ela quebrava em 2 linhas e "Mediana" caía na linha do nome do eixo
-        // ("Mediana idade no ano"). Vertical, o layout é o mesmo em qualquer
-        // largura: ticks, nome do eixo, legenda, cada um na sua faixa.
-        legend: { data: ["Mediana"].concat(nomeHist ? [nomeHist] : []),
-          orient: "vertical", left: 8, bottom: 2, itemGap: 6,
-          icon: "circle", itemWidth: 8, itemHeight: 8,
-          textStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily } },
+        // Sem legenda no canvas: ela é HTML (.proj-legenda), logo abaixo do
+        // container. O app usa fontes do sistema, e a geometria da legenda do
+        // ECharts depende da métrica delas: no Linux do CI "Mediana" foi
+        // medida no topo do canvas (y = -1,5), no Windows no fundo. Em HTML
+        // ela é fluxo normal e quebra linha como texto.
         xAxis: { type: "category", data: rot, boundaryGap: false, name: "idade no ano",
           nameLocation: "middle", nameGap: 26,
           nameTextStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },

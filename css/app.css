@@ -3834,7 +3834,35 @@ body:has(.tab-bar) main {
 .proj-chart {
   width: 100%;
   height: 260px;
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+/* Legenda do leque em HTML, sob o gráfico (fora do canvas: a do ECharts se
+   posicionava pela métrica da fonte do sistema e mudava de lugar por SO).
+   Traço sólido = mediana; tracejado 6/4 = a série histórica, o mesmo
+   padrão de lineStyle.type [6, 4] da série. */
+.proj-legenda {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0 0 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--gray);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.proj-legenda li { display: flex; align-items: center; gap: 6px; }
+.proj-legenda__traco {
+  flex: none;
+  width: 18px;
+  height: 2.5px;
+  border-radius: 1px;
+  background: var(--g-700);
+}
+.proj-legenda__traco--hist {
+  height: 1.6px;
+  background: repeating-linear-gradient(90deg, var(--gray) 0 6px, transparent 6px 10px);
 }
 
 .proj-h {
@@ -3900,7 +3928,7 @@ body:has(.tab-bar) main {
 }
 .proj-premissas th,
 .proj-premissas td {
-  padding: 8px 3px;
+  padding: 8px 2px;
   border-bottom: 1px solid var(--neutral-100);
   text-align: right;
   vertical-align: top;
@@ -3910,13 +3938,13 @@ body:has(.tab-bar) main {
 .proj-premissas th:last-child,
 .proj-premissas td:last-child { padding-right: 0; }
 .proj-premissas thead th {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--gray);
   vertical-align: bottom;
   line-height: 1.25;
 }
-.proj-premissas tbody th { font-weight: 600; }
+.proj-premissas tbody th { font-weight: 600; font-size: 0.8125rem; line-height: 1.3; }
 .proj-premissas td.proj-num { font-size: var(--num-xs); white-space: nowrap; letter-spacing: -0.02em; }
 .proj-aporte td.proj-num { padding-top: 12px; }
 /* "não informada" é texto, não número: volta à voz da prosa e pode quebrar. */
