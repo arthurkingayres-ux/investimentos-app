@@ -1,7 +1,12 @@
 // Formatters pt-BR (Intl nativo).
 
-window.formatBrl = (n) => new Intl.NumberFormat("pt-BR", {
-  style: "currency", currency: "BRL", minimumFractionDigits: 2,
+// `digits` (default 2) fixa as casas decimais; o default reproduz a saída
+// de sempre (BRL já tem máximo de 2 casas). 7a.AV.2 pede 0 na tabela de aporte
+// da projeção. Nenhum chamador passa formatBrl sem parênteses (point-free),
+// então nenhum índice de .map() cai em `digits`.
+window.formatBrl = (n, digits = 2) => new Intl.NumberFormat("pt-BR", {
+  style: "currency", currency: "BRL",
+  minimumFractionDigits: digits, maximumFractionDigits: digits,
 }).format(n ?? 0);
 
 // Igual a formatBrl mas com sinal explícito ("+R$ 920,00" / "−R$ 4.180,00").

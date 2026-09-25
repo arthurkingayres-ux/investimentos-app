@@ -490,6 +490,10 @@ document.addEventListener("alpine:init", () => {
     resizeObserverPatr: null,
     echartsRent: null,
     resizeObserverChart: null,
+    // 7a.AV.2: gráfico em leque de #/raiox/projecao. Pré-declarados pela
+    // mesma razão dos outros três (ver lock-higiene.spec.ts, ASSINATURA_FN).
+    echartsProj: null,
+    resizeObserverProj: null,
     _rentCtx: null,
     // 7a.H.1: estado da tela #aportar
     aporteValor: "",
@@ -520,6 +524,15 @@ document.addEventListener("alpine:init", () => {
       // spec §5.5). Default "light" quando não há chave salva.
       this.tema = localStorage.getItem("tema") === "dark" ? "dark" : "light";
       this._aplicarTema(this.tema);
+      // 7a.AV.2 (bug achado ao olhar o leque no Plantão): echarts-theme.js roda
+      // no <head>, ANTES desta linha pôr [data-theme="dark"], então os tokens
+      // do ECharts nasciam com os valores CLAROS num boot frio em Plantão
+      // (grade --neutral-200 clara quase branca sobre o fundo OLED, --g-700
+      // escuro). Só o toggle chamava reregister(). Relê aqui, uma vez.
+      if (this.tema === "dark" && window.drarthurChart
+          && typeof window.drarthurChart.reregister === "function") {
+        window.drarthurChart.reregister();
+      }
       this.pinBlockUntil = Number(localStorage.getItem("pinBlockUntil")) || 0;
       this.agoraTimer = setInterval(() => { this.agora = Date.now(); }, 1000);
       // 7a.E.17: cleanup de chaves legadas do toggle de #politica (versões
@@ -671,6 +684,14 @@ document.addEventListener("alpine:init", () => {
         this.rota = "proventos";
         this.tab = "provent";
         setTimeout(() => this.hidratarProventos(), 0);
+        return;
+      }
+      if (path === "/raiox/projecao") {
+        // 7a.AV.2: projeção até os 65 é push child da tab Raio-X, como
+        // #/raiox/chart. voltar() cai em home["raiox"] = "" (mapa genérico).
+        this.rota = "projecao";
+        this.tab = "raiox";
+        setTimeout(() => this.hidratarProjecao(), 0);
         return;
       }
       if (path === "/raiox/chart") {
@@ -1414,6 +1435,165 @@ document.addEventListener("alpine:init", () => {
       return this._relIndicePromise;
     },
 
+    // 7a.AV.2: bloco `projecao` (schema v2.27). Empty-safe: payload pré-v2.27
+    // não tem a chave e `null` significa premissas ausentes ou inválidas; nos
+    // dois casos o card da home some e a rota diz "indisponível".
+    get projecao() {
+      return this.json && this.json.projecao ? this.json.projecao : null;
+    },
+    // Último ponto da curva (a idade final, 65).
+    projFinal() {
+      const p = this.projecao;
+      return p && p.pontos && p.pontos.length ? p.pontos[p.pontos.length - 1] : null;
+    },
+    // R$ compacto ("R$ 2,4 mi" / "R$ 850 mil" / "R$ 400"). Limiar mil→mi
+    // (spec §3.5 item 10, decidido na execução): R$ 1 milhão. Arredonda ANTES
+    // de escolher a banda (achado do G2): sem isso 999.600 viraria
+    // "R$ 1000 mil". O "—" de valor ausente é o fallback de DADO da casa, não
+    // copy; com a projeção completa nenhum valor é nulo.
+    formatBrlCompacto(v) {
+      if (v == null || Number.isNaN(v)) return "—";
+      const a = Math.abs(v), s = v < 0 ? "−" : "";
+      const mil = Math.round(a / 1000);
+      if (mil >= 1000) return s + "R$ " + (a / 1_000_000).toFixed(1).replace(".", ",") + " mi";
+      if (mil >= 1) return s + "R$ " + mil + " mil";
+      return s + "R$ " + Math.round(a);
+    },
+    // Δ com sinal explícito em TEXTO (+/−): a seta ▲/▼ é decorativa
+    // (aria-hidden) e a cor nunca carrega a direção sozinha.
+    formatDeltaCompacto(v) {
+      if (v == null || Number.isNaN(v)) return "—";
+      return (v >= 0 ? "+" : "") + this.formatBrlCompacto(v);
+    },
+    // R$ sem centavos, para a tabela de aporte da projeção. Os valores ali são
+    // médias e estimativas mensais (centavo é ruído). Medido a 320 px: o
+    // conteúdo de .tela-detalhes tem 232 px; em 4 colunas a tabela media
+    // 342 px com centavos e 253 px sem eles (253 > 232), então a TRANSPOSIÇÃO
+    // (colunas = antes/depois do marco) também é requisito de largura, não
+    // estética: sem ela a tabela volta a transbordar. Reusa window.formatBrl
+    // (mesmo Intl), pedindo 0 casas; o guarda de nulo fica aqui porque
+    // formatBrl trata null como 0 e aqui ausência não é zero.
+    formatBrlInteiro(v) {
+      if (v == null || Number.isNaN(v)) return "—";
+      return window.formatBrl(v, 0);
+    },
+    // O gráfico ECharts não tem tooltip alcançável por teclado, então o
+    // aria-label do container carrega o resultado por extenso.
+    projChartLabel() {
+      const p = this.projecao, f = this.projFinal();
+      if (!p || !f) return "Projeção indisponível";
+      return "Projeção por idade no ano. Aos " + p.idade_final + ", entre "
+        + this.formatBrlCompacto(f.p10) + " e " + this.formatBrlCompacto(f.p90)
+        + ", valor central " + this.formatBrlCompacto(f.p50) + ", em reais de hoje";
+    },
+    // Gráfico em leque (spec 7a.AV §3.5). Faixas por empilhamento de área
+    // (série base invisível com o limite inferior + série com a diferença,
+    // `stack` comum), preenchimento PLANO translúcido: é a exceção registrada
+    // ao anti-pattern #17 (gradiente sob a linha), porque aqui a área É o
+    // dado (a faixa de incerteza), não decoração. Sem dataZoom: o horizonte
+    // inteiro é a leitura. markPoint só no último ponto da mediana (7a.S.3).
+    hidratarProjecao() {
+      if (this.rota !== "projecao" || !this.projecao) return;
+      const container = document.getElementById("chart-projecao");
+      if (!container) return;
+      this._descartarProj();
+      container.innerHTML = "";
+      if (typeof echarts === "undefined" || !window.drarthurChart) {
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        return;
+      }
+      const P = this.projecao, dc = window.drarthurChart, pts = P.pontos || [];
+      if (!pts.length) return;
+      const rot = pts.map((p, i) => (i === 0 ? "hoje" : String(p.idade)));
+      const col = (k) => pts.map((p) => p[k]);
+      const dif = (a, b) => pts.map((p) => p[a] - p[b]);
+      const fmt = (v) => this.formatBrlCompacto(v);
+      const faixa = (nome, stack, baixo, alto, opac) => [
+        { name: nome + " base", type: "line", data: col(baixo), stack, symbol: "none",
+          lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 }, silent: true, tooltip: { show: false } },
+        { name: nome, type: "line", data: dif(alto, baixo), stack, symbol: "none",
+          lineStyle: { opacity: 0 }, areaStyle: { color: dc.tokens.g700, opacity: opac }, silent: true },
+      ];
+      // Índice (não rótulo) do marco: o eixo é de categoria e o markLine por
+      // índice não depende de os rótulos de idade serem únicos.
+      // -1 quando `marco.ano` não casa com nenhum ponto do horizonte — marco
+      // já passado (formação encerrada antes de `ano_atual`) ou além do
+      // último ponto (65 anos). Nos dois casos não há onde desenhar a linha,
+      // e omiti-la é o comportamento correto (achado do CRB, Suggestion 3 da
+      // 7a.AV.2): `markLine: undefined` abaixo cobre ambos, sem aviso porque
+      // não há nada de errado a avisar.
+      const iMarco = P.marco ? pts.findIndex((p, i) => i > 0 && p.ano === P.marco.ano) : -1;
+      const series = [
+        ...faixa("p10 a p90", "a", "p10", "p90", 0.12),
+        ...faixa("p25 a p75", "b", "p25", "p75", 0.22),
+        { name: "Mediana", type: "line", data: col("p50"), symbol: "none",
+          lineStyle: { width: 2.5, color: dc.tokens.g700 },
+          itemStyle: { color: dc.tokens.g700 },
+          markPoint: criarMarkPointUltimo(col("p50"), fmt, dc.tokens.g700, dc.fontFamily),
+          markLine: iMarco > 0 ? { silent: true, symbol: "none", animation: false,
+            lineStyle: { type: "dashed", color: dc.tokens.gray, width: 1, opacity: 0.7 },
+            label: { formatter: P.marco.rotulo, position: "insideEndTop", color: dc.tokens.gray,
+              fontSize: 10, fontFamily: dc.fontFamily },
+            data: [{ xAxis: iMarco }] } : undefined },
+      ];
+      let nomeHist = null;
+      if (P.historico && Array.isArray(P.historico.pontos)) {
+        nomeHist = "Se repetir seus últimos " + (P.ano_atual - P.historico.desde) + " anos";
+        series.push({ name: nomeHist, type: "line",
+          data: P.historico.pontos.map((p) => p.valor), symbol: "none",
+          lineStyle: { type: [6, 4], width: 1.6, color: dc.tokens.gray },
+          itemStyle: { color: dc.tokens.gray } });
+      }
+      const ultimo = pts.length - 1;
+      const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
+      const option = {
+        // right 40: o rótulo do markPoint centra no último ponto, na borda.
+        // bottom 58 = legenda VERTICAL (2 linhas, ~28 px) + nome do eixo X
+        // (que o containLabel não conta: fica ~12 px abaixo dos ticks) + folga.
+        grid: { top: 28, right: 40, bottom: 58, left: 8, containLabel: true },
+        tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
+          formatter: (ps) => {
+            const i = (Array.isArray(ps) ? ps[0] : ps).dataIndex, p = pts[i];
+            return (i === 0 ? "hoje" : p.idade + " anos, em " + p.ano) +
+              "<br>p90 " + fmt(p.p90) + "<br>valor central " + fmt(p.p50) + "<br>p10 " + fmt(p.p10);
+          } }),
+        // Legenda SEMPRE vertical e ancorada no fundo: horizontal, a 320 px
+        // ela quebrava em 2 linhas e "Mediana" caía na linha do nome do eixo
+        // ("Mediana idade no ano"). Vertical, o layout é o mesmo em qualquer
+        // largura: ticks, nome do eixo, legenda, cada um na sua faixa.
+        legend: { data: ["Mediana"].concat(nomeHist ? [nomeHist] : []),
+          orient: "vertical", left: 8, bottom: 2, itemGap: 6,
+          icon: "circle", itemWidth: 8, itemHeight: 8,
+          textStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily } },
+        xAxis: { type: "category", data: rot, boundaryGap: false, name: "idade no ano",
+          nameLocation: "middle", nameGap: 26,
+          nameTextStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },
+          // "hoje" + idades múltiplas de 5 (e sempre a final). i >= 3 evita
+          // colar um rótulo de idade no "hoje".
+          axisLabel: { hideOverlap: true,
+            interval: (i) => i === 0 || i === ultimo || (i >= 3 && pts[i].idade % 5 === 0) } },
+        yAxis: { type: "value", min: 0, axisLabel: { formatter: fmt } },
+        series,
+        // O ECharts com aria ligado REESCREVE o aria-label do container com a
+        // descrição automática (série a série, incluindo as bases invisíveis
+        // das faixas), apagando o resultado por extenso que o template põe
+        // ali. `description` substitui a automática pela mesma frase.
+        aria: { enabled: true, label: { description: this.projChartLabel() } },
+      };
+      Object.assign(option, dc.motionConfig);
+      try { chart.setOption(option); } catch (err) {
+        console.warn("ECharts projeção falhou; placeholder", err);
+        chart.dispose();
+        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        return;
+      }
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserverProj = new ResizeObserver(() => { try { chart.resize(); } catch (_) {} });
+        this.resizeObserverProj.observe(container);
+      }
+      this.echartsProj = chart;
+    },
+
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;
       return meses && meses.length ? meses[0] : null; // índice é mês DESC
@@ -1830,8 +2010,14 @@ document.addEventListener("alpine:init", () => {
       if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
       if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
     },
+    // Idem para o gráfico em leque de #/raiox/projecao (7a.AV.2): carrega a
+    // curva p10..p90 decifrada, então sai no lock como os outros três.
+    _descartarProj() {
+      if (this.echartsProj) { try { this.echartsProj.dispose(); } catch (_) {} this.echartsProj = null; }
+      if (this.resizeObserverProj) { try { this.resizeObserverProj.disconnect(); } catch (_) {} this.resizeObserverProj = null; }
+    },
 
-    // Agrega o descarte dos 3 gráficos (cada um via seu próprio helper — o
+    // Agrega o descarte dos 4 gráficos (7a.AV.2 somou o da projeção) (cada um via seu próprio helper — o
     // agregado continua POR-GRÁFICO; nenhum helper chama este método de
     // volta, senão um render sozinho descartaria os outros dois indevidamente)
     // + os derivados do render que carregam número da carteira: `_rentCtx`
@@ -1844,6 +2030,7 @@ document.addEventListener("alpine:init", () => {
       this._descartarProv();
       this._descartarPatr();
       this._descartarRent();
+      this._descartarProj();
       this._rentCtx = null;
       this.proventosTotalLabel = "";
       this.proventosTotalValor = 0;
@@ -3900,6 +4087,9 @@ document.addEventListener("alpine:init", () => {
         // então hidratarDY() precisa rodar agora que o payload chegou; senão
         // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
         if (this.rota === "dy") this.hidratarDY();
+        // 7a.AV.2: cold-start em `#/raiox/projecao` chega aqui sem json;
+        // re-hidrata agora que o payload chegou (espelha #/raiox/chart).
+        if (this.rota === "projecao") this.hidratarProjecao();
       } catch (err) {
         // 7a.W.3.b: chegamos aqui com o payload EM MÃOS e ele não abriu com o
         // segredo que este aparelho guarda. Isso não é "PIN errado" (o PIN
@@ -4282,6 +4472,9 @@ document.addEventListener("alpine:init", () => {
         // 7a.S.7b: bookmark direto de `#/proventos/dy` — re-hidrata o DY
         // depois que `json` chegou via submitPin (espelha #/raiox/chart).
         if (this.rota === "dy") this.hidratarDY();
+        // 7a.AV.2: cold-start em `#/raiox/projecao` chega aqui sem json;
+        // re-hidrata agora que o payload chegou (espelha #/raiox/chart).
+        if (this.rota === "projecao") this.hidratarProjecao();
       } catch (err) {
         console.error("decifra falhou", err);
         this.registrarFalha();

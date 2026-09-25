@@ -110,6 +110,15 @@ async function renderizarOsTresGraficos(page: Page) {
     .toBeVisible({ timeout: 5_000 });
 }
 
+// 7a.AV.2: o 4º gráfico (leque de #/raiox/projecao) carrega a curva p10..p90
+// decifrada. Barreira no canvas do ECharts, o nó que só existe com a
+// instância viva.
+async function renderizarGraficoProjecao(page: Page) {
+  await page.goto("/#/raiox/projecao");
+  await expect(page.locator("#chart-projecao canvas[data-zr-dom-id]"))
+    .toBeVisible({ timeout: 5_000 });
+}
+
 // CRB final 7a.U Finding 1 — 3 rotas que o roteiro do teste-invariante não
 // visitava, cada uma populando exatamente o campo que a família precisa:
 // `tickerAtual` (#ativo), `dySelecionado` (#/proventos/dy, auto-populado por
@@ -595,6 +604,28 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     });
   });
 
+  test("lock descarta o gráfico da projeção e o observer dele (7a.AV.2)", async ({ page }) => {
+    await autenticar(page);
+    await renderizarGraficoProjecao(page);
+    const antes = await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      return { chart: !!d.echartsProj, obs: !!d.resizeObserverProj };
+    });
+    // Sem isto o teste passaria por vacuidade depois do lock.
+    expect(antes).toEqual({ chart: true, obs: true });
+    const depois = await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      const el = document.getElementById("chart-projecao");
+      d.bloquear();
+      return {
+        chart: d.echartsProj == null, obs: d.resizeObserverProj == null,
+        // dispose() de verdade, não só a referência anulada.
+        instancia: el ? (window as any).echarts.getInstanceByDom(el) == null : true,
+      };
+    });
+    expect(depois).toEqual({ chart: true, obs: true, instancia: true });
+  });
+
   test("lock descarta o plano de aporte", async ({ page }) => {
     await autenticar(page);
     await abrirAportar(page, "5000");
@@ -1049,6 +1080,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await abrirDossie(page, "HGLG11");
     await abrirAportar(page, "5000");
     await renderizarOsTresGraficos(page);
+    await renderizarGraficoProjecao(page);
     await abrirAtivo(page, "HGLG11");
     // Ordem histórica preservada, mas não mais obrigatória: #alocacao antes
     // de #/proventos/dy vinha de quando sig() marcava strings só por

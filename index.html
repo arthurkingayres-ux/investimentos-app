@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=70">
+  <link rel="stylesheet" href="css/app.css?v=71">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
-  <script src="js/format.js?v=45"></script>
+  <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=41"></script>
-  <script src="js/app.js?v=70"></script>
+  <script src="js/app.js?v=71"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -367,6 +367,18 @@
             </span>
             <span class="rel-card-home__mes"
               x-text="relUltimoMes ? formatMesAno(relUltimoMes.mes) : ''"></span>
+          </div>
+          <span class="rel-card-home__chevron" aria-hidden="true">›</span>
+        </a>
+
+        <!-- 7a.AV.2: entrada da projeção, abaixo do Relatório, no mesmo idioma
+             e empty-safe como ele (payload pré-v2.27 ou projecao null: some). -->
+        <a class="proj-card-home" x-show="projFinal()" href="#/raiox/projecao"
+           aria-label="Abrir projeção do patrimônio até os 65 anos" x-cloak>
+          <div class="rel-card-home__meta">
+            <span class="rel-card-home__label">Projeção até os 65</span>
+            <span class="rel-card-home__mes"
+              x-text="projFinal() ? 'valor central ' + formatBrlCompacto(projFinal().p50) : ''"></span>
           </div>
           <span class="rel-card-home__chevron" aria-hidden="true">›</span>
         </a>
@@ -1089,6 +1101,119 @@
         </div>
 
         <div id="patrimonio-grafico" class="chart-rent" aria-label="Evolução de patrimônio e aportes"></div>
+      </section>
+
+      <!-- ── Tela #/raiox/projecao (Fase 7a.AV.2) ─────────────────────── -->
+      <!-- Push child da tab Raio-X, irmã de .tela-patrimonio. A ousadia vai num
+           lugar só: a linha-resposta (os dois números da faixa são os maiores
+           da tela). O resto é quieto: listas sem card, tabela densa. -->
+      <section class="tela-detalhes tela-projecao" x-show="rota === 'projecao'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="proj-titulo" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="proj-titulo">Projeção</h1>
+        </header>
+
+        <template x-if="!projFinal()">
+          <p class="placeholder">Projeção indisponível: premissas ausentes ou inválidas.</p>
+        </template>
+
+        <template x-if="projFinal()">
+          <div class="proj-corpo">
+            <p class="proj-resposta">
+              <span class="proj-resposta__linha">Aos <span x-text="projecao.idade_final"></span>, entre
+                <strong class="proj-faixa" x-text="formatBrlCompacto(projFinal().p10)"></strong> e
+                <strong class="proj-faixa" x-text="formatBrlCompacto(projFinal().p90)"></strong></span>
+              <span class="proj-resposta__sub">valor central
+                <span class="proj-num" x-text="formatBrlCompacto(projFinal().p50)"></span> · em reais de hoje</span>
+            </p>
+
+            <!-- Task 12 monta o ECharts aqui. O tooltip não é alcançável por
+                 teclado, então o aria-label diz o resultado por extenso. -->
+            <div id="chart-projecao" class="proj-chart" role="img"
+                 :aria-label="projChartLabel()"></div>
+
+            <h2 class="proj-h">E se</h2>
+            <ul class="proj-sens">
+              <template x-for="s in projecao.sensibilidade" :key="s.rotulo">
+                <li>
+                  <span class="proj-sens__rotulo" x-text="s.rotulo"></span>
+                  <span class="proj-num proj-delta" :class="s.delta_p50_final < 0 ? 'proj-neg' : 'proj-pos'">
+                    <span aria-hidden="true" x-text="s.delta_p50_final < 0 ? '▼' : '▲'"></span>
+                    <span x-text="formatDeltaCompacto(s.delta_p50_final) + ' aos ' + projecao.idade_final"></span></span>
+                </li>
+              </template>
+            </ul>
+
+            <h3 class="proj-h proj-h--sub proj-estresse-titulo">Cenários hipotéticos</h3>
+            <ul class="proj-estresse">
+              <template x-for="e in projecao.estresse" :key="e.nome">
+                <li>
+                  <span class="proj-estresse__nome" x-text="e.nome"></span>
+                  <span class="proj-estresse__desc" x-text="e.descricao"></span>
+                  <span class="proj-estresse__nums">
+                    <span><span class="proj-estresse__rot">valor central aos <span x-text="projecao.idade_final"></span></span>
+                      <span class="proj-num" x-text="formatBrlCompacto(e.p50_final)"></span></span>
+                    <span class="proj-num proj-delta" :class="e.delta_p50_final < 0 ? 'proj-neg' : 'proj-pos'">
+                      <span aria-hidden="true" x-text="e.delta_p50_final < 0 ? '▼' : '▲'"></span>
+                      <span x-text="formatDeltaCompacto(e.delta_p50_final)"></span></span>
+                  </span>
+                </li>
+              </template>
+            </ul>
+
+            <h2 class="proj-h">Premissas</h2>
+            <!-- Aporte mensal: linhas = de onde vem o número, colunas = antes e
+                 depois do marco. O histórico de 12 meses é UM número só, então a
+                 célula cobre as duas colunas (colspan) em vez de repetir o valor
+                 ou dizer "igual", que se leria como "a estimativa é igual".
+                 Transposta (e sem centavos) para caber em 320 px: com quatro
+                 colunas de dinheiro a tabela media 253 px numa coluna de 232. -->
+            <table class="proj-premissas proj-aporte">
+              <caption class="sr-only" x-text="'Aporte mensal antes e depois de ' + projecao.marco.ano"></caption>
+              <thead><tr><th scope="col">Aporte mensal</th>
+                <th scope="col" x-text="'Até ' + projecao.marco.ano"></th>
+                <th scope="col" x-text="'Depois de ' + projecao.marco.ano"></th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Histórico 12m</th>
+                  <td class="proj-num proj-hist" colspan="2" x-text="formatBrlInteiro(projecao.aporte.historico_12m)"></td></tr>
+                <tr><th scope="row">Sua estimativa</th>
+                  <td class="proj-num" :class="{ 'proj-sem-valor': projecao.aporte.estimado_ate == null }" x-text="projecao.aporte.estimado_ate == null ? 'não informada' : formatBrlInteiro(projecao.aporte.estimado_ate)"></td>
+                  <td class="proj-num" :class="{ 'proj-sem-valor': projecao.aporte.estimado_depois == null }" x-text="projecao.aporte.estimado_depois == null ? 'não informada' : formatBrlInteiro(projecao.aporte.estimado_depois)"></td></tr>
+                <tr><th scope="row">Usado</th>
+                  <td class="proj-num" x-text="formatBrlInteiro(projecao.aporte.usado_ate)"></td>
+                  <td class="proj-num" x-text="formatBrlInteiro(projecao.aporte.usado_depois)"></td></tr>
+              </tbody>
+            </table>
+            <p class="proj-nota" x-show="projecao.aporte.piso_zero_aplicado" x-cloak>
+              Nos últimos 12 meses as vendas superaram os aportes; usado 0.</p>
+
+            <table class="proj-premissas proj-classes">
+              <caption class="sr-only">Premissas por classe de ativo</caption>
+              <thead><tr><th scope="col">Classe</th><th scope="col">Peso alvo</th>
+                <th scope="col">Retorno real</th><th scope="col">Volatilidade</th></tr></thead>
+              <tbody>
+                <template x-for="p in projecao.premissas" :key="p.categoria">
+                  <tr class="proj-classe">
+                    <th scope="row"><details class="proj-fonte"><summary x-text="p.categoria"></summary>
+                      <span class="proj-fonte__txt" x-text="(p.fonte || '—') + (p.periodo ? ' (' + p.periodo + ')' : '')"></span></details></th>
+                    <td class="proj-num" x-text="formatPctSemSinal(p.peso_alvo, 0)"></td>
+                    <td class="proj-num" x-text="formatPctSemSinal(p.retorno_real, 2)"></td>
+                    <td class="proj-num" x-text="formatPctSemSinal(p.vol, 1)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+
+            <p class="proj-nota"
+               x-text="projecao.simulacao.trajetorias.toLocaleString('pt-BR') + ' trajetórias · semente fixa · recalculada toda noite'"></p>
+            <p class="proj-nota">Retornos de índice, brutos de impostos e custos (o viés é para cima).</p>
+            <p class="proj-rodape">Projeção, não promessa. As premissas acima definem a curva.</p>
+          </div>
+        </template>
       </section>
 
       <!-- ── Tela #aportar (Fase 7a.H.1) ──────────────────────────────── -->

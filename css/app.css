@@ -3756,8 +3756,11 @@ body:has(.tab-bar) main {
   to   { transform: scaleX(var(--fill-pct, 1)); }
 }
 
-/* 7a.Q.3 — Relatório Mensal */
-.rel-card-home {
+/* 7a.Q.3 — Relatório Mensal. 7a.AV.2: o card da projeção compartilha o
+   idioma por agrupamento de seletor, NÃO por reuso da classe raiz (reusar
+   .rel-card-home faria os locators do Relatório resolverem a 2 nós). */
+.rel-card-home,
+.proj-card-home {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3772,10 +3775,11 @@ body:has(.tab-bar) main {
   min-height: 44px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .rel-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+  .rel-card-home, .proj-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
 }
 /* 7a.S.2: mapeia .relcard do mockup. */
-.rel-card-home:active {
+.rel-card-home:active,
+.proj-card-home:active {
   transform: scale(.98);
   box-shadow: var(--shadow-pressed);
 }
@@ -3788,6 +3792,175 @@ body:has(.tab-bar) main {
 }
 .rel-card-home__mes { font-size: var(--num-md); font-weight: 600; color: var(--g-900); }
 .rel-card-home__chevron { font-size: 1.5rem; color: var(--g-700); line-height: 1; }
+
+/* 7a.AV.2 — Tela #/raiox/projecao. Ousadia num lugar só: os dois números da
+   faixa (p10/p90 aos 65) são os maiores da tela, em mono. O resto é quieto:
+   listas sem card, tabelas densas com tabular-nums, zero token novo, zero
+   motion decorativo. Cores só por token (flipam no Modo Plantão sozinhas). */
+.proj-resposta {
+  margin: 4px 0 20px;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.proj-resposta__linha { display: block; }
+.proj-faixa {
+  font-family: var(--mono);
+  font-size: var(--num-xl);
+  font-weight: 700;
+  color: var(--g-900);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.proj-resposta__sub {
+  display: block;
+  margin-top: 6px;
+  color: var(--gray);
+  font-size: 0.875rem;
+}
+.proj-resposta__sub .proj-num { color: var(--ink); font-weight: 600; }
+
+.proj-num {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-variant-numeric: tabular-nums;
+}
+.proj-pos { color: var(--g-700); }
+.proj-neg { color: var(--red); }
+.proj-delta { white-space: nowrap; font-weight: 600; }
+
+/* Container do gráfico (Task 12 monta o ECharts). */
+.proj-chart {
+  width: 100%;
+  height: 260px;
+  margin: 0 0 8px;
+}
+
+.proj-h {
+  margin: 24px 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.proj-h--sub {
+  margin-top: 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray);
+}
+
+.proj-sens,
+.proj-estresse {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.proj-sens li,
+.proj-estresse li {
+  padding: 10px 0;
+  border-top: 1px solid var(--neutral-100);
+}
+.proj-sens li:first-child,
+.proj-estresse li:first-child { border-top: 0; }
+.proj-sens li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  color: var(--ink);
+  font-size: 0.9375rem;
+}
+.proj-estresse li { display: grid; gap: 2px; }
+.proj-estresse__nome { font-weight: 600; color: var(--ink); font-size: 0.9375rem; }
+.proj-estresse__desc { color: var(--gray); font-size: 0.875rem; line-height: 1.4; }
+.proj-estresse__nums {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+.proj-estresse__rot {
+  font-size: 0.8125rem;
+  color: var(--gray);
+  margin-right: 6px;
+}
+
+/* Tabelas densas. A 320px as quatro colunas cabem porque os cabeçalhos
+   quebram linha e a coluna da categoria também; só os números não quebram. */
+.proj-premissas {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 4px;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+.proj-premissas th,
+.proj-premissas td {
+  padding: 8px 3px;
+  border-bottom: 1px solid var(--neutral-100);
+  text-align: right;
+  vertical-align: top;
+}
+.proj-premissas th:first-child,
+.proj-premissas td:first-child { text-align: left; padding-left: 0; }
+.proj-premissas th:last-child,
+.proj-premissas td:last-child { padding-right: 0; }
+.proj-premissas thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray);
+  vertical-align: bottom;
+  line-height: 1.25;
+}
+.proj-premissas tbody th { font-weight: 600; }
+.proj-premissas td.proj-num { font-size: var(--num-xs); white-space: nowrap; letter-spacing: -0.02em; }
+.proj-aporte td.proj-num { padding-top: 12px; }
+/* "não informada" é texto, não número: volta à voz da prosa e pode quebrar. */
+.proj-premissas td.proj-sem-valor {
+  font-family: inherit;
+  white-space: normal;
+  letter-spacing: normal;
+  color: var(--gray);
+}
+/* Célula única do histórico: centrada sob as duas colunas de período. */
+.proj-premissas td.proj-hist { text-align: center; }
+.proj-classes td.proj-num { padding-top: 14px; }
+
+/* Fonte por classe, recolhida. O alvo de toque (≥44px) vem do summary. */
+.proj-classes tbody th { padding-top: 0; padding-bottom: 0; }
+.proj-fonte summary {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 12px 0;
+  cursor: pointer;
+  line-height: 1.25;
+}
+.proj-fonte__txt {
+  display: block;
+  padding: 0 0 10px;
+  color: var(--gray);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.proj-nota {
+  margin: 8px 0 0;
+  color: var(--gray);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.proj-rodape {
+  margin: 20px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--neutral-200);
+  color: var(--gray);
+  font-size: 0.8125rem;
+}
 .rel-breadcrumb__mes {
   margin-left: auto; font-size: var(--num-sm); color: var(--gray);
   font-variant-numeric: tabular-nums;
@@ -4112,7 +4285,8 @@ body:has(.tab-bar) main {
 [data-theme="dark"] .prov-chart-card,
 [data-theme="dark"] .ticker-hero,
 [data-theme="dark"] .rel-radar-card,
-[data-theme="dark"] .rel-card-home {
+[data-theme="dark"] .rel-card-home,
+[data-theme="dark"] .proj-card-home {
   box-shadow: inset 0 1px 0 var(--card-topline), var(--card-shadow);
 }
 [data-theme="dark"] .aloca-cat {

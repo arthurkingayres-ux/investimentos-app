@@ -7,6 +7,16 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.27 (Fase 7a.AV.1): bloco top-level ``projecao`` — projeção
+patrimonial até os 65 anos (Monte Carlo backend), consumida pela tela nova
+``#/raiox/projecao`` (7a.AV.2, Tasks 11-12). Três fixtures cobrem os três
+estados que o frontend precisa distinguir: a principal (``projecao`` populado,
+com todas as sub-chaves), ``portfolio_projecao_null`` (``projecao: null`` — DB
+sem histórico suficiente ou premissas ausentes) e ``portfolio_pre_v227``
+(payload sem a chave nenhuma, ``versao: "2.26"`` — simula um payload publicado
+antes desta fase, antes de o frontend saber ler o campo nunca). Números do
+bloco sintético 100% fictícios, gerados por fórmula — nunca lidos do DB real.
+
 Schema v2.26 (Fase 7a.AE.2): ``frescor_cotacoes`` — de quando e o fechamento
 que valorou cada escopo, como intervalo ``{min, max}`` mais a contagem de
 tickers por data. A fixture usa DATAS MISTAS de proposito (Total 17->18/08),
@@ -142,8 +152,48 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
     return pontos
 
 
+def _projecao_sintetica() -> dict:
+    """CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste público).
+    Curva por fórmula: p50 = 400 mil × 1,07^k; faixas simétricas em log.
+    Idade/ano de nascimento (1986) e marco são DELIBERADAMENTE diferentes dos
+    reais do Dr. Arthur — coincidir com fato biográfico real (idade, ano de
+    início de investimento, marco de formação) vazaria dado pessoal num repo
+    público (achado do CRB no round 1 da Task 10)."""
+    pontos = [{"idade": 40, "ano": 2026, "data": "2026-09-25",
+               **{q: 400000.0 for q in ("p10", "p25", "p50", "p75", "p90")}}]
+    for k, ano in enumerate(range(2026, 2052)):
+        mediana = round(400000.0 * 1.07 ** (k + 1), 2)
+        abre = 1 + 0.06 * (k + 1) ** 0.5
+        pontos.append({"idade": ano - 1986, "ano": ano, "data": f"{ano}-12-31",
+                       "p10": round(mediana / abre**2, 2), "p25": round(mediana / abre, 2),
+                       "p50": mediana, "p75": round(mediana * abre, 2), "p90": round(mediana * abre**2, 2)})
+    hist = [{"idade": p["idade"], "ano": p["ano"], "data": p["data"],
+             "valor": round(400000.0 * 1.05 ** i, 2)} for i, p in enumerate(pontos)]
+    return {
+        "idade_atual": 40, "idade_final": 65, "ano_atual": 2026,
+        "marco": {"ano": 2031, "idade": 45, "rotulo": "fim da formação"},
+        "pontos": pontos,
+        "historico": {"retorno_real_aa": 0.05, "desde": 2015, "ipca_ate": "2026-08", "pontos": hist},
+        "aporte": {"historico_12m": 5000.0, "estimado_ate": None, "estimado_depois": 20000.0,
+                   "usado_ate": 5000.0, "usado_depois": 20000.0, "piso_zero_aplicado": False},
+        "sensibilidade": [
+            {"rotulo": "+R$ 1.000/mês de aporte", "delta_p50_final": 1500000.0},
+            {"rotulo": "+1 p.p. de retorno real em todas as classes", "delta_p50_final": 2500000.0}],
+        "estresse": [
+            {"nome": "Década inicial fraca", "descricao": "Todas as classes rendem 3 p.p. a menos por ano nos primeiros 10 anos.", "p50_final": 3000000.0, "delta_p50_final": -1000000.0},
+            {"nome": "Real forte", "descricao": "EUA rende 2 p.p. a menos por ano nos primeiros 10 anos, pela apreciação real do real.", "p50_final": 3500000.0, "delta_p50_final": -500000.0},
+            {"nome": "Aporte pela metade depois de 2031", "descricao": "O aporte mensal cai à metade a partir de março de 2031.", "p50_final": 2800000.0, "delta_p50_final": -1200000.0}],
+        "premissas": [
+            {"categoria": "Ações BR", "peso_alvo": 0.25, "retorno_real": 0.05, "vol": 0.30, "fonte": "Fonte sintética A", "periodo": "2000-2020"},
+            {"categoria": "EUA", "peso_alvo": 0.50, "retorno_real": 0.06, "vol": 0.20, "fonte": "Fonte sintética B", "periodo": "1950-2020"},
+            {"categoria": "FIIs", "peso_alvo": 0.15, "retorno_real": 0.04, "vol": 0.15, "fonte": "Fonte sintética C", "periodo": "2010-2020"},
+            {"categoria": "Renda Fixa BR", "peso_alvo": 0.10, "retorno_real": 0.05, "vol": 0.10, "fonte": "Fonte sintética D", "periodo": "2005-2020"}],
+        "simulacao": {"trajetorias": 10000, "retorno_real_carteira_aa": 0.055},
+    }
+
+
 PAYLOAD = {
-    "versao": "2.26",
+    "versao": "2.27",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -640,6 +690,8 @@ PAYLOAD = {
             },
         ],
     },
+    # Schema v2.27 (Fase 7a.AV.1): projeção patrimonial até os 65 anos.
+    "projecao": _projecao_sintetica(),
 }
 
 
@@ -1140,14 +1192,36 @@ def gerar_portfolio_frase() -> None:
     print(f"Fixture gerada: {alvo} (cifrada com a FRASE de teste, não com o PIN)")
 
 
+# 7a.AV.2 (Task 10): as duas variantes que a tela nova `#/raiox/projecao` (Tasks
+# 11-12) precisa distinguir de um payload com `projecao` populado — o estado
+# "sem projeção calculável" (chave presente, `null`) e o estado "payload antigo,
+# a chave nem existe" (publicado antes desta fase). Cifradas com o mesmo
+# PIN_TESTE do fixture principal — só o conteúdo difere.
+def gerar_portfolio_projecao_variantes() -> None:
+    base = OUT.parent
+
+    payload_null = {**PAYLOAD, "projecao": None}
+    enc_null = encriptar_json(json.dumps(payload_null, ensure_ascii=False), PIN_TESTE)
+    alvo_null = base / "portfolio_projecao_null.test.json.enc"
+    alvo_null.write_text(enc_null, encoding="ascii")
+    print(f"Fixture gerada: {alvo_null}")
+
+    payload_pre = {k: v for k, v in PAYLOAD.items() if k != "projecao"} | {"versao": "2.26"}
+    enc_pre = encriptar_json(json.dumps(payload_pre, ensure_ascii=False), PIN_TESTE)
+    alvo_pre = base / "portfolio_pre_v227.test.json.enc"
+    alvo_pre.write_text(enc_pre, encoding="ascii")
+    print(f"Fixture gerada: {alvo_pre}")
+
+
 def main() -> None:
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")
     print(f"  Tamanho B64: {len(enc)} chars · PIN={PIN_TESTE}")
-    gerar_relatorios()       # 7a.Q.3
-    gerar_dossies()          # 7a.R.3.b
-    gerar_portfolio_frase()  # 7a.W.3.b
+    gerar_relatorios()                     # 7a.Q.3
+    gerar_dossies()                        # 7a.R.3.b
+    gerar_portfolio_frase()                # 7a.W.3.b
+    gerar_portfolio_projecao_variantes()   # 7a.AV.2 (Task 10)
 
 
 if __name__ == "__main__":
