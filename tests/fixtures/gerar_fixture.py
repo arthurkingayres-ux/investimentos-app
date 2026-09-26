@@ -152,7 +152,7 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
     return pontos
 
 
-def _projecao_sintetica() -> dict:
+def _projecao_sintetica_v227() -> dict:
     """CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste público).
     Curva por fórmula: p50 = 400 mil × 1,07^k; faixas simétricas em log.
     Idade/ano de nascimento (1986) e marco são DELIBERADAMENTE diferentes dos
@@ -192,8 +192,99 @@ def _projecao_sintetica() -> dict:
     }
 
 
+def _projecao_sintetica() -> dict:
+    """v2.28 (7a.AW). CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste
+    público): idades, anos, taxas, valores, janelas e a tabela ano a ano são
+    INVENTADOS e não seguem nenhuma série real. Nascimento 1986, idade 40,
+    horizonte 2051: deliberadamente diferentes dos do Dr. Arthur (a 7a.AV.2
+    vazou o ano de nascimento real numa fixture; o board pegou)."""
+    nasc, ano0, ano_f = 1986, 2026, 2051
+    datas = [("2026-09-25", ano0)] + [(f"{a}-12-31", a) for a in range(ano0, ano_f + 1)]
+    q = ("p10", "p25", "p50", "p75", "p90")
+
+    def ponto(k, d, a, **v):
+        return {"idade": a - nasc, "ano": a, "data": d, **v}
+
+    def ancora(id_, g, nominal, ipca, de, anos=None):
+        pts = []
+        for k, (d, a) in enumerate(datas):
+            med = round(400000.0 * (1 + g) ** k + 40000.0 * k, 2)
+            abre = 1 + 0.07 * k ** 0.5
+            pts.append(ponto(k, d, a, p10=round(med / abre**2, 2), p25=round(med / abre, 2), p50=med,
+                             p75=round(med * abre, 2), p90=round(med * abre**2, 2)))
+        det = round(pts[-1]["p50"] / 1.02, 2)
+        partida = round(400000.0 * (1 + g) ** 25.25, 2)
+        aportes = 3000.0 * (3 + 12 * 25)
+        rec = {"taxa_nominal": nominal, "ipca_aa": ipca, "janela": {"de": de, "ate": "2026-08"}}
+        if anos is not None:
+            rec["anos"] = anos
+        return {"id": id_, "papel": "ancora", "taxa_real": g, "receita": rec,
+                "final": {**{x: pts[-1][x] for x in q}, "deterministico": det},
+                "decomposicao": {"partida_crescida": partida, "aportes": aportes,
+                                 "rendimento_aportes": round(det - partida - aportes, 2)},
+                "pontos": pts}
+
+    anos = [{"ano": a, "retorno": r, "meses": m, "dinheiro_novo": n} for a, r, m, n in [
+        (2016, None, 0, 15000.0), (2017, 0.06, 12, 9000.0), (2018, 0.11, 12, 12000.0),
+        (2019, -0.04, 12, 20000.0), (2020, 0.09, 12, 8000.0), (2021, -0.08, 12, 5000.0),
+        (2022, 0.02, 12, 18000.0), (2023, 0.13, 12, 25000.0), (2024, 0.05, 12, 30000.0),
+        (2025, 0.07, 12, 22000.0), (2026, 0.01, 8, 16000.0)]]
+    simples = [{"categoria": "Ações BR", "peso_alvo": 0.25, "retorno_real": 0.05, "parcela": 0.0125},
+               {"categoria": "EUA", "peso_alvo": 0.5, "retorno_real": 0.06, "parcela": 0.03},
+               {"categoria": "FIIs", "peso_alvo": 0.15, "retorno_real": 0.04, "parcela": 0.006},
+               {"categoria": "Renda Fixa BR", "peso_alvo": 0.1, "retorno_real": 0.05, "parcela": 0.005}]
+    det_ms = [round(400000.0 * 1.0535 ** k + 45000.0 * k, 2) for k in range(len(datas))]
+    p50_mr = [round(400000.0 * 1.065 ** k + 48000.0 * k, 2) for k in range(len(datas))]
+    return {
+        "idade_atual": 40, "idade_final": 65, "ano_atual": 2026, "ano_final": 2051,
+        "partida": {"patrimonio": 400000.0, "data": "2026-09-25"},
+        "aporte": {"mensal": 3000.0, "janela": {"de": "2025-09-26", "ate": "2026-09-25"},
+                   "compras_menos_vendas": 42000.0, "proventos": 4800.0, "aluguel": 1200.0,
+                   "piso_zero_aplicado": False},
+        "cenarios": [
+            ancora("twr", 0.02, 0.058, 0.0373, "2017-01", anos),
+            ancora("xirr", 0.045, 0.084, 0.0373, "2016-03"),
+            {"id": "mercado_simples", "papel": "comparacao", "taxa_real": 0.0535,
+             "receita": {"parcelas": simples}, "final": {"deterministico": det_ms[-1]},
+             "pontos": [ponto(k, d, a, deterministico=v) for k, ((d, a), v) in enumerate(zip(datas, det_ms))]},
+            {"id": "mercado_rebalanceado", "papel": "comparacao", "taxa_real": 0.065,
+             "receita": {"media_aritmetica": 0.078, "vol_carteira": 0.15},
+             "final": {"p50": p50_mr[-1]},
+             "pontos": [ponto(k, d, a, p50=v) for k, ((d, a), v) in enumerate(zip(datas, p50_mr))]},
+        ],
+        "incerteza": {"vol": 0.12, "meses": 110, "vol_modelo_classes": 0.15, "trajetorias": 10000},
+        "ponteiro": {
+            "sensibilidade": [
+                {"rotulo": "+R$ 1.000/mês de aporte", "por_ancora": {"twr": 420000.0, "xirr": 610000.0}},
+                {"rotulo": "+1 p.p. de retorno real", "por_ancora": {"twr": 350000.0, "xirr": 480000.0}}],
+            "estresse": [
+                {"nome": "Década inicial fraca", "descricao": "A carteira rende 3 p.p. a menos por ano nos primeiros 10 anos.",
+                 "por_ancora": {"twr": {"p50": 1500000.0, "delta": -300000.0}, "xirr": {"p50": 2100000.0, "delta": -500000.0}}},
+                {"nome": "Real forte", "descricao": "EUA rende 2 p.p. a menos por ano nos primeiros 10 anos. Com EUA em 50,0% da carteira, ela rende 1,00 p.p. a menos.",
+                 "por_ancora": {"twr": {"p50": 1650000.0, "delta": -150000.0}, "xirr": {"p50": 2400000.0, "delta": -200000.0}}},
+                {"nome": "Aporte pela metade", "descricao": "O aporte mensal cai à metade a partir de hoje e fica assim até o fim.",
+                 "por_ancora": {"twr": {"p50": 1200000.0, "delta": -600000.0}, "xirr": {"p50": 1800000.0, "delta": -800000.0}}}]},
+        "premissas": [
+            {"categoria": "Ações BR", "peso_alvo": 0.25, "retorno_real": 0.05, "vol": 0.30, "fonte": "Fonte sintética A", "periodo": "2000-2020"},
+            {"categoria": "EUA", "peso_alvo": 0.50, "retorno_real": 0.06, "vol": 0.20, "fonte": "Fonte sintética B", "periodo": "1950-2020"},
+            {"categoria": "FIIs", "peso_alvo": 0.15, "retorno_real": 0.04, "vol": 0.15, "fonte": "Fonte sintética C", "periodo": "2010-2020"},
+            {"categoria": "Renda Fixa BR", "peso_alvo": 0.10, "retorno_real": 0.05, "vol": 0.10, "fonte": "Fonte sintética D", "periodo": "2005-2020"}],
+    }
+
+
+def _projecao_so_xirr() -> dict:
+    """Variante com a âncora `twr` indisponível (spec §4.2, precedência 2):
+    o cenário sai da lista e das chaves de `ponteiro.*.por_ancora`."""
+    p = _projecao_sintetica()
+    p["cenarios"] = [c for c in p["cenarios"] if c["id"] != "twr"]
+    for grupo in p["ponteiro"].values():
+        for item in grupo:
+            item["por_ancora"].pop("twr")
+    return p
+
+
 PAYLOAD = {
-    "versao": "2.27",
+    "versao": "2.28",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -690,7 +781,8 @@ PAYLOAD = {
             },
         ],
     },
-    # Schema v2.27 (Fase 7a.AV.1): projeção patrimonial até os 65 anos.
+    # Schema v2.28 (Fase 7a.AW): projeção como ensaio (4 cenários: âncoras
+    # twr/xirr + comparações mercado_simples/mercado_rebalanceado).
     "projecao": _projecao_sintetica(),
 }
 
@@ -1211,6 +1303,16 @@ def gerar_portfolio_projecao_variantes() -> None:
     alvo_pre = base / "portfolio_pre_v227.test.json.enc"
     alvo_pre.write_text(enc_pre, encoding="ascii")
     print(f"Fixture gerada: {alvo_pre}")
+
+    payload_v227 = {**PAYLOAD, "versao": "2.27", "projecao": _projecao_sintetica_v227()}
+    alvo = base / "portfolio_pre_v228.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload_v227, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+    payload_xirr = {**PAYLOAD, "projecao": _projecao_so_xirr()}
+    alvo = base / "portfolio_projecao_so_xirr.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload_xirr, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
 
 
 def main() -> None:

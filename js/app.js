@@ -281,6 +281,17 @@ function criarMarkPointUltimo(dataArr, formatFn, cor, fontFamily) {
   };
 }
 
+// 7a.AW: os quatro cenários da projeção, FONTE ÚNICA de nome e ordem (spec
+// §6.8: sempre os mesmos quatro, na mesma ordem, em todo lugar).
+const PROJ_NOMES = Object.freeze({
+  twr: "Retorno da carteira",
+  xirr: "Retorno do seu dinheiro",
+  mercado_simples: "Mercado, média das classes",
+  mercado_rebalanceado: "Mercado, com rebalanceamento",
+});
+const PROJ_ORDEM = Object.freeze(["twr", "xirr", "mercado_simples", "mercado_rebalanceado"]);
+const PROJ_MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
 const COLORS = {
   g700:      () => css("--g-700", "#047857"),
   g700a06:   () => css("--g-700-06", "rgba(4, 120, 87, 0.06)"),
@@ -1435,17 +1446,42 @@ document.addEventListener("alpine:init", () => {
       return this._relIndicePromise;
     },
 
-    // 7a.AV.2: bloco `projecao` (schema v2.27). Empty-safe: payload pré-v2.27
-    // não tem a chave e `null` significa premissas ausentes ou inválidas; nos
-    // dois casos o card da home some e a rota diz "indisponível".
+    // 7a.AW: bloco `projecao` v2 (schema v2.28). Pré-v2.28 (sem `cenarios`,
+    // ou sem nenhuma âncora) é tratado como indisponível, como a 7a.AV fez com
+    // o pré-v2.27: o card some e a rota diz "indisponível hoje".
     get projecao() {
-      return this.json && this.json.projecao ? this.json.projecao : null;
+      const p = this.json && this.json.projecao;
+      return p && Array.isArray(p.cenarios) && p.cenarios.some((c) => c.papel === "ancora") ? p : null;
     },
-    // Último ponto da curva (a idade final, 65).
-    projFinal() {
+    projNome(id) { return PROJ_NOMES[id] || id; },
+    projCenarios() {
       const p = this.projecao;
-      return p && p.pontos && p.pontos.length ? p.pontos[p.pontos.length - 1] : null;
+      if (!p) return [];
+      return PROJ_ORDEM.map((id) => p.cenarios.find((c) => c.id === id)).filter(Boolean);
     },
+    projCenario(id) { return this.projCenarios().find((c) => c.id === id) || null; },
+    projAncoras() { return this.projCenarios().filter((c) => c.papel === "ancora"); },
+    // Valor aos 65 de um cenário: a MEDIANA onde há simulação (âncoras e
+    // mercado com rebalanceamento), a linha sem sorteio onde não há.
+    projValorFinal(c) { return c.final.p50 != null ? c.final.p50 : c.final.deterministico; },
+    // A frase-resposta: entre as medianas das duas âncoras, ou um valor só com
+    // o nome da medida quando uma âncora saiu (spec §6, estados).
+    projResposta() {
+      const a = this.projAncoras();
+      if (!a.length) return null;
+      const v = a.map((c) => this.projValorFinal(c));
+      return { min: Math.min(...v), max: Math.max(...v), unica: a.length === 1 ? a[0] : null };
+    },
+    projCardTexto() {
+      const r = this.projResposta();
+      if (!r) return "";
+      return r.unica
+        ? "pelo " + this.projNome(r.unica.id).toLowerCase() + ", " + this.formatBrlCompacto(r.min)
+        : "pelo seu histórico, entre " + this.formatBrlCompacto(r.min) + " e " + this.formatBrlCompacto(r.max);
+    },
+    projFmtTaxa(v, casas = 2) { return v == null ? "—" : window.formatPctSemSinal(v, casas); },
+    projFmtData(iso) { return iso ? iso.split("-").reverse().join("/") : "—"; },
+    projFmtMes(ym) { return ym ? PROJ_MESES[Number(ym.slice(5, 7)) - 1] + "/" + ym.slice(0, 4) : "—"; },
     // R$ compacto ("R$ 2,4 mi" / "R$ 850 mil" / "R$ 400"). Limiar mil→mi
     // (spec §3.5 item 10, decidido na execução): R$ 1 milhão. Arredonda ANTES
     // de escolher a banda (achado do G2): sem isso 999.600 viraria
@@ -1477,125 +1513,231 @@ document.addEventListener("alpine:init", () => {
       if (v == null || Number.isNaN(v)) return "—";
       return window.formatBrl(v, 0);
     },
-    // O gráfico ECharts não tem tooltip alcançável por teclado, então o
-    // aria-label do container carrega o resultado por extenso.
-    projChartLabel() {
-      const p = this.projecao, f = this.projFinal();
-      if (!p || !f) return "Projeção indisponível";
-      return "Projeção por idade no ano. Aos " + p.idade_final + ", entre "
-        + this.formatBrlCompacto(f.p10) + " e " + this.formatBrlCompacto(f.p90)
-        + ", valor central " + this.formatBrlCompacto(f.p50) + ", em reais de hoje";
+    // Régua do capítulo 3 (spec §6.5, único desenho novo da tela): domínio
+    // DERIVADO dos dados, sempre incluindo o 0% (um ano ruim pode pôr uma
+    // âncora abaixo de zero), com margem de 8% do vão (mínimo 0,5 p.p.).
+    projReguaDominio(taxas) {
+      const lo0 = Math.min(0, ...taxas), hi0 = Math.max(0, ...taxas);
+      const pad = Math.max(0.005, (hi0 - lo0) * 0.08);
+      return { lo: lo0 - pad, hi: hi0 + pad };
     },
-    // Nome da série histórica: FONTE ÚNICA para a série do gráfico e para a
-    // legenda HTML abaixo dele. null quando o payload não traz `historico`
-    // (a série e o item da legenda somem juntos).
-    projNomeHist() {
-      const P = this.projecao;
-      if (!P || !P.historico || !Array.isArray(P.historico.pontos)) return null;
-      return "Se repetir seus últimos " + (P.ano_atual - P.historico.desde) + " anos";
+    // Um rótulo por LINHA, em ordem crescente de taxa: com quatro rótulos a
+    // colisão é impossível por construção, em qualquer largura (spec §6.10:
+    // "empilhar os rótulos, nunca sobrepor"). O x do rótulo é o da marca,
+    // preso às bordas pelo CSS (ancoragem esquerda/direita, abaixo).
+    projRegua() {
+      const cs = this.projCenarios();
+      const { lo, hi } = this.projReguaDominio(cs.map((c) => c.taxa_real));
+      const x = (t) => ((t - lo) / (hi - lo)) * 100;
+      const marcas = cs.map((c) => ({ id: c.id, papel: c.papel, taxa: c.taxa_real, x: x(c.taxa_real) }))
+        .sort((a, b) => a.taxa - b.taxa)
+        .map((m) => ({ ...m, lado: m.x < 25 ? "esq" : m.x > 75 ? "dir" : "meio" }));
+      return { marcas, zeroX: x(0), lo, hi };
     },
-    // Gráfico em leque (spec 7a.AV §3.5). Faixas por empilhamento de área
-    // (série base invisível com o limite inferior + série com a diferença,
-    // `stack` comum), preenchimento PLANO translúcido: é a exceção registrada
-    // ao anti-pattern #17 (gradiente sob a linha), porque aqui a área É o
-    // dado (a faixa de incerteza), não decoração. Sem dataZoom: o horizonte
-    // inteiro é a leitura. markPoint só no último ponto da mediana (7a.S.3).
+    projReguaLabel() {
+      return "Régua das quatro taxas, em ordem: " + this.projRegua().marcas
+        .map((m) => this.projNome(m.id) + " " + this.projFmtTaxa(m.taxa)).join("; ");
+    },
+    // Grifo: só com as DUAS âncoras (sem as duas não há discordância a
+    // explicar). A frase é condicional ao SINAL medido hoje, nunca afirmação
+    // sobre os fluxos dele escrita de memória (spec §6, cap. 3: a primeira
+    // hipótese da spec foi medida e saiu falsa). A tabela é que explica.
+    projGrifoFrase() {
+      const t = this.projCenario("twr"), x = this.projCenario("xirr");
+      if (!t || !x) return null;
+      return x.taxa_real >= t.taxa_real
+        ? "Quando os anos ruins caem sobre uma carteira pequena e os bons sobre uma maior, a segunda medida fica acima da primeira."
+        : "Quando os anos bons caem sobre uma carteira pequena e os ruins sobre uma maior, a segunda medida fica abaixo da primeira.";
+    },
+    // "Pequena, dentro do ruído da janela" (spec §6, cap. 3), e a tela para
+    // aí. Limite declarado: 1 p.p. entre o retorno do seu dinheiro e a média
+    // das classes. É CONSERVADOR: o erro-padrão da média anual de uma janela
+    // de poucos anos, com oscilação anual de dois dígitos, é de vários p.p.,
+    // então abaixo de 1 p.p. é ruído com folga. Acima disso a frase só não
+    // aparece: silêncio, nunca causa.
+    projRuidoMercado() {
+      const x = this.projCenario("xirr"), m = this.projCenario("mercado_simples");
+      return !!(x && m && Math.abs(x.taxa_real - m.taxa_real) < 0.01);
+    },
+    // Spec §4.1: a mediana é o histórico composto; com aportes ela fica quase
+    // igual. Acima de 1% de desvio a frase diz "praticamente".
+    projPraticamente(c) {
+      const d = c.final.deterministico;
+      return d && Math.abs(c.final.p50 / d - 1) > 0.01 ? "praticamente " : "";
+    },
+    projAnosTotal() { const p = this.projecao; return p ? p.idade_final - p.idade_atual : 0; },
+    projAnosHistorico() {
+      const t = this.projCenario("twr") || this.projCenario("xirr");
+      if (!t) return 0;
+      const [a0, m0] = t.receita.janela.de.split("-").map(Number), [a1, m1] = t.receita.janela.ate.split("-").map(Number);
+      return Math.round(((a1 - a0) * 12 + (m1 - m0) + 1) / 12);
+    },
+    projDecomposicao(c) {
+      const d = c.decomposicao;
+      const partes = [
+        { chave: "partida", rotulo: "Seu patrimônio de hoje, crescido", valor: d.partida_crescida },
+        { chave: "aportes", rotulo: "Aportes somados", valor: d.aportes },
+        { chave: "rendimento", rotulo: "Rendimento dos aportes", valor: d.rendimento_aportes },
+      ];
+      // A barra 100% só desenha o que é positivo; uma parcela negativa (taxa
+      // real abaixo de zero) aparece em texto com sinal (Review Focus 1).
+      const total = partes.reduce((s, p) => s + Math.max(0, p.valor), 0);
+      return partes.map((p) => ({ ...p, pct: p.valor > 0 && total > 0 ? (p.valor / total) * 100 : 0 }));
+    },
+    projLequeMax() {
+      const v = Math.max(...this.projAncoras().map((c) => c.final.p90));
+      const passo = Math.pow(10, Math.floor(Math.log10(v)));
+      return Math.ceil(v / passo) * passo;
+    },
+    projMapaLabel() {
+      return "Mediana aos " + this.projecao.idade_final + " de cada leitura: " + this.projCenarios()
+        .map((c) => this.projNome(c.id) + " " + this.formatBrlCompacto(this.projValorFinal(c))).join("; ");
+    },
+    projLequeLabel(c) {
+      const f = c.final;
+      return this.projNome(c.id) + ": em 8 de cada 10 trajetórias, entre " + this.formatBrlCompacto(f.p10)
+        + " e " + this.formatBrlCompacto(f.p90) + " aos " + this.projecao.idade_final + ", mediana "
+        + this.formatBrlCompacto(f.p50) + ", em reais de hoje";
+    },
+    // 7a.AW: três gráficos. O MAPA (as quatro medianas, âncoras em linha cheia
+    // --ink/--g-700, mercado tracejado --gray em dois padrões, rótulo no fim
+    // da linha em vez de caixa de legenda: anti-pattern #22) e um LEQUE por
+    // âncora, em pequenos múltiplos com a mesma escala Y. Faixas planas: a
+    // exceção nominal ao anti-pattern #17 migrou para os leques. Sem dataZoom.
     hidratarProjecao() {
-      if (this.rota !== "projecao" || !this.projecao) return;
-      const container = document.getElementById("chart-projecao");
-      if (!container) return;
+      if (this.rota !== "projecao" || !this.projecao || this.projCenarios().length === 0) return;
+      this.$nextTick(() => this._montarGraficosProj());
+    },
+    _montarGraficosProj() {
       this._descartarProj();
-      container.innerHTML = "";
+      const alvos = ["chart-projecao-mapa", ...this.projAncoras().map((c) => "chart-projecao-leque-" + c.id)];
       if (typeof echarts === "undefined" || !window.drarthurChart) {
-        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        for (const id of alvos) {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+        }
         return;
       }
-      const P = this.projecao, dc = window.drarthurChart, pts = P.pontos || [];
-      if (!pts.length) return;
-      const rot = pts.map((p, i) => (i === 0 ? "hoje" : String(p.idade)));
+      const dc = window.drarthurChart, fmt = (v) => this.formatBrlCompacto(v);
+      const instancias = [];
+      // `construir` roda DENTRO do try: uma exceção ao montar a opção (não só
+      // no setOption) também cai no placeholder, em vez de derrubar os outros.
+      const montar = (id, construir) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = "";
+        const ch = echarts.init(el, "drarthur", { renderer: "canvas" });
+        try { ch.setOption(Object.assign(construir(), dc.motionConfig)); } catch (err) {
+          console.warn("ECharts projeção falhou; placeholder", err);
+          ch.dispose();
+          el.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
+          return;
+        }
+        instancias.push(ch);
+      };
+      montar("chart-projecao-mapa", () => this._opcaoMapaProj(dc, fmt));
+      const max = this.projLequeMax();
+      for (const c of this.projAncoras()) montar("chart-projecao-leque-" + c.id, () => this._opcaoLequeProj(c, dc, fmt, max));
+      this.echartsProj = instancias;
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserverProj = new ResizeObserver(() => instancias.forEach((c) => { try { c.resize(); } catch (_) {} }));
+        instancias.forEach((c) => this.resizeObserverProj.observe(c.getDom()));
+      }
+    },
+    _rotulosEixoProj(pts) {
+      const ultimo = pts.length - 1;
+      return {
+        data: pts.map((p, i) => (i === 0 ? "hoje" : String(p.idade))),
+        intervalo: (i) => i === 0 || i === ultimo || (i >= 3 && pts[i].idade % 5 === 0),
+      };
+    },
+    // Quebra um nome em duas linhas no espaço mais perto da metade: o rótulo
+    // do fim de linha usa o NOME da fonte única, sem cópia com quebra manual.
+    _duasLinhas(nome) {
+      const meio = nome.length / 2;
+      let melhor = -1;
+      for (let i = 0; i < nome.length; i++) if (nome[i] === " " && (melhor < 0 || Math.abs(i - meio) < Math.abs(melhor - meio))) melhor = i;
+      return melhor < 0 ? nome : nome.slice(0, melhor) + "\n" + nome.slice(melhor + 1);
+    },
+    _opcaoMapaProj(dc, fmt) {
+      const cs = this.projCenarios();
+      const eixo = this._rotulosEixoProj(cs[0].pontos);
+      const estilo = {
+        twr: { color: dc.tokens.ink, type: "solid", width: 2.5 },
+        xirr: { color: dc.tokens.g700, type: "solid", width: 2.5 },
+        mercado_simples: { color: dc.tokens.gray, type: [6, 4], width: 1.6 },
+        mercado_rebalanceado: { color: dc.tokens.gray, type: [2, 3], width: 1.6 },
+      };
+      const chave = (c) => (c.id === "mercado_simples" ? "deterministico" : "p50");
+      const series = cs.map((c) => {
+        const e = estilo[c.id];
+        return {
+          name: this.projNome(c.id), type: "line", symbol: "none",
+          data: c.pontos.map((p) => p[chave(c)]),
+          lineStyle: { color: e.color, type: e.type, width: e.width }, itemStyle: { color: e.color },
+          endLabel: { show: true, formatter: this._duasLinhas(this.projNome(c.id)), color: e.color,
+            fontSize: 10, lineHeight: 12, fontFamily: dc.fontFamily },
+          labelLayout: { moveOverlap: "shiftY" },
+        };
+      });
+      return {
+        // right: espaço dos rótulos de fim de linha (nome em duas linhas).
+        // Verificação visual a 320 px (Task 10): com right 104 e o eixo Y por
+        // fora, a área de desenho tinha 44 px e o eixo X perdia "hoje" e "65".
+        // Com o rótulo do eixo Y por dentro (sobre a própria linha de grade) e
+        // right 92, ela passa a 111 px a 320 e 181 px a 390, sem cortar o nome
+        // mais longo ("rebalanceamento"). left 14 é o que "hoje" precisa.
+        grid: { top: 16, right: 92, bottom: 28, left: 14, containLabel: true },
+        tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
+          formatter: (ps) => {
+            const lista = Array.isArray(ps) ? ps : [ps];
+            const p = cs[0].pontos[lista[0].dataIndex];
+            return (lista[0].dataIndex === 0 ? "hoje" : p.idade + " anos, em " + p.ano) + "<br>"
+              + lista.map((x) => x.seriesName + " " + fmt(x.value)).join("<br>");
+          } }),
+        legend: { show: false },
+        xAxis: { type: "category", data: eixo.data, boundaryGap: false, name: "idade no ano",
+          nameLocation: "middle", nameGap: 26,
+          nameTextStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },
+          axisLabel: { hideOverlap: true, interval: eixo.intervalo } },
+        yAxis: { type: "value", min: 0, splitNumber: 3,
+          axisLabel: { formatter: fmt, inside: true, verticalAlign: "bottom", margin: 0, padding: [0, 0, 2, 0] } },
+        series,
+        aria: { enabled: true, label: { description: this.projMapaLabel() } },
+      };
+    },
+    _opcaoLequeProj(c, dc, fmt, max) {
+      const pts = c.pontos, eixo = this._rotulosEixoProj(pts);
+      const cor = c.id === "twr" ? dc.tokens.ink : dc.tokens.g700;
       const col = (k) => pts.map((p) => p[k]);
       const dif = (a, b) => pts.map((p) => p[a] - p[b]);
-      const fmt = (v) => this.formatBrlCompacto(v);
       const faixa = (nome, stack, baixo, alto, opac) => [
         { name: nome + " base", type: "line", data: col(baixo), stack, symbol: "none",
           lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 }, silent: true, tooltip: { show: false } },
         { name: nome, type: "line", data: dif(alto, baixo), stack, symbol: "none",
-          lineStyle: { opacity: 0 }, areaStyle: { color: dc.tokens.g700, opacity: opac }, silent: true },
+          lineStyle: { opacity: 0 }, areaStyle: { color: cor, opacity: opac }, silent: true },
       ];
-      // Índice (não rótulo) do marco: o eixo é de categoria e o markLine por
-      // índice não depende de os rótulos de idade serem únicos.
-      // -1 quando `marco.ano` não casa com nenhum ponto do horizonte — marco
-      // já passado (formação encerrada antes de `ano_atual`) ou além do
-      // último ponto (65 anos). Nos dois casos não há onde desenhar a linha,
-      // e omiti-la é o comportamento correto (achado do CRB, Suggestion 3 da
-      // 7a.AV.2): `markLine: undefined` abaixo cobre ambos, sem aviso porque
-      // não há nada de errado a avisar.
-      const iMarco = P.marco ? pts.findIndex((p, i) => i > 0 && p.ano === P.marco.ano) : -1;
-      const series = [
-        ...faixa("p10 a p90", "a", "p10", "p90", 0.12),
-        ...faixa("p25 a p75", "b", "p25", "p75", 0.22),
-        { name: "Mediana", type: "line", data: col("p50"), symbol: "none",
-          lineStyle: { width: 2.5, color: dc.tokens.g700 },
-          itemStyle: { color: dc.tokens.g700 },
-          markPoint: criarMarkPointUltimo(col("p50"), fmt, dc.tokens.g700, dc.fontFamily),
-          markLine: iMarco > 0 ? { silent: true, symbol: "none", animation: false,
-            lineStyle: { type: "dashed", color: dc.tokens.gray, width: 1, opacity: 0.7 },
-            label: { formatter: P.marco.rotulo, position: "insideEndTop", color: dc.tokens.gray,
-              fontSize: 10, fontFamily: dc.fontFamily },
-            data: [{ xAxis: iMarco }] } : undefined },
-      ];
-      const nomeHist = this.projNomeHist();
-      if (nomeHist) {
-        series.push({ name: nomeHist, type: "line",
-          data: P.historico.pontos.map((p) => p.valor), symbol: "none",
-          lineStyle: { type: [6, 4], width: 1.6, color: dc.tokens.gray },
-          itemStyle: { color: dc.tokens.gray } });
-      }
-      const ultimo = pts.length - 1;
-      const chart = echarts.init(container, "drarthur", { renderer: "canvas" });
-      const option = {
-        // right 40: o rótulo do markPoint centra no último ponto, na borda.
-        // bottom 28 = só o nome do eixo X (que o containLabel não conta: fica
-        // ~12 px abaixo dos ticks) + folga. A legenda saiu do canvas.
-        grid: { top: 28, right: 40, bottom: 28, left: 8, containLabel: true },
+      return {
+        grid: { top: 24, right: 40, bottom: 28, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
           formatter: (ps) => {
             const i = (Array.isArray(ps) ? ps[0] : ps).dataIndex, p = pts[i];
-            return (i === 0 ? "hoje" : p.idade + " anos, em " + p.ano) +
-              "<br>p90 " + fmt(p.p90) + "<br>valor central " + fmt(p.p50) + "<br>p10 " + fmt(p.p10);
+            return (i === 0 ? "hoje" : p.idade + " anos, em " + p.ano) + "<br>p90 " + fmt(p.p90)
+              + "<br>mediana " + fmt(p.p50) + "<br>p10 " + fmt(p.p10);
           } }),
-        // Sem legenda no canvas: ela é HTML (.proj-legenda), logo abaixo do
-        // container. O app usa fontes do sistema, e a geometria da legenda do
-        // ECharts depende da métrica delas: no Linux do CI "Mediana" foi
-        // medida no topo do canvas (y = -1,5), no Windows no fundo. Em HTML
-        // ela é fluxo normal e quebra linha como texto.
-        xAxis: { type: "category", data: rot, boundaryGap: false, name: "idade no ano",
-          nameLocation: "middle", nameGap: 26,
-          nameTextStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },
-          // "hoje" + idades múltiplas de 5 (e sempre a final). i >= 3 evita
-          // colar um rótulo de idade no "hoje".
-          axisLabel: { hideOverlap: true,
-            interval: (i) => i === 0 || i === ultimo || (i >= 3 && pts[i].idade % 5 === 0) } },
-        yAxis: { type: "value", min: 0, axisLabel: { formatter: fmt } },
-        series,
-        // O ECharts com aria ligado REESCREVE o aria-label do container com a
-        // descrição automática (série a série, incluindo as bases invisíveis
-        // das faixas), apagando o resultado por extenso que o template põe
-        // ali. `description` substitui a automática pela mesma frase.
-        aria: { enabled: true, label: { description: this.projChartLabel() } },
+        legend: { show: false },
+        xAxis: { type: "category", data: eixo.data, boundaryGap: false,
+          axisLabel: { hideOverlap: true, interval: eixo.intervalo } },
+        yAxis: { type: "value", min: 0, max, axisLabel: { formatter: fmt } },
+        series: [
+          ...faixa("p10 a p90", "a", "p10", "p90", 0.12),
+          ...faixa("p25 a p75", "b", "p25", "p75", 0.22),
+          { name: "Mediana", type: "line", data: col("p50"), symbol: "none",
+            lineStyle: { width: 2.5, color: cor }, itemStyle: { color: cor },
+            markPoint: criarMarkPointUltimo(col("p50"), fmt, cor, dc.fontFamily) },
+        ],
+        aria: { enabled: true, label: { description: this.projLequeLabel(c) } },
       };
-      Object.assign(option, dc.motionConfig);
-      try { chart.setOption(option); } catch (err) {
-        console.warn("ECharts projeção falhou; placeholder", err);
-        chart.dispose();
-        container.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-        return;
-      }
-      if (typeof ResizeObserver !== "undefined") {
-        this.resizeObserverProj = new ResizeObserver(() => { try { chart.resize(); } catch (_) {} });
-        this.resizeObserverProj.observe(container);
-      }
-      this.echartsProj = chart;
     },
 
     get relUltimoMes() {
@@ -2014,10 +2156,14 @@ document.addEventListener("alpine:init", () => {
       if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
       if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
     },
-    // Idem para o gráfico em leque de #/raiox/projecao (7a.AV.2): carrega a
-    // curva p10..p90 decifrada, então sai no lock como os outros três.
+    // Idem para os gráficos de #/raiox/projecao (7a.AW.2): três instâncias —
+    // o mapa das quatro medianas + um leque por âncora —, todas descartadas
+    // no lock. `echartsProj` virou array (era instância única na 7a.AV.2).
     _descartarProj() {
-      if (this.echartsProj) { try { this.echartsProj.dispose(); } catch (_) {} this.echartsProj = null; }
+      if (this.echartsProj) {
+        for (const c of this.echartsProj) { try { c.dispose(); } catch (_) {} }
+        this.echartsProj = null;
+      }
       if (this.resizeObserverProj) { try { this.resizeObserverProj.disconnect(); } catch (_) {} this.resizeObserverProj = null; }
     },
 

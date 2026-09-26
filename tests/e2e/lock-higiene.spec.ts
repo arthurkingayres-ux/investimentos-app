@@ -110,12 +110,13 @@ async function renderizarOsTresGraficos(page: Page) {
     .toBeVisible({ timeout: 5_000 });
 }
 
-// 7a.AV.2: o 4º gráfico (leque de #/raiox/projecao) carrega a curva p10..p90
-// decifrada. Barreira no canvas do ECharts, o nó que só existe com a
-// instância viva.
+// 7a.AV.2 → 7a.AW.2: a tela deixou de ter um 4º gráfico único (`#chart-projecao`)
+// e passou a ter três — o mapa das quatro medianas mais um leque por âncora
+// (`echartsProj` virou array). Barreira no canvas do MAPA, o nó que só existe
+// com a 1ª instância viva; o teste de descarte abaixo confere as três.
 async function renderizarGraficoProjecao(page: Page) {
   await page.goto("/#/raiox/projecao");
-  await expect(page.locator("#chart-projecao canvas[data-zr-dom-id]"))
+  await expect(page.locator("#chart-projecao-mapa canvas[data-zr-dom-id]"))
     .toBeVisible({ timeout: 5_000 });
 }
 
@@ -604,26 +605,35 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     });
   });
 
-  test("lock descarta o gráfico da projeção e o observer dele (7a.AV.2)", async ({ page }) => {
+  test("lock descarta os três gráficos da projeção e o observer deles (7a.AW.2)", async ({ page }) => {
     await autenticar(page);
     await renderizarGraficoProjecao(page);
     const antes = await page.evaluate(() => {
       const d = (window as any).Alpine.$data(document.body);
-      return { chart: !!d.echartsProj, obs: !!d.resizeObserverProj };
+      // `echartsProj` virou array (7a.AW.2: mapa + um leque por âncora). A
+      // CONTAGEM, não só a truthiness, é o que impede este "antes" de passar
+      // por vacuidade — um array vazio também é truthy.
+      return { qtd: Array.isArray(d.echartsProj) ? d.echartsProj.length : 0, obs: !!d.resizeObserverProj };
     });
     // Sem isto o teste passaria por vacuidade depois do lock.
-    expect(antes).toEqual({ chart: true, obs: true });
+    expect(antes).toEqual({ qtd: 3, obs: true });
     const depois = await page.evaluate(() => {
       const d = (window as any).Alpine.$data(document.body);
-      const el = document.getElementById("chart-projecao");
+      // Capturados ANTES do bloquear(): o x-if de `.proj-ensaio` desmonta com
+      // o lock (json vira null), então document.getElementById depois já não
+      // acharia nada — a referência ao nó (não ao id) é o que sobrevive e
+      // prova dispose() de verdade nos TRÊS containers, não só a anulação da
+      // referência no $data.
+      const ids = ["chart-projecao-mapa", "chart-projecao-leque-twr", "chart-projecao-leque-xirr"];
+      const els = ids.map((id) => document.getElementById(id)).filter((el) => !!el) as HTMLElement[];
       d.bloquear();
       return {
         chart: d.echartsProj == null, obs: d.resizeObserverProj == null,
-        // dispose() de verdade, não só a referência anulada.
-        instancia: el ? (window as any).echarts.getInstanceByDom(el) == null : true,
+        qtdEls: els.length,
+        instancias: els.map((el) => (window as any).echarts.getInstanceByDom(el) == null),
       };
     });
-    expect(depois).toEqual({ chart: true, obs: true, instancia: true });
+    expect(depois).toEqual({ chart: true, obs: true, qtdEls: 3, instancias: [true, true, true] });
   });
 
   test("lock descarta o plano de aporte", async ({ page }) => {
