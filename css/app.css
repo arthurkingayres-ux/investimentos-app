@@ -3803,10 +3803,15 @@ body:has(.tab-bar) main {
   font-size: 1rem;
   line-height: 1.35;
 }
+.proj-resposta__bloco,
 .proj-resposta__linha { display: block; }
+/* 7a.AX: os dois valores em linha própria, no corpo dos valores — o "e" herda
+   o mesmo corpo (spec §3.2: unidade e conectivo no corpo do número que ligam). */
+.proj-resposta__valores { display: block; font-size: var(--num-xl); line-height: 1.2; margin: 2px 0; }
+.proj-resposta__grupo { white-space: nowrap; }
 .proj-faixa {
   font-family: var(--mono);
-  font-size: var(--num-xl);
+  font-size: inherit;
   font-weight: 700;
   color: var(--g-900);
   font-variant-numeric: tabular-nums;
@@ -3821,11 +3826,16 @@ body:has(.tab-bar) main {
 }
 .proj-resposta__sub .proj-num { color: var(--ink); font-weight: 600; }
 
+/* 7a.AX: números da tela na fonte do TEXTO, tabulares, peso 600 — a regra
+   DESTA TELA. O corpo é herdado (em prosa, o número tem o corpo da frase);
+   tabelas e rótulos que precisam de outro corpo o declaram no próprio
+   seletor. Mono só em `.proj-faixa`, o eco do herói Monument. */
 .proj-num {
-  font-family: var(--mono);
-  font-size: var(--num-sm);
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
+/* Conectivo entre valores ("e", "a"): mesmo corpo do número, peso 400, cinza. */
+.proj-conectivo { font-family: inherit; font-weight: 400; color: var(--gray); }
 .proj-pos { color: var(--g-700); }
 .proj-neg { color: var(--red); }
 .proj-delta { white-space: nowrap; font-weight: 600; }
@@ -3840,13 +3850,16 @@ body:has(.tab-bar) main {
 .proj-cap { margin-top: 3.25rem; }
 .proj-cap__ordinal { font-size: 0.8125rem; letter-spacing: 0.12em; color: var(--accent); margin: 0 0 0.25rem; }
 .proj-cap__titulo { font-size: 1.25rem; line-height: 1.25; font-weight: 700; color: var(--ink); margin: 0 0 0.75rem; }
-.proj-cap__tema { font-family: var(--mono); font-size: var(--num-lg); font-variant-numeric: tabular-nums; color: var(--ink); margin: 0 0 0.5rem; }
-.proj-cap__unidade { font-family: inherit; font-size: 0.875rem; color: var(--gray); }
+.proj-cap__tema { font-size: var(--num-lg); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); margin: 0 0 0.5rem; }
+/* Unidade: mesmo corpo do número que liga (herdado), peso 400, cinza. */
+.proj-cap__unidade { font-family: inherit; font-size: inherit; font-weight: 400; color: var(--gray); }
+/* Subtítulo dentro de um capítulo (7a.AX: "A largura das faixas", "De onde vem o valor"). */
+.proj-cap__subtitulo { font-size: 1rem; font-weight: 700; color: var(--ink); margin: 1.75rem 0 0.5rem; }
 .proj-cap__texto { max-width: 68ch; line-height: 1.55; color: var(--ink); margin: 0 0 0.75rem; }
 .proj-conta { margin: 0.25rem 0 1rem; }
 .proj-conta > summary { cursor: pointer; color: var(--accent); font-size: 0.875rem; min-height: 44px; display: flex; align-items: center; }
 .proj-conta__corpo { font-size: 0.875rem; line-height: 1.5; color: var(--ink); padding: 0.25rem 0 0.5rem; }
-.proj-formula { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: var(--num-xs); }
+.proj-formula { font-variant-numeric: tabular-nums; font-size: var(--num-xs); }
 .proj-leitura { margin-top: 1.75rem; }
 .proj-leitura__nome { font-size: 1rem; font-weight: 700; margin: 0; color: var(--ink); }
 .proj-leitura__taxa { font-size: var(--num-md); color: var(--g-700); margin: 0.125rem 0 0.5rem; }
@@ -3856,50 +3869,57 @@ body:has(.tab-bar) main {
 .proj-tabela { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 .proj-tabela th, .proj-tabela td { padding: 6px 0; text-align: right; border-top: 1px solid var(--neutral-200); }
 .proj-tabela th:first-child { text-align: left; font-weight: 600; }
+/* Achado da verificação visual da 7a.AX a 320 px: sem folga, os cabeçalhos de
+   coluna do thead encostavam um no outro ("carteiraseu dinheiro"). */
+.proj-tabela thead th + th { padding-left: 8px; }
 .proj-tabela td.proj-num { font-size: var(--num-xs); white-space: nowrap; padding-left: 8px; }
 /* Valor em prosa numa célula numérica ("antes da medição"): quebra linha. */
 .proj-tabela td.proj-num.proj-num--texto { white-space: normal; }
 .proj-tabela__total th, .proj-tabela__total td { font-weight: 700; border-top: 2px solid var(--ink); }
 .proj-limites { margin: 1.5rem 0 0; padding-left: 1.1rem; color: var(--gray); font-size: 0.875rem; line-height: 1.5; }
 
-/* Régua: eixo com as quatro marcas + um rótulo por linha. O rótulo segue o x
-   da marca e ancora à esquerda/direita perto das bordas, então nunca sai do
-   container e nunca colide (uma linha por rótulo). */
-.proj-regua { margin: 1.25rem 0 0.5rem; }
-.proj-regua__eixo { position: relative; height: 28px; border-bottom: 1px solid var(--neutral-300); }
-.proj-regua__marca { position: absolute; bottom: -1px; width: 0; height: 22px; transform: translateX(-50%); }
-.proj-regua__marca--ancora { border-left: 3px solid var(--g-700); }
-.proj-regua__marca--comparacao { border-left: 1px solid var(--gray); }
-.proj-regua__zero { position: absolute; bottom: -1px; height: 10px; border-left: 1px dashed var(--gray); }
-.proj-regua__zero-rot { position: absolute; top: 12px; left: 0; transform: translateX(-50%); font-size: 0.6875rem; color: var(--gray); }
-.proj-regua__rotulos { list-style: none; margin: 18px 0 0; padding: 0; }
-.proj-regua__rotulo { position: relative; font-size: 0.8125rem; line-height: 1.9; width: max-content;
-  margin-left: var(--x); transform: translateX(-50%);
-  /* O rótulo "meio" é centrado no x da marca. Perto das bordas do domínio
-     (25-75%, onde a régua ainda não troca pra âncora de canto) um rótulo
-     comprido pode não caber inteiro sem passar do container: o max-width
-     trava a caixa nos DOIS vãos disponíveis (até a borda esquerda e até a
-     direita, o menor dos dois) — quebra em 2 linhas em vez de vazar. Nunca
-     sobrepõe outro rótulo: cada um já está na própria linha (spec §6.10). */
-  max-width: min(calc(2 * var(--x) - 16px), calc(2 * (100% - var(--x)) - 16px));
-  white-space: normal;
-}
-/* O número (taxa) reusa `.proj-num` (tabular-nums), mas com o tamanho do
-   RÓTULO — não `var(--num-sm)` do `.proj-num` genérico, que é maior e
-   quebraria a hierarquia tipográfica desta régua secundária — e sem quebrar
-   linha entre o número e a unidade/nome que o precede. */
-.proj-regua__rotulo .proj-num { font-size: inherit; white-space: nowrap; }
-/* --esq/--dir: ancorados na BORDA do container, nunca centrados por transform
-   — um transform de centro (translateX ±50%) desloca pela METADE DA PRÓPRIA
-   CAIXA, que cresce com o texto, e por isso pode vazar bem além do container
-   com um rótulo comprido perto da borda (medido: até ~150px de vazamento a
-   320px). Ancoragem de borda não depende do tamanho do texto: a caixa cabe
-   sempre que ela é ≤ 100% do container, o que os quatro rótulos desta tela
-   sempre são. */
-.proj-regua__rotulo--esq { max-width: none; white-space: nowrap; margin-left: 0; transform: none; }
-.proj-regua__rotulo--dir { max-width: none; white-space: nowrap; margin-left: auto; margin-right: 0; transform: none; }
-.proj-regua__rotulo--ancora { font-weight: 700; color: var(--ink); }
-.proj-regua__rotulo--comparacao { color: var(--gray); }
+/* 7a.AX — barras de taxa do capítulo 3 (spec §3.3). O trilho reserva 4.25rem à
+   direita (e à esquerda quando há taxa negativa) para o valor escrito na ponta:
+   a maior barra encosta em 100% do trilho e o valor cabe na reserva, nunca
+   fora do capítulo. HTML e CSS, sem ECharts. */
+.proj-taxas { margin: 1.25rem 0 0.5rem; }
+.proj-taxas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.proj-taxas__nome { display: block; font-size: 0.8125rem; line-height: 1.35; color: var(--ink); margin-bottom: 4px; }
+.proj-taxas__linha--ancora .proj-taxas__nome { font-weight: 700; }
+.proj-taxas__area { display: block; position: relative; margin: 0 4.25rem 0 0; }
+.proj-taxas--negativa .proj-taxas__area { margin-left: 4.25rem; }
+.proj-taxas__trilho { height: 12px; }
+.proj-taxas__barra { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.proj-taxas__barra--ancora { background: var(--g-700); }
+.proj-taxas__barra--comparacao { background: var(--neutral-300); box-shadow: inset 0 0 0 1px var(--gray); }
+.proj-taxas__zero { position: absolute; top: -3px; bottom: -3px; border-left: 1px solid var(--gray); }
+.proj-taxas__valor { position: absolute; top: 50%; transform: translateY(-50%); font-size: var(--num-xs); line-height: 1; white-space: nowrap; color: var(--ink); }
+.proj-taxas__eixo { height: 1rem; margin-top: 4px; }
+.proj-taxas__zero-rot { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.75rem; color: var(--gray); }
+/* Sem taxa negativa o zero está na borda esquerda: rótulo alinhado à borda, não centrado nela. */
+.proj-taxas__zero-rot--inicio { transform: none; }
+
+/* 7a.AX — gráfico de faixas do capítulo 4 (spec §3.4). Uma linha por leitura:
+   nome, desenho, valores escritos — nessa ordem vertical, então nada colide em
+   largura nenhuma. O trilho recua 7px de cada lado (o raio do ponto) para que
+   um ponto em 0% ou 100% não vaze do capítulo; o eixo recua igual, e "R$ 0" e o
+   teto ficam alinhados ao 0% e ao 100% do trilho. */
+.proj-faixas { margin: 1.25rem 0 0.25rem; }
+.proj-faixas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.proj-faixas__nome { font-size: 0.875rem; line-height: 1.35; color: var(--ink); margin: 0 0 6px; }
+.proj-faixas__linha--ancora .proj-faixas__nome > span:first-child { font-weight: 700; }
+.proj-faixas__trilho { position: relative; height: 14px; margin: 0 7px; }
+.proj-faixas__traco { position: absolute; top: 6px; height: 2px; background: var(--g-700); }
+.proj-faixas__barra { position: absolute; top: 2px; height: 10px; border-radius: 5px; background: var(--g-700); }
+.proj-faixas__ponto { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: var(--ink); box-shadow: 0 0 0 2px var(--neutral-50); }
+.proj-faixas__linha--comparacao .proj-faixas__ponto { background: var(--neutral-300); box-shadow: inset 0 0 0 2px var(--gray); }
+.proj-faixas__valores { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 6px 0 0; }
+.proj-faixas__valores strong { color: var(--ink); }
+.proj-faixas__valores .proj-num { white-space: nowrap; }
+.proj-faixas__eixo { display: flex; justify-content: space-between; margin: 12px 7px 0; padding-top: 4px;
+  border-top: 1px solid var(--neutral-200); font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+.proj-faixas__legenda { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 8px 0 0; }
 
 /* Tabelas densas. A 320px as quatro colunas cabem porque os cabeçalhos
    quebram linha e a coluna da categoria também; só os números não quebram. */
@@ -3955,41 +3975,31 @@ body:has(.tab-bar) main {
   line-height: 1.4;
 }
 
-/* 7a.AW.2 Task 9 — capítulos 4 a 7: o mapa das quatro medianas, a
-   decomposição por barra 100%, os leques em pequenos múltiplos e a tabela
-   do ponteiro. `.proj-pos`/`.proj-neg`/`.proj-delta` já existiam (7a.AV.2,
-   dead code até esta task revivê-las na tabela do ponteiro) — reusadas
-   byte-a-byte, sem redeclarar. */
-.proj-mapa { width: 100%; height: 260px; margin: 0.5rem 0 1rem; }
-.proj-decomp { margin: 1.5rem 0 0; }
+/* 7a.AW.2 → 7a.AX — capítulo 4: a decomposição e o ponteiro. */
+.proj-decomp { margin: 0.75rem 0 0; }
 .proj-decomp__titulo { font-size: 0.875rem; line-height: 1.5; margin: 0 0 0.5rem; max-width: 68ch; }
+.proj-decomp__item { margin: 0 0 10px; }
+.proj-decomp__nome { font-size: 0.8125rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
 .proj-decomp__barra { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--neutral-200); }
 .proj-decomp__seg--partida { background: var(--ink); }
 .proj-decomp__seg--aportes { background: var(--g-700); }
 /* --gray, não --neutral-300: no Plantão o neutral-300 somia contra o trilho
    (--neutral-200). Medido na verificação visual da Task 10. */
 .proj-decomp__seg--rendimento { background: var(--gray); }
-.proj-decomp__lista { list-style: none; padding: 0; margin: 0.5rem 0 0; font-size: 0.8125rem; display: grid; gap: 4px; }
-.proj-decomp__lista li { display: flex; align-items: center; gap: 8px; }
-/* O valor não parte ("R$ 659 | mil") e alinha à direita, como coluna. */
-.proj-decomp__lista .proj-num { white-space: nowrap; margin-left: auto; }
 /* Valor dentro da frase não parte entre o número e a unidade ("R$ 1,7 | mi"). */
-.proj-decomp__titulo .proj-num, .proj-leque__titulo .proj-num { white-space: nowrap; }
+.proj-decomp__titulo .proj-num { white-space: nowrap; }
 .proj-decomp__marca { width: 10px; height: 10px; border-radius: 2px; flex: none; }
-.proj-leque { margin: 1.25rem 0 0; }
-.proj-leque__titulo { font-size: 0.875rem; line-height: 1.45; margin-bottom: 0.25rem; }
-.proj-leque__grafico { width: 100%; height: 190px; }
-.proj-tabela--ponteiro th[scope="row"] { font-weight: 600; }
-.proj-ponteiro__nome { display: block; }
-.proj-ponteiro__desc { display: block; font-weight: 400; color: var(--gray); font-size: 0.75rem; line-height: 1.35; }
-/* A 320 px as duas colunas de delta em uma linha (seta + valor) somam mais que
-   o container. A seta sobe para uma linha própria; o valor não quebra. A
-   direção segue em três camadas (seta, cor e sinal). Medido na Task 10. */
-@media (max-width: 360px) {
-  .proj-tabela--ponteiro td.proj-delta { white-space: normal; padding-left: 4px; letter-spacing: -0.02em; }
-  .proj-tabela--ponteiro td.proj-delta > span:first-child { display: block; }
-  .proj-tabela--ponteiro td.proj-delta > span:last-child { white-space: nowrap; }
-}
+.proj-tabela--decomp { margin-top: 6px; }
+.proj-tabela--decomp th[scope="row"] { font-weight: 400; }
+.proj-tabela--decomp .proj-decomp__marca { display: inline-block; vertical-align: middle; margin-right: 6px; }
+/* 7a.AX — o ponteiro como lista (spec §3.5). */
+.proj-ponteiro { list-style: none; margin: 1rem 0 0; padding: 0; }
+.proj-ponteiro__item { padding: 12px 0; border-top: 1px solid var(--neutral-200); }
+.proj-ponteiro__nome { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0; }
+.proj-ponteiro__desc { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 2px 0 0; }
+.proj-ponteiro__efeitos { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
+.proj-ponteiro__efeito { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 0.875rem; }
+.proj-ponteiro__ancora { color: var(--ink); min-width: 0; }
 
 /* `.proj-rodape` (7a.AV.2) tinha borda + respiro de card único; nesta tela
    de capítulos ele fecha o ensaio inteiro, centralizado, sem borda — a task

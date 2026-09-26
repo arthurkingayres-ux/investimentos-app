@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=73">
+  <link rel="stylesheet" href="css/app.css?v=74">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=41"></script>
-  <script src="js/app.js?v=73"></script>
+  <script src="js/app.js?v=74"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1102,11 +1102,8 @@
         <div id="patrimonio-grafico" class="chart-rent" aria-label="Evolução de patrimônio e aportes"></div>
       </section>
 
-      <!-- ── Tela #/raiox/projecao (Fase 7a.AW.2) ─────────────────────── -->
-      <!-- Push child da tab Raio-X, irmã de .tela-patrimonio. Task 8-9
-           reescrevem o corpo (o ensaio em capítulos, spec §6); aqui só o
-           estado indisponível — o placeholder-only guard que a Task 7 deixa
-           pronto para não quebrar contra o schema v2.28 novo. -->
+      <!-- ── Tela #/raiox/projecao (7a.AW.2; forma refeita na 7a.AX) ── -->
+      <!-- Push child da tab Raio-X. Ensaio em 6 capítulos, sem ECharts desde a 7a.AX. -->
       <section class="tela-detalhes tela-projecao" x-show="rota === 'projecao'"
         x-transition:enter="push-enter"
         x-transition:enter-start="push-from-right"
@@ -1123,16 +1120,21 @@
 
         <template x-if="projecao">
           <article class="proj-ensaio">
-            <!-- 0. Abertura: a faixa é o sujeito (anti-pattern #8: sem pôster de número único). -->
+            <!-- 0. Abertura: a faixa é o sujeito (anti-pattern #8: sem pôster de número único).
+                 7a.AX: os valores em linha própria; A e o "e" num grupo sem quebra, então
+                 a quebra a 320 px cai DEPOIS do "e", nunca antes dele (spec §3.2). -->
             <p class="proj-resposta">
               <template x-if="!projResposta().unica">
-                <span class="proj-resposta__linha">Pelo seu histórico, aos <span x-text="projecao.idade_final"></span> você teria entre
-                  <strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().min)"></strong> e
-                  <strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().max)"></strong></span>
+                <span class="proj-resposta__bloco">
+                  <span class="proj-resposta__linha">Pelo seu histórico, aos <span x-text="projecao.idade_final"></span> você teria entre</span>
+                  <span class="proj-resposta__valores"><span class="proj-resposta__grupo"><strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().min)"></strong> <span class="proj-conectivo">e</span></span> <strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().max)"></strong></span>
+                </span>
               </template>
               <template x-if="projResposta().unica">
-                <span class="proj-resposta__linha">Pelo <span x-text="projNome(projResposta().unica.id).toLowerCase()"></span>, aos <span x-text="projecao.idade_final"></span> você teria
-                  <strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().min)"></strong></span>
+                <span class="proj-resposta__bloco">
+                  <span class="proj-resposta__linha">Pelo <span x-text="projNome(projResposta().unica.id).toLowerCase()"></span>, aos <span x-text="projecao.idade_final"></span> você teria</span>
+                  <span class="proj-resposta__valores"><strong class="proj-faixa" x-text="formatBrlCompacto(projResposta().min)"></strong></span>
+                </span>
               </template>
               <span class="proj-resposta__sub">em reais de hoje, se nada mudar no seu ritmo de aporte</span>
             </p>
@@ -1178,32 +1180,40 @@
             <section class="proj-cap" data-cap="3" aria-labelledby="proj-cap-3">
               <p class="proj-cap__ordinal" aria-hidden="true">3</p>
               <h2 class="proj-cap__titulo" id="proj-cap-3">Quanto a carteira rende: quatro leituras</h2>
-              <p class="proj-cap__tema proj-num">
-                <template x-if="projAncoras().length === 2"><span x-text="projFmtTaxa(Math.min(...projAncoras().map(c => c.taxa_real))) + ' a ' + projFmtTaxa(Math.max(...projAncoras().map(c => c.taxa_real)))"></span></template>
-                <template x-if="projAncoras().length === 1"><span x-text="projFmtTaxa(projAncoras()[0].taxa_real)"></span></template>
+              <p class="proj-cap__tema">
+                <template x-if="projAncoras().length === 2"><span><span class="proj-num" x-text="projFmtTaxa(Math.min(...projAncoras().map(c => c.taxa_real)))"></span><span class="proj-conectivo"> a </span><span class="proj-num" x-text="projFmtTaxa(Math.max(...projAncoras().map(c => c.taxa_real)))"></span></span></template>
+                <template x-if="projAncoras().length === 1"><span class="proj-num" x-text="projFmtTaxa(projAncoras()[0].taxa_real)"></span></template>
                 <span class="proj-cap__unidade"> ao ano, acima da inflação</span></p>
               <p class="proj-cap__texto">As duas leituras do seu histórico são as âncoras. As duas de mercado servem de comparação.</p>
 
-              <div class="proj-regua" role="img" :aria-label="projReguaLabel()">
-                <div class="proj-regua__eixo" aria-hidden="true">
-                  <span class="proj-regua__zero" :style="'left:' + projRegua().zeroX + '%'"><span class="proj-regua__zero-rot">0%</span></span>
-                  <template x-for="m in projRegua().marcas" :key="m.id">
-                    <span class="proj-regua__marca" :class="'proj-regua__marca--' + m.papel" :style="'left:' + m.x + '%'"></span>
+              <!-- 7a.AX: barras de taxa (spec §3.3). Nome em linha própria, barra embaixo
+                   com o valor na ponta; eixo comum começando em 0%. Rótulo e barra nunca
+                   disputam largura, então não há colisão a resolver em largura nenhuma. -->
+              <div class="proj-taxas" :class="{ 'proj-taxas--negativa': projTaxas().temNegativa }">
+                <ul class="proj-taxas__lista" aria-label="Taxa real de cada leitura, ao ano">
+                  <template x-for="l in projTaxas().linhas" :key="l.id">
+                    <li class="proj-taxas__linha" :class="'proj-taxas__linha--' + l.papel" :data-id="l.id">
+                      <span class="proj-taxas__nome" x-text="projNome(l.id)"></span>
+                      <span class="proj-taxas__area proj-taxas__trilho">
+                        <span class="proj-taxas__zero" aria-hidden="true" :style="'left:' + projTaxas().zeroX + '%'"></span>
+                        <span class="proj-taxas__barra" :class="'proj-taxas__barra--' + l.papel" aria-hidden="true"
+                          :style="'left:' + l.inicio + '%;width:' + l.largura + '%'"></span>
+                        <span class="proj-taxas__valor proj-num" x-text="projFmtTaxa(l.taxa)"
+                          :style="l.negativa ? 'right:calc(' + (100 - l.inicio) + '% + 6px)' : 'left:calc(' + (l.inicio + l.largura) + '% + 6px)'"></span>
+                      </span>
+                    </li>
                   </template>
-                </div>
-                <ol class="proj-regua__rotulos" aria-hidden="true">
-                  <template x-for="m in projRegua().marcas" :key="m.id">
-                    <li class="proj-regua__rotulo" :class="['proj-regua__rotulo--' + m.papel, 'proj-regua__rotulo--' + m.lado]" :style="'--x:' + m.x + '%'">
-                      <span x-text="projNome(m.id)"></span> <span class="proj-num" x-text="projFmtTaxa(m.taxa)"></span></li>
-                  </template>
-                </ol>
+                </ul>
+                <p class="proj-taxas__area proj-taxas__eixo" aria-hidden="true">
+                  <span class="proj-taxas__zero-rot" :class="{ 'proj-taxas__zero-rot--inicio': !projTaxas().temNegativa }"
+                    :style="'left:' + projTaxas().zeroX + '%'">0%</span></p>
               </div>
 
               <template x-if="!projCenario('twr')"><p class="proj-indisponivel">Retorno da carteira indisponível hoje.</p></template>
               <template x-if="projCenario('twr')">
                 <section class="proj-leitura" x-data="{ c: projCenario('twr') }">
                   <h3 class="proj-leitura__nome">Retorno da carteira</h3>
-                  <p class="proj-leitura__taxa proj-num" x-text="projFmtTaxa(c.taxa_real) + ' ao ano, acima da inflação'"></p>
+                  <p class="proj-leitura__taxa"><span class="proj-num" x-text="projFmtTaxa(c.taxa_real)"></span><span class="proj-cap__unidade"> ao ano, acima da inflação</span></p>
                   <p class="proj-cap__texto">Mede quanto os seus ativos renderam, ano a ano, sem importar quanto dinheiro havia em cada um.</p>
                   <details class="proj-conta"><summary>ver a conta</summary>
                     <div class="proj-conta__corpo">
@@ -1219,7 +1229,7 @@
               <template x-if="projCenario('xirr')">
                 <section class="proj-leitura" x-data="{ c: projCenario('xirr') }">
                   <h3 class="proj-leitura__nome">Retorno do seu dinheiro</h3>
-                  <p class="proj-leitura__taxa proj-num" x-text="projFmtTaxa(c.taxa_real) + ' ao ano, acima da inflação'"></p>
+                  <p class="proj-leitura__taxa"><span class="proj-num" x-text="projFmtTaxa(c.taxa_real)"></span><span class="proj-cap__unidade"> ao ano, acima da inflação</span></p>
                   <p class="proj-cap__texto">Mede quanto o seu dinheiro rendeu, considerando quando cada aporte entrou. Mistura o retorno dos ativos com o momento dos seus aportes.</p>
                   <details class="proj-conta"><summary>ver a conta</summary>
                     <div class="proj-conta__corpo">
@@ -1254,7 +1264,7 @@
               <template x-if="projCenario('mercado_simples')">
                 <section class="proj-leitura" x-data="{ c: projCenario('mercado_simples') }">
                   <h3 class="proj-leitura__nome">Mercado, média das classes</h3>
-                  <p class="proj-leitura__taxa proj-num" x-text="projFmtTaxa(c.taxa_real) + ' ao ano, acima da inflação'"></p>
+                  <p class="proj-leitura__taxa"><span class="proj-num" x-text="projFmtTaxa(c.taxa_real)"></span><span class="proj-cap__unidade"> ao ano, acima da inflação</span></p>
                   <p class="proj-cap__texto">A média das premissas de mercado de cada classe, pesada pela sua política de alocação.</p>
                   <p class="proj-cap__texto" x-show="projRuidoMercado()">A diferença para o retorno do seu dinheiro é pequena, dentro do ruído da janela.</p>
                   <details class="proj-conta"><summary>ver a conta</summary>
@@ -1282,7 +1292,7 @@
               <template x-if="projCenario('mercado_rebalanceado')">
                 <section class="proj-leitura" x-data="{ c: projCenario('mercado_rebalanceado') }">
                   <h3 class="proj-leitura__nome">Mercado, com rebalanceamento</h3>
-                  <p class="proj-leitura__taxa proj-num" x-text="projFmtTaxa(c.taxa_real) + ' ao ano, acima da inflação'"></p>
+                  <p class="proj-leitura__taxa"><span class="proj-num" x-text="projFmtTaxa(c.taxa_real)"></span><span class="proj-cap__unidade"> ao ano, acima da inflação</span></p>
                   <p class="proj-cap__texto">A mesma carteira de mercado, rebalanceada todo ano. Rebalancear rende um pouco mais que a média das classes, porque vende o que subiu e compra o que caiu.</p>
                   <details class="proj-conta"><summary>ver a conta</summary>
                     <div class="proj-conta__corpo">
@@ -1305,102 +1315,124 @@
             <section class="proj-cap" data-cap="4" aria-labelledby="proj-cap-4">
               <p class="proj-cap__ordinal" aria-hidden="true">4</p>
               <h2 class="proj-cap__titulo" id="proj-cap-4" x-text="'O que isso dá aos ' + projecao.idade_final"></h2>
-              <p class="proj-cap__tema proj-num">
-                <template x-if="!projResposta().unica"><span x-text="formatBrlCompacto(projResposta().min) + ' a ' + formatBrlCompacto(projResposta().max)"></span></template>
-                <template x-if="projResposta().unica"><span x-text="formatBrlCompacto(projResposta().min)"></span></template></p>
-              <p class="proj-cap__texto">As quatro leituras levadas até os <span x-text="projecao.idade_final"></span>, com o mesmo aporte. As duas do seu histórico em linha cheia; as de mercado, tracejadas.</p>
-              <div id="chart-projecao-mapa" class="proj-mapa" role="img" :aria-label="projMapaLabel()"></div>
-              <table class="proj-tabela proj-tabela--final">
-                <caption class="sr-only">Taxa e valor aos <span x-text="projecao.idade_final"></span> de cada leitura</caption>
-                <thead><tr><th scope="col">Leitura</th><th scope="col">Taxa</th><th scope="col" x-text="'Aos ' + projecao.idade_final"></th></tr></thead>
-                <tbody>
-                  <template x-for="c in projCenarios()" :key="c.id">
-                    <tr><th scope="row" x-text="projNome(c.id)"></th>
-                      <td class="proj-num" x-text="projFmtTaxa(c.taxa_real)"></td>
-                      <td class="proj-num" x-text="formatBrlCompacto(projValorFinal(c))"></td></tr>
+              <p class="proj-cap__texto">As leituras do capítulo anterior levadas até os <span x-text="projecao.idade_final"></span>, com o mesmo aporte e na mesma escala, em reais de hoje.</p>
+              <!-- 7a.AX: gráfico de faixas (spec §3.4), HTML e CSS. Nome e taxa em cima,
+                   o desenho no meio (role="img", aria-label com os cinco percentis),
+                   os valores escritos EMBAIXO, em linha própria e fora do role="img":
+                   rótulo posicional colidiria a 320 px quando p10 e mediana ficam perto. -->
+              <div class="proj-faixas">
+                <ol class="proj-faixas__lista">
+                  <template x-for="l in projFaixas().linhas" :key="l.id">
+                    <li class="proj-faixas__linha" :class="'proj-faixas__linha--' + l.papel" :data-id="l.id">
+                      <p class="proj-faixas__nome"><span x-text="projNome(l.id)"></span> · <span class="proj-num" x-text="projFmtTaxa(l.taxa)"></span><span class="proj-cap__unidade"> ao ano</span></p>
+                      <div class="proj-faixas__trilho" role="img" :aria-label="projFaixaLabel(l.id)">
+                        <template x-if="l.faixa"><span class="proj-faixas__traco" :style="'left:' + l.p10 + '%;width:' + (l.p90 - l.p10) + '%'"></span></template>
+                        <template x-if="l.faixa"><span class="proj-faixas__barra" :style="'left:' + l.p25 + '%;width:' + (l.p75 - l.p25) + '%'"></span></template>
+                        <span class="proj-faixas__ponto" :style="'left:' + l.ponto + '%'"></span>
+                      </div>
+                      <p class="proj-faixas__valores">
+                        <template x-if="l.papel === 'ancora'"><span>mediana <strong class="proj-num" x-text="formatBrlCompacto(l.valor)"></strong><template x-if="l.faixa"><span>; 8 em 10 entre <span class="proj-num" x-text="formatBrlCompacto(projCenario(l.id).final.p10)"></span> e <span class="proj-num" x-text="formatBrlCompacto(projCenario(l.id).final.p90)"></span></span></template></span></template>
+                        <template x-if="l.papel !== 'ancora'"><strong class="proj-num" x-text="formatBrlCompacto(l.valor)"></strong></template>
+                      </p>
+                    </li>
                   </template>
-                </tbody>
-              </table>
-              <template x-for="c in projAncoras()" :key="c.id">
-                <div class="proj-decomp">
-                  <p class="proj-decomp__titulo"><span x-text="projNome(c.id)"></span>: na taxa constante, sem sorteio,
-                    <span class="proj-num" x-text="formatBrlCompacto(c.final.deterministico)"></span>. A mediana da simulação é
-                    <span x-text="projPraticamente(c)"></span>esse mesmo histórico composto.</p>
-                  <div class="proj-decomp__barra" aria-hidden="true">
-                    <template x-for="p in projDecomposicao(c).filter(p => p.pct > 0)" :key="p.chave">
-                      <span class="proj-decomp__seg" :class="'proj-decomp__seg--' + p.chave" :style="'width:' + p.pct + '%'"></span>
-                    </template>
-                  </div>
-                  <ul class="proj-decomp__lista">
-                    <template x-for="p in projDecomposicao(c)" :key="p.chave">
-                      <li><span class="proj-decomp__marca" :class="'proj-decomp__seg--' + p.chave" aria-hidden="true"></span>
-                        <span x-text="p.rotulo"></span> <span class="proj-num" x-text="formatBrlCompacto(p.valor)"></span></li>
-                    </template>
-                  </ul>
-                  <details class="proj-conta"><summary>ver a conta</summary>
-                    <div class="proj-conta__corpo">
-                      <p>Patrimônio de hoje, <span x-text="formatBrlInteiro(projecao.partida.patrimonio)"></span>, crescido a <span x-text="projFmtTaxa(c.taxa_real)"></span> ao ano até <span x-text="projecao.ano_final"></span>.
-                        Aportes: <span x-text="formatBrlInteiro(projecao.aporte.mensal)"></span> por mês, somados sem rendimento.
-                        O rendimento dos aportes é o que falta para fechar o total.</p>
-                    </div></details>
-                </div>
-              </template>
-            </section>
+                </ol>
+                <p class="proj-faixas__eixo" aria-hidden="true"><span>R$ 0</span><span x-text="formatBrlCompacto(projFaixas().max)"></span></p>
+                <p class="proj-faixas__legenda">Traço fino: 8 em 10 trajetórias. Barra: metade delas. Ponto: a mediana.</p>
+              </div>
+              <details class="proj-conta proj-conta--percentis"><summary>ver a conta</summary>
+                <div class="proj-conta__corpo">
+                  <p>Cada valor é aquele abaixo do qual fica essa fração das trajetórias simuladas: p10 é 1 em 10, p90 é 9 em 10.</p>
+                  <table class="proj-tabela proj-tabela--percentis">
+                    <caption class="sr-only">Os cinco percentis de cada leitura do seu histórico</caption>
+                    <thead><tr><th scope="col"><span class="sr-only">Percentil</span></th>
+                      <template x-for="c in projAncoras()" :key="c.id"><th scope="col" x-text="projNome(c.id)"></th></template></tr></thead>
+                    <tbody>
+                      <template x-for="p in projPercentis()" :key="p.k">
+                        <tr><th scope="row" x-text="p.rotulo"></th>
+                          <template x-for="c in projAncoras()" :key="c.id"><td class="proj-num" x-text="formatBrlCompacto(c.final[p.k])"></td></template></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div></details>
 
-            <!-- 5. A incerteza -->
-            <section class="proj-cap" data-cap="5" aria-labelledby="proj-cap-5">
-              <p class="proj-cap__ordinal" aria-hidden="true">5</p>
-              <h2 class="proj-cap__titulo" id="proj-cap-5">A incerteza</h2>
-              <p class="proj-cap__tema proj-num"><span x-text="projFmtTaxa(projecao.incerteza.vol, 1)"></span><span class="proj-cap__unidade"> de oscilação ao ano</span></p>
-              <p class="proj-cap__texto">A largura das faixas vem da oscilação da própria carteira, medida em
+              <h3 class="proj-cap__subtitulo">A largura das faixas</h3>
+              <p class="proj-cap__texto">A largura vem da oscilação da própria carteira, <strong class="proj-num" x-text="projFmtTaxa(projecao.incerteza.vol, 1)"></strong><span class="proj-cap__unidade"> ao ano</span>, medida em
                 <span x-text="projecao.incerteza.meses"></span> meses. O modelo das classes daria
                 <span class="proj-num" x-text="projFmtTaxa(projecao.incerteza.vol_modelo_classes, 1)"></span>.</p>
               <p class="proj-cap__texto">Só as duas leituras do seu histórico têm faixa. As de mercado servem para comparar taxas, e quatro faixas juntas não se leem.</p>
               <p class="proj-cap__texto">Em <span x-text="projAnosTotal()"></span> anos a faixa é larga, e essa largura é a resposta honesta, não um defeito.</p>
+
+              <h3 class="proj-cap__subtitulo">De onde vem o valor</h3>
+              <!-- 7a.AX: a decomposição numa peça (spec §3.4). A frase determinística
+                   segue SEMPRE visível, uma por âncora; as barras ficam alinhadas uma
+                   sob a outra; a tabela é a legenda comum (marca de cor no rótulo da
+                   linha) e carrega os valores escritos. -->
               <template x-for="c in projAncoras()" :key="c.id">
-                <figure class="proj-leque">
-                  <figcaption class="proj-leque__titulo"><span x-text="projNome(c.id)"></span>: em 8 de cada 10 trajetórias, entre
-                    <span class="proj-num" x-text="formatBrlCompacto(c.final.p10)"></span> e <span class="proj-num" x-text="formatBrlCompacto(c.final.p90)"></span>.</figcaption>
-                  <div :id="'chart-projecao-leque-' + c.id" class="proj-leque__grafico" role="img" :aria-label="projLequeLabel(c)"></div>
-                </figure>
+                <p class="proj-decomp__titulo"><span x-text="projNome(c.id)"></span>: na taxa constante, sem sorteio,
+                  <span class="proj-num" x-text="formatBrlCompacto(c.final.deterministico)"></span>. A mediana da simulação é
+                  <span x-text="projPraticamente(c)"></span>esse mesmo histórico composto.</p>
               </template>
+              <div class="proj-decomp">
+                <template x-for="c in projAncoras()" :key="c.id">
+                  <div class="proj-decomp__item" :data-id="c.id">
+                    <p class="proj-decomp__nome" x-text="projNome(c.id)"></p>
+                    <div class="proj-decomp__barra" aria-hidden="true">
+                      <template x-for="p in projDecomposicao(c).filter(p => p.pct > 0)" :key="p.chave">
+                        <span class="proj-decomp__seg" :class="'proj-decomp__seg--' + p.chave" :style="'width:' + p.pct + '%'"></span>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+                <table class="proj-tabela proj-tabela--decomp">
+                  <caption class="sr-only" x-text="'De onde vem o valor de cada leitura aos ' + projecao.idade_final"></caption>
+                  <thead><tr><th scope="col"><span class="sr-only">Parcela</span></th>
+                    <template x-for="c in projAncoras()" :key="c.id"><th scope="col" x-text="projNome(c.id)"></th></template></tr></thead>
+                  <tbody>
+                    <template x-for="p in projPartes()" :key="p.chave">
+                      <tr><th scope="row"><span class="proj-decomp__marca" :class="'proj-decomp__seg--' + p.chave" aria-hidden="true"></span><span x-text="p.rotulo"></span></th>
+                        <template x-for="c in projAncoras()" :key="c.id"><td class="proj-num" x-text="formatBrlCompacto(c.decomposicao[p.campo])"></td></template></tr>
+                    </template>
+                  </tbody>
+                </table>
+                <details class="proj-conta"><summary>ver a conta</summary>
+                  <div class="proj-conta__corpo">
+                    <p>Patrimônio de hoje, <span x-text="formatBrlInteiro(projecao.partida.patrimonio)"></span>, crescido à taxa de cada leitura até <span x-text="projecao.ano_final"></span>.
+                      Aportes: <span x-text="formatBrlInteiro(projecao.aporte.mensal)"></span> por mês, somados sem rendimento.
+                      O rendimento dos aportes é o que falta para fechar o total.</p>
+                  </div></details>
+              </div>
             </section>
 
-            <!-- 6. O que mexe o ponteiro -->
+            <!-- 5. O que mexe o ponteiro -->
+            <section class="proj-cap" data-cap="5" aria-labelledby="proj-cap-5">
+              <p class="proj-cap__ordinal" aria-hidden="true">5</p>
+              <h2 class="proj-cap__titulo" id="proj-cap-5">O que mexe o ponteiro</h2>
+              <p class="proj-cap__texto">Quanto a mediana aos <span x-text="projecao.idade_final"></span> muda com cada alavanca. Os cenários com nome próprio são hipotéticos, não previsões.</p>
+              <!-- 7a.AX: uma alavanca por bloco, uma linha por âncora (nome à esquerda,
+                   Δ à direita). Sem cabeçalho de coluna, então nenhum nome de âncora
+                   espremido a 320 px. Direção em três camadas: sinal em texto, seta
+                   decorativa aria-hidden e cor. -->
+              <ul class="proj-ponteiro">
+                <template x-for="a in projAlavancas()" :key="a.nome">
+                  <li class="proj-ponteiro__item">
+                    <p class="proj-ponteiro__nome" x-text="a.nome"></p>
+                    <template x-if="a.descricao"><p class="proj-ponteiro__desc" x-text="a.descricao"></p></template>
+                    <ul class="proj-ponteiro__efeitos">
+                      <template x-for="c in projAncoras()" :key="c.id">
+                        <li class="proj-ponteiro__efeito"><span class="proj-ponteiro__ancora" x-text="projNome(c.id)"></span>
+                          <span class="proj-num proj-delta" :class="a.delta[c.id] < 0 ? 'proj-neg' : 'proj-pos'"><span aria-hidden="true" x-text="a.delta[c.id] < 0 ? '▼' : '▲'"></span> <span x-text="formatDeltaCompacto(a.delta[c.id])"></span></span></li>
+                      </template>
+                    </ul>
+                  </li>
+                </template>
+              </ul>
+            </section>
+
+            <!-- 6. O que esta conta não inclui -->
             <section class="proj-cap" data-cap="6" aria-labelledby="proj-cap-6">
               <p class="proj-cap__ordinal" aria-hidden="true">6</p>
-              <h2 class="proj-cap__titulo" id="proj-cap-6">O que mexe o ponteiro</h2>
-              <p class="proj-cap__texto">Quanto a mediana aos <span x-text="projecao.idade_final"></span> muda com cada alavanca. Os cenários com nome próprio são hipotéticos, não previsões.</p>
-              <table class="proj-tabela proj-tabela--ponteiro">
-                <caption class="sr-only">Efeito de cada alavanca sobre a mediana</caption>
-                <thead><tr><th scope="col"><span class="sr-only">Alavanca</span></th>
-                  <template x-for="c in projAncoras()" :key="c.id"><th scope="col" x-text="projNome(c.id)"></th></template></tr></thead>
-                <tbody>
-                  <template x-for="s in projecao.ponteiro.sensibilidade" :key="s.rotulo">
-                    <tr><th scope="row" x-text="s.rotulo"></th>
-                      <template x-for="c in projAncoras()" :key="c.id">
-                        <td class="proj-num proj-delta" :class="s.por_ancora[c.id] < 0 ? 'proj-neg' : 'proj-pos'">
-                          <span aria-hidden="true" x-text="s.por_ancora[c.id] < 0 ? '▼' : '▲'"></span>
-                          <span x-text="formatDeltaCompacto(s.por_ancora[c.id])"></span></td>
-                      </template></tr>
-                  </template>
-                  <template x-for="e in projecao.ponteiro.estresse" :key="e.nome">
-                    <tr><th scope="row"><span class="proj-ponteiro__nome" x-text="e.nome"></span>
-                        <span class="proj-ponteiro__desc" x-text="e.descricao"></span></th>
-                      <template x-for="c in projAncoras()" :key="c.id">
-                        <td class="proj-num proj-delta" :class="e.por_ancora[c.id].delta < 0 ? 'proj-neg' : 'proj-pos'">
-                          <span aria-hidden="true" x-text="e.por_ancora[c.id].delta < 0 ? '▼' : '▲'"></span>
-                          <span x-text="formatDeltaCompacto(e.por_ancora[c.id].delta)"></span></td>
-                      </template></tr>
-                  </template>
-                </tbody>
-              </table>
-            </section>
-
-            <!-- 7. O que esta conta não inclui -->
-            <section class="proj-cap" data-cap="7" aria-labelledby="proj-cap-7">
-              <p class="proj-cap__ordinal" aria-hidden="true">7</p>
-              <h2 class="proj-cap__titulo" id="proj-cap-7">O que esta conta não inclui</h2>
+              <h2 class="proj-cap__titulo" id="proj-cap-6">O que esta conta não inclui</h2>
               <ul class="proj-limites">
                 <li><strong>Impostos e custos.</strong> As taxas de mercado são de índice, brutas, então o viés é para cima.</li>
                 <li><strong>Índice e escolhas próprias.</strong> A carteira real mistura fundos de índice e ativos escolhidos um a um.</li>

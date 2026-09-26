@@ -110,14 +110,11 @@ async function renderizarOsTresGraficos(page: Page) {
     .toBeVisible({ timeout: 5_000 });
 }
 
-// 7a.AV.2 → 7a.AW.2: a tela deixou de ter um 4º gráfico único (`#chart-projecao`)
-// e passou a ter três — o mapa das quatro medianas mais um leque por âncora
-// (`echartsProj` virou array). Barreira no canvas do MAPA, o nó que só existe
-// com a 1ª instância viva; o teste de descarte abaixo confere as três.
-async function renderizarGraficoProjecao(page: Page) {
+// 7a.AX: a tela da projeção deixou de ter gráfico ECharts (faixas em HTML/CSS).
+// Barreira no nó que é gate de DADO (x-if `.proj-ensaio`), não num canvas.
+async function abrirTelaProjecao(page: Page) {
   await page.goto("/#/raiox/projecao");
-  await expect(page.locator("#chart-projecao-mapa canvas[data-zr-dom-id]"))
-    .toBeVisible({ timeout: 5_000 });
+  await expect(page.locator(".tela-projecao .proj-ensaio")).toBeVisible({ timeout: 5_000 });
 }
 
 // CRB final 7a.U Finding 1 — 3 rotas que o roteiro do teste-invariante não
@@ -605,35 +602,15 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     });
   });
 
-  test("lock descarta os três gráficos da projeção e o observer deles (7a.AW.2)", async ({ page }) => {
+  test("lock com a projeção aberta: o ensaio desmonta e nenhum gráfico sobra (7a.AX)", async ({ page }) => {
     await autenticar(page);
-    await renderizarGraficoProjecao(page);
-    const antes = await page.evaluate(() => {
-      const d = (window as any).Alpine.$data(document.body);
-      // `echartsProj` virou array (7a.AW.2: mapa + um leque por âncora). A
-      // CONTAGEM, não só a truthiness, é o que impede este "antes" de passar
-      // por vacuidade — um array vazio também é truthy.
-      return { qtd: Array.isArray(d.echartsProj) ? d.echartsProj.length : 0, obs: !!d.resizeObserverProj };
-    });
-    // Sem isto o teste passaria por vacuidade depois do lock.
-    expect(antes).toEqual({ qtd: 3, obs: true });
-    const depois = await page.evaluate(() => {
-      const d = (window as any).Alpine.$data(document.body);
-      // Capturados ANTES do bloquear(): o x-if de `.proj-ensaio` desmonta com
-      // o lock (json vira null), então document.getElementById depois já não
-      // acharia nada — a referência ao nó (não ao id) é o que sobrevive e
-      // prova dispose() de verdade nos TRÊS containers, não só a anulação da
-      // referência no $data.
-      const ids = ["chart-projecao-mapa", "chart-projecao-leque-twr", "chart-projecao-leque-xirr"];
-      const els = ids.map((id) => document.getElementById(id)).filter((el) => !!el) as HTMLElement[];
-      d.bloquear();
-      return {
-        chart: d.echartsProj == null, obs: d.resizeObserverProj == null,
-        qtdEls: els.length,
-        instancias: els.map((el) => (window as any).echarts.getInstanceByDom(el) == null),
-      };
-    });
-    expect(depois).toEqual({ chart: true, obs: true, qtdEls: 3, instancias: [true, true, true] });
+    await abrirTelaProjecao(page);
+    // Sem isto o teste passaria por vacuidade: o ensaio tem de estar montado antes.
+    await expect(page.locator(".proj-faixas__linha")).toHaveCount(4);
+    await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
+    await expect(page.locator(".pin-screen")).toBeVisible();
+    await expect(page.locator(".proj-ensaio")).toHaveCount(0);
+    expect(await page.locator(".tela-projecao canvas").count()).toBe(0);
   });
 
   test("lock descarta o plano de aporte", async ({ page }) => {
@@ -1090,7 +1067,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await abrirDossie(page, "HGLG11");
     await abrirAportar(page, "5000");
     await renderizarOsTresGraficos(page);
-    await renderizarGraficoProjecao(page);
+    await abrirTelaProjecao(page);
     await abrirAtivo(page, "HGLG11");
     // Ordem histórica preservada, mas não mais obrigatória: #alocacao antes
     // de #/proventos/dy vinha de quando sig() marcava strings só por

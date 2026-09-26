@@ -291,6 +291,19 @@ const PROJ_NOMES = Object.freeze({
 });
 const PROJ_ORDEM = Object.freeze(["twr", "xirr", "mercado_simples", "mercado_rebalanceado"]);
 const PROJ_MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+// 7a.AX: os cinco percentis da simulação, na ordem da tabela do "ver a conta"
+// do gráfico de faixas. Siglas só dentro do "ver a conta" (regra de copy da tela).
+const PROJ_PERCENTIS = Object.freeze([
+  { k: "p10", rotulo: "p10" }, { k: "p25", rotulo: "p25" }, { k: "p50", rotulo: "p50, a mediana" },
+  { k: "p75", rotulo: "p75" }, { k: "p90", rotulo: "p90" },
+]);
+// 7a.AX: as três parcelas da decomposição, na ordem da barra e da tabela.
+// Fonte única do rótulo: a barra, a tabela e o teste leem daqui.
+const PROJ_PARTES = Object.freeze([
+  { chave: "partida", campo: "partida_crescida", rotulo: "Seu patrimônio de hoje, crescido" },
+  { chave: "aportes", campo: "aportes", rotulo: "Aportes somados" },
+  { chave: "rendimento", campo: "rendimento_aportes", rotulo: "Rendimento dos aportes" },
+]);
 
 const COLORS = {
   g700:      () => css("--g-700", "#047857"),
@@ -501,10 +514,6 @@ document.addEventListener("alpine:init", () => {
     resizeObserverPatr: null,
     echartsRent: null,
     resizeObserverChart: null,
-    // 7a.AV.2: gráfico em leque de #/raiox/projecao. Pré-declarados pela
-    // mesma razão dos outros três (ver lock-higiene.spec.ts, ASSINATURA_FN).
-    echartsProj: null,
-    resizeObserverProj: null,
     _rentCtx: null,
     // 7a.H.1: estado da tela #aportar
     aporteValor: "",
@@ -702,7 +711,6 @@ document.addEventListener("alpine:init", () => {
         // #/raiox/chart. voltar() cai em home["raiox"] = "" (mapa genérico).
         this.rota = "projecao";
         this.tab = "raiox";
-        setTimeout(() => this.hidratarProjecao(), 0);
         return;
       }
       if (path === "/raiox/chart") {
@@ -1513,30 +1521,26 @@ document.addEventListener("alpine:init", () => {
       if (v == null || Number.isNaN(v)) return "—";
       return window.formatBrl(v, 0);
     },
-    // Régua do capítulo 3 (spec §6.5, único desenho novo da tela): domínio
-    // DERIVADO dos dados, sempre incluindo o 0% (um ano ruim pode pôr uma
-    // âncora abaixo de zero), com margem de 8% do vão (mínimo 0,5 p.p.).
-    projReguaDominio(taxas) {
-      const lo0 = Math.min(0, ...taxas), hi0 = Math.max(0, ...taxas);
-      const pad = Math.max(0.005, (hi0 - lo0) * 0.08);
-      return { lo: lo0 - pad, hi: hi0 + pad };
-    },
-    // Um rótulo por LINHA, em ordem crescente de taxa: com quatro rótulos a
-    // colisão é impossível por construção, em qualquer largura (spec §6.10:
-    // "empilhar os rótulos, nunca sobrepor"). O x do rótulo é o da marca,
-    // preso às bordas pelo CSS (ancoragem esquerda/direita, abaixo).
-    projRegua() {
+    // 7a.AX: barras de taxa do capítulo 3 (spec §3.3). Eixo comum às leituras
+    // presentes, de min(0, taxas) a max(0, taxas): começa em 0% quando todas
+    // são positivas, e uma taxa negativa ganha barra à ESQUERDA de um zero
+    // marcado. Sem margem no domínio: o valor escrito na ponta vive na reserva
+    // lateral do trilho (CSS `.proj-taxas__area`), não dentro do eixo. `vao || 1`
+    // cobre o caso de todas as taxas em zero (sem divisão por zero).
+    projTaxas() {
       const cs = this.projCenarios();
-      const { lo, hi } = this.projReguaDominio(cs.map((c) => c.taxa_real));
-      const x = (t) => ((t - lo) / (hi - lo)) * 100;
-      const marcas = cs.map((c) => ({ id: c.id, papel: c.papel, taxa: c.taxa_real, x: x(c.taxa_real) }))
-        .sort((a, b) => a.taxa - b.taxa)
-        .map((m) => ({ ...m, lado: m.x < 25 ? "esq" : m.x > 75 ? "dir" : "meio" }));
-      return { marcas, zeroX: x(0), lo, hi };
-    },
-    projReguaLabel() {
-      return "Régua das quatro taxas, em ordem: " + this.projRegua().marcas
-        .map((m) => this.projNome(m.id) + " " + this.projFmtTaxa(m.taxa)).join("; ");
+      const taxas = cs.map((c) => c.taxa_real);
+      const lo = Math.min(0, ...taxas), hi = Math.max(0, ...taxas);
+      const vao = hi - lo || 1;
+      const x = (t) => ((t - lo) / vao) * 100;
+      const zeroX = x(0);
+      return {
+        zeroX, temNegativa: lo < 0,
+        linhas: cs.map((c) => ({
+          id: c.id, papel: c.papel, taxa: c.taxa_real, negativa: c.taxa_real < 0,
+          inicio: Math.min(zeroX, x(c.taxa_real)), largura: Math.abs(x(c.taxa_real) - zeroX),
+        })),
+      };
     },
     // Grifo: só com as DUAS âncoras (sem as duas não há discordância a
     // explicar). A frase é condicional ao SINAL medido hoje, nunca afirmação
@@ -1572,172 +1576,71 @@ document.addEventListener("alpine:init", () => {
       const [a0, m0] = t.receita.janela.de.split("-").map(Number), [a1, m1] = t.receita.janela.ate.split("-").map(Number);
       return Math.round(((a1 - a0) * 12 + (m1 - m0) + 1) / 12);
     },
+    projPartes() { return PROJ_PARTES; },
     projDecomposicao(c) {
-      const d = c.decomposicao;
-      const partes = [
-        { chave: "partida", rotulo: "Seu patrimônio de hoje, crescido", valor: d.partida_crescida },
-        { chave: "aportes", rotulo: "Aportes somados", valor: d.aportes },
-        { chave: "rendimento", rotulo: "Rendimento dos aportes", valor: d.rendimento_aportes },
-      ];
+      const partes = PROJ_PARTES.map((p) => ({ chave: p.chave, rotulo: p.rotulo, valor: c.decomposicao[p.campo] }));
       // A barra 100% só desenha o que é positivo; uma parcela negativa (taxa
-      // real abaixo de zero) aparece em texto com sinal (Review Focus 1).
+      // real abaixo de zero) aparece em texto com sinal, na tabela (7a.AW Review Focus 1).
       const total = partes.reduce((s, p) => s + Math.max(0, p.valor), 0);
       return partes.map((p) => ({ ...p, pct: p.valor > 0 && total > 0 ? (p.valor / total) * 100 : 0 }));
     },
-    projLequeMax() {
-      const v = Math.max(...this.projAncoras().map((c) => c.final.p90));
-      const passo = Math.pow(10, Math.floor(Math.log10(v)));
-      return Math.ceil(v / passo) * passo;
+    // 7a.AX: teto "redondo" do eixo do gráfico de faixas — o menor m × 10^k ≥ v
+    // com m na escada abaixo. Arredondar à potência de 10 jogaria 10,4 mi para
+    // 20 mi e deixaria metade do eixo vazia.
+    projEixoTeto(v) {
+      if (!(v > 0)) return 1;
+      const p = Math.pow(10, Math.floor(Math.log10(v)));
+      for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+      return 10 * p;
     },
-    projMapaLabel() {
-      return "Mediana aos " + this.projecao.idade_final + " de cada leitura: " + this.projCenarios()
-        .map((c) => this.projNome(c.id) + " " + this.formatBrlCompacto(this.projValorFinal(c))).join("; ");
-    },
-    projLequeLabel(c) {
-      const f = c.final;
-      return this.projNome(c.id) + ": em 8 de cada 10 trajetórias, entre " + this.formatBrlCompacto(f.p10)
-        + " e " + this.formatBrlCompacto(f.p90) + " aos " + this.projecao.idade_final + ", mediana "
-        + this.formatBrlCompacto(f.p50) + ", em reais de hoje";
-    },
-    // 7a.AW: três gráficos. O MAPA (as quatro medianas, âncoras em linha cheia
-    // --ink/--g-700, mercado tracejado --gray em dois padrões, rótulo no fim
-    // da linha em vez de caixa de legenda: anti-pattern #22) e um LEQUE por
-    // âncora, em pequenos múltiplos com a mesma escala Y. Faixas planas: a
-    // exceção nominal ao anti-pattern #17 migrou para os leques. Sem dataZoom.
-    hidratarProjecao() {
-      if (this.rota !== "projecao" || !this.projecao || this.projCenarios().length === 0) return;
-      this.$nextTick(() => this._montarGraficosProj());
-    },
-    _montarGraficosProj() {
-      this._descartarProj();
-      const alvos = ["chart-projecao-mapa", ...this.projAncoras().map((c) => "chart-projecao-leque-" + c.id)];
-      if (typeof echarts === "undefined" || !window.drarthurChart) {
-        for (const id of alvos) {
-          const el = document.getElementById(id);
-          if (el) el.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-        }
-        return;
-      }
-      const dc = window.drarthurChart, fmt = (v) => this.formatBrlCompacto(v);
-      const instancias = [];
-      // `construir` roda DENTRO do try: uma exceção ao montar a opção (não só
-      // no setOption) também cai no placeholder, em vez de derrubar os outros.
-      const montar = (id, construir) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.innerHTML = "";
-        const ch = echarts.init(el, "drarthur", { renderer: "canvas" });
-        try { ch.setOption(Object.assign(construir(), dc.motionConfig)); } catch (err) {
-          console.warn("ECharts projeção falhou; placeholder", err);
-          ch.dispose();
-          el.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
-          return;
-        }
-        instancias.push(ch);
-      };
-      montar("chart-projecao-mapa", () => this._opcaoMapaProj(dc, fmt));
-      const max = this.projLequeMax();
-      for (const c of this.projAncoras()) montar("chart-projecao-leque-" + c.id, () => this._opcaoLequeProj(c, dc, fmt, max));
-      this.echartsProj = instancias;
-      if (typeof ResizeObserver !== "undefined") {
-        this.resizeObserverProj = new ResizeObserver(() => instancias.forEach((c) => { try { c.resize(); } catch (_) {} }));
-        instancias.forEach((c) => this.resizeObserverProj.observe(c.getDom()));
-      }
-    },
-    _rotulosEixoProj(pts) {
-      const ultimo = pts.length - 1;
-      return {
-        data: pts.map((p, i) => (i === 0 ? "hoje" : String(p.idade))),
-        intervalo: (i) => i === 0 || i === ultimo || (i >= 3 && pts[i].idade % 5 === 0),
-      };
-    },
-    // Quebra um nome em duas linhas no espaço mais perto da metade: o rótulo
-    // do fim de linha usa o NOME da fonte única, sem cópia com quebra manual.
-    _duasLinhas(nome) {
-      const meio = nome.length / 2;
-      let melhor = -1;
-      for (let i = 0; i < nome.length; i++) if (nome[i] === " " && (melhor < 0 || Math.abs(i - meio) < Math.abs(melhor - meio))) melhor = i;
-      return melhor < 0 ? nome : nome.slice(0, melhor) + "\n" + nome.slice(melhor + 1);
-    },
-    _opcaoMapaProj(dc, fmt) {
+    // Gráfico de faixas do capítulo 4 (spec §3.4). Eixo de R$ 0 ao MAIOR VALOR
+    // DESENHADO: p90 das âncoras presentes E os pontos de mercado. "Maior p90"
+    // não basta — sem a âncora XIRR o ponto do mercado com rebalanceamento cai
+    // fora do eixo (achado material do G1; travado por teste de coordenada, que
+    // pega também o clamp abaixo escondendo o defeito na borda). Faixa degenerada
+    // (p10 = p90) ou mediana fora dela: só o ponto (spec §3.7).
+    projFaixas() {
       const cs = this.projCenarios();
-      const eixo = this._rotulosEixoProj(cs[0].pontos);
-      const estilo = {
-        twr: { color: dc.tokens.ink, type: "solid", width: 2.5 },
-        xirr: { color: dc.tokens.g700, type: "solid", width: 2.5 },
-        mercado_simples: { color: dc.tokens.gray, type: [6, 4], width: 1.6 },
-        mercado_rebalanceado: { color: dc.tokens.gray, type: [2, 3], width: 1.6 },
-      };
-      const chave = (c) => (c.id === "mercado_simples" ? "deterministico" : "p50");
-      const series = cs.map((c) => {
-        const e = estilo[c.id];
-        return {
-          name: this.projNome(c.id), type: "line", symbol: "none",
-          data: c.pontos.map((p) => p[chave(c)]),
-          lineStyle: { color: e.color, type: e.type, width: e.width }, itemStyle: { color: e.color },
-          endLabel: { show: true, formatter: this._duasLinhas(this.projNome(c.id)), color: e.color,
-            fontSize: 10, lineHeight: 12, fontFamily: dc.fontFamily },
-          labelLayout: { moveOverlap: "shiftY" },
-        };
-      });
+      const num = (v) => typeof v === "number" && !Number.isNaN(v);
+      const desenhados = cs.flatMap((c) => (c.papel === "ancora" ? [c.final.p90, this.projValorFinal(c)] : [this.projValorFinal(c)])).filter(num);
+      const max = this.projEixoTeto(Math.max(0, ...desenhados));
+      const x = (v) => Math.min(100, Math.max(0, (v / max) * 100));
       return {
-        // right: espaço dos rótulos de fim de linha (nome em duas linhas).
-        // Verificação visual a 320 px (Task 10): com right 104 e o eixo Y por
-        // fora, a área de desenho tinha 44 px e o eixo X perdia "hoje" e "65".
-        // Com o rótulo do eixo Y por dentro (sobre a própria linha de grade) e
-        // right 92, ela passa a 111 px a 320 e 181 px a 390, sem cortar o nome
-        // mais longo ("rebalanceamento"). left 14 é o que "hoje" precisa.
-        grid: { top: 16, right: 92, bottom: 28, left: 14, containLabel: true },
-        tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
-          formatter: (ps) => {
-            const lista = Array.isArray(ps) ? ps : [ps];
-            const p = cs[0].pontos[lista[0].dataIndex];
-            return (lista[0].dataIndex === 0 ? "hoje" : p.idade + " anos, em " + p.ano) + "<br>"
-              + lista.map((x) => x.seriesName + " " + fmt(x.value)).join("<br>");
-          } }),
-        legend: { show: false },
-        xAxis: { type: "category", data: eixo.data, boundaryGap: false, name: "idade no ano",
-          nameLocation: "middle", nameGap: 26,
-          nameTextStyle: { color: dc.tokens.gray, fontSize: 11, fontFamily: dc.fontFamily },
-          axisLabel: { hideOverlap: true, interval: eixo.intervalo } },
-        yAxis: { type: "value", min: 0, splitNumber: 3,
-          axisLabel: { formatter: fmt, inside: true, verticalAlign: "bottom", margin: 0, padding: [0, 0, 2, 0] } },
-        series,
-        aria: { enabled: true, label: { description: this.projMapaLabel() } },
+        max,
+        linhas: cs.map((c) => {
+          const f = c.final, v = this.projValorFinal(c);
+          const faixa = c.papel === "ancora" && num(f.p10) && num(f.p25) && num(f.p75) && num(f.p90)
+            && f.p90 > f.p10 && f.p10 <= v && v <= f.p90;
+          return {
+            id: c.id, papel: c.papel, taxa: c.taxa_real, valor: v, faixa, ponto: x(v),
+            p10: faixa ? x(f.p10) : null, p25: faixa ? x(f.p25) : null,
+            p75: faixa ? x(f.p75) : null, p90: faixa ? x(f.p90) : null,
+          };
+        }),
       };
     },
-    _opcaoLequeProj(c, dc, fmt, max) {
-      const pts = c.pontos, eixo = this._rotulosEixoProj(pts);
-      const cor = c.id === "twr" ? dc.tokens.ink : dc.tokens.g700;
-      const col = (k) => pts.map((p) => p[k]);
-      const dif = (a, b) => pts.map((p) => p[a] - p[b]);
-      const faixa = (nome, stack, baixo, alto, opac) => [
-        { name: nome + " base", type: "line", data: col(baixo), stack, symbol: "none",
-          lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 }, silent: true, tooltip: { show: false } },
-        { name: nome, type: "line", data: dif(alto, baixo), stack, symbol: "none",
-          lineStyle: { opacity: 0 }, areaStyle: { color: cor, opacity: opac }, silent: true },
+    // aria-label de uma linha do gráfico: os cinco percentis por extenso nas
+    // âncoras (p25/p75 só existem aqui e no "ver a conta"), o valor no mercado.
+    projFaixaLabel(id) {
+      const c = this.projCenario(id);
+      if (!c) return "";
+      const f = c.final, fmt = (v) => this.formatBrlCompacto(v), idade = this.projecao.idade_final;
+      if (c.papel !== "ancora") return this.projNome(id) + ", aos " + idade + ": " + fmt(this.projValorFinal(c)) + ", em reais de hoje";
+      return this.projNome(id) + ", aos " + idade + ", em reais de hoje: 1 em 10 trajetórias abaixo de " + fmt(f.p10)
+        + "; 1 em 4 abaixo de " + fmt(f.p25) + "; mediana " + fmt(f.p50) + "; 3 em 4 abaixo de " + fmt(f.p75)
+        + "; 9 em 10 abaixo de " + fmt(f.p90);
+    },
+    projPercentis() { return PROJ_PERCENTIS; },
+    // 7a.AX: o ponteiro como lista (spec §3.5). As duas sensibilidades, depois os
+    // três cenários hipotéticos, cada um com o Δ por âncora num só formato.
+    projAlavancas() {
+      const p = this.projecao;
+      if (!p) return [];
+      return [
+        ...p.ponteiro.sensibilidade.map((s) => ({ nome: s.rotulo, descricao: null, delta: s.por_ancora })),
+        ...p.ponteiro.estresse.map((e) => ({ nome: e.nome, descricao: e.descricao,
+          delta: Object.fromEntries(Object.entries(e.por_ancora).map(([id, v]) => [id, v.delta])) })),
       ];
-      return {
-        grid: { top: 24, right: 40, bottom: 28, left: 8, containLabel: true },
-        tooltip: Object.assign({}, dc.tooltipBase, { trigger: "axis",
-          formatter: (ps) => {
-            const i = (Array.isArray(ps) ? ps[0] : ps).dataIndex, p = pts[i];
-            return (i === 0 ? "hoje" : p.idade + " anos, em " + p.ano) + "<br>p90 " + fmt(p.p90)
-              + "<br>mediana " + fmt(p.p50) + "<br>p10 " + fmt(p.p10);
-          } }),
-        legend: { show: false },
-        xAxis: { type: "category", data: eixo.data, boundaryGap: false,
-          axisLabel: { hideOverlap: true, interval: eixo.intervalo } },
-        yAxis: { type: "value", min: 0, max, axisLabel: { formatter: fmt } },
-        series: [
-          ...faixa("p10 a p90", "a", "p10", "p90", 0.12),
-          ...faixa("p25 a p75", "b", "p25", "p75", 0.22),
-          { name: "Mediana", type: "line", data: col("p50"), symbol: "none",
-            lineStyle: { width: 2.5, color: cor }, itemStyle: { color: cor },
-            markPoint: criarMarkPointUltimo(col("p50"), fmt, cor, dc.fontFamily) },
-        ],
-        aria: { enabled: true, label: { description: this.projLequeLabel(c) } },
-      };
     },
 
     get relUltimoMes() {
@@ -2156,18 +2059,7 @@ document.addEventListener("alpine:init", () => {
       if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
       if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
     },
-    // Idem para os gráficos de #/raiox/projecao (7a.AW.2): três instâncias —
-    // o mapa das quatro medianas + um leque por âncora —, todas descartadas
-    // no lock. `echartsProj` virou array (era instância única na 7a.AV.2).
-    _descartarProj() {
-      if (this.echartsProj) {
-        for (const c of this.echartsProj) { try { c.dispose(); } catch (_) {} }
-        this.echartsProj = null;
-      }
-      if (this.resizeObserverProj) { try { this.resizeObserverProj.disconnect(); } catch (_) {} this.resizeObserverProj = null; }
-    },
-
-    // Agrega o descarte dos 4 gráficos (7a.AV.2 somou o da projeção) (cada um via seu próprio helper — o
+    // Agrega o descarte dos 3 gráficos (a projeção teve ECharts de 7a.AV.2 a 7a.AW.2; saiu na 7a.AX) (cada um via seu próprio helper — o
     // agregado continua POR-GRÁFICO; nenhum helper chama este método de
     // volta, senão um render sozinho descartaria os outros dois indevidamente)
     // + os derivados do render que carregam número da carteira: `_rentCtx`
@@ -2180,7 +2072,6 @@ document.addEventListener("alpine:init", () => {
       this._descartarProv();
       this._descartarPatr();
       this._descartarRent();
-      this._descartarProj();
       this._rentCtx = null;
       this.proventosTotalLabel = "";
       this.proventosTotalValor = 0;
@@ -4237,9 +4128,6 @@ document.addEventListener("alpine:init", () => {
         // então hidratarDY() precisa rodar agora que o payload chegou; senão
         // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
         if (this.rota === "dy") this.hidratarDY();
-        // 7a.AV.2: cold-start em `#/raiox/projecao` chega aqui sem json;
-        // re-hidrata agora que o payload chegou (espelha #/raiox/chart).
-        if (this.rota === "projecao") this.hidratarProjecao();
       } catch (err) {
         // 7a.W.3.b: chegamos aqui com o payload EM MÃOS e ele não abriu com o
         // segredo que este aparelho guarda. Isso não é "PIN errado" (o PIN
@@ -4622,9 +4510,6 @@ document.addEventListener("alpine:init", () => {
         // 7a.S.7b: bookmark direto de `#/proventos/dy` — re-hidrata o DY
         // depois que `json` chegou via submitPin (espelha #/raiox/chart).
         if (this.rota === "dy") this.hidratarDY();
-        // 7a.AV.2: cold-start em `#/raiox/projecao` chega aqui sem json;
-        // re-hidrata agora que o payload chegou (espelha #/raiox/chart).
-        if (this.rota === "projecao") this.hidratarProjecao();
       } catch (err) {
         console.error("decifra falhou", err);
         this.registrarFalha();

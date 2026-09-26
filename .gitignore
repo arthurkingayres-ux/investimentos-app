@@ -25,3 +25,7 @@ mockups/
 # Screenshots de captura dos testes Playwright (page.screenshot, artefatos de
 # inspeção — não versionar; regeram-se localmente). CRB 7a.S.12.
 tests/screenshots/
+
+# Worktrees de fase (7a.AX; follow-up da 7a.AW.2): sem isto o checkout
+# isolado aparece como untracked no main.
+.worktrees/
