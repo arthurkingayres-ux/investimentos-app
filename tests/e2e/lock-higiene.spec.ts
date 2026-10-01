@@ -605,8 +605,9 @@ test.describe("7a.U — higiene de sessão no lock", () => {
   test("lock com a projeção aberta: o ensaio desmonta e nenhum gráfico sobra (7a.AX)", async ({ page }) => {
     await autenticar(page);
     await abrirTelaProjecao(page);
-    // Sem isto o teste passaria por vacuidade: o ensaio tem de estar montado antes.
-    await expect(page.locator(".proj-faixas__linha")).toHaveCount(4);
+    // Sem isto o teste passaria por vacuidade: o ensaio tem de estar montado antes
+    // (7a.AY: três linhas, uma por marco de idade 45/55/65).
+    await expect(page.locator(".proj-faixas__linha")).toHaveCount(3);
     await page.evaluate(() => (window as any).Alpine.$data(document.body).bloquear());
     await expect(page.locator(".pin-screen")).toBeVisible();
     await expect(page.locator(".proj-ensaio")).toHaveCount(0);

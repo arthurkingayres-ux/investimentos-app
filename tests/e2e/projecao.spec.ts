@@ -2,16 +2,19 @@ import { test, expect, Page } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 
-// Fase 7a.AW.2 — a projeção como ensaio. Fixtures 100% sintéticas
-// (gerar_fixture.py::_projecao_sintetica): idade 40, horizonte 2051, taxas e
-// valores inventados. Nenhum assert depende de valor biográfico real.
+// Fase 7a.AY.2 — a projeção com UM cenário: premissas prospectivas por classe,
+// faixas por idade (45/55/65). Fixtures 100% sintéticas
+// (gerar_fixture.py::_projecao_sintetica): fonte inventada ("Casa Sintética de
+// Premissas", edição 2099), idade 30, ano 2030 → 2065. Nenhum assert depende de
+// valor biográfico real nem de número de matriz real. Os valores esperados são
+// lidos do PAYLOAD decifrado (não escritos à mão), salvo onde o teste existe
+// justamente para travar um valor fixo.
 const fx = (n: string) => fs.readFileSync(path.join(__dirname, "../fixtures", n), "utf-8");
 const PRINCIPAL = fx("portfolio.test.json.enc");
 const NULO = fx("portfolio_projecao_null.test.json.enc");
-const PRE227 = fx("portfolio_pre_v227.test.json.enc");
-const PRE228 = fx("portfolio_pre_v228.test.json.enc");
-const SO_XIRR = fx("portfolio_projecao_so_xirr.test.json.enc");
-const NOMES = ["Retorno da carteira", "Retorno do seu dinheiro", "Mercado, média das classes", "Mercado, com rebalanceamento"];
+const PRE229 = fx("portfolio_pre_v229.test.json.enc");
+const IDADE50 = fx("portfolio_projecao_idade50.test.json.enc");
+const VENCIDA = fx("portfolio_projecao_vencida.test.json.enc");
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -25,27 +28,12 @@ async function autenticar(page: Page, corpo = PRINCIPAL) {
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
-// Abre a rota #/raiox/projecao e espera o nó que é gate de DADO (x-if,
-// `.proj-ensaio`) ficar visível E a transição de entrada da tela
-// (push-enter, 280ms) assentar, para que medições de layout (a régua a
-// 320px) leiam um estado parado, não um quadro intermediário da animação.
-// Usada pelas Tasks 8-9 (capítulos do ensaio); não referenciada nesta
-// primeira parte da suíte, que só cobre a camada de dados e os estados
-// vazios.
+// Abre a rota e espera o nó que é gate de DADO (x-if, `.proj-ensaio`) e o fim
+// da transição de entrada (push-enter, transform 280ms): medições de layout
+// em dois round-trips leriam quadros diferentes da animação (7a.AW.2).
 async function abrirProjecao(page: Page) {
   await page.goto("/#/raiox/projecao");
   await expect(page.locator(".tela-projecao .proj-ensaio")).toBeVisible();
-  // Barreira condicional no que é efetivamente medido: enquanto o
-  // push-enter (`.tela-projecao`, transform translateX 280ms) ainda roda, a
-  // régua de 320px mede o container e os rótulos em DOIS round-trips
-  // separados (`evaluateAll` + `evaluate`) que capturam o transform em
-  // instantes ligeiramente diferentes — medido: a mesma sequência de
-  // passos, sem esta espera, produzia um `cont.right` ~0,2-0,5px MAIOR ou
-  // MENOR que o medido no round-trip anterior, o suficiente pra violar a
-  // tolerância de 0,5px em execuções repetidas (`--repeat-each`). Esperar
-  // o transform assentar em `none` elimina a causa, não o sintoma —
-  // reaplicar viewport ou uma espera fixa não adiantavam sozinhos porque
-  // não miravam a transição em si.
   await page
     .waitForFunction(() => {
       const el = document.querySelector(".tela-projecao");
@@ -54,8 +42,8 @@ async function abrirProjecao(page: Page) {
     .catch(() => {});
 }
 
-// 7a.AX: coletor de erros Alpine. O Alpine ENGOLE erro de expressão em x-if
-// (vira "falso"), então uma mutação que quebra um guard ficaria verde sem isto.
+// O Alpine ENGOLE erro de expressão em x-if (vira "falso"): sem este coletor
+// uma mutação que quebra um guard ficaria verde.
 function coletarErros(page: Page) {
   const erros: string[] = [];
   page.on("pageerror", (e) => erros.push("pageerror: " + e.message));
@@ -65,281 +53,350 @@ function coletarErros(page: Page) {
   return erros;
 }
 
-// Retângulos que se sobrepõem de verdade (área > 0), para testes de colisão.
-function sobrepoe(a: { l: number; r: number; t: number; b: number }, b: { l: number; r: number; t: number; b: number }) {
-  return a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
-}
+const dados = (page: Page, expr: string) =>
+  page.evaluate((e) => {
+    const d = (window as any).Alpine.$data(document.body);
+    return new Function("d", "return " + e)(d);
+  }, expr);
 
-test.describe("Projeção como ensaio (7a.AW.2) — dados e estados", () => {
-  test("card da home: entre as duas âncoras, e abre a tela", async ({ page }) => {
-    await autenticar(page);
-    const card = page.locator(".proj-card-home");
-    await expect(card).toContainText("Projeção até os 65");
-    await expect(card).toContainText("pelo seu histórico, entre");
-    await card.click();
-    await expect(page).toHaveURL(/#\/raiox\/projecao$/);
-    await expect(page.locator('.tab-bar a[data-tab="raiox"]')).toHaveAttribute("aria-current", "page");
-  });
+const abrirContas = (page: Page) =>
+  page.evaluate(() => document.querySelectorAll(".tela-projecao details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
 
-  test("ordem canônica dos cenários e nomes da fonte única", async ({ page }) => {
-    await autenticar(page);
-    const r = await page.evaluate(() => {
-      const a = (window as any).Alpine.$data(document.body);
-      return { ids: a.projCenarios().map((c: any) => c.id), nomes: a.projCenarios().map((c: any) => a.projNome(c.id)) };
-    });
-    expect(r.ids).toEqual(["twr", "xirr", "mercado_simples", "mercado_rebalanceado"]);
-    expect(r.nomes).toEqual(NOMES);
-  });
+// Texto renderizado de um percentual com 1 casa ("5,6%") → número (5.6).
+const pct = (s: string) => Number(s.replace("%", "").replace("−", "-").replace(",", ".").trim());
 
-  for (const [nome, corpo] of [["null", NULO], ["pré-v2.27", PRE227], ["pré-v2.28", PRE228]] as const) {
-    test(`payload ${nome}: card some e a rota diz indisponível hoje`, async ({ page }) => {
-      await autenticar(page, corpo);
-      await expect(page.locator(".proj-card-home")).toBeHidden();
-      await page.goto("/#/raiox/projecao");
-      await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
-      await expect(page.locator(".proj-ensaio")).toHaveCount(0);
-    });
-  }
-
-  test("âncora ausente: card e frase-resposta com um valor e o nome da medida", async ({ page }) => {
-    await autenticar(page, SO_XIRR);
-    await expect(page.locator(".proj-card-home")).toContainText("pelo retorno do seu dinheiro,");
-    await expect(page.locator(".proj-card-home")).not.toContainText("entre");
-    await abrirProjecao(page);
-    await expect(page.locator(".proj-faixas__linha")).toHaveCount(3);
-    await expect(page.locator('.proj-faixas__linha[data-id="twr"]')).toHaveCount(0);
-    await expect(page.locator(".proj-decomp__item")).toHaveCount(1);
-    const efeitos = page.locator(".proj-ponteiro__item").first().locator(".proj-ponteiro__ancora");
-    expect(await efeitos.allInnerTexts()).toEqual(["Retorno do seu dinheiro"]);
-  });
-});
-
-test.describe("Projeção como ensaio — capítulos 4 a 6", () => {
-  test("decomposição com rendimento negativo: só as parcelas positivas na barra, a negativa em texto (Review Focus 1 da 7a.AW)", async ({ page }) => {
+test.describe("7a.AY.2 — a tela de um cenário", () => {
+  test("1. frase-resposta: p50 na primeira linha, p10 e p90 na segunda, compactos", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page);
     await abrirProjecao(page);
-    await page.evaluate(() => {
-      const d = (window as any).Alpine.$data(document.body).json.projecao.cenarios[0].decomposicao;
-      d.rendimento_aportes = -50000;
-    });
-    const item = page.locator('.proj-decomp__item[data-id="twr"]');
-    await expect(item.locator(".proj-decomp__seg")).toHaveCount(2);
-    await expect(page.locator(".proj-tabela--decomp")).toContainText("−R$ 50 mil");
+    const r = await dados(page, "({ r: d.projResposta(), p50: d.formatBrlCompacto(d.projResposta().p50), p10: d.formatBrlCompacto(d.projResposta().p10), p90: d.formatBrlCompacto(d.projResposta().p90) })");
+    const resp = page.locator(".proj-resposta");
+    await expect(resp).toContainText("Aos 65 você teria cerca de " + r.p50 + ", em reais de hoje.");
+    await expect(resp).toContainText("Em 8 de cada 10 cenários, entre " + r.p10 + " e " + r.p90 + ".");
+    expect(await resp.locator(".proj-faixa").allInnerTexts()).toEqual([r.p50, r.p10, r.p90]);
+    expect(r.p50).toMatch(/^R\$ \d+,\d mi$/);
     expect(erros).toEqual([]);
   });
 
-  test("ponteiro em lista: 5 alavancas na ordem, descrição só nos cenários, uma linha por âncora com nome e Δ", async ({ page }) => {
+  test("2. só três nós em fonte mono na tela, e são os três valores da frase-resposta", async ({ page }) => {
     await autenticar(page);
     await abrirProjecao(page);
+    await abrirContas(page);
+    const r = await page.evaluate(() => {
+      const sonda = document.createElement("span");
+      sonda.style.fontFamily = "var(--mono)";
+      document.body.appendChild(sonda);
+      const mono = getComputedStyle(sonda).fontFamily;
+      sonda.remove();
+      const comTexto = Array.from(document.querySelectorAll(".proj-ensaio *")).filter((el) => {
+        const h = el as HTMLElement;
+        return h.offsetParent !== null && Array.from(h.childNodes).some((n) => n.nodeType === 3 && (n.textContent || "").trim() !== "");
+      });
+      const monos = comTexto.filter((el) => getComputedStyle(el).fontFamily === mono);
+      return { mono, total: comTexto.length, monos: monos.map((el) => ({ c: el.className, naResposta: !!el.closest(".proj-resposta") })) };
+    });
+    expect(r.mono).toMatch(/mono/i);                    // a sonda leu o token de verdade
+    expect(r.total).toBeGreaterThan(60);                // sem nós a comparação passaria por vacuidade
+    expect(r.monos).toEqual([
+      { c: "proj-faixa", naResposta: true }, { c: "proj-faixa", naResposta: true }, { c: "proj-faixa", naResposta: true }]);
+  });
+
+  test("3. tabela por classe: uma por classe, na ordem do payload, e real − desconto = líquido no que se lê", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const classes = await dados(page, "d.projecao.premissas.classes.map(c => ({ rotulo: c.rotulo, peso: d.projFmtTaxa(c.peso, 0) }))");
+    const cap = page.locator('.proj-cap[data-cap="3"]');
+    const grupos = cap.locator(".proj-tabela--classes tbody.proj-classe");
+    await expect(grupos).toHaveCount(classes.length);
+    expect(classes.length).toBe(6);
+    expect(await grupos.locator("th").allInnerTexts()).toEqual(classes.map((c: any) => c.rotulo));
+    for (const [i, g] of (await grupos.all()).entries()) {
+      const tds = await g.locator("td").allInnerTexts();
+      expect(tds).toHaveLength(4);
+      expect(tds[0]).toBe(classes[i].peso);
+      const [real, desc, liq] = tds.slice(1).map(pct);
+      expect(Math.abs(real - desc - liq), classes[i].rotulo + ": " + tds.join(" ")).toBeLessThan(1e-9);
+      for (const t of tds.slice(1)) expect(t).toMatch(/^\d+,\d%$/);   // 1 casa
+    }
+    // Cabeçalho das colunas numéricas: os quatro nomes da spec.
+    expect(await cap.locator(".proj-tabela--classes thead th").allInnerTexts()).toEqual(["Peso", "Retorno real", "Desconto", "Líquido"]);
+  });
+
+  test("3b. o desconto renderizado vem dos dois valores arredondados, mesmo quando o exato não fecharia", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    // Real 3,46% e líquido 3,24%: o desconto exato (0,22%) leria "0,2%", e 3,5 − 0,2 ≠ 3,2.
+    // A tela tem de mostrar o desconto que FECHA a conta no que se lê: 3,5 − 0,3 = 3,2.
+    await page.evaluate(() => {
+      const c = (window as any).Alpine.$data(document.body).json.projecao.premissas.classes[0];
+      c.retorno_real = 0.0346; c.retorno_liquido = 0.0324; c.desconto = 0.0022;
+    });
+    const tds = await page.locator(".proj-tabela--classes tbody.proj-classe").first().locator("td").allInnerTexts();
+    expect(tds.slice(1)).toEqual(["3,5%", "0,3%", "3,2%"]);
+  });
+
+  test("4. a linha de fonte é do payload: nome, edição e data-base da fixture", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const f = await dados(page, "d.projecao.premissas.fonte");
+    const linha = page.locator('.proj-cap[data-cap="3"] .proj-fonte-linha');
+    await expect(linha).toContainText(f.nome);
+    await expect(linha).toContainText("edição " + f.edicao);
+    await expect(linha).toContainText("data-base " + f.data_base.split("-").reverse().join("/"));
+    await expect(linha).toContainText("Fundos imobiliários: histórico");
+  });
+
+  test("5. premissas vencidas mostram a nota cinza; a fixture principal não", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    await expect(page.locator(".proj-nota-vencida")).toBeHidden();
+    await page.unroute("**/portfolio.json.enc");
+    const p2 = await page.context().newPage();
+    await autenticar(p2, VENCIDA);
+    await abrirProjecao(p2);
+    const nota = p2.locator(".proj-nota-vencida");
+    await expect(nota).toBeVisible();
+    await expect(nota).toHaveText("Estas premissas têm mais de um ano; a edição nova ainda não entrou.");
+    const cor = await p2.evaluate(() => {
+      const s = document.createElement("span"); s.style.color = "var(--gray)"; document.body.appendChild(s);
+      const c = getComputedStyle(s).color; s.remove();
+      return { gray: c, nota: getComputedStyle(document.querySelector(".proj-nota-vencida")!).color };
+    });
+    expect(cor.nota).toBe(cor.gray);
+  });
+
+  test("6. três linhas no gráfico (45/55/65); com idade 50, duas", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const linhas = page.locator(".proj-faixas__linha");
+    await expect(linhas).toHaveCount(3);
+    expect(await page.locator(".proj-faixas__nome").allInnerTexts()).toEqual(["Aos 45", "Aos 55", "Aos 65"]);
+    await page.unroute("**/portfolio.json.enc");
+    const p2 = await page.context().newPage();
+    const erros = coletarErros(p2);
+    await autenticar(p2, IDADE50);
+    await abrirProjecao(p2);
+    await expect(p2.locator(".proj-faixas__linha")).toHaveCount(2);
+    expect(await p2.locator(".proj-faixas__nome").allInnerTexts()).toEqual(["Aos 55", "Aos 65"]);
+    expect(erros).toEqual([]);
+  });
+
+  test("7. coordenadas: tudo dentro do eixo, p50 de cada marco em p50/max, teto redondo", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const g = await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      const fx = d.projFaixas();
+      const linhas = Array.from(document.querySelectorAll(".proj-faixas__linha")).map((li, i) => {
+        const t = li.querySelector(".proj-faixas__trilho")!.getBoundingClientRect();
+        const rel = (el: Element | null) => {
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          return { l: ((b.left - t.left) / t.width) * 100, r: ((b.right - t.left) / t.width) * 100, c: ((b.left + b.width / 2 - t.left) / t.width) * 100 };
+        };
+        const m = d.projMarcos()[i];
+        return { idade: m.idade, esperado: (m.p50 / fx.max) * 100, ponto: rel(li.querySelector(".proj-faixas__ponto")),
+                 traco: rel(li.querySelector(".proj-faixas__traco")), barra: rel(li.querySelector(".proj-faixas__barra")) };
+      });
+      return { max: fx.max, eixo: Array.from(document.querySelectorAll(".proj-faixas__eixo span")).map((s) => s.textContent),
+               fmtMax: d.formatBrlCompacto(fx.max), linhas };
+    });
+    expect(g.max).toBe(8_000_000);                       // maior p90 da fixture ~6,53 mi → escada → 8 mi
+    expect(g.eixo).toEqual(["R$ 0", g.fmtMax]);
+    for (const l of g.linhas) {
+      expect(l.traco!.l, String(l.idade)).toBeGreaterThanOrEqual(-0.5);
+      expect(l.traco!.r, String(l.idade)).toBeLessThanOrEqual(100.5);
+      expect(l.barra!.l).toBeGreaterThanOrEqual(l.traco!.l - 0.5);
+      expect(l.barra!.r).toBeLessThanOrEqual(l.traco!.r + 0.5);
+      expect(Math.abs(l.ponto!.c - l.esperado), String(l.idade)).toBeLessThanOrEqual(0.5);
+    }
+    // A faixa se abre com o tempo: o traço do 65 é mais largo que o do 45.
+    expect(g.linhas[2].traco!.r - g.linhas[2].traco!.l).toBeGreaterThan(g.linhas[0].traco!.r - g.linhas[0].traco!.l);
+  });
+
+  test("8. aria-label de cada linha cita os cinco percentis; valores escritos fora do role=img", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const esperado = await dados(page, "d.projMarcos().map(m => ({ label: d.projFaixaLabel(m.idade), v: ['p10','p25','p50','p75','p90'].map(k => d.formatBrlCompacto(m[k])), p10: d.formatBrlCompacto(m.p10), p50: d.formatBrlCompacto(m.p50), p90: d.formatBrlCompacto(m.p90) }))");
+    const linhas = await page.locator(".proj-faixas__linha").all();
+    expect(linhas).toHaveLength(3);
+    for (const [i, li] of linhas.entries()) {
+      const img = li.locator('[role="img"]');
+      const label = await img.getAttribute("aria-label");
+      expect(label).toBe(esperado[i].label);
+      for (const v of esperado[i].v) expect(label).toContain(v);
+      await expect(img).toHaveText("");                 // nada escrito dentro do desenho
+      const val = li.locator(".proj-faixas__valores");
+      await expect(val).toContainText("mediana " + esperado[i].p50);
+      await expect(val).toContainText("8 em 10 entre " + esperado[i].p10 + " e " + esperado[i].p90);
+    }
+  });
+
+  test("9. ponteiro: 2 sensibilidades + 3 estresses, mediana e Δ com sinal em texto", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const al = await dados(page, "d.projAlavancas().map(a => ({ nome: a.nome, p50: d.formatBrlCompacto(a.p50), delta: d.formatDeltaCompacto(a.delta) }))");
     const cap = page.locator('.proj-cap[data-cap="5"]');
-    await expect(cap.locator("table")).toHaveCount(0);                // nada de cabeçalho de coluna
     const itens = cap.locator(".proj-ponteiro__item");
     await expect(itens).toHaveCount(5);
-    expect(await cap.locator(".proj-ponteiro__nome").allInnerTexts()).toEqual([
-      "+R$ 1.000/mês de aporte", "+1 p.p. de retorno real", "Década inicial fraca", "Real forte", "Aporte pela metade"]);
+    expect(await cap.locator(".proj-ponteiro__nome").allInnerTexts()).toEqual(al.map((a: any) => a.nome));
     for (const [i, it] of (await itens.all()).entries()) {
       await expect(it.locator(".proj-ponteiro__desc")).toHaveCount(i < 2 ? 0 : 1);
-      expect(await it.locator(".proj-ponteiro__ancora").allInnerTexts()).toEqual(["Retorno da carteira", "Retorno do seu dinheiro"]);
-      for (const d of await it.locator(".proj-delta").allInnerTexts()) expect(d).toContain(i < 2 ? "+R$" : "−R$");
-      for (const seta of await it.locator(".proj-delta > span[aria-hidden='true']").all()) await expect(seta).toHaveText(i < 2 ? "▲" : "▼");
+      await expect(it.locator(".proj-ponteiro__mediana")).toContainText(al[i].p50);
+      const delta = it.locator(".proj-delta");
+      await expect(delta).toContainText(al[i].delta);
+      expect(al[i].delta).toMatch(i < 2 ? /^\+R\$/ : /^−R\$/);
+      await expect(delta.locator("span[aria-hidden='true']")).toHaveText(i < 2 ? "▲" : "▼");
     }
     const txt = (await page.locator(".tela-projecao").innerText()).toLowerCase();
     for (const v of ["aporte mais", "compre", "venda ", "invista mais"]) expect(txt).not.toContain(v);
   });
 
-  test("ponteiro a 320 px: nome da âncora e Δ na mesma linha, com folga, dentro do capítulo", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
+  for (const [nome, corpo] of [["v2.28", PRE229], ["null", NULO]] as const) {
+    test(`10. payload ${nome}: 'Projeção indisponível hoje' e card ausente, sem erro`, async ({ page }) => {
+      const erros = coletarErros(page);
+      await autenticar(page, corpo);
+      await expect(page.locator(".proj-card-home")).toBeHidden();
+      await page.goto("/#/raiox/projecao");
+      await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
+      await expect(page.locator(".proj-ensaio")).toHaveCount(0);
+      expect(erros).toEqual([]);
+    });
+  }
+
+  for (const w of [320, 390]) {
+    test(`11. sem rolagem horizontal a ${w} px, com tudo aberto, e nada fora do próprio capítulo`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: 800 });
+      await autenticar(page);
+      await abrirProjecao(page);
+      await abrirContas(page);
+      const r = await page.evaluate(() => {
+        const ensaio = document.querySelector(".proj-ensaio")!.getBoundingClientRect();
+        const blocos = [document.querySelector(".proj-resposta")!, ...Array.from(document.querySelectorAll(".proj-cap")),
+                        document.querySelector(".proj-conta--final")!];
+        const fora: string[] = [];
+        for (const bl of blocos) {
+          const c = bl.getBoundingClientRect();
+          if (c.left < ensaio.left - 0.5 || c.right > ensaio.right + 0.5) fora.push("bloco " + bl.className);
+          for (const e of Array.from(bl.querySelectorAll("*"))) {
+            if (e.closest(".sr-only")) continue;
+            const b = e.getBoundingClientRect();
+            if (b.width === 0) continue;
+            if (b.left < c.left - 0.5 || b.right > c.right + 0.5) fora.push(e.tagName + "." + e.className);
+          }
+        }
+        return { blocos: blocos.length, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, fora };
+      });
+      expect(r.blocos).toBe(8);                   // abertura + seis capítulos + a conta final
+      expect(r.sw).toBeLessThanOrEqual(r.cw);
+      expect(r.fora).toEqual([]);
+    });
+  }
+
+  test("12. nada das quatro leituras: sem TWR, XIRR, âncora, 'quatro leituras', nem travessão", async ({ page }) => {
     await autenticar(page);
     await abrirProjecao(page);
-    const r = await page.evaluate(() => {
-      const cap = document.querySelector('.proj-cap[data-cap="5"]')!.getBoundingClientRect();
-      return Array.from(document.querySelectorAll(".proj-ponteiro__efeito")).map((e) => {
-        const n = e.querySelector(".proj-ponteiro__ancora")!.getBoundingClientRect();
-        const d = e.querySelector(".proj-delta")!.getBoundingClientRect();
-        return { folga: d.left - n.right, mesma: n.top < d.bottom && d.top < n.bottom, dentro: d.right <= cap.right + 0.5 };
-      });
-    });
-    expect(r).toHaveLength(10);
-    for (const e of r) { expect(e.mesma).toBe(true); expect(e.folga).toBeGreaterThanOrEqual(8); expect(e.dentro).toBe(true); }
+    await abrirContas(page);
+    const txt = await page.locator(".tela-projecao").innerText();
+    for (const t of [/\bTWR\b/, /\bXIRR\b/, /âncora/i, /quatro leituras/i]) expect(txt).not.toMatch(t);
+    expect(txt).not.toContain("—");
+    const frases = txt.split(/[.!?]\s|\n/).map((f) => f.trim()).filter(Boolean);
+    for (const f of frases) expect(f.split(/\s+/).length, f).toBeLessThanOrEqual(40);
+  });
+});
+
+test.describe("7a.AY.2 — capítulos e conta", () => {
+  test("seis capítulos na ordem, com ordinal e título; 'ver a conta' fechado por padrão", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    expect(await page.locator(".proj-cap__ordinal").allInnerTexts()).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(await page.locator(".proj-cap__titulo").allInnerTexts()).toEqual([
+      "De onde você parte", "Quanto você aporta", "Quanto a carteira deve render", "O que isso dá",
+      "O que mexe o ponteiro", "O que esta conta não inclui"]);
+    for (const d of await page.locator(".tela-projecao details").all()) expect(await d.getAttribute("open")).toBeNull();
+    const conta = page.locator('.proj-cap[data-cap="2"] details.proj-conta');
+    await conta.locator("summary").click();
+    await expect(conta.locator(".proj-tabela--conta tr")).toHaveCount(4);
   });
 
-  test("capítulo 6 e o rodapé", async ({ page }) => {
+  test("cap. 3: tema é a taxa central, e o grifo único cita EUA a partir do payload", async ({ page }) => {
     await autenticar(page);
     await abrirProjecao(page);
-    const cap = page.locator('.proj-cap[data-cap="6"]');
-    for (const t of ["Impostos e custos", "o viés é para cima", "Aporte que cresce com a renda"]) await expect(cap).toContainText(t);
+    const v = await dados(page, "({ taxa: d.projFmtTaxa(d.projecao.taxa_central.taxa), eua: d.projFmtTaxa(d.projecao.premissas.classes.find(c => c.classe === 'U.S. Large Cap').retorno_real, 1) })");
+    const cap = page.locator('.proj-cap[data-cap="3"]');
+    await expect(cap.locator(".proj-cap__tema")).toHaveText(v.taxa + " ao ano, acima da inflação");
+    await expect(cap.locator(".proj-cap__texto").first()).toContainText("descontado de custos e impostos");
+    await expect(page.locator(".tela-projecao .grifo")).toHaveCount(1);
+    const grifo = cap.locator(".grifo.proj-grifo");
+    await expect(grifo.locator(".proj-grifo__titulo")).toHaveText("Esta taxa olha para frente, não para trás");
+    await expect(grifo).toContainText("10 a 15 anos");
+    await expect(grifo).toContainText("6,7%");
+    await expect(grifo).toContainText(v.eua);
+    // Sem a linha americana no payload, a comparação some (nunca um número inventado).
+    await page.evaluate(() => {
+      const p = (window as any).Alpine.$data(document.body).json.projecao.premissas;
+      p.classes = p.classes.filter((c: any) => c.classe !== "U.S. Large Cap");
+    });
+    await expect(grifo).not.toContainText("6,7%");
+  });
+
+  test("cap. 3 'ver a conta': composição do desconto, inflação, média e oscilação", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const v = await dados(page, "({ inf: d.projFmtTaxa(d.projecao.premissas.inflacao), media: d.projFmtTaxa(d.projecao.taxa_central.media_aritmetica), vol: d.projFmtTaxa(d.projecao.taxa_central.vol_carteira, 1), ter: d.projFmtTaxa(d.projecao.premissas.classes[0].desconto_composicao.ter) })");
+    const conta = page.locator('.proj-cap[data-cap="3"] details.proj-conta');
+    await conta.locator("summary").click();
+    await expect(conta.locator(".proj-tabela--desconto tbody tr")).toHaveCount(6);
+    await expect(conta.locator(".proj-tabela--desconto tbody tr").first()).toContainText(v.ter);
+    for (const t of [v.inf, v.media, v.vol, "30% do dividendo", "1 ponto-base"]) await expect(conta).toContainText(t);
+  });
+
+  test("cap. 4: decomposição em barra e tabela; parcela negativa só em texto", async ({ page }) => {
+    const erros = coletarErros(page);
+    await autenticar(page);
+    await abrirProjecao(page);
+    const cap = page.locator('.proj-cap[data-cap="4"]');
+    await expect(cap.locator(".proj-decomp__seg")).toHaveCount(3);
+    await expect(cap.locator(".proj-tabela--decomp tbody tr")).toHaveCount(3);
+    await expect(cap.locator(".proj-decomp__titulo")).toContainText("A mediana da simulação é esse mesmo valor");
+    await page.evaluate(() => {
+      (window as any).Alpine.$data(document.body).json.projecao.decomposicao.rendimento_aportes = -50000;
+    });
+    await expect(cap.locator(".proj-decomp__seg")).toHaveCount(2);
+    await expect(cap.locator(".proj-tabela--decomp")).toContainText("−R$ 50 mil");
+    expect(erros).toEqual([]);
+  });
+
+  test("cap. 6 e a conta final: percentis por marco, correlações, trajetórias", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const cap6 = page.locator('.proj-cap[data-cap="6"]');
+    for (const t of ["valor de mercado", "Rebalancear", "10 a 15 anos", "Fundos imobiliários", "Renda-alvo"]) await expect(cap6).toContainText(t);
+    // A justificativa da classe histórica vive só na linha de fonte do cap. 3 (board, iteração 1).
+    await expect(cap6).toContainText("Fundos imobiliários: histórico 2010-2020 (sintético).");
+    await expect(cap6).not.toContainText("premissa prospectiva");
+    const fin = page.locator(".proj-conta--final");
+    await fin.locator("summary").click();
+    const perc = fin.locator(".proj-tabela--percentis");
+    await expect(perc.locator("thead th")).toHaveCount(4);
+    expect((await perc.locator("thead th").allInnerTexts()).slice(1)).toEqual(["45 anos", "55 anos", "65 anos"]);
+    await expect(perc.locator("tbody tr")).toHaveCount(5);
+    // Sem o "R$ " nas células (a 320 px as três colunas não cabiam com ele); a unidade fica na frase acima.
+    const p90_65 = await dados(page, "d.formatBrlCompacto(d.projFinal().p90).replace('R$ ', '')");
+    await expect(perc.locator("tbody tr").last().locator("td").last()).toHaveText(p90_65);
+    await expect(fin.locator(".proj-tabela--correl tbody tr")).toHaveCount(15);       // 6 classes → 15 pares
+    await expect(fin.locator(".proj-tabela--correl tbody tr").first()).toContainText("Ações Brasil e Ações EUA");
+    await expect(fin).toContainText("10.000 trajetórias");
     await expect(page.locator(".proj-rodape")).toHaveText("10.000 trajetórias · recalculada toda noite · projeção, não promessa");
   });
 
-});
-
-test.describe("Projeção como ensaio (7a.AW.2) — capítulos 0 a 3", () => {
-  test("seis capítulos na ordem, cada um com ordinal e título, e o 4 sem número-tema", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const titulos = await page.locator(".proj-cap .proj-cap__titulo").allInnerTexts();
-    expect(titulos).toEqual([
-      "De onde você parte", "Quanto você aporta", "Quanto a carteira rende: quatro leituras",
-      "O que isso dá aos 65", "O que mexe o ponteiro", "O que esta conta não inclui",
-    ]);
-    expect(await page.locator(".proj-cap .proj-cap__ordinal").allInnerTexts()).toEqual(["1", "2", "3", "4", "5", "6"]);
-    expect(await page.locator(".proj-cap").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.cap))).toEqual(["1", "2", "3", "4", "5", "6"]);
-    await expect(page.locator('.proj-cap[data-cap="4"] .proj-cap__tema')).toHaveCount(0);
-  });
-
-  test("o ordinal é tipografia de título e o número-tema é tabular", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const r = await page.evaluate(() => {
-      const ord = document.querySelector(".proj-cap__ordinal")!;
-      const tema = document.querySelector(".proj-cap__tema")!;
-      const cs = (e: Element) => getComputedStyle(e);
-      return { ordNum: cs(ord).fontVariantNumeric, temaNum: cs(tema).fontVariantNumeric,
-               temaFam: cs(tema).fontFamily, temaPeso: cs(tema).fontWeight };
-    });
-    expect(r.temaNum).toContain("tabular-nums");
-    expect(r.ordNum).not.toContain("tabular-nums");
-    expect(/monospace/i.test(r.temaFam)).toBe(false);
-    expect(r.temaPeso).toBe("700");
-  });
-
-  test("frase-resposta com as duas âncoras, e os dois números são os maiores da tela", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const resp = page.locator(".proj-resposta");
-    await expect(resp).toContainText("Pelo seu histórico, aos 65 você teria entre");
-    await expect(resp).toContainText("em reais de hoje, se nada mudar no seu ritmo de aporte");
-    const t = await page.evaluate(() => {
-      const px = (el: Element) => parseFloat(getComputedStyle(el).fontSize);
-      const faixa = Array.from(document.querySelectorAll(".proj-resposta .proj-faixa")).map(px);
-      const outros = Array.from(document.querySelectorAll(".tela-projecao *"))
-        .filter((el) => !el.classList.contains("proj-faixa") && !el.closest(".proj-resposta__valores")
-          && (el as HTMLElement).offsetParent !== null
-          && el.childElementCount === 0 && (el.textContent || "").trim() !== "").map(px);
-      return { faixa, max: Math.max(...outros) };
-    });
-    expect(t.faixa).toHaveLength(2);
-    for (const v of t.faixa) expect(v).toBeGreaterThan(t.max);
-  });
-
-  test("'ver a conta' fechado por padrão, abre ao toque", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const contas = page.locator("details.proj-conta");
-    expect(await contas.count()).toBeGreaterThanOrEqual(6);   // 6 na Task 8; a Task 9 soma 2
-    for (const d of await contas.all()) await expect(d).not.toHaveAttribute("open", "");
-    const primeira = contas.first();
-    await primeira.locator("summary").click();
-    await expect(primeira).toHaveAttribute("open", "");
-    await expect(primeira.locator(".proj-conta__corpo")).toBeVisible();
-  });
-
-  test("capítulo 2: a conta do aporte com as quatro somas e a janela", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const cap = page.locator('.proj-cap[data-cap="2"]');
-    await cap.locator("details.proj-conta summary").click();
-    for (const t of ["Compras menos vendas", "Proventos", "Aluguel de ações", "÷ 12", "De 26/09/2025 a 25/09/2026"])
-      await expect(cap).toContainText(t);
-    await expect(cap.locator(".proj-nota-piso")).toBeHidden();
-  });
-
-  test("nota de piso zero (Review Focus 3)", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    await page.evaluate(() => { (window as any).Alpine.$data(document.body).json.projecao.aporte.piso_zero_aplicado = true; });
-    await expect(page.locator('.proj-cap[data-cap="2"] .proj-nota-piso')).toBeVisible();
-  });
-
-  test("uma subseção por cenário, na ordem, com o grifo único entre as âncoras e o mercado", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const cap = page.locator('.proj-cap[data-cap="3"]');
-    expect(await cap.locator(".proj-leitura__nome").allInnerTexts()).toEqual(NOMES);
-    await expect(page.locator(".tela-projecao .grifo")).toHaveCount(1);
-    const grifo = cap.locator(".grifo");
-    await expect(grifo).toContainText("Por que as duas medidas do seu histórico discordam");
-    await expect(grifo.locator("tbody tr")).toHaveCount(11);
-    await expect(grifo).toContainText("antes da medição");      // 2016: retorno null
-  });
-
-  test("âncora ausente: 'indisponível hoje' no capítulo 3, três barras, sem grifo", async ({ page }) => {
-    // Sem `t` (twr), `projGrifoFrase()` só é segura porque checa `!t || !x`
-    // antes de ler `t.taxa_real` — um regresso ali (ex.: checar só `!x`)
-    // lançaria um TypeError dentro da expressão `x-if`, que o Alpine
-    // intercepta e loga como "Alpine Expression Error" sem propagar pra
-    // fora (a tela continua parecendo correta: o `.grifo` simplesmente não
-    // renderiza, por coincidência com o estado esperado desta fixture).
-    // Sem esta captura, essa classe de regressão passaria muda.
-    const erros: string[] = [];
-    page.on("pageerror", (e) => erros.push("pageerror: " + e.message));
-    page.on("console", (m) => {
-      if (m.type() === "error" || m.text().includes("Alpine Expression Error")) erros.push(m.type() + ": " + m.text());
-    });
-    await autenticar(page, SO_XIRR);
-    await abrirProjecao(page);
-    await expect(page.locator('.proj-cap[data-cap="3"]')).toContainText("Retorno da carteira indisponível hoje");
-    await expect(page.locator(".proj-taxas__linha")).toHaveCount(3);
-    await expect(page.locator(".tela-projecao .grifo")).toHaveCount(0);
-    await expect(page.locator(".proj-resposta")).toContainText("Pelo retorno do seu dinheiro, aos 65 você teria");
-    expect(erros).toEqual([]);
-  });
-});
-
-test.describe("Projeção como ensaio (7a.AW.2) — copy, largura e tema", () => {
-  test("copy: sem travessão, siglas só em 'ver a conta', frases de até 40 palavras", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const r = await page.evaluate(() => {
-      const tela = document.querySelector(".tela-projecao") as HTMLElement;
-      const clone = tela.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll("details.proj-conta, .sr-only").forEach((d) => d.remove());
-      return { tudo: tela.innerText, fora: clone.innerText };
-    });
-    expect(r.tudo).not.toContain("—");
-    expect(r.fora).not.toMatch(/\bTWR\b|\bXIRR\b/);
-    const frases = r.tudo.split(/[.!?]\s|\n/).map((f) => f.trim()).filter(Boolean);
-    for (const f of frases) expect(f.split(/\s+/).length, f).toBeLessThanOrEqual(40);
-  });
-
-  test("320 px com todos os 'ver a conta' abertos: nada passa do retângulo do próprio capítulo", async ({ page }) => {
+  test("a 320 px: cabeçalhos das tabelas com folga ≥ 6 px entre os textos", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await autenticar(page);
     await abrirProjecao(page);
-    await page.evaluate(() => document.querySelectorAll(".tela-projecao details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
+    await abrirContas(page);
     const r = await page.evaluate(() => {
-      // Pelo retângulo de CADA capítulo, não só pela rolagem da página: uma peça
-      // larga demais sobra para o respiro lateral sem gerar rolagem (7a.AW.2).
-      // Nós sr-only ficam de fora (1 px de caixa, conteúdo transbordando por desenho).
-      const ensaio = document.querySelector(".proj-ensaio")!.getBoundingClientRect();
-      const blocos = [document.querySelector(".proj-resposta")!, ...Array.from(document.querySelectorAll(".proj-cap"))];
-      const fora: string[] = [];
-      for (const bl of blocos) {
-        const c = bl.getBoundingClientRect();
-        if (c.left < ensaio.left - 0.5 || c.right > ensaio.right + 0.5) fora.push("bloco " + bl.className);
-        for (const e of Array.from(bl.querySelectorAll("*"))) {
-          if (e.closest(".sr-only")) continue;
-          const b = e.getBoundingClientRect();
-          if (b.width === 0) continue;
-          if (b.left < c.left - 0.5 || b.right > c.right + 0.5) fora.push(e.tagName + "." + e.className);
-        }
-      }
-      return { blocos: blocos.length, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, fora };
-    });
-    expect(r.blocos).toBe(7);                     // a abertura + os seis capítulos
-    expect(r.sw).toBeLessThanOrEqual(r.cw);
-    expect(r.fora).toEqual([]);
-  });
-
-  test("a 320 px, os cabeçalhos de coluna das tabelas não encostam (folga ≥ 6 px entre os textos)", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
-    await autenticar(page);
-    await abrirProjecao(page);
-    await page.evaluate(() => document.querySelectorAll(".tela-projecao details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
-    const r = await page.evaluate(() => {
-      // Caixa do TEXTO de cada célula (Range), não a da célula: células vizinhas
-      // sempre se tocam; o defeito é o texto de uma colar no da outra.
       const texto = (el: Element) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg.getBoundingClientRect(); };
       const folgas: { tabela: string; folga: number }[] = [];
       for (const t of Array.from(document.querySelectorAll(".proj-ensaio table"))) {
@@ -350,53 +407,54 @@ test.describe("Projeção como ensaio (7a.AW.2) — copy, largura e tema", () =>
       }
       return folgas;
     });
-    expect(r.length).toBeGreaterThanOrEqual(2);          // decomp + percentis; vazio passaria por vacuidade
+    expect(r.length).toBeGreaterThanOrEqual(5);          // classes (3) + desconto (1) + percentis (2): vazio passaria por vacuidade
     for (const f of r) expect(f.folga, f.tabela).toBeGreaterThanOrEqual(6);
   });
 
-  test("Modo Plantão: barras e pontos usam os tokens escuros", async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("tema", "dark"));
+  test("a 320 px: no ponteiro, mediana e Δ na mesma linha, com folga, dentro do capítulo", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 });
     await autenticar(page);
     await abrirProjecao(page);
     const r = await page.evaluate(() => {
-      const cor = (v: string) => { const s = document.createElement("span"); s.style.color = `var(${v})`; document.body.appendChild(s); const c = getComputedStyle(s).color; s.remove(); return c; };
-      const bg = (sel: string) => getComputedStyle(document.querySelector(sel)!).backgroundColor;
-      return {
-        tema: document.documentElement.getAttribute("data-theme"),
-        g700: cor("--g-700"), ink: cor("--ink"), n300: cor("--neutral-300"),
-        barraTaxa: bg(".proj-taxas__barra--ancora"), barraFaixa: bg(".proj-faixas__barra"),
-        pontoAncora: bg('.proj-faixas__linha--ancora .proj-faixas__ponto'),
-        pontoMercado: bg('.proj-faixas__linha--comparacao .proj-faixas__ponto'),
-      };
-    });
-    expect(r.tema).toBe("dark");
-    expect(r.g700).toBe("rgb(52, 211, 153)");      // o --g-700 do Plantão (#34d399), não o claro (#047857)
-    expect(r.barraTaxa).toBe(r.g700);
-    expect(r.barraFaixa).toBe(r.g700);
-    expect(r.pontoAncora).toBe(r.ink);
-    expect(r.pontoMercado).toBe(r.n300);
-  });
-});
-
-test.describe("Refinamento da projeção (7a.AX) — tipografia", () => {
-  test("só os dois valores da frase-resposta usam a fonte mono", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    await page.evaluate(() => document.querySelectorAll(".proj-ensaio details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
-    const r = await page.evaluate(() => {
-      const comTexto = Array.from(document.querySelectorAll(".proj-ensaio *")).filter((el) => {
-        const h = el as HTMLElement;
-        return h.offsetParent !== null
-          && Array.from(h.childNodes).some((n) => n.nodeType === 3 && (n.textContent || "").trim() !== "");
+      const cap = document.querySelector('.proj-cap[data-cap="5"]')!.getBoundingClientRect();
+      return Array.from(document.querySelectorAll(".proj-ponteiro__efeito")).map((e) => {
+        const n = e.querySelector(".proj-ponteiro__mediana")!.getBoundingClientRect();
+        const d = e.querySelector(".proj-delta")!.getBoundingClientRect();
+        return { folga: d.left - n.right, mesma: n.top < d.bottom && d.top < n.bottom, dentro: d.right <= cap.right + 0.5 };
       });
-      const mono = comTexto.filter((el) => /monospace/i.test(getComputedStyle(el).fontFamily));
-      return { total: comTexto.length, mono: mono.map((el) => el.className) };
     });
-    expect(r.total).toBeGreaterThan(50);                // sem nós, a comparação abaixo passaria por vacuidade
-    expect(r.mono).toEqual(["proj-faixa", "proj-faixa"]);
+    expect(r).toHaveLength(5);
+    for (const e of r) { expect(e.mesma).toBe(true); expect(e.folga).toBeGreaterThanOrEqual(8); expect(e.dentro).toBe(true); }
   });
 
-  test("unidades e conectivos: fonte do texto, mesmo corpo do número, peso 400, cinza", async ({ page }) => {
+  for (const w of [800, 320]) {
+    test(`abertura a ${w}px: na linha da faixa, o 'e' fica com o primeiro valor`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: 800 });
+      await autenticar(page);
+      await abrirProjecao(page);
+      const linha = () => page.evaluate(() => {
+        const [, a, b] = Array.from(document.querySelectorAll(".proj-resposta .proj-faixa")).map((e) => e.getBoundingClientRect());
+        const e = document.querySelector(".proj-resposta .proj-conectivo")!.getBoundingClientRect();
+        const mesma = (x: DOMRect, y: DOMRect) => Math.abs((x.top + x.bottom) / 2 - (y.top + y.bottom) / 2) < Math.min(x.height, y.height) / 2;
+        return { eComA: mesma(a, e), bComA: mesma(a, b) };
+      });
+      const r = await linha();
+      expect(r.eComA).toBe(true);
+      if (w === 800) expect(r.bComA).toBe(true);
+      // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
+      await page.evaluate(() => {
+        const fs = (window as any).Alpine.$data(document.body).json.projecao.faixas;
+        const f = fs[fs.length - 1];
+        f.p10 = 888_800_000; f.p90 = 999_900_000;
+      });
+      await expect(page.locator(".proj-resposta .proj-faixa").last()).toHaveText("R$ 999,9 mi");
+      const r2 = await linha();
+      expect(r2.eComA).toBe(true);
+      if (w === 320) expect(r2.bComA).toBe(false);
+    });
+  }
+
+  test("unidades e conectivos: fonte do texto, mesmo corpo do número vizinho, peso 400, cinza", async ({ page }) => {
     await autenticar(page);
     await abrirProjecao(page);
     const r = await page.evaluate(() => {
@@ -407,398 +465,216 @@ test.describe("Refinamento da projeção (7a.AX) — tipografia", () => {
       sonda.remove();
       const els = Array.from(document.querySelectorAll(".proj-ensaio .proj-cap__unidade, .proj-ensaio .proj-conectivo"))
         .filter((el) => (el as HTMLElement).offsetParent !== null);
-      const faixa = document.querySelector(".proj-resposta .proj-faixa")!;
       return {
         cinza,
         itens: els.map((el) => {
           const cs = getComputedStyle(el);
-          // O "número que ele liga": na abertura, o .proj-faixa; no resto, o pai (o número herda o corpo dele).
-          const ref = el.closest(".proj-resposta") ? faixa : el.parentElement!;
-          const numsIrmaos = Array.from(el.parentElement!.querySelectorAll(":scope > .proj-num"))
-            .map((n) => getComputedStyle(n).fontSize);
-          return { txt: (el.textContent || "").trim(), fam: cs.fontFamily, peso: cs.fontWeight, cor: cs.color,
-                   corpo: cs.fontSize, corpoRef: getComputedStyle(ref).fontSize, numsIrmaos };
+          const viz = el.closest(".proj-resposta__intervalo") || el.parentElement!;
+          return { txt: (el.textContent || "").trim(), mono: /mono/i.test(cs.fontFamily), peso: cs.fontWeight, cor: cs.color,
+                   corpo: cs.fontSize, corpoRef: getComputedStyle(viz).fontSize };
         }),
       };
     });
-    expect(r.itens.length).toBeGreaterThanOrEqual(8);   // abertura "e" + temas + taxas das 4 leituras + faixas
+    expect(r.itens.length).toBeGreaterThanOrEqual(3);   // o "e" da abertura + as unidades dos temas dos caps. 2 e 3
     for (const i of r.itens) {
-      expect(/monospace/i.test(i.fam), i.txt).toBe(false);
+      expect(i.mono, i.txt).toBe(false);
       expect(i.peso, i.txt).toBe("400");
       expect(i.cor, i.txt).toBe(r.cinza);
       expect(i.corpo, i.txt).toBe(i.corpoRef);
-      for (const n of i.numsIrmaos) expect(n, i.txt).toBe(i.corpo);
     }
   });
 
-  // 800 px: largura em que os dois valores CABEM, e então ficam na mesma linha.
-  // 320 px: não cabem, e a quebra cai depois do "e". (A 390 px, com --num-xl mono,
-  // os valores reais também não cabem numa linha: ~19 caracteres × ~18 px > ~300 px
-  // de conteúdo. É o "quando cabem" da spec §3.2, não um defeito.)
-  for (const w of [800, 320]) {
-    test(`abertura a ${w}px: o 'e' fica na linha do primeiro valor`, async ({ page }) => {
-      const erros = coletarErros(page);
-      await page.setViewportSize({ width: w, height: 800 });
-      await autenticar(page);
-      await abrirProjecao(page);
-      const linha = () => page.evaluate(() => {
-        const [a, b] = Array.from(document.querySelectorAll(".proj-resposta .proj-faixa")).map((e) => e.getBoundingClientRect());
-        const e = document.querySelector(".proj-resposta .proj-conectivo")!.getBoundingClientRect();
-        // Mesma linha = centros verticais a menos de meia altura (a menor). Sobreposição
-        // simples aceitava o ~1 px que o line-height deixa entre linhas vizinhas (medido).
-        const mesma = (x: DOMRect, y: DOMRect) => Math.abs((x.top + x.bottom) / 2 - (y.top + y.bottom) / 2) < Math.min(x.height, y.height) / 2;
-        return { eComA: mesma(a, e), bComA: mesma(a, b) };
-      });
-      const r = await linha();
-      expect(r.eComA).toBe(true);
-      if (w === 800) expect(r.bComA).toBe(true);        // cabem: mesma linha
-      // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
-      await page.evaluate(() => {
-        const cs = (window as any).Alpine.$data(document.body).json.projecao.cenarios;
-        cs.find((c: any) => c.id === "twr").final.p50 = 8_800_000;
-        cs.find((c: any) => c.id === "xirr").final.p50 = 999_900_000;
-      });
-      await expect(page.locator(".proj-resposta .proj-faixa").last()).toHaveText("R$ 999,9 mi");
-      const r2 = await linha();
-      expect(r2.eComA).toBe(true);
-      if (w === 320) expect(r2.bComA).toBe(false);      // prova de que a quebra aconteceu (senão o teste é vácuo)
-      expect(erros).toEqual([]);
-    });
-  }
-});
-
-test.describe("Refinamento da projeção (7a.AX) — barras de taxa", () => {
-  const medirTaxas = (page: Page) => page.evaluate(() => {
-    const a = (window as any).Alpine.$data(document.body);
-    const box = (el: Element) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; };
-    const cap = box(document.querySelector('.proj-cap[data-cap="3"]')!);
-    const linhas = Array.from(document.querySelectorAll(".proj-taxas__linha")).map((li) => ({
-      id: (li as HTMLElement).dataset.id!,
-      nome: li.querySelector(".proj-taxas__nome")!.textContent!.trim(),
-      valor: li.querySelector(".proj-taxas__valor")!.textContent!.trim(),
-      bNome: box(li.querySelector(".proj-taxas__nome")!), bTrilho: box(li.querySelector(".proj-taxas__trilho")!),
-      bBarra: box(li.querySelector(".proj-taxas__barra")!), bValor: box(li.querySelector(".proj-taxas__valor")!),
-      zeroX: li.querySelector(".proj-taxas__zero")!.getBoundingClientRect().left,
-    }));
-    const rot = document.querySelector(".proj-taxas__zero-rot");
-    return {
-      cap, linhas, zeroRot: rot ? rot.textContent!.trim() : null, bZeroRot: rot ? box(rot) : null,
-      taxas: Object.fromEntries(a.projCenarios().map((c: any) => [c.id, c.taxa_real])),
-      fmt: Object.fromEntries(a.projCenarios().map((c: any) => [c.id, a.projFmtTaxa(c.taxa_real)])),
-    };
-  });
-
-  for (const w of [390, 320]) {
-    test(`a ${w}px: uma linha por leitura na ordem, nome acima, comprimento proporcional, zero marcado, tudo dentro`, async ({ page }) => {
-      await page.setViewportSize({ width: w, height: 800 });
-      const erros = coletarErros(page);
-      await autenticar(page);
-      await abrirProjecao(page);
-      const r = await medirTaxas(page);
-      expect(r.linhas.map((l) => l.nome)).toEqual(NOMES);
-      const max = Math.max(...Object.values(r.taxas) as number[]);
-      for (const l of r.linhas) {
-        expect(l.bNome.b, l.id).toBeLessThanOrEqual(l.bTrilho.t + 0.5);              // rótulo em linha própria
-        expect(l.valor, l.id).toBe(r.fmt[l.id]);
-        expect(Math.abs(l.bBarra.l - l.zeroX), l.id).toBeLessThanOrEqual(1);        // começa no zero
-        expect(Math.abs(l.bBarra.w - l.bTrilho.w * r.taxas[l.id] / max), l.id).toBeLessThanOrEqual(1);
-        expect(sobrepoe(l.bValor, l.bBarra), l.id).toBe(false);
-        for (const b of [l.bNome, l.bTrilho, l.bBarra, l.bValor]) {
-          expect(b.l, l.id).toBeGreaterThanOrEqual(r.cap.l - 0.5);
-          expect(b.r, l.id).toBeLessThanOrEqual(r.cap.r + 0.5);
-        }
-      }
-      expect(r.zeroRot).toBe("0%");
-      expect(r.bZeroRot!.l).toBeGreaterThanOrEqual(r.cap.l - 0.5);
-      expect(erros).toEqual([]);
-    });
-  }
-
-  test("taxa negativa a 320 px: barra à esquerda do zero, valor com sinal à esquerda dela, tudo dentro", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
-    const erros = coletarErros(page);
+  test("Modo Plantão: gráfico e barra leem os tokens escuros", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("tema", "dark"));
     await autenticar(page);
     await abrirProjecao(page);
-    await page.evaluate(() => { (window as any).Alpine.$data(document.body).json.projecao.cenarios.find((c: any) => c.id === "twr").taxa_real = -0.012; });
-    await expect(page.locator(".proj-taxas--negativa")).toHaveCount(1);
-    const r = await medirTaxas(page);
-    expect(r.linhas).toHaveLength(4);
-    const twr = r.linhas.find((l) => l.id === "twr")!;
-    expect(twr.valor).toMatch(/^[−-]1,20%$/);
-    expect(Math.abs(twr.bBarra.r - twr.zeroX)).toBeLessThanOrEqual(1);           // termina no zero
-    expect(twr.bBarra.l).toBeLessThan(twr.zeroX - 5);                            // desenha para a esquerda
-    expect(twr.bValor.r).toBeLessThanOrEqual(twr.bBarra.l + 0.5);                // valor à esquerda da ponta
-    for (const l of r.linhas) {
-      expect(sobrepoe(l.bValor, l.bBarra), l.id).toBe(false);
-      for (const b of [l.bValor, l.bBarra]) {
-        expect(b.l, l.id).toBeGreaterThanOrEqual(r.cap.l - 0.5);
-        expect(b.r, l.id).toBeLessThanOrEqual(r.cap.r + 0.5);
-      }
-    }
-    expect(erros).toEqual([]);
-  });
-});
-
-async function geometriaFaixas(page: Page) {
-  return page.evaluate(() => {
-    const a = (window as any).Alpine.$data(document.body);
-    const f = a.projFaixas();
-    const box = (el: Element | null) => {
-      if (!el) return null;
-      const b = el.getBoundingClientRect();
-      return { l: b.left, r: b.right, t: b.top, b: b.bottom, cx: b.left + b.width / 2, w: b.width };
-    };
-    const linhas = Array.from(document.querySelectorAll(".proj-faixas__linha")).map((li) => {
-      const id = (li as HTMLElement).dataset.id!;
-      const c = a.projCenario(id);
-      const txt = (s: string) => li.querySelector(s)!.textContent!.replace(/\s+/g, " ").trim();
+    const r = await page.evaluate(() => {
+      const cor = (v: string) => { const s = document.createElement("span"); s.style.color = `var(${v})`; document.body.appendChild(s); const c = getComputedStyle(s).color; s.remove(); return c; };
+      const bg = (sel: string) => getComputedStyle(document.querySelector(sel)!).backgroundColor;
       return {
-        id, papel: c.papel, final: { ...c.final }, valorEsperado: a.projValorFinal(c),
-        nome: txt(".proj-faixas__nome"), valores: txt(".proj-faixas__valores"),
-        valoresNoImg: !!li.querySelector(".proj-faixas__valores")!.closest('[role="img"]'),
-        label: li.querySelector('[role="img"]')!.getAttribute("aria-label") || "",
-        nome_: box(li.querySelector(".proj-faixas__nome")), trilho: box(li.querySelector(".proj-faixas__trilho"))!,
-        valores_: box(li.querySelector(".proj-faixas__valores")),
-        traco: box(li.querySelector(".proj-faixas__traco")), barra: box(li.querySelector(".proj-faixas__barra")),
-        ponto: box(li.querySelector(".proj-faixas__ponto")),
-        fmt: Object.fromEntries(["p10", "p25", "p50", "p75", "p90", "deterministico"].map((k) => [k, a.formatBrlCompacto(c.final[k])])),
-        fmtValor: a.formatBrlCompacto(a.projValorFinal(c)),
-        fmtTaxa: a.projFmtTaxa(c.taxa_real),
+        tema: document.documentElement.getAttribute("data-theme"),
+        g700: cor("--g-700"), ink: cor("--ink"),
+        barraFaixa: bg(".proj-faixas__barra"), ponto: bg(".proj-faixas__ponto"), aportes: bg(".proj-decomp__seg--aportes"),
       };
     });
-    return { max: f.max, fmtMax: a.formatBrlCompacto(f.max), linhas,
-      eixo: Array.from(document.querySelectorAll(".proj-faixas__eixo span")).map((s) => s.textContent!.trim()) };
+    expect(r.tema).toBe("dark");
+    expect(r.g700).toBe("rgb(52, 211, 153)");
+    expect(r.barraFaixa).toBe(r.g700);
+    expect(r.aportes).toBe(r.g700);
+    expect(r.ponto).toBe(r.ink);
   });
-}
 
-test.describe("Refinamento da projeção (7a.AX) — gráfico de faixas", () => {
-  test("uma linha por leitura: âncoras com traço, barra e ponto; mercado só ponto; eixo de R$ 0 ao teto", async ({ page }) => {
+  test("a rota não monta ECharts, e o card abre a tela", async ({ page }) => {
     await autenticar(page);
-    await abrirProjecao(page);
-    const g = await geometriaFaixas(page);
-    expect(g.linhas.map((l) => l.id)).toEqual(["twr", "xirr", "mercado_simples", "mercado_rebalanceado"]);
-    for (const [i, l] of g.linhas.entries()) {
-      expect(l.nome).toBe(NOMES[i] + " · " + l.fmtTaxa + " ao ano");
-      expect(l.ponto, l.id).not.toBeNull();
-      if (l.papel === "ancora") { expect(l.traco, l.id).not.toBeNull(); expect(l.barra, l.id).not.toBeNull(); }
-      else { expect(l.traco, l.id).toBeNull(); expect(l.barra, l.id).toBeNull(); }
-      const desenhados = l.papel === "ancora" ? [l.final.p90, l.valorEsperado] : [l.valorEsperado];
-      for (const v of desenhados) expect(g.max, l.id).toBeGreaterThanOrEqual(v);
-    }
-    expect(g.eixo).toEqual(["R$ 0", g.fmtMax]);
-    // O teto é "redondo": o maior desenhado da fixture é o p90 do XIRR (~4,23 mi),
-    // que a escada leva a 5 mi. Sem este valor fixo, uma escada quebrada que
-    // devolvesse o máximo cru passaria (o rótulo do eixo se auto-referencia). G2.
-    expect(g.max).toBe(5_000_000);
+    const card = page.locator(".proj-card-home");
+    await expect(card).toContainText("Projeção até os 65");
+    await card.click();
+    await expect(page).toHaveURL(/#\/raiox\/projecao$/);
+    await expect(page.locator(".proj-faixas__linha")).toHaveCount(3);
+    expect(await page.locator(".tela-projecao canvas").count()).toBe(0);
+    expect(await page.locator(".tela-projecao [_echarts_instance_]").count()).toBe(0);
   });
+});
 
-  test("posição proporcional ao valor, conferida por coordenada", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const g = await geometriaFaixas(page);
-    expect(g.linhas).toHaveLength(4);
-    const x = (l: any, v: number) => l.trilho.l + l.trilho.w * (v / g.max);
-    for (const l of g.linhas) {
-      expect(Math.abs(l.ponto!.cx - x(l, l.valorEsperado)), l.id).toBeLessThanOrEqual(1);
-      if (l.papel !== "ancora") continue;
-      expect(Math.abs(l.traco!.l - x(l, l.final.p10)), l.id).toBeLessThanOrEqual(1);
-      expect(Math.abs(l.traco!.r - x(l, l.final.p90)), l.id).toBeLessThanOrEqual(1);
-      expect(Math.abs(l.barra!.l - x(l, l.final.p25)), l.id).toBeLessThanOrEqual(1);
-      expect(Math.abs(l.barra!.r - x(l, l.final.p75)), l.id).toBeLessThanOrEqual(1);
-    }
-  });
+// ── Board da AY.2, iteração 1: payload parcial e valores ausentes não quebram a tela.
+test.describe("7a.AY.2 — robustez a payload parcial (board, iteração 1)", () => {
+  for (const [nome, mutacao] of [
+    ["sem a faixa da idade final", "p.faixas = p.faixas.filter(f => f.idade !== p.idade_final)"],
+    ["sem decomposição", "delete p.decomposicao"],
+    ["sem a lista de estresses", "delete p.ponteiro.estresse"],
+    ["sem a fonte das premissas", "delete p.premissas.fonte"],
+    // Board, iteração 2: toda chave que o template lê sem guarda própria.
+    ["sem partida.patrimonio", "delete p.partida.patrimonio"],
+    ["com aporte.mensal não numérico", "p.aporte.mensal = 'x'"],
+    ["sem aporte.janela.de", "delete p.aporte.janela.de"],
+    ["sem aporte.janela.ate", "delete p.aporte.janela.ate"],
+    ["sem trajetorias", "delete p.trajetorias"],
+    ["com decomposicao.partida_crescida NaN", "p.decomposicao.partida_crescida = NaN"],
+    ["sem decomposicao.aportes", "delete p.decomposicao.aportes"],
+    ["com decomposicao.rendimento_aportes nulo", "p.decomposicao.rendimento_aportes = null"],
+    ["sem decomposicao.final", "delete p.decomposicao.final"],
+  ] as const) {
+    test(`bloco ${nome}: 'Projeção indisponível hoje', card ausente, nenhum erro`, async ({ page }) => {
+      const erros = coletarErros(page);
+      await autenticar(page);
+      await abrirProjecao(page);
+      await page.evaluate((m) => {
+        const p = (window as any).Alpine.$data(document.body).json.projecao;
+        new Function("p", m)(p);
+      }, mutacao);
+      await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
+      await expect(page.locator(".proj-ensaio")).toHaveCount(0);
+      await expect(page.locator(".proj-card-home")).toBeHidden();
+      expect(erros).toEqual([]);
+    });
+  }
 
-  test("sem a âncora XIRR e com o mercado acima do maior p90: todo ponto e faixa dentro do eixo, na posição certa", async ({ page }) => {
+  test("valor ausente na classe vira '—', nunca 0; correlação ausente também", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page);
     await abrirProjecao(page);
     await page.evaluate(() => {
       const p = (window as any).Alpine.$data(document.body).json.projecao;
-      p.cenarios.splice(p.cenarios.findIndex((c: any) => c.id === "xirr"), 1);
-      p.cenarios.find((c: any) => c.id === "mercado_rebalanceado").final.p50 = 5_000_000;
+      p.premissas.classes[0].retorno_real = null;
+      p.premissas.classes[1].retorno_liquido = Number.NaN;
+      p.premissas.correlacoes.matriz[0] = [1.0];          // linha truncada: matriz[0][1..] some
     });
-    await expect(page.locator(".proj-faixas__linha")).toHaveCount(3);
-    const g = await geometriaFaixas(page);
-    const twr = g.linhas.find((l) => l.id === "twr")!;
-    expect(twr.final.p90).toBeLessThan(5_000_000);            // premissa do cenário: o mercado passa do maior p90
-    expect(g.max).toBeGreaterThanOrEqual(5_000_000);
-    // 5 mi é teto exato (projEixoTeto(5e6) = 5e6), então o ponto do mercado cai em
-    // 100% do eixo: é o único estado que exerce o recuo de 7 px do trilho. A caixa
-    // do ponto (12 px, centrada) tem de ficar dentro do capítulo (G2 da 7a.AX).
-    const cap = await page.locator('.proj-cap[data-cap="4"]').evaluate((e) => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right }; });
-    const reb = g.linhas.find((l) => l.id === "mercado_rebalanceado")!;
-    expect(Math.abs(reb.ponto!.cx - reb.trilho.r)).toBeLessThanOrEqual(1); // premissa: ponto em 100%
-    for (const l of g.linhas) {
-      expect(l.ponto!.l, l.id).toBeGreaterThanOrEqual(cap.l - 0.5);
-      expect(l.ponto!.r, l.id).toBeLessThanOrEqual(cap.r + 0.5);
-    }
-    for (const l of g.linhas) {
-      for (const b of [l.traco, l.barra].filter(Boolean) as any[]) {
-        expect(b.l, l.id).toBeGreaterThanOrEqual(l.trilho.l - 0.5);
-        expect(b.r, l.id).toBeLessThanOrEqual(l.trilho.r + 0.5);
-      }
-      expect(l.ponto!.cx, l.id).toBeGreaterThanOrEqual(l.trilho.l - 0.5);
-      expect(l.ponto!.cx, l.id).toBeLessThanOrEqual(l.trilho.r + 0.5);
-      expect(Math.abs(l.ponto!.cx - (l.trilho.l + l.trilho.w * l.valorEsperado / g.max)), l.id).toBeLessThanOrEqual(1);
-    }
+    const g = page.locator(".proj-tabela--classes tbody.proj-classe");
+    expect((await g.nth(0).locator("td").allInnerTexts()).slice(1)).toEqual(["—", "—", "5,6%"]);
+    expect((await g.nth(1).locator("td").allInnerTexts()).slice(1)).toEqual(["5,0%", "—", "—"]);
+    const fin = page.locator(".proj-conta--final");
+    await fin.locator("summary").click();
+    await expect(fin.locator(".proj-tabela--correl tbody tr").first().locator("td")).toHaveText("—");
+    expect(await dados(page, "[d.projFmtRho(null), d.projFmtRho(undefined), d.projFmtRho(NaN), d.projFmtRho(-0.1)]")).toEqual(["—", "—", "—", "−0,10"]);
     expect(erros).toEqual([]);
   });
 
-  test("a 320 px: valores escritos em linha própria, fora do role=img, iguais ao payload, sem sobreposição", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
-    await autenticar(page);
-    await abrirProjecao(page);
-    const g = await geometriaFaixas(page);
-    expect(g.linhas).toHaveLength(4);
-    const caixas: any[] = [];
-    for (const l of g.linhas) {
-      if (l.papel === "ancora") expect(l.valores).toBe(`mediana ${l.fmt.p50}; 8 em 10 entre ${l.fmt.p10} e ${l.fmt.p90}`);
-      else expect(l.valores).toBe(l.fmtValor);
-      expect(l.valoresNoImg, l.id).toBe(false);
-      expect(l.nome_!.b, l.id).toBeLessThanOrEqual(l.trilho.t + 0.5);
-      expect(l.trilho.b, l.id).toBeLessThanOrEqual(l.valores_!.t + 0.5);
-      caixas.push(l.nome_, l.trilho, l.valores_);
-    }
-    expect(caixas).toHaveLength(12);
-    for (let i = 0; i < caixas.length; i++)
-      for (let j = i + 1; j < caixas.length; j++) expect(sobrepoe(caixas[i], caixas[j]), `${i}x${j}`).toBe(false);
-  });
-
-  test("aria-label de cada linha: os cinco percentis nas âncoras, o valor no mercado", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const g = await geometriaFaixas(page);
-    expect(g.linhas).toHaveLength(4);
-    for (const l of g.linhas) {
-      expect(l.label, l.id).toContain(NOMES[g.linhas.indexOf(l)]);
-      const esperados = l.papel === "ancora" ? ["p10", "p25", "p50", "p75", "p90"].map((k) => l.fmt[k]) : [l.fmtValor];
-      for (const v of esperados) expect(l.label, l.id + " " + v).toContain(v);
-    }
-  });
-
-  test("faixa degenerada ou mediana fora dela: só o ponto, sem erro", async ({ page }) => {
+  test("delta ausente numa alavanca: só '—', sem seta e sem cor de direção", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page);
     await abrirProjecao(page);
-    await page.evaluate(() => {
-      const cs = (window as any).Alpine.$data(document.body).json.projecao.cenarios;
-      const t = cs.find((c: any) => c.id === "twr").final;
-      t.p10 = t.p25 = t.p75 = t.p90 = t.p50;                 // vol zero
-      const x = cs.find((c: any) => c.id === "xirr").final;
-      x.p10 = x.p50 * 1.1;                                     // mediana abaixo do p10
-    });
-    await expect(page.locator('.proj-faixas__linha[data-id="twr"] .proj-faixas__traco')).toHaveCount(0);
-    const g = await geometriaFaixas(page);
-    for (const id of ["twr", "xirr"]) {
-      const l = g.linhas.find((x) => x.id === id)!;
-      expect(l.traco, id).toBeNull();
-      expect(l.barra, id).toBeNull();
-      expect(l.ponto, id).not.toBeNull();
-      expect(l.valores, id).toBe(`mediana ${l.fmt.p50}`);
-    }
+    await page.evaluate(() => { delete (window as any).Alpine.$data(document.body).json.projecao.ponteiro.estresse[0].delta; });
+    const d = page.locator(".proj-ponteiro__item").nth(2).locator(".proj-delta");
+    await expect(d).toHaveText("—");
+    await expect(d.locator("span[aria-hidden='true']")).toHaveCount(0);
+    expect(await d.getAttribute("class")).not.toMatch(/proj-(neg|pos)/);
+    // As outras alavancas seguem com seta.
+    await expect(page.locator(".proj-ponteiro__item").nth(3).locator(".proj-delta span[aria-hidden='true']")).toHaveText("▼");
     expect(erros).toEqual([]);
   });
 
-  test("legenda uma vez, em texto, e o 'ver a conta' com os cinco percentis de cada âncora", async ({ page }) => {
+  test("marcos: a idade final sempre entra, e sem marco futuro o capítulo 4 diz isso em uma linha", async ({ page }) => {
+    const erros = coletarErros(page);
     await autenticar(page);
     await abrirProjecao(page);
-    const cap = page.locator('.proj-cap[data-cap="4"]');
-    await expect(cap.locator(".proj-faixas__legenda")).toHaveCount(1);
-    await expect(cap.locator(".proj-faixas__legenda")).toHaveText("Traço fino: 8 em 10 trajetórias. Barra: metade delas. Ponto: a mediana.");
-    const conta = cap.locator("details.proj-conta--percentis");
-    await expect(conta).not.toHaveAttribute("open", "");
-    await conta.locator("summary").click();
-    const t = conta.locator(".proj-tabela--percentis");
-    expect((await t.locator("thead th").allInnerTexts()).slice(1)).toEqual(["Retorno da carteira", "Retorno do seu dinheiro"]);
-    await expect(t.locator("tbody tr")).toHaveCount(5);
-    const g = await geometriaFaixas(page);
-    const linhas = await t.locator("tbody tr").allInnerTexts();
-    for (const [i, k] of ["p10", "p25", "p50", "p75", "p90"].entries())
-      for (const id of ["twr", "xirr"]) expect(linhas[i], k + id).toContain(g.linhas.find((l) => l.id === id)!.fmt[k]);
-  });
-
-  test("a largura das faixas: a oscilação da carteira, o N e a do modelo", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    const txt = (await page.locator('.proj-cap[data-cap="4"]').innerText()).replace(/\s+/g, " ");
-    expect(txt).toContain("A largura das faixas");
-    expect(txt).toContain("A largura vem da oscilação da própria carteira, 12,0% ao ano, medida em 110 meses. O modelo das classes daria 15,0%.");
-    expect(txt).toContain("Só as duas leituras do seu histórico têm faixa.");
-  });
-
-  test("a rota não monta ECharts", async ({ page }) => {
-    await autenticar(page);
-    await abrirProjecao(page);
-    await expect(page.locator(".proj-faixas__linha")).toHaveCount(4);
-    const r = await page.evaluate(() => {
-      const d = (window as any).Alpine.closestDataStack(document.body)[0];
-      return {
-        canvas: document.querySelectorAll(".tela-projecao canvas").length,
-        inst: document.querySelectorAll(".tela-projecao [_echarts_instance_]").length,
-        chaves: Object.keys(d).filter((k) => /Proj$/.test(k)),
-      };
-    });
-    expect(r).toEqual({ canvas: 0, inst: 0, chaves: [] });
+    // Idade final 60 (a faixa existe na série): 45, 55 e a própria 60; o 65 passa da idade final e sai.
+    expect(await dados(page, "(d.json.projecao.idade_final = 60, d.projMarcos().map(m => m.idade))")).toEqual([45, 55, 60]);
+    expect(await dados(page, "(d.json.projecao.idade_final = 65, d.projMarcos().map(m => m.idade))")).toEqual([45, 55, 65]);
+    // Ninguém mais no futuro: lista vazia, nota cinza no cap. 4 e na conta final, sem linhas vazias.
+    expect(await dados(page, "(d.json.projecao.idade_atual = 66, d.projMarcos().length)")).toBe(0);
+    await expect(page.locator(".proj-faixas__linha")).toHaveCount(0);
+    await expect(page.locator(".proj-faixas")).toBeHidden();
+    await expect(page.locator(".proj-faixas-vazio")).toBeVisible();
+    await expect(page.locator(".proj-faixas-vazio")).toHaveText("Não há idade futura para desenhar.");
+    await page.locator(".proj-conta--final summary").click();
+    await expect(page.locator(".proj-tabela--percentis")).toBeHidden();
+    await expect(page.locator(".proj-conta--final")).toContainText("Não há idade futura para a tabela dos percentis.");
+    expect(erros).toEqual([]);
   });
 });
 
-test.describe("Refinamento da projeção (7a.AX) — de onde vem o valor", () => {
-  test("uma barra por âncora, alinhadas, com uma legenda comum que é a própria tabela de valores", async ({ page }) => {
+// ── 7a.AY.2 (Task 10): getters e estados da projeção v2.29 (preservados).
+test.describe("7a.AY — getters e estados da projeção v2.29", () => {
+  test("v2.29: card da home diz 'Aos 65, cerca de R$ …'", async ({ page }) => {
     await autenticar(page);
-    await abrirProjecao(page);
-    const r = await page.evaluate(() => {
-      const a = (window as any).Alpine.$data(document.body);
-      const itens = Array.from(document.querySelectorAll(".proj-decomp__item")).map((it) => {
-        const b = it.querySelector(".proj-decomp__barra")!.getBoundingClientRect();
-        return { id: (it as HTMLElement).dataset.id, nome: it.querySelector(".proj-decomp__nome")!.textContent!.trim(),
-                 l: b.left, w: b.width, segs: it.querySelectorAll(".proj-decomp__seg").length };
-      });
-      const t = document.querySelector(".proj-tabela--decomp")!;
-      const esperado = a.projAncoras().map((c: any) => [c.decomposicao.partida_crescida, c.decomposicao.aportes, c.decomposicao.rendimento_aportes].map((v: number) => a.formatBrlCompacto(v)));
-      return {
-        itens,
-        cab: Array.from(t.querySelectorAll("thead th")).slice(1).map((th) => th.textContent!.trim()),
-        linhas: Array.from(t.querySelectorAll("tbody tr")).map((tr) => ({
-          rotulo: tr.querySelector("th")!.textContent!.trim(), marca: !!tr.querySelector("th .proj-decomp__marca"),
-          vals: Array.from(tr.querySelectorAll("td")).map((td) => td.textContent!.trim()) })),
-        esperado,
-        listasAntigas: document.querySelectorAll(".proj-decomp__lista").length,
-        pesos: Array.from(t.querySelectorAll("tbody th")).map((th) => getComputedStyle(th).fontWeight),
-      };
-    });
-    expect(r.itens.map((i) => i.nome)).toEqual(["Retorno da carteira", "Retorno do seu dinheiro"]);
-    expect(Math.abs(r.itens[0].l - r.itens[1].l)).toBeLessThanOrEqual(0.5);
-    expect(Math.abs(r.itens[0].w - r.itens[1].w)).toBeLessThanOrEqual(0.5);
-    for (const i of r.itens) expect(i.segs, i.id).toBe(3);
-    expect(r.cab).toEqual(["Retorno da carteira", "Retorno do seu dinheiro"]);
-    expect(r.linhas.map((l) => l.rotulo)).toEqual(["Seu patrimônio de hoje, crescido", "Aportes somados", "Rendimento dos aportes"]);
-    for (const l of r.linhas) expect(l.marca, l.rotulo).toBe(true);
-    for (const [j, l] of r.linhas.entries()) expect(l.vals).toEqual(r.esperado.map((col: string[]) => col[j]));
-    expect(r.listasAntigas).toBe(0);                                 // uma legenda só
-    // Review finding (Important): `.proj-tabela th:first-child { font-weight: 600 }`
-    // tem a mesma especificidade que `tbody th` escopado por classe — o rótulo da
-    // linha (prosa) não pode renderizar em negrito, só a marca de cor ao lado dele.
-    expect(r.pesos).toEqual(["400", "400", "400"]);
+    await expect(page.locator(".proj-card-home")).toBeVisible();
+    await expect(page.locator(".proj-card-home .rel-card-home__mes")).toHaveText(/^Aos 65, cerca de R\$ .+/);
   });
 
-  test("a frase determinística e o 'praticamente' ficam sempre visíveis, uma vez por âncora", async ({ page }) => {
+  test("v2.28 (tem cenarios, sem faixas): projecao nula, card ausente, rota indisponível", async ({ page }) => {
+    await autenticar(page, PRE229);
+    expect(await dados(page, "d.projecao")).toBeNull();
+    await expect(page.locator(".proj-card-home")).toBeHidden();
+    await page.goto("/#/raiox/projecao");
+    await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
+  });
+
+  test("projecao null: card ausente e rota indisponível", async ({ page }) => {
+    await autenticar(page, NULO);
+    await expect(page.locator(".proj-card-home")).toBeHidden();
+    await page.goto("/#/raiox/projecao");
+    await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
+  });
+
+  test("marcos 45/55/65 filtrados a idade > idade_atual", async ({ page }) => {
     await autenticar(page);
-    await abrirProjecao(page);
-    const frases = page.locator('.proj-cap[data-cap="4"] .proj-decomp__titulo');
-    await expect(frases).toHaveCount(2);
-    const r = await page.evaluate(() => {
-      const a = (window as any).Alpine.$data(document.body);
-      return {
-        fora: Array.from(document.querySelectorAll(".proj-decomp__titulo")).every((p) => !p.closest("details")),
-        det: a.projAncoras().map((c: any) => a.formatBrlCompacto(c.final.deterministico)),
-        prat: a.projAncoras().map((c: any) => a.projPraticamente(c)),
-      };
-    });
-    expect(r.fora).toBe(true);
-    for (const [i, f] of (await frases.all()).entries()) {
-      await expect(f).toBeVisible();
-      await expect(f).toContainText("na taxa constante, sem sorteio, " + r.det[i]);
-      await expect(f).toContainText("A mediana da simulação é " + r.prat[i] + "esse mesmo histórico composto");
+    expect(await dados(page, "d.projMarcos().map(f => f.idade)")).toEqual([45, 55, 65]);
+    await page.unroute("**/portfolio.json.enc");
+    const p2 = await page.context().newPage();
+    await autenticar(p2, IDADE50);
+    expect(await dados(p2, "d.projMarcos().map(f => f.idade)")).toEqual([55, 65]);
+    expect(await dados(p2, "d.projFaixas().linhas.map(l => l.idade)")).toEqual([55, 65]);
+  });
+
+  test("resposta, eixo e rótulos coerentes com a faixa final", async ({ page }) => {
+    await autenticar(page);
+    const r = await dados(page, "d.projResposta()");
+    const f = await dados(page, "d.projFinal()");
+    expect(f.idade).toBe(65);
+    expect(r).toEqual({ p50: f.p50, p10: f.p10, p90: f.p90 });
+    const fx = await dados(page, "d.projFaixas()");
+    const maxP90 = await dados(page, "Math.max(...d.projMarcos().map(m => m.p90))");
+    expect(fx.max).toBeGreaterThanOrEqual(maxP90);
+    for (const l of fx.linhas) {
+      for (const k of ["p10", "p25", "p50", "p75", "p90"]) {
+        expect(l[k]).toBeGreaterThanOrEqual(0);
+        expect(l[k]).toBeLessThanOrEqual(100);
+      }
     }
+    expect(await dados(page, "d.projFaixaLabel(55)")).toMatch(/^Aos 55, em reais de hoje: 1 em 10 cenários abaixo de R\$/);
+    expect(await dados(page, "d.projClasses().length")).toBe(6);
+  });
+
+  test("linha de fonte cita nome, edição, data-base e a classe histórica", async ({ page }) => {
+    await autenticar(page);
+    const t = await dados(page, "d.projFonteTexto()");
+    expect(t).toContain("Premissas da Casa Sintética de Premissas (edição 2099, data-base 01/01/2099), em reais.");
+    expect(t).toContain("Fundos imobiliários: histórico 2010-2020 (sintético), porque ninguém publica premissa prospectiva para eles.");
+  });
+
+  test("alavancas: 2 sensibilidades + 3 estresses; 'praticamente' só acima de 1%", async ({ page }) => {
+    await autenticar(page);
+    const a = await dados(page, "d.projAlavancas()");
+    expect(a).toHaveLength(5);
+    expect(a[0]).toMatchObject({ nome: "+R$ 1.000/mês de aporte", descricao: null });
+    expect(a[2].descricao).toBeTruthy();
+    expect(await dados(page, "d.projPraticamente()")).toBe("");
+    expect(await dados(page, "(d.json.projecao.decomposicao.final *= 1.5, d.projPraticamente())")).toBe("praticamente ");
+  });
+
+  test("premissas vencidas continuam publicando o bloco", async ({ page }) => {
+    await autenticar(page, VENCIDA);
+    expect(await dados(page, "d.projecao.premissas_vencidas")).toBe(true);
+    await expect(page.locator(".proj-card-home")).toBeVisible();
   });
 });

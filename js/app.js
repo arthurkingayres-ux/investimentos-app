@@ -281,18 +281,10 @@ function criarMarkPointUltimo(dataArr, formatFn, cor, fontFamily) {
   };
 }
 
-// 7a.AW: os quatro cenários da projeção, FONTE ÚNICA de nome e ordem (spec
-// §6.8: sempre os mesmos quatro, na mesma ordem, em todo lugar).
-const PROJ_NOMES = Object.freeze({
-  twr: "Retorno da carteira",
-  xirr: "Retorno do seu dinheiro",
-  mercado_simples: "Mercado, média das classes",
-  mercado_rebalanceado: "Mercado, com rebalanceamento",
-});
-const PROJ_ORDEM = Object.freeze(["twr", "xirr", "mercado_simples", "mercado_rebalanceado"]);
-const PROJ_MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+// 7a.AY: marcos de idade do gráfico de faixas (só os ainda no futuro entram).
+const PROJ_MARCOS = Object.freeze([45, 55, 65]);
 // 7a.AX: os cinco percentis da simulação, na ordem da tabela do "ver a conta"
-// do gráfico de faixas. Siglas só dentro do "ver a conta" (regra de copy da tela).
+// final (7a.AY: uma coluna por marco de idade). Siglas só dentro do "ver a conta" (regra de copy da tela).
 const PROJ_PERCENTIS = Object.freeze([
   { k: "p10", rotulo: "p10" }, { k: "p25", rotulo: "p25" }, { k: "p50", rotulo: "p50, a mediana" },
   { k: "p75", rotulo: "p75" }, { k: "p90", rotulo: "p90" },
@@ -1454,42 +1446,161 @@ document.addEventListener("alpine:init", () => {
       return this._relIndicePromise;
     },
 
-    // 7a.AW: bloco `projecao` v2 (schema v2.28). Pré-v2.28 (sem `cenarios`,
-    // ou sem nenhuma âncora) é tratado como indisponível, como a 7a.AV fez com
-    // o pré-v2.27: o card some e a rota diz "indisponível hoje".
+    // 7a.AY: bloco `projecao` v2.29 — UM cenário (premissas prospectivas por
+    // classe), faixas por idade. Só é "disponível" com a forma completa: o
+    // v2.28 (tem `cenarios`, não tem `faixas`) e `projecao: null` caem em null,
+    // e o card some e a rota diz "indisponível hoje" (como na 7a.AV/AW).
+    // Board AY.2 (iteração 1): um bloco PARCIAL também cai em null — sem a
+    // faixa da idade final, a decomposição, as duas listas do ponteiro ou a
+    // fonte das premissas, o template estouraria TypeError (projResposta().p50)
+    // em vez de dizer "indisponível hoje".
     get projecao() {
       const p = this.json && this.json.projecao;
-      return p && Array.isArray(p.cenarios) && p.cenarios.some((c) => c.papel === "ancora") ? p : null;
+      if (!(p && Array.isArray(p.faixas) && p.taxa_central && p.premissas && Array.isArray(p.premissas.classes))) return null;
+      // Board AY.2 (iteração 2): exige TODA chave que o template lê sem guarda
+      // própria; número tem de ser finito (Number.isFinite), não só presente.
+      const num = Number.isFinite;
+      if (!num(p.idade_atual) || !num(p.idade_final) || !num(p.ano_final) || !num(p.trajetorias)) return null;
+      if (!p.faixas.some((f) => f && f.idade === p.idade_final)) return null;
+      if (!p.partida || !num(p.partida.patrimonio)) return null;
+      if (!p.aporte || !num(p.aporte.mensal) || !p.aporte.janela || !p.aporte.janela.de || !p.aporte.janela.ate) return null;
+      const d = p.decomposicao;
+      if (!d || !num(d.partida_crescida) || !num(d.aportes) || !num(d.rendimento_aportes) || !num(d.final)) return null;
+      if (!p.premissas.fonte) return null;
+      if (!p.ponteiro || !Array.isArray(p.ponteiro.sensibilidade) || !Array.isArray(p.ponteiro.estresse)) return null;
+      return p;
     },
-    projNome(id) { return PROJ_NOMES[id] || id; },
-    projCenarios() {
+    // A faixa da idade final (65): a resposta da tela.
+    projFinal() {
       const p = this.projecao;
-      if (!p) return [];
-      return PROJ_ORDEM.map((id) => p.cenarios.find((c) => c.id === id)).filter(Boolean);
+      return p ? p.faixas.find((f) => f.idade === p.idade_final) || null : null;
     },
-    projCenario(id) { return this.projCenarios().find((c) => c.id === id) || null; },
-    projAncoras() { return this.projCenarios().filter((c) => c.papel === "ancora"); },
-    // Valor aos 65 de um cenário: a MEDIANA onde há simulação (âncoras e
-    // mercado com rebalanceamento), a linha sem sorteio onde não há.
-    projValorFinal(c) { return c.final.p50 != null ? c.final.p50 : c.final.deterministico; },
-    // A frase-resposta: entre as medianas das duas âncoras, ou um valor só com
-    // o nome da medida quando uma âncora saiu (spec §6, estados).
     projResposta() {
-      const a = this.projAncoras();
-      if (!a.length) return null;
-      const v = a.map((c) => this.projValorFinal(c));
-      return { min: Math.min(...v), max: Math.max(...v), unica: a.length === 1 ? a[0] : null };
+      const f = this.projFinal();
+      return f ? { p50: f.p50, p10: f.p10, p90: f.p90 } : null;
     },
     projCardTexto() {
       const r = this.projResposta();
-      if (!r) return "";
-      return r.unica
-        ? "pelo " + this.projNome(r.unica.id).toLowerCase() + ", " + this.formatBrlCompacto(r.min)
-        : "pelo seu histórico, entre " + this.formatBrlCompacto(r.min) + " e " + this.formatBrlCompacto(r.max);
+      return r ? "Aos " + this.projecao.idade_final + ", cerca de " + this.formatBrlCompacto(r.p50) : "";
     },
-    projFmtTaxa(v, casas = 2) { return v == null ? "—" : window.formatPctSemSinal(v, casas); },
+    // Marcos do gráfico de faixas: 45, 55 e 65 até a idade final, e a idade
+    // final SEMPRE (mesmo que deixe de ser 65); só os que ainda estão no futuro
+    // (idade > idade_atual) e que a série publicada traz. Lista vazia é estado
+    // válido: o capítulo 4 e a tabela da conta final dizem isso em uma linha.
+    projMarcos() {
+      const p = this.projecao;
+      if (!p) return [];
+      const idades = [...new Set([...PROJ_MARCOS.filter((i) => i < p.idade_final), p.idade_final])].sort((a, b) => a - b);
+      return idades.filter((i) => i > p.idade_atual).map((i) => p.faixas.find((f) => f.idade === i)).filter(Boolean);
+    },
+    // Eixo de R$ 0 ao teto "redondo" do MAIOR p90 dos marcos desenhados;
+    // cada percentil vira % do eixo (sempre dentro de 0-100). `valores` leva
+    // os números em R$ para a linha escrita fora do gráfico.
+    projFaixas() {
+      const ms = this.projMarcos();
+      const max = this.projEixoTeto(Math.max(0, ...ms.map((m) => m.p90)));
+      const x = (v) => Math.min(100, Math.max(0, (v / max) * 100));
+      return {
+        max,
+        linhas: ms.map((m) => ({
+          idade: m.idade, p10: x(m.p10), p25: x(m.p25), p50: x(m.p50), p75: x(m.p75), p90: x(m.p90),
+          valores: { p10: m.p10, p50: m.p50, p90: m.p90 },
+        })),
+      };
+    },
+    // aria-label de um marco: os cinco percentis por extenso (p25/p75 só
+    // existem aqui e no "ver a conta").
+    projFaixaLabel(idade) {
+      const p = this.projecao, f = p && p.faixas.find((e) => e.idade === idade);
+      if (!f) return "";
+      const fmt = (v) => this.formatBrlCompacto(v);
+      return "Aos " + idade + ", em reais de hoje: 1 em 10 cenários abaixo de " + fmt(f.p10)
+        + "; 1 em 4 abaixo de " + fmt(f.p25) + "; mediana " + fmt(f.p50) + "; 3 em 4 abaixo de " + fmt(f.p75)
+        + "; 9 em 10 abaixo de " + fmt(f.p90);
+    },
+    projClasses() {
+      const p = this.projecao;
+      return p ? p.premissas.classes : [];
+    },
+    // Linha de fonte: de onde vêm as premissas e quais classes ficaram no
+    // histórico (ninguém publica premissa prospectiva para elas).
+    projFonteTexto() {
+      const p = this.projecao;
+      if (!p) return "";
+      const f = p.premissas.fonte;
+      let t = "Premissas da " + f.nome + " (edição " + f.edicao + ", data-base " + this.projFmtData(f.data_base) + "), em reais.";
+      for (const c of p.premissas.classes.filter((e) => e.origem === "historico")) {
+        t += " " + c.rotulo + ": histórico " + c.periodo + ", porque ninguém publica premissa prospectiva para eles.";
+      }
+      return t;
+    },
+    projDecomposicao() {
+      const p = this.projecao;
+      if (!p) return [];
+      const partes = PROJ_PARTES.map((q) => ({ chave: q.chave, rotulo: q.rotulo, valor: p.decomposicao[q.campo] }));
+      // A barra 100% só desenha o que é positivo; uma parcela negativa
+      // aparece em texto com sinal, na tabela.
+      const total = partes.reduce((s, q) => s + Math.max(0, q.valor), 0);
+      return partes.map((q) => ({ ...q, pct: q.valor > 0 && total > 0 ? (q.valor / total) * 100 : 0 }));
+    },
+    // Spec §4.1: a mediana é o histórico composto; com aportes ela fica quase
+    // igual à linha determinística. Acima de 1% de desvio a frase diz "praticamente".
+    projPraticamente() {
+      const p = this.projecao, f = this.projFinal();
+      if (!p || !f || !p.decomposicao.final) return "";
+      return Math.abs(f.p50 / p.decomposicao.final - 1) > 0.01 ? "praticamente " : "";
+    },
+    // O ponteiro como lista: as sensibilidades, depois os cenários hipotéticos.
+    projAlavancas() {
+      const p = this.projecao;
+      if (!p) return [];
+      return [
+        ...p.ponteiro.sensibilidade.map((s) => ({ nome: s.rotulo, descricao: null, p50: s.p50, delta: s.delta })),
+        ...p.ponteiro.estresse.map((e) => ({ nome: e.nome, descricao: e.descricao, p50: e.p50, delta: e.delta })),
+      ];
+    },
+    // Tabela do capítulo 3, uma linha por classe na ordem do payload. Real e
+    // líquido arredondados a 1 casa (0,1 p.p.); o desconto EXIBIDO é a
+    // diferença dos dois já arredondados, para que real − desconto = líquido
+    // feche no que se lê (com o desconto exato arredondado à parte, 3,46/3,24
+    // leria 3,5 − 0,2 = 3,2, conta errada na tela). O exato, com 2 casas e a
+    // composição, fica no "ver a conta".
+    projTabelaClasses() {
+      // Valor ausente fica ausente ("—" na tela), nunca vira 0: Math.round(null) daria 0.
+      const r1 = (v) => (typeof v === "number" && !Number.isNaN(v) ? Math.round(v * 1000) / 1000 : null);
+      return this.projClasses().map((c) => {
+        const real = r1(c.retorno_real), liquido = r1(c.retorno_liquido);
+        return { classe: c.classe, rotulo: c.rotulo, peso: c.peso, real, liquido,
+                 desconto: real == null || liquido == null ? null : Math.round((real - liquido) * 1000) / 1000,
+                 composicao: c.desconto_composicao || {} };
+      });
+    },
+    // A linha americana do grifo, lida do payload (null se a classe sair da
+    // matriz: o grifo cala a comparação em vez de inventar número).
+    projEua() {
+      return this.projClasses().find((c) => c.classe === "U.S. Large Cap") || null;
+    },
+    projHistoricas() { return this.projClasses().filter((c) => c.origem === "historico"); },
+    // Pares da matriz de correlação (triângulo superior), com os rótulos em
+    // português das classes. Lista em vez de matriz: 6 × 6 não cabe a 320 px.
+    projCorrelacoes() {
+      const p = this.projecao;
+      if (!p) return [];
+      const rot = Object.fromEntries(p.premissas.classes.map((c) => [c.classe, c.rotulo]));
+      const { classes = [], matriz = [] } = p.premissas.correlacoes || {};
+      const pares = [];
+      for (let i = 0; i < classes.length; i++)
+        for (let j = i + 1; j < classes.length; j++)
+          pares.push({ chave: i + "-" + j, nome: (rot[classes[i]] || classes[i]) + " e " + (rot[classes[j]] || classes[j]),
+                       rho: matriz && matriz[i] ? matriz[i][j] : null });
+      return pares;
+    },
+    projFmtRho(v) {
+      if (typeof v !== "number" || Number.isNaN(v)) return "—";
+      return (v < 0 ? "−" : "") + Math.abs(v).toFixed(2).replace(".", ",");
+    },
+    projFmtTaxa(v, casas = 2) { return v == null || Number.isNaN(v) ? "—" : window.formatPctSemSinal(v, casas); },
     projFmtData(iso) { return iso ? iso.split("-").reverse().join("/") : "—"; },
-    projFmtMes(ym) { return ym ? PROJ_MESES[Number(ym.slice(5, 7)) - 1] + "/" + ym.slice(0, 4) : "—"; },
     // R$ compacto ("R$ 2,4 mi" / "R$ 850 mil" / "R$ 400"). Limiar mil→mi
     // (spec §3.5 item 10, decidido na execução): R$ 1 milhão. Arredonda ANTES
     // de escolher a banda (achado do G2): sem isso 999.600 viraria
@@ -1521,69 +1632,7 @@ document.addEventListener("alpine:init", () => {
       if (v == null || Number.isNaN(v)) return "—";
       return window.formatBrl(v, 0);
     },
-    // 7a.AX: barras de taxa do capítulo 3 (spec §3.3). Eixo comum às leituras
-    // presentes, de min(0, taxas) a max(0, taxas): começa em 0% quando todas
-    // são positivas, e uma taxa negativa ganha barra à ESQUERDA de um zero
-    // marcado. Sem margem no domínio: o valor escrito na ponta vive na reserva
-    // lateral do trilho (CSS `.proj-taxas__area`), não dentro do eixo. `vao || 1`
-    // cobre o caso de todas as taxas em zero (sem divisão por zero).
-    projTaxas() {
-      const cs = this.projCenarios();
-      const taxas = cs.map((c) => c.taxa_real);
-      const lo = Math.min(0, ...taxas), hi = Math.max(0, ...taxas);
-      const vao = hi - lo || 1;
-      const x = (t) => ((t - lo) / vao) * 100;
-      const zeroX = x(0);
-      return {
-        zeroX, temNegativa: lo < 0,
-        linhas: cs.map((c) => ({
-          id: c.id, papel: c.papel, taxa: c.taxa_real, negativa: c.taxa_real < 0,
-          inicio: Math.min(zeroX, x(c.taxa_real)), largura: Math.abs(x(c.taxa_real) - zeroX),
-        })),
-      };
-    },
-    // Grifo: só com as DUAS âncoras (sem as duas não há discordância a
-    // explicar). A frase é condicional ao SINAL medido hoje, nunca afirmação
-    // sobre os fluxos dele escrita de memória (spec §6, cap. 3: a primeira
-    // hipótese da spec foi medida e saiu falsa). A tabela é que explica.
-    projGrifoFrase() {
-      const t = this.projCenario("twr"), x = this.projCenario("xirr");
-      if (!t || !x) return null;
-      return x.taxa_real >= t.taxa_real
-        ? "Quando os anos ruins caem sobre uma carteira pequena e os bons sobre uma maior, a segunda medida fica acima da primeira."
-        : "Quando os anos bons caem sobre uma carteira pequena e os ruins sobre uma maior, a segunda medida fica abaixo da primeira.";
-    },
-    // "Pequena, dentro do ruído da janela" (spec §6, cap. 3), e a tela para
-    // aí. Limite declarado: 1 p.p. entre o retorno do seu dinheiro e a média
-    // das classes. É CONSERVADOR: o erro-padrão da média anual de uma janela
-    // de poucos anos, com oscilação anual de dois dígitos, é de vários p.p.,
-    // então abaixo de 1 p.p. é ruído com folga. Acima disso a frase só não
-    // aparece: silêncio, nunca causa.
-    projRuidoMercado() {
-      const x = this.projCenario("xirr"), m = this.projCenario("mercado_simples");
-      return !!(x && m && Math.abs(x.taxa_real - m.taxa_real) < 0.01);
-    },
-    // Spec §4.1: a mediana é o histórico composto; com aportes ela fica quase
-    // igual. Acima de 1% de desvio a frase diz "praticamente".
-    projPraticamente(c) {
-      const d = c.final.deterministico;
-      return d && Math.abs(c.final.p50 / d - 1) > 0.01 ? "praticamente " : "";
-    },
     projAnosTotal() { const p = this.projecao; return p ? p.idade_final - p.idade_atual : 0; },
-    projAnosHistorico() {
-      const t = this.projCenario("twr") || this.projCenario("xirr");
-      if (!t) return 0;
-      const [a0, m0] = t.receita.janela.de.split("-").map(Number), [a1, m1] = t.receita.janela.ate.split("-").map(Number);
-      return Math.round(((a1 - a0) * 12 + (m1 - m0) + 1) / 12);
-    },
-    projPartes() { return PROJ_PARTES; },
-    projDecomposicao(c) {
-      const partes = PROJ_PARTES.map((p) => ({ chave: p.chave, rotulo: p.rotulo, valor: c.decomposicao[p.campo] }));
-      // A barra 100% só desenha o que é positivo; uma parcela negativa (taxa
-      // real abaixo de zero) aparece em texto com sinal, na tabela (7a.AW Review Focus 1).
-      const total = partes.reduce((s, p) => s + Math.max(0, p.valor), 0);
-      return partes.map((p) => ({ ...p, pct: p.valor > 0 && total > 0 ? (p.valor / total) * 100 : 0 }));
-    },
     // 7a.AX: teto "redondo" do eixo do gráfico de faixas — o menor m × 10^k ≥ v
     // com m na escada abaixo. Arredondar à potência de 10 jogaria 10,4 mi para
     // 20 mi e deixaria metade do eixo vazia.
@@ -1593,55 +1642,7 @@ document.addEventListener("alpine:init", () => {
       for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
       return 10 * p;
     },
-    // Gráfico de faixas do capítulo 4 (spec §3.4). Eixo de R$ 0 ao MAIOR VALOR
-    // DESENHADO: p90 das âncoras presentes E os pontos de mercado. "Maior p90"
-    // não basta — sem a âncora XIRR o ponto do mercado com rebalanceamento cai
-    // fora do eixo (achado material do G1; travado por teste de coordenada, que
-    // pega também o clamp abaixo escondendo o defeito na borda). Faixa degenerada
-    // (p10 = p90) ou mediana fora dela: só o ponto (spec §3.7).
-    projFaixas() {
-      const cs = this.projCenarios();
-      const num = (v) => typeof v === "number" && !Number.isNaN(v);
-      const desenhados = cs.flatMap((c) => (c.papel === "ancora" ? [c.final.p90, this.projValorFinal(c)] : [this.projValorFinal(c)])).filter(num);
-      const max = this.projEixoTeto(Math.max(0, ...desenhados));
-      const x = (v) => Math.min(100, Math.max(0, (v / max) * 100));
-      return {
-        max,
-        linhas: cs.map((c) => {
-          const f = c.final, v = this.projValorFinal(c);
-          const faixa = c.papel === "ancora" && num(f.p10) && num(f.p25) && num(f.p75) && num(f.p90)
-            && f.p90 > f.p10 && f.p10 <= v && v <= f.p90;
-          return {
-            id: c.id, papel: c.papel, taxa: c.taxa_real, valor: v, faixa, ponto: x(v),
-            p10: faixa ? x(f.p10) : null, p25: faixa ? x(f.p25) : null,
-            p75: faixa ? x(f.p75) : null, p90: faixa ? x(f.p90) : null,
-          };
-        }),
-      };
-    },
-    // aria-label de uma linha do gráfico: os cinco percentis por extenso nas
-    // âncoras (p25/p75 só existem aqui e no "ver a conta"), o valor no mercado.
-    projFaixaLabel(id) {
-      const c = this.projCenario(id);
-      if (!c) return "";
-      const f = c.final, fmt = (v) => this.formatBrlCompacto(v), idade = this.projecao.idade_final;
-      if (c.papel !== "ancora") return this.projNome(id) + ", aos " + idade + ": " + fmt(this.projValorFinal(c)) + ", em reais de hoje";
-      return this.projNome(id) + ", aos " + idade + ", em reais de hoje: 1 em 10 trajetórias abaixo de " + fmt(f.p10)
-        + "; 1 em 4 abaixo de " + fmt(f.p25) + "; mediana " + fmt(f.p50) + "; 3 em 4 abaixo de " + fmt(f.p75)
-        + "; 9 em 10 abaixo de " + fmt(f.p90);
-    },
     projPercentis() { return PROJ_PERCENTIS; },
-    // 7a.AX: o ponteiro como lista (spec §3.5). As duas sensibilidades, depois os
-    // três cenários hipotéticos, cada um com o Δ por âncora num só formato.
-    projAlavancas() {
-      const p = this.projecao;
-      if (!p) return [];
-      return [
-        ...p.ponteiro.sensibilidade.map((s) => ({ nome: s.rotulo, descricao: null, delta: s.por_ancora })),
-        ...p.ponteiro.estresse.map((e) => ({ nome: e.nome, descricao: e.descricao,
-          delta: Object.fromEntries(Object.entries(e.por_ancora).map(([id, v]) => [id, v.delta])) })),
-      ];
-    },
 
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;

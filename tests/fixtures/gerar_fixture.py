@@ -192,8 +192,8 @@ def _projecao_sintetica_v227() -> dict:
     }
 
 
-def _projecao_sintetica() -> dict:
-    """v2.28 (7a.AW). CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste
+def _projecao_sintetica_v228() -> dict:
+    """v2.28 (7a.AW), mantida p/ a fixture pre_v229. CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste
     público): idades, anos, taxas, valores, janelas e a tabela ano a ano são
     INVENTADOS e não seguem nenhuma série real. Nascimento 1986, idade 40,
     horizonte 2051: deliberadamente diferentes dos do Dr. Arthur (a 7a.AV.2
@@ -272,19 +272,236 @@ def _projecao_sintetica() -> dict:
     }
 
 
-def _projecao_so_xirr() -> dict:
-    """Variante com a âncora `twr` indisponível (spec §4.2, precedência 2):
-    o cenário sai da lista e das chaves de `ponteiro.*.por_ancora`."""
-    p = _projecao_sintetica()
-    p["cenarios"] = [c for c in p["cenarios"] if c["id"] != "twr"]
-    for grupo in p["ponteiro"].values():
-        for item in grupo:
-            item["por_ancora"].pop("twr")
-    return p
+def _projecao_sintetica(idade: int = 30, vencida: bool = False) -> dict:
+    """v2.29 (7a.AY): UM cenario, premissas de fonte externa. CONTEUDO 100%
+    SINTETICO (repo publico): fonte inventada ("Casa Sintetica de Premissas",
+    edicao 2099), pesos, retornos, descontos, vols, correlacoes, faixas e
+    ponteiros sao INVENTADOS. Os NOMES das classes seguem a taxonomia publica
+    (so rotulos, nunca numeros). Nascimento ficticio: ano atual 2030, idade
+    ``idade``, horizonte 2065 (idade 65)."""
+    ano0, ano_f = 2030, 2065
+    nasc = ano0 - idade
+    datas = [("2030-09-25", ano0)] + [(f"{a}-12-31", a) for a in range(ano0 + 1, ano_f + 1)]
+    faixas = []
+    for k, (d, a) in enumerate(datas):
+        med = round(400000.0 * 1.045 ** k + 40000.0 * k, 2)
+        abre = 1 + 0.07 * k ** 0.5
+        faixas.append({"idade": a - nasc, "ano": a, "data": d,
+                       "p10": round(med / abre**2, 2), "p25": round(med / abre, 2), "p50": med,
+                       "p75": round(med * abre, 2), "p90": round(med * abre**2, 2)})
+    if idade > 30:
+        faixas = faixas[: 65 - idade + 1]
+        for k, f in enumerate(faixas):
+            f["idade"] = idade + k
+            f["ano"] = ano0 + k
+            f["data"] = "2030-09-25" if k == 0 else f"{ano0 + k}-12-31"
+    ano_f = faixas[-1]["ano"]
+    fin = faixas[-1]
+    anos_h = 65 - idade
+    partida_cr = round(400000.0 * 1.045 ** (anos_h + 0.25), 2)
+    aportes = round(3000.0 * (3 + 12 * anos_h), 2)
+    classes_def = [
+        ("Brazilian Equity", "Ações Brasil", "jpm", 0.22, 0.06, 0.004, 0.18, (0.003, 0.001)),
+        ("U.S. Large Cap", "Ações EUA", "jpm", 0.30, 0.05, 0.003, 0.15, (0.002, 0.001)),
+        ("European Large Cap", "Ações Europa", "jpm", 0.08, 0.045, 0.003, 0.16, (0.002, 0.001)),
+        ("Emerging Markets Equity", "Ações Emergentes", "jpm", 0.07, 0.055, 0.004, 0.19, (0.003, 0.001)),
+        ("Brazilian Inflation-Linked Bonds", "Renda Fixa BR (IPCA+)", "jpm", 0.23, 0.045, 0.002, 0.07, (0.002, 0.0)),
+        ("FIIs", "Fundos imobiliários", "historico", 0.10, 0.04, 0.005, 0.14, (0.003, 0.002)),
+    ]
+    classes = []
+    for nome, rot, org, peso, ret, desc, vol, (ter, ret_div) in classes_def:
+        classes.append({
+            "classe": nome, "rotulo": rot, "origem": org, "peso": peso,
+            "retorno_real": ret, "desconto": desc, "retorno_liquido": round(ret - desc, 4), "vol": vol,
+            "desconto_composicao": {"ter": ter, "retencao_dividendos": ret_div},
+            "periodo": "2010-2020 (sintético)" if org == "historico" else None,
+            "fonte": "Série sintética de FIIs" if org == "historico" else None,
+        })
+    n = len(classes)
+    matriz = [[1.0 if i == j else round(0.3 + 0.05 * ((i + j) % 4), 2) for j in range(n)] for i in range(n)]
+    return {
+        "idade_atual": idade, "idade_final": 65, "ano_atual": ano0, "ano_final": ano_f,
+        "partida": {"patrimonio": 400000.0, "data": "2030-09-25"},
+        "aporte": {"mensal": 3000.0, "janela": {"de": "2029-09-26", "ate": "2030-09-25"},
+                   "compras_menos_vendas": 42000.0, "proventos": 4800.0, "aluguel": 1200.0,
+                   "piso_zero_aplicado": False},
+        "premissas": {
+            "fonte": {"nome": "Casa Sintética de Premissas", "edicao": 2099, "data_base": "2099-01-01",
+                      "url": "https://exemplo.invalid/premissas-sinteticas"},
+            "inflacao": 0.035,
+            "classes": classes,
+            "correlacoes": {"classes": [c["classe"] for c in classes], "matriz": matriz},
+        },
+        "premissas_vencidas": vencida,
+        "taxa_central": {"taxa": 0.045, "media_aritmetica": 0.052, "vol_carteira": 0.13},
+        "faixas": faixas,
+        "decomposicao": {"partida_crescida": partida_cr, "aportes": aportes,
+                         "rendimento_aportes": round(fin["p50"] - partida_cr - aportes, 2),
+                         "final": fin["p50"]},
+        "ponteiro": {
+            "sensibilidade": [
+                {"rotulo": "+R$ 1.000/mês de aporte", "p50": round(fin["p50"] + 450000.0, 2), "delta": 450000.0},
+                {"rotulo": "+1 p.p. de retorno real", "p50": round(fin["p50"] + 380000.0, 2), "delta": 380000.0}],
+            "estresse": [
+                {"nome": "Década inicial fraca", "descricao": "A carteira rende 3 p.p. a menos por ano nos primeiros 10 anos.",
+                 "p50": round(fin["p50"] - 300000.0, 2), "delta": -300000.0},
+                {"nome": "Real forte", "descricao": "Ações EUA rendem 2 p.p. a menos por ano nos primeiros 10 anos.",
+                 "p50": round(fin["p50"] - 150000.0, 2), "delta": -150000.0},
+                {"nome": "Aporte pela metade", "descricao": "O aporte mensal cai à metade a partir de hoje e fica assim até o fim.",
+                 "p50": round(fin["p50"] - 600000.0, 2), "delta": -600000.0}]},
+        "trajetorias": 10000,
+    }
+
+
+def _forma(x):
+    if isinstance(x, dict):
+        return {k: _forma(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_forma(e) for e in x]
+    return type(x).__name__
+
+
+def _confere_forma(real, esperado, caminho="projecao"):
+    """Paridade de forma (so tipos) com a arvore medida no backend
+    (literal ``_MOLDE_PROJECAO``, abaixo). Listas: TODO elemento segue o molde do 1o.
+    ``periodo``/``fonte`` das classes aceitam ``NoneType|str`` (jpm: None,
+    historico: str)."""
+    if isinstance(esperado, dict):
+        assert isinstance(real, dict) and set(real) == set(esperado), (
+            f"{caminho}: chaves divergem: {sorted(set(real) ^ set(esperado))}")
+        for k in esperado:
+            molde = esperado[k]
+            if caminho.endswith("classes[]") and k in ("periodo", "fonte"):
+                molde = "NoneType|str"
+            _confere_forma(real[k], molde, f"{caminho}.{k}")
+    elif isinstance(esperado, list):
+        assert isinstance(real, list) and real, f"{caminho}: lista vazia ou ausente"
+        for e in real:
+            _confere_forma(e, esperado[0], f"{caminho}[]")
+    else:
+        assert real in esperado.split("|"), f"{caminho}: tipo {real} != {esperado}"
+
+
+# Molde de tipos medido no backend (so tipos, nenhum valor). Embutido como literal:
+# o .gitignore engole tests/fixtures/*.json.
+_MOLDE_PROJECAO = json.loads(r'''{
+    "idade_atual": "int",
+    "idade_final": "int",
+    "ano_atual": "int",
+    "ano_final": "int",
+    "partida": {
+        "patrimonio": "float",
+        "data": "str"
+    },
+    "aporte": {
+        "mensal": "float",
+        "janela": {
+            "de": "str",
+            "ate": "str"
+        },
+        "compras_menos_vendas": "float",
+        "proventos": "float",
+        "aluguel": "float",
+        "piso_zero_aplicado": "bool"
+    },
+    "premissas": {
+        "fonte": {
+            "nome": "str",
+            "edicao": "int",
+            "data_base": "str",
+            "url": "str"
+        },
+        "inflacao": "float",
+        "classes": [
+            {
+                "classe": "str",
+                "rotulo": "str",
+                "origem": "str",
+                "peso": "float",
+                "retorno_real": "float",
+                "desconto": "float",
+                "retorno_liquido": "float",
+                "vol": "float",
+                "desconto_composicao": {
+                    "ter": "float",
+                    "retencao_dividendos": "float"
+                },
+                "periodo": "NoneType",
+                "fonte": "NoneType"
+            }
+        ],
+        "correlacoes": {
+            "classes": [
+                "str"
+            ],
+            "matriz": [
+                [
+                    "float"
+                ]
+            ]
+        }
+    },
+    "premissas_vencidas": "bool",
+    "taxa_central": {
+        "taxa": "float",
+        "media_aritmetica": "float",
+        "vol_carteira": "float"
+    },
+    "faixas": [
+        {
+            "idade": "int",
+            "ano": "int",
+            "data": "str",
+            "p10": "float",
+            "p25": "float",
+            "p50": "float",
+            "p75": "float",
+            "p90": "float"
+        }
+    ],
+    "decomposicao": {
+        "partida_crescida": "float",
+        "aportes": "float",
+        "rendimento_aportes": "float",
+        "final": "float"
+    },
+    "ponteiro": {
+        "sensibilidade": [
+            {
+                "rotulo": "str",
+                "p50": "float",
+                "delta": "float"
+            }
+        ],
+        "estresse": [
+            {
+                "nome": "str",
+                "descricao": "str",
+                "p50": "float",
+                "delta": "float"
+            }
+        ]
+    },
+    "trajetorias": "int"
+}''')
+
+
+def _valida_forma_projecao() -> None:
+    molde = _MOLDE_PROJECAO
+    for variante in (_projecao_sintetica(), _projecao_sintetica(50), _projecao_sintetica(vencida=True)):
+        _confere_forma(_forma(variante), molde)
+    for v in (_projecao_sintetica(), _projecao_sintetica(50), _projecao_sintetica(vencida=True)):
+        d = v["decomposicao"]
+        assert min(d["partida_crescida"], d["aportes"], d["rendimento_aportes"]) >= 0, "parcela negativa"
+        soma = round(d["partida_crescida"] + d["aportes"] + d["rendimento_aportes"], 2)
+        assert abs(soma - d["final"]) < 0.005, f"decomposicao nao fecha: {soma} != {d['final']}"
+        assert d["final"] == v["faixas"][-1]["p50"]
+    origens = {c["origem"] for c in _projecao_sintetica()["premissas"]["classes"]}
+    assert origens == {"jpm", "historico"}, "a fixture precisa das duas especies de classe"
 
 
 PAYLOAD = {
-    "versao": "2.28",
+    "versao": "2.29",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1309,13 +1526,20 @@ def gerar_portfolio_projecao_variantes() -> None:
     alvo.write_text(encriptar_json(json.dumps(payload_v227, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
 
-    payload_xirr = {**PAYLOAD, "projecao": _projecao_so_xirr()}
-    alvo = base / "portfolio_projecao_so_xirr.test.json.enc"
-    alvo.write_text(encriptar_json(json.dumps(payload_xirr, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    payload_v228 = {**PAYLOAD, "versao": "2.28", "projecao": _projecao_sintetica_v228()}
+    alvo = base / "portfolio_pre_v229.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload_v228, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
+
+    for nome, proj in (("portfolio_projecao_vencida", _projecao_sintetica(vencida=True)),
+                       ("portfolio_projecao_idade50", _projecao_sintetica(50))):
+        alvo = base / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps({**PAYLOAD, "projecao": proj}, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
 
 
 def main() -> None:
+    _valida_forma_projecao()               # 7a.AY.2 (Task 9): paridade de forma
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")

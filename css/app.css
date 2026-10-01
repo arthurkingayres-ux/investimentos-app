@@ -3825,6 +3825,15 @@ body:has(.tab-bar) main {
   font-size: 0.875rem;
 }
 .proj-resposta__sub .proj-num { color: var(--ink); font-weight: 600; }
+/* 7a.AY: ", em reais de hoje." volta ao corpo do texto depois da mediana. */
+.proj-resposta__resto { font-size: 1rem; font-weight: 400; color: var(--ink); }
+/* Verificação visual a 320 px: sem isto a frase partia "em | reais de hoje"
+   na linha do número grande. Inteira, ela desce junta para a linha de baixo. */
+.proj-resposta__inteiro { white-space: nowrap; }
+/* A faixa p10–p90 no corpo --num-lg: segunda na hierarquia, abaixo da mediana
+   (--num-xl) e acima de todo número-tema dos capítulos (também --num-lg, mas
+   em fonte do texto). O "e" herda este corpo. */
+.proj-resposta__intervalo { font-size: var(--num-lg); color: var(--ink); }
 
 /* 7a.AX: números da tela na fonte do TEXTO, tabulares, peso 600 — a regra
    DESTA TELA. O corpo é herdado (em prosa, o número tem o corpo da frase);
@@ -3859,11 +3868,6 @@ body:has(.tab-bar) main {
 .proj-conta { margin: 0.25rem 0 1rem; }
 .proj-conta > summary { cursor: pointer; color: var(--accent); font-size: 0.875rem; min-height: 44px; display: flex; align-items: center; }
 .proj-conta__corpo { font-size: 0.875rem; line-height: 1.5; color: var(--ink); padding: 0.25rem 0 0.5rem; }
-.proj-formula { font-variant-numeric: tabular-nums; font-size: var(--num-xs); }
-.proj-leitura { margin-top: 1.75rem; }
-.proj-leitura__nome { font-size: 1rem; font-weight: 700; margin: 0; color: var(--ink); }
-.proj-leitura__taxa { font-size: var(--num-md); color: var(--g-700); margin: 0.125rem 0 0.5rem; }
-.proj-indisponivel { color: var(--gray); font-size: 0.9375rem; margin-top: 1.75rem; }
 .proj-grifo { margin: 1.75rem 0; }
 .proj-grifo__titulo { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }
 .proj-tabela { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
@@ -3873,31 +3877,22 @@ body:has(.tab-bar) main {
    coluna do thead encostavam um no outro ("carteiraseu dinheiro"). */
 .proj-tabela thead th + th { padding-left: 8px; }
 .proj-tabela td.proj-num { font-size: var(--num-xs); white-space: nowrap; padding-left: 8px; }
-/* Valor em prosa numa célula numérica ("antes da medição"): quebra linha. */
-.proj-tabela td.proj-num.proj-num--texto { white-space: normal; }
 .proj-tabela__total th, .proj-tabela__total td { font-weight: 700; border-top: 2px solid var(--ink); }
+/* 7a.AY: tabela por classe do capítulo 3. Um tbody por classe: o nome em linha
+   própria (largura toda) e os quatro números embaixo, com as colunas alinhadas
+   ao thead. Cinco colunas lado a lado não cabem a 320 px com folga. */
+.proj-tabela--classes { margin: 1rem 0 0.5rem; table-layout: fixed; }
+.proj-tabela--classes thead th { font-size: 0.75rem; font-weight: 600; color: var(--gray); vertical-align: bottom; line-height: 1.25; border-top: 0; }
+.proj-tabela--classes thead th + th { padding-left: 8px; }
+.proj-tabela.proj-tabela--classes thead th { text-align: right; }
+.proj-tabela--classes .proj-classe__nome th { text-align: left; font-weight: 600; padding: 8px 0 0; }
+.proj-tabela--classes .proj-classe__valores td { border-top: 0; padding-top: 2px; }
+.proj-tabela--classes td.proj-num:first-child { padding-left: 0; }
+.proj-fonte-linha { max-width: 68ch; }
+/* Verificação visual a 320 px: "55 anos" e "65 anos" quebravam e "45 anos" não,
+   colunas de larguras desiguais. Quem quebra é o rótulo da linha ("p50, a mediana"). */
+.proj-tabela--percentis thead th { white-space: nowrap; }
 .proj-limites { margin: 1.5rem 0 0; padding-left: 1.1rem; color: var(--gray); font-size: 0.875rem; line-height: 1.5; }
-
-/* 7a.AX — barras de taxa do capítulo 3 (spec §3.3). O trilho reserva 4.25rem à
-   direita (e à esquerda quando há taxa negativa) para o valor escrito na ponta:
-   a maior barra encosta em 100% do trilho e o valor cabe na reserva, nunca
-   fora do capítulo. HTML e CSS, sem ECharts. */
-.proj-taxas { margin: 1.25rem 0 0.5rem; }
-.proj-taxas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.proj-taxas__nome { display: block; font-size: 0.8125rem; line-height: 1.35; color: var(--ink); margin-bottom: 4px; }
-.proj-taxas__linha--ancora .proj-taxas__nome { font-weight: 700; }
-.proj-taxas__area { display: block; position: relative; margin: 0 4.25rem 0 0; }
-.proj-taxas--negativa .proj-taxas__area { margin-left: 4.25rem; }
-.proj-taxas__trilho { height: 12px; }
-.proj-taxas__barra { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
-.proj-taxas__barra--ancora { background: var(--g-700); }
-.proj-taxas__barra--comparacao { background: var(--neutral-300); box-shadow: inset 0 0 0 1px var(--gray); }
-.proj-taxas__zero { position: absolute; top: -3px; bottom: -3px; border-left: 1px solid var(--gray); }
-.proj-taxas__valor { position: absolute; top: 50%; transform: translateY(-50%); font-size: var(--num-xs); line-height: 1; white-space: nowrap; color: var(--ink); }
-.proj-taxas__eixo { height: 1rem; margin-top: 4px; }
-.proj-taxas__zero-rot { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.75rem; color: var(--gray); }
-/* Sem taxa negativa o zero está na borda esquerda: rótulo alinhado à borda, não centrado nela. */
-.proj-taxas__zero-rot--inicio { transform: none; }
 
 /* 7a.AX — gráfico de faixas do capítulo 4 (spec §3.4). Uma linha por leitura:
    nome, desenho, valores escritos — nessa ordem vertical, então nada colide em
@@ -3906,67 +3901,18 @@ body:has(.tab-bar) main {
    teto ficam alinhados ao 0% e ao 100% do trilho. */
 .proj-faixas { margin: 1.25rem 0 0.25rem; }
 .proj-faixas__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-.proj-faixas__nome { font-size: 0.875rem; line-height: 1.35; color: var(--ink); margin: 0 0 6px; }
-.proj-faixas__linha--ancora .proj-faixas__nome > span:first-child { font-weight: 700; }
+.proj-faixas__nome { font-size: 0.875rem; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0 0 6px; }
 .proj-faixas__trilho { position: relative; height: 14px; margin: 0 7px; }
 .proj-faixas__traco { position: absolute; top: 6px; height: 2px; background: var(--g-700); }
 .proj-faixas__barra { position: absolute; top: 2px; height: 10px; border-radius: 5px; background: var(--g-700); }
 .proj-faixas__ponto { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
   transform: translate(-50%, -50%); background: var(--ink); box-shadow: 0 0 0 2px var(--neutral-50); }
-.proj-faixas__linha--comparacao .proj-faixas__ponto { background: var(--neutral-300); box-shadow: inset 0 0 0 2px var(--gray); }
 .proj-faixas__valores { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 6px 0 0; }
 .proj-faixas__valores strong { color: var(--ink); }
 .proj-faixas__valores .proj-num { white-space: nowrap; }
 .proj-faixas__eixo { display: flex; justify-content: space-between; margin: 12px 7px 0; padding-top: 4px;
   border-top: 1px solid var(--neutral-200); font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums; }
 .proj-faixas__legenda { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 8px 0 0; }
-
-/* Tabelas densas. A 320px as quatro colunas cabem porque os cabeçalhos
-   quebram linha e a coluna da categoria também; só os números não quebram. */
-.proj-premissas {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 8px 0 4px;
-  font-size: 0.875rem;
-  color: var(--ink);
-}
-.proj-premissas th,
-.proj-premissas td {
-  padding: 8px 2px;
-  border-bottom: 1px solid var(--neutral-100);
-  text-align: right;
-  vertical-align: top;
-}
-.proj-premissas th:first-child,
-.proj-premissas td:first-child { text-align: left; padding-left: 0; }
-.proj-premissas th:last-child,
-.proj-premissas td:last-child { padding-right: 0; }
-.proj-premissas thead th {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--gray);
-  vertical-align: bottom;
-  line-height: 1.25;
-}
-.proj-premissas tbody th { font-weight: 600; font-size: 0.8125rem; line-height: 1.3; }
-.proj-premissas td.proj-num { font-size: var(--num-xs); white-space: nowrap; letter-spacing: -0.02em; }
-
-/* Fonte por classe, recolhida. O alvo de toque (≥44px) vem do summary. */
-.proj-fonte summary {
-  min-height: 44px;
-  box-sizing: border-box;
-  padding: 12px 0;
-  cursor: pointer;
-  line-height: 1.25;
-}
-.proj-fonte__txt {
-  display: block;
-  padding: 0 0 10px;
-  color: var(--gray);
-  font-size: 0.8125rem;
-  font-weight: 400;
-  line-height: 1.4;
-}
 
 .proj-nota {
   margin: 8px 0 0;
@@ -3978,8 +3924,6 @@ body:has(.tab-bar) main {
 /* 7a.AW.2 → 7a.AX — capítulo 4: a decomposição e o ponteiro. */
 .proj-decomp { margin: 0.75rem 0 0; }
 .proj-decomp__titulo { font-size: 0.875rem; line-height: 1.5; margin: 0 0 0.5rem; max-width: 68ch; }
-.proj-decomp__item { margin: 0 0 10px; }
-.proj-decomp__nome { font-size: 0.8125rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
 .proj-decomp__barra { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--neutral-200); }
 .proj-decomp__seg--partida { background: var(--ink); }
 .proj-decomp__seg--aportes { background: var(--g-700); }
@@ -3997,9 +3941,11 @@ body:has(.tab-bar) main {
 .proj-ponteiro__item { padding: 12px 0; border-top: 1px solid var(--neutral-200); }
 .proj-ponteiro__nome { font-size: 0.9375rem; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0; }
 .proj-ponteiro__desc { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 2px 0 0; }
-.proj-ponteiro__efeitos { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
-.proj-ponteiro__efeito { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 0.875rem; }
-.proj-ponteiro__ancora { color: var(--ink); min-width: 0; }
+/* 7a.AY: uma linha por alavanca — "mediana R$ X" à esquerda, Δ à direita. A
+   320 px a guarda é a FOLGA entre os dois (≥ 8 px), não o transbordo. */
+.proj-ponteiro__efeito { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 0.875rem; margin: 6px 0 0; }
+.proj-ponteiro__mediana { color: var(--gray); min-width: 0; }
+.proj-ponteiro__mediana .proj-num { color: var(--ink); white-space: nowrap; }
 
 /* `.proj-rodape` (7a.AV.2) tinha borda + respiro de card único; nesta tela
    de capítulos ele fecha o ensaio inteiro, centralizado, sem borda — a task
