@@ -1151,20 +1151,20 @@
               <p class="proj-cap__ordinal" aria-hidden="true">2</p>
               <h2 class="proj-cap__titulo" id="proj-cap-2">Quanto você aporta</h2>
               <p class="proj-cap__tema proj-num"><span x-text="formatBrlInteiro(projecao.aporte.mensal)"></span><span class="proj-cap__unidade"> por mês</span></p>
-              <p class="proj-cap__texto">É a média do que entrou na carteira nos últimos 12 meses. Ela muda todo mês e não cresce com a sua renda, então por aqui a projeção é conservadora.</p>
+              <p class="proj-cap__texto">É a média do que veio do seu bolso nos últimos 12 meses: o que você remeteu para comprar, menos os proventos, que voltam pela reserva. Ela muda todo mês e não cresce com a sua renda, então por aqui a projeção é conservadora.</p>
               <p class="proj-nota proj-nota-piso" x-show="projecao.aporte.piso_zero_aplicado" x-cloak>Nos últimos 12 meses as vendas superaram os aportes, e a projeção usa zero.</p>
               <details class="proj-conta"><summary>ver a conta</summary>
                 <div class="proj-conta__corpo">
                   <p>De <span x-text="projFmtData(projecao.aporte.janela.de)"></span> a <span x-text="projFmtData(projecao.aporte.janela.ate)"></span>:</p>
                   <table class="proj-tabela proj-tabela--conta">
                     <tbody>
-                      <tr><th scope="row">Compras menos vendas</th><td class="proj-num" x-text="formatBrlInteiro(projecao.aporte.compras_menos_vendas)"></td></tr>
+                      <tr><th scope="row">Remessas (compras menos vendas)</th><td class="proj-num" x-text="formatBrlInteiro(projecao.aporte.compras_menos_vendas)"></td></tr>
                       <tr><th scope="row">Proventos</th><td class="proj-num" x-text="'−' + formatBrlInteiro(projecao.aporte.proventos)"></td></tr>
                       <tr><th scope="row">Aluguel de ações</th><td class="proj-num" x-text="'−' + formatBrlInteiro(projecao.aporte.aluguel)"></td></tr>
                       <tr class="proj-tabela__total"><th scope="row">÷ 12</th><td class="proj-num" x-text="formatBrlInteiro(projecao.aporte.mensal)"></td></tr>
                     </tbody>
                   </table>
-                  <p>Proventos e aluguel saem da conta porque as taxas de retorno já os incluem. Somá-los de novo contaria o mesmo dinheiro duas vezes.</p>
+                  <p>Os proventos passam pela reserva e voltam na remessa. As taxas de retorno já os contam, então somá-los de novo contaria o mesmo dinheiro duas vezes. Se eles deixassem de voltar, veja o cenário "Proventos fora da carteira".</p>
                 </div></details>
             </section>
 

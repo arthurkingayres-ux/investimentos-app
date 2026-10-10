@@ -348,7 +348,10 @@ def _projecao_sintetica(idade: int = 30, vencida: bool = False) -> dict:
                 {"nome": "Real forte", "descricao": "Ações EUA rendem 2 p.p. a menos por ano nos primeiros 10 anos.",
                  "p50": round(fin["p50"] - 150000.0, 2), "delta": -150000.0},
                 {"nome": "Aporte pela metade", "descricao": "O aporte mensal cai à metade a partir de hoje e fica assim até o fim.",
-                 "p50": round(fin["p50"] - 600000.0, 2), "delta": -600000.0}]},
+                 "p50": round(fin["p50"] - 600000.0, 2), "delta": -600000.0},
+                {"nome": "Proventos fora da carteira",
+                 "descricao": "Os proventos deixam de voltar à carteira a partir de hoje, e o que você poupa fica igual.",
+                 "p50": round(fin["p50"] - 900000.0, 2), "delta": -900000.0}]},
         "trajetorias": 10000,
     }
 

@@ -233,13 +233,13 @@ test.describe("7a.AY.2 — a tela de um cenário", () => {
     }
   });
 
-  test("9. ponteiro: 2 sensibilidades + 3 estresses, mediana e Δ com sinal em texto", async ({ page }) => {
+  test("9. ponteiro: 2 sensibilidades + 4 estresses, mediana e Δ com sinal em texto", async ({ page }) => {
     await autenticar(page);
     await abrirProjecao(page);
     const al = await dados(page, "d.projAlavancas().map(a => ({ nome: a.nome, p50: d.formatBrlCompacto(a.p50), delta: d.formatDeltaCompacto(a.delta) }))");
     const cap = page.locator('.proj-cap[data-cap="5"]');
     const itens = cap.locator(".proj-ponteiro__item");
-    await expect(itens).toHaveCount(5);
+    await expect(itens).toHaveCount(6);
     expect(await cap.locator(".proj-ponteiro__nome").allInnerTexts()).toEqual(al.map((a: any) => a.nome));
     for (const [i, it] of (await itens.all()).entries()) {
       await expect(it.locator(".proj-ponteiro__desc")).toHaveCount(i < 2 ? 0 : 1);
@@ -318,6 +318,19 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     const conta = page.locator('.proj-cap[data-cap="2"] details.proj-conta');
     await conta.locator("summary").click();
     await expect(conta.locator(".proj-tabela--conta tr")).toHaveCount(4);
+  });
+
+  test("cap. 2 (7a.BA): o aporte é o que veio do bolso; a conta nomeia remessas e o cenário", async ({ page }) => {
+    await autenticar(page);
+    await abrirProjecao(page);
+    const cap = page.locator('.proj-cap[data-cap="2"]');
+    await expect(cap.locator(".proj-cap__texto")).toHaveText(
+      "É a média do que veio do seu bolso nos últimos 12 meses: o que você remeteu para comprar, menos os proventos, que voltam pela reserva. Ela muda todo mês e não cresce com a sua renda, então por aqui a projeção é conservadora.");
+    await cap.locator("details.proj-conta summary").click();
+    await expect(cap.locator(".proj-tabela--conta tr").first().locator("th")).toHaveText("Remessas (compras menos vendas)");
+    await expect(cap.locator(".proj-conta__corpo > p").last()).toHaveText(
+      "Os proventos passam pela reserva e voltam na remessa. As taxas de retorno já os contam, então somá-los de novo contaria o mesmo dinheiro duas vezes. Se eles deixassem de voltar, veja o cenário \"Proventos fora da carteira\".");
+    expect(await cap.innerText()).not.toContain("entrou na carteira");
   });
 
   test("cap. 3: tema é a taxa central, e o grifo único cita EUA a partir do payload", async ({ page }) => {
@@ -423,7 +436,7 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
         return { folga: d.left - n.right, mesma: n.top < d.bottom && d.top < n.bottom, dentro: d.right <= cap.right + 0.5 };
       });
     });
-    expect(r).toHaveLength(5);
+    expect(r).toHaveLength(6);
     for (const e of r) { expect(e.mesma).toBe(true); expect(e.folga).toBeGreaterThanOrEqual(8); expect(e.dentro).toBe(true); }
   });
 
@@ -662,12 +675,13 @@ test.describe("7a.AY — getters e estados da projeção v2.29", () => {
     expect(t).toContain("Fundos imobiliários: histórico 2010-2020 (sintético), porque ninguém publica premissa prospectiva para eles.");
   });
 
-  test("alavancas: 2 sensibilidades + 3 estresses; 'praticamente' só acima de 1%", async ({ page }) => {
+  test("alavancas: 2 sensibilidades + 4 estresses; 'praticamente' só acima de 1%", async ({ page }) => {
     await autenticar(page);
     const a = await dados(page, "d.projAlavancas()");
-    expect(a).toHaveLength(5);
+    expect(a).toHaveLength(6);
     expect(a[0]).toMatchObject({ nome: "+R$ 1.000/mês de aporte", descricao: null });
     expect(a[2].descricao).toBeTruthy();
+    expect(a[5]).toMatchObject({ nome: "Proventos fora da carteira" });
     expect(await dados(page, "d.projPraticamente()")).toBe("");
     expect(await dados(page, "(d.json.projecao.decomposicao.final *= 1.5, d.projPraticamente())")).toBe("praticamente ");
   });
