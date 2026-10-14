@@ -59,6 +59,52 @@ const dados = (page: Page, expr: string) =>
     return new Function("d", "return " + e)(d);
   }, expr);
 
+// Pontuação de fonte: o PWA não embarca fonte, então a métrica muda por SO
+// (Segoe/Cascadia no Windows, DejaVu Sans/Mono no runner Linux do CI, SF no
+// iPhone). Um teste de geometria que só roda na fonte do sistema passa no
+// Windows e cai no CI (hotfix 7a.AV.2, #15; de novo em 10/2026). Os testes de
+// geometria rodam também com uma fonte LARGA forçada: DejaVu onde existe (o
+// próprio Linux do CI), Verdana no Windows (métrica da mesma família, mais
+// larga que Segoe), Courier New como mono de 0,6 em, a largura da DejaVu Mono.
+// No Linux do CI os dois modos coincidem (a fonte do sistema já é a DejaVu) e
+// cada teste roda em duplicata: custo aceito (board PR #16, iteração 2). Não
+// pular o modo "sistema" lá: no Windows e no macOS eles divergem, e o modo
+// "sistema" é o que o aparelho real renderiza.
+const FONTES = ["sistema", "larga"] as const;
+async function aplicarFonte(page: Page, fonte: (typeof FONTES)[number]) {
+  if (fonte === "sistema") return;
+  await page.addStyleTag({ content:
+    '.tela-projecao, .tela-projecao * { font-family: "DejaVu Sans", Verdana, sans-serif !important; }' +
+    '.tela-projecao .proj-faixa { font-family: "DejaVu Sans Mono", "Courier New", monospace !important; }' });
+  await page.evaluate(() => document.fonts.ready);
+  // Controle positivo pela RENDERIZAÇÃO, não pela família declarada (board
+  // PR #16): uma sonda de texto fixo dentro da tela, a 100 px, medida em em
+  // por caractere. Sem isto, um seletor errado deixaria o modo "larga" igual
+  // ao "sistema" e o teste verde por vacuidade. Medido em 10/2026:
+  //   texto  Segoe 0,468 · Arial 0,477  |  DejaVu Sans 0,532 · Verdana 0,535  → piso 0,51
+  //   mono   Consolas 0,550 · Cascadia 0,586  |  Courier New 0,600 · DejaVu Mono 0,602  → piso 0,595
+  // No Linux a fonte do sistema já é a DejaVu: lá a sonda passa nos dois modos,
+  // e é verdade (a fonte renderizada É larga). O piso é absoluto por isso.
+  const em = await page.evaluate(async () => {
+    const T = "Desconto Retorno real 45 anos";
+    const caixa = document.createElement("div");
+    caixa.style.cssText = "position:absolute;left:0;top:0;visibility:hidden";
+    caixa.innerHTML = '<span></span><span class="proj-faixa"></span>';
+    document.querySelector(".tela-projecao .proj-ensaio")!.appendChild(caixa);
+    const r: number[] = [];
+    for (const s of Array.from(caixa.children) as HTMLElement[]) {
+      s.textContent = T;
+      s.style.cssText = "font-size:100px;font-weight:400;letter-spacing:0;white-space:nowrap";
+      await document.fonts.ready;
+      r.push(s.getBoundingClientRect().width / (T.length * 100));
+    }
+    caixa.remove();
+    return { texto: r[0], mono: r[1] };
+  });
+  expect(em.texto, "texto da tela em fonte larga (em/caractere)").toBeGreaterThanOrEqual(0.51);
+  expect(em.mono, "valores .proj-faixa em mono larga (em/caractere)").toBeGreaterThanOrEqual(0.595);
+}
+
 const abrirContas = (page: Page) =>
   page.evaluate(() => document.querySelectorAll(".tela-projecao details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
 
@@ -265,12 +311,13 @@ test.describe("7a.AY.2 — a tela de um cenário", () => {
     });
   }
 
-  for (const w of [320, 390]) {
-    test(`11. sem rolagem horizontal a ${w} px, com tudo aberto, e nada fora do próprio capítulo`, async ({ page }) => {
+  for (const w of [320, 390]) for (const fonte of FONTES) {
+    test(`11. sem rolagem horizontal a ${w} px, com tudo aberto, e nada fora do próprio capítulo (fonte ${fonte})`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: 800 });
       await autenticar(page);
       await abrirProjecao(page);
       await abrirContas(page);
+      await aplicarFonte(page, fonte);
       const r = await page.evaluate(() => {
         const ensaio = document.querySelector(".proj-ensaio")!.getBoundingClientRect();
         const blocos = [document.querySelector(".proj-resposta")!, ...Array.from(document.querySelectorAll(".proj-cap")),
@@ -392,23 +439,47 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     const fin = page.locator(".proj-conta--final");
     await fin.locator("summary").click();
     const perc = fin.locator(".proj-tabela--percentis");
-    await expect(perc.locator("thead th")).toHaveCount(4);
-    expect((await perc.locator("thead th").allInnerTexts()).slice(1)).toEqual(["45 anos", "55 anos", "65 anos"]);
-    await expect(perc.locator("tbody tr")).toHaveCount(5);
+    // Um tbody por percentil: o rótulo em linha própria, os três marcos embaixo.
+    expect(await perc.locator("thead th").allInnerTexts()).toEqual(["45 anos", "55 anos", "65 anos"]);
+    const rotulos = await dados(page, "d.projPercentis().map(p => p.rotulo)");
+    expect(rotulos).toHaveLength(5);
+    await expect(perc.locator("tbody.proj-percentil")).toHaveCount(5);
+    expect(await perc.locator("tbody.proj-percentil th[scope='rowgroup']").allInnerTexts()).toEqual(rotulos);
+    for (const g of await perc.locator("tbody.proj-percentil").all()) await expect(g.locator("td")).toHaveCount(3);
     // Sem o "R$ " nas células (a 320 px as três colunas não cabiam com ele); a unidade fica na frase acima.
     const p90_65 = await dados(page, "d.formatBrlCompacto(d.projFinal().p90).replace('R$ ', '')");
-    await expect(perc.locator("tbody tr").last().locator("td").last()).toHaveText(p90_65);
+    await expect(perc.locator("tbody.proj-percentil").last().locator("td").last()).toHaveText(p90_65);
+    // Cada célula aponta, por headers, para o rótulo do SEU percentil e para a
+    // idade da sua coluna (sem depender de scope="rowgroup" no leitor de tela).
+    const assoc = await perc.evaluate((t) => Array.from(t.querySelectorAll("tbody.proj-percentil")).flatMap((g) => {
+      const rot = g.querySelector("th[scope='rowgroup']")!;
+      const idades = Array.from(t.querySelectorAll("thead th"));
+      return Array.from(g.querySelectorAll("td")).map((td, i) => {
+        const ids = (td.getAttribute("headers") || "").split(/\s+/).filter(Boolean);
+        return { ids: ids.length, existem: ids.every((id) => !!document.getElementById(id)),
+                 primeiroERotulo: !!rot.id && ids[0] === rot.id, segundoEIdade: !!idades[i].id && ids[1] === idades[i].id };
+      });
+    }));
+    expect(assoc).toHaveLength(15);
+    // Ids únicos: 5 percentis + 3 idades. getElementById devolve o PRIMEIRO de
+    // um id duplicado, então "existem" sozinho não pegaria a duplicata.
+    const ids = await perc.evaluate((t) => Array.from(t.querySelectorAll("[id^='proj-perc-']")).map((e) => e.id));
+    expect(ids).toHaveLength(8);
+    expect(new Set(ids).size, ids.join(" ")).toBe(8);
+    expect(await page.evaluate(() => document.querySelectorAll("[id^='proj-perc-']").length)).toBe(8);
+    for (const a of assoc) expect(a).toEqual({ ids: 2, existem: true, primeiroERotulo: true, segundoEIdade: true });
     await expect(fin.locator(".proj-tabela--correl tbody tr")).toHaveCount(15);       // 6 classes → 15 pares
     await expect(fin.locator(".proj-tabela--correl tbody tr").first()).toContainText("Ações Brasil e Ações EUA");
     await expect(fin).toContainText("10.000 trajetórias");
     await expect(page.locator(".proj-rodape")).toHaveText("10.000 trajetórias · recalculada toda noite · projeção, não promessa");
   });
 
-  test("a 320 px: cabeçalhos das tabelas com folga ≥ 6 px entre os textos", async ({ page }) => {
+  for (const fonte of FONTES) test(`a 320 px: cabeçalhos das tabelas com folga ≥ 6 px entre os textos (fonte ${fonte})`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await autenticar(page);
     await abrirProjecao(page);
     await abrirContas(page);
+    await aplicarFonte(page, fonte);
     const r = await page.evaluate(() => {
       const texto = (el: Element) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg.getBoundingClientRect(); };
       const folgas: { tabela: string; folga: number }[] = [];
@@ -440,20 +511,45 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     for (const e of r) { expect(e.mesma).toBe(true); expect(e.folga).toBeGreaterThanOrEqual(8); expect(e.dentro).toBe(true); }
   });
 
-  for (const w of [800, 320]) {
-    test(`abertura a ${w}px: na linha da faixa, o 'e' fica com o primeiro valor`, async ({ page }) => {
+  for (const w of [800, 320]) for (const fonte of FONTES) {
+    test(`abertura a ${w}px: na linha da faixa, o 'e' fica com o primeiro valor (fonte ${fonte})`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: 800 });
       await autenticar(page);
       await abrirProjecao(page);
+      await aplicarFonte(page, fonte);
       const linha = () => page.evaluate(() => {
         const [, a, b] = Array.from(document.querySelectorAll(".proj-resposta .proj-faixa")).map((e) => e.getBoundingClientRect());
         const e = document.querySelector(".proj-resposta .proj-conectivo")!.getBoundingClientRect();
         const mesma = (x: DOMRect, y: DOMRect) => Math.abs((x.top + x.bottom) / 2 - (y.top + y.bottom) / 2) < Math.min(x.height, y.height) / 2;
-        return { eComA: mesma(a, e), bComA: mesma(a, b) };
+        // Se o p90 cabe na linha do p10: o que sobra à direita do grupo "p10 e"
+        // contra o espaço + o p90 + o ponto final (que não se separa dele). O
+        // espaço é medido no próprio grupo, no mesmo corpo. Medido, não fixo: a
+        // folga a 800 px é de ~7 px no Windows e negativa com a DejaVu do CI.
+        const sub = document.querySelector(".proj-resposta__sub")!;
+        const grupo = document.querySelector(".proj-resposta__grupo")!;
+        const larg = (r: Range) => r.getBoundingClientRect().width;
+        const esp = document.createRange(); esp.selectNodeContents(grupo.childNodes[1]);
+        const cauda = document.createRange();
+        cauda.setStartBefore(document.querySelectorAll(".proj-resposta .proj-faixa")[2]); cauda.setEndAfter(sub.lastChild!);
+        const cs = getComputedStyle(sub);
+        const direita = sub.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+        const sobra = direita - grupo.getBoundingClientRect().right - larg(esp) - larg(cauda);
+        return { eComA: mesma(a, e), bComA: mesma(a, b), sobra, esp: larg(esp), subW: direita - sub.getBoundingClientRect().left };
       });
       const r = await linha();
       expect(r.eComA).toBe(true);
-      if (w === 800) expect(r.bComA).toBe(true);
+      expect(r.esp).toBeGreaterThan(0);                     // a sonda do espaço mediu algo
+      // Trava independente (board PR #16): `sobra` e `bComA` vêm do mesmo layout,
+      // e uma coluna que encolhesse moveria os dois juntos. A 800 px a largura da
+      // frase é a que o CSS DECLARA: main max-width 520 − 2 × 24 de padding −
+      // 2 × 20 da tela = 432 px. O valor é literal para não se derivar do layout,
+      // e a asserção é de IGUALDADE (board PR #16, iteração 2): um piso deixaria
+      // a coluna alargar em silêncio e a folga medida deixaria de ser a do CSS.
+      if (w === 800) expect(Math.abs(r.subW - 432), "largura da linha da faixa a 800 px = 432 px " +
+        "(css/app.css: main max-width 520px e padding 1.5rem; .tela-detalhes padding 16px 20px). " +
+        "Mudou o CSS? Atualize o literal. Mediu " + r.subW.toFixed(1)).toBeLessThanOrEqual(0.5);
+      // O p90 fica na linha do p10 SE E SÓ SE couber; |sobra| < 1 px é empate de arredondamento.
+      if (Math.abs(r.sobra) >= 1) expect(r.bComA, "sobra " + r.sobra.toFixed(1) + " px").toBe(r.sobra > 0);
       // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
       await page.evaluate(() => {
         const fs = (window as any).Alpine.$data(document.body).json.projecao.faixas;
@@ -463,6 +559,7 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
       await expect(page.locator(".proj-resposta .proj-faixa").last()).toHaveText("R$ 999,9 mi");
       const r2 = await linha();
       expect(r2.eComA).toBe(true);
+      if (Math.abs(r2.sobra) >= 1) expect(r2.bComA, "sobra " + r2.sobra.toFixed(1) + " px").toBe(r2.sobra > 0);
       if (w === 320) expect(r2.bComA).toBe(false);
     });
   }

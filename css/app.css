@@ -3881,7 +3881,10 @@ body:has(.tab-bar) main {
 /* 7a.AY: tabela por classe do capítulo 3. Um tbody por classe: o nome em linha
    própria (largura toda) e os quatro números embaixo, com as colunas alinhadas
    ao thead. Cinco colunas lado a lado não cabem a 320 px com folga. */
-.proj-tabela--classes { margin: 1rem 0 0.5rem; table-layout: fixed; }
+/* Sem table-layout: fixed (CI Linux, 10/2026): com ele as quatro colunas saíam
+   iguais (58 px a 320 px) e "Desconto", palavra única, invadia a vizinha na
+   DejaVu. Em layout automático a coluna cresce até o cabeçalho caber. */
+.proj-tabela--classes { margin: 1rem 0 0.5rem; }
 .proj-tabela--classes thead th { font-size: 0.75rem; font-weight: 600; color: var(--gray); vertical-align: bottom; line-height: 1.25; border-top: 0; }
 .proj-tabela--classes thead th + th { padding-left: 8px; }
 .proj-tabela.proj-tabela--classes thead th { text-align: right; }
@@ -3890,8 +3893,14 @@ body:has(.tab-bar) main {
 .proj-tabela--classes td.proj-num:first-child { padding-left: 0; }
 .proj-fonte-linha { max-width: 68ch; }
 /* Verificação visual a 320 px: "55 anos" e "65 anos" quebravam e "45 anos" não,
-   colunas de larguras desiguais. Quem quebra é o rótulo da linha ("p50, a mediana"). */
+   colunas de larguras desiguais. Os cabeçalhos não quebram. */
 .proj-tabela--percentis thead th { white-space: nowrap; }
+/* Rótulo do percentil em linha própria (um tbody por percentil), no padrão da
+   tabela por classe: as três colunas de valor ficam com a largura toda. */
+.proj-tabela.proj-tabela--percentis thead th { text-align: right; }
+.proj-tabela--percentis .proj-percentil__nome th { text-align: left; font-weight: 600; padding: 8px 0 0; }
+.proj-tabela--percentis .proj-percentil__valores td { border-top: 0; padding-top: 2px; }
+.proj-tabela--percentis td.proj-num:first-child { padding-left: 0; }
 .proj-limites { margin: 1.5rem 0 0; padding-left: 1.1rem; color: var(--gray); font-size: 0.875rem; line-height: 1.5; }
 
 /* 7a.AX — gráfico de faixas do capítulo 4 (spec §3.4). Uma linha por leitura:
