@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=75">
+  <link rel="stylesheet" href="css/app.css?v=76">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
@@ -1330,16 +1330,19 @@
               <div class="proj-conta__corpo">
                 <p x-show="projMarcos().length">Cada valor é aquele abaixo do qual fica essa fração dos cenários: p10 é 1 em 10, p90 é 9 em 10. Em reais de hoje.</p>
                 <p class="proj-nota" x-show="!projMarcos().length" x-cloak>Não há idade futura para a tabela dos percentis.</p>
+                <!-- Um tbody por percentil, como a tabela por classe do cap. 3: o
+                     rótulo em linha própria e os três valores embaixo. Com o rótulo
+                     como 1ª coluna a tabela pedia ~256 px de largura mínima na
+                     DejaVu do Linux, num espaço de 232 a 320 px. -->
                 <table class="proj-tabela proj-tabela--percentis" x-show="projMarcos().length">
                   <caption class="sr-only">Os cinco percentis em cada idade, em reais de hoje</caption>
-                  <thead><tr><th scope="col"><span class="sr-only">Percentil</span></th>
-                    <template x-for="m in projMarcos()" :key="m.idade"><th scope="col" x-text="m.idade + ' anos'"></th></template></tr></thead>
-                  <tbody>
-                    <template x-for="p in projPercentis()" :key="p.k">
-                      <tr><th scope="row" x-text="p.rotulo"></th>
-                        <template x-for="m in projMarcos()" :key="m.idade"><td class="proj-num" x-text="formatBrlCompacto(m[p.k]).replace('R$ ', '')"></td></template></tr>
-                    </template>
-                  </tbody>
+                  <thead><tr><template x-for="m in projMarcos()" :key="m.idade"><th scope="col" x-text="m.idade + ' anos'"></th></template></tr></thead>
+                  <template x-for="p in projPercentis()" :key="p.k">
+                    <tbody class="proj-percentil">
+                      <tr class="proj-percentil__nome"><th scope="rowgroup" :colspan="projMarcos().length" x-text="p.rotulo"></th></tr>
+                      <tr class="proj-percentil__valores"><template x-for="m in projMarcos()" :key="m.idade"><td class="proj-num" x-text="formatBrlCompacto(m[p.k]).replace('R$ ', '')"></td></template></tr>
+                    </tbody>
+                  </template>
                 </table>
                 <p>Correlação entre as classes, usada para sortear os anos juntos:</p>
                 <table class="proj-tabela proj-tabela--correl">

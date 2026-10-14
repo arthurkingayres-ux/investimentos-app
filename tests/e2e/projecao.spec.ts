@@ -59,6 +59,26 @@ const dados = (page: Page, expr: string) =>
     return new Function("d", "return " + e)(d);
   }, expr);
 
+// Pontuação de fonte: o PWA não embarca fonte, então a métrica muda por SO
+// (Segoe/Cascadia no Windows, DejaVu Sans/Mono no runner Linux do CI, SF no
+// iPhone). Um teste de geometria que só roda na fonte do sistema passa no
+// Windows e cai no CI (hotfix 7a.AV.2, #15; de novo em 10/2026). Os testes de
+// geometria rodam também com uma fonte LARGA forçada: DejaVu onde existe (o
+// próprio Linux do CI), Verdana no Windows (métrica da mesma família, mais
+// larga que Segoe), Courier New como mono de 0,6 em, a largura da DejaVu Mono.
+const FONTES = ["sistema", "larga"] as const;
+async function aplicarFonte(page: Page, fonte: (typeof FONTES)[number]) {
+  if (fonte === "sistema") return;
+  await page.addStyleTag({ content:
+    '.tela-projecao, .tela-projecao * { font-family: "DejaVu Sans", Verdana, sans-serif !important; }' +
+    '.tela-projecao .proj-faixa { font-family: "DejaVu Sans Mono", "Courier New", monospace !important; }' });
+  await page.evaluate(() => document.fonts.ready);
+  // Controle positivo: a regra pegou (sem isto, um seletor errado deixaria o
+  // modo "larga" igual ao "sistema" e o teste verde por vacuidade).
+  const fam = await page.evaluate(() => getComputedStyle(document.querySelector(".tela-projecao .proj-faixa")!).fontFamily);
+  expect(fam).toContain("DejaVu Sans Mono");
+}
+
 const abrirContas = (page: Page) =>
   page.evaluate(() => document.querySelectorAll(".tela-projecao details").forEach((d) => ((d as HTMLDetailsElement).open = true)));
 
@@ -265,12 +285,13 @@ test.describe("7a.AY.2 — a tela de um cenário", () => {
     });
   }
 
-  for (const w of [320, 390]) {
-    test(`11. sem rolagem horizontal a ${w} px, com tudo aberto, e nada fora do próprio capítulo`, async ({ page }) => {
+  for (const w of [320, 390]) for (const fonte of FONTES) {
+    test(`11. sem rolagem horizontal a ${w} px, com tudo aberto, e nada fora do próprio capítulo (fonte ${fonte})`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: 800 });
       await autenticar(page);
       await abrirProjecao(page);
       await abrirContas(page);
+      await aplicarFonte(page, fonte);
       const r = await page.evaluate(() => {
         const ensaio = document.querySelector(".proj-ensaio")!.getBoundingClientRect();
         const blocos = [document.querySelector(".proj-resposta")!, ...Array.from(document.querySelectorAll(".proj-cap")),
@@ -392,23 +413,28 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     const fin = page.locator(".proj-conta--final");
     await fin.locator("summary").click();
     const perc = fin.locator(".proj-tabela--percentis");
-    await expect(perc.locator("thead th")).toHaveCount(4);
-    expect((await perc.locator("thead th").allInnerTexts()).slice(1)).toEqual(["45 anos", "55 anos", "65 anos"]);
-    await expect(perc.locator("tbody tr")).toHaveCount(5);
+    // Um tbody por percentil: o rótulo em linha própria, os três marcos embaixo.
+    expect(await perc.locator("thead th").allInnerTexts()).toEqual(["45 anos", "55 anos", "65 anos"]);
+    const rotulos = await dados(page, "d.projPercentis().map(p => p.rotulo)");
+    expect(rotulos).toHaveLength(5);
+    await expect(perc.locator("tbody.proj-percentil")).toHaveCount(5);
+    expect(await perc.locator("tbody.proj-percentil th[scope='rowgroup']").allInnerTexts()).toEqual(rotulos);
+    for (const g of await perc.locator("tbody.proj-percentil").all()) await expect(g.locator("td")).toHaveCount(3);
     // Sem o "R$ " nas células (a 320 px as três colunas não cabiam com ele); a unidade fica na frase acima.
     const p90_65 = await dados(page, "d.formatBrlCompacto(d.projFinal().p90).replace('R$ ', '')");
-    await expect(perc.locator("tbody tr").last().locator("td").last()).toHaveText(p90_65);
+    await expect(perc.locator("tbody.proj-percentil").last().locator("td").last()).toHaveText(p90_65);
     await expect(fin.locator(".proj-tabela--correl tbody tr")).toHaveCount(15);       // 6 classes → 15 pares
     await expect(fin.locator(".proj-tabela--correl tbody tr").first()).toContainText("Ações Brasil e Ações EUA");
     await expect(fin).toContainText("10.000 trajetórias");
     await expect(page.locator(".proj-rodape")).toHaveText("10.000 trajetórias · recalculada toda noite · projeção, não promessa");
   });
 
-  test("a 320 px: cabeçalhos das tabelas com folga ≥ 6 px entre os textos", async ({ page }) => {
+  for (const fonte of FONTES) test(`a 320 px: cabeçalhos das tabelas com folga ≥ 6 px entre os textos (fonte ${fonte})`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await autenticar(page);
     await abrirProjecao(page);
     await abrirContas(page);
+    await aplicarFonte(page, fonte);
     const r = await page.evaluate(() => {
       const texto = (el: Element) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg.getBoundingClientRect(); };
       const folgas: { tabela: string; folga: number }[] = [];
@@ -440,20 +466,36 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     for (const e of r) { expect(e.mesma).toBe(true); expect(e.folga).toBeGreaterThanOrEqual(8); expect(e.dentro).toBe(true); }
   });
 
-  for (const w of [800, 320]) {
-    test(`abertura a ${w}px: na linha da faixa, o 'e' fica com o primeiro valor`, async ({ page }) => {
+  for (const w of [800, 320]) for (const fonte of FONTES) {
+    test(`abertura a ${w}px: na linha da faixa, o 'e' fica com o primeiro valor (fonte ${fonte})`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: 800 });
       await autenticar(page);
       await abrirProjecao(page);
+      await aplicarFonte(page, fonte);
       const linha = () => page.evaluate(() => {
         const [, a, b] = Array.from(document.querySelectorAll(".proj-resposta .proj-faixa")).map((e) => e.getBoundingClientRect());
         const e = document.querySelector(".proj-resposta .proj-conectivo")!.getBoundingClientRect();
         const mesma = (x: DOMRect, y: DOMRect) => Math.abs((x.top + x.bottom) / 2 - (y.top + y.bottom) / 2) < Math.min(x.height, y.height) / 2;
-        return { eComA: mesma(a, e), bComA: mesma(a, b) };
+        // Se o p90 cabe na linha do p10: o que sobra à direita do grupo "p10 e"
+        // contra o espaço + o p90 + o ponto final (que não se separa dele). O
+        // espaço é medido no próprio grupo, no mesmo corpo. Medido, não fixo: a
+        // folga a 800 px é de ~7 px no Windows e negativa com a DejaVu do CI.
+        const sub = document.querySelector(".proj-resposta__sub")!;
+        const grupo = document.querySelector(".proj-resposta__grupo")!;
+        const larg = (r: Range) => r.getBoundingClientRect().width;
+        const esp = document.createRange(); esp.selectNodeContents(grupo.childNodes[1]);
+        const cauda = document.createRange();
+        cauda.setStartBefore(document.querySelectorAll(".proj-resposta .proj-faixa")[2]); cauda.setEndAfter(sub.lastChild!);
+        const cs = getComputedStyle(sub);
+        const direita = sub.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+        const sobra = direita - grupo.getBoundingClientRect().right - larg(esp) - larg(cauda);
+        return { eComA: mesma(a, e), bComA: mesma(a, b), sobra, esp: larg(esp) };
       });
       const r = await linha();
       expect(r.eComA).toBe(true);
-      if (w === 800) expect(r.bComA).toBe(true);
+      expect(r.esp).toBeGreaterThan(0);                     // a sonda do espaço mediu algo
+      // O p90 fica na linha do p10 SE E SÓ SE couber; |sobra| < 1 px é empate de arredondamento.
+      if (Math.abs(r.sobra) >= 1) expect(r.bComA, "sobra " + r.sobra.toFixed(1) + " px").toBe(r.sobra > 0);
       // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
       await page.evaluate(() => {
         const fs = (window as any).Alpine.$data(document.body).json.projecao.faixas;
@@ -463,6 +505,7 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
       await expect(page.locator(".proj-resposta .proj-faixa").last()).toHaveText("R$ 999,9 mi");
       const r2 = await linha();
       expect(r2.eComA).toBe(true);
+      if (Math.abs(r2.sobra) >= 1) expect(r2.bComA, "sobra " + r2.sobra.toFixed(1) + " px").toBe(r2.sobra > 0);
       if (w === 320) expect(r2.bComA).toBe(false);
     });
   }
