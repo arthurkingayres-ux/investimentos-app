@@ -66,6 +66,10 @@ const dados = (page: Page, expr: string) =>
 // geometria rodam também com uma fonte LARGA forçada: DejaVu onde existe (o
 // próprio Linux do CI), Verdana no Windows (métrica da mesma família, mais
 // larga que Segoe), Courier New como mono de 0,6 em, a largura da DejaVu Mono.
+// No Linux do CI os dois modos coincidem (a fonte do sistema já é a DejaVu) e
+// cada teste roda em duplicata: custo aceito (board PR #16, iteração 2). Não
+// pular o modo "sistema" lá: no Windows e no macOS eles divergem, e o modo
+// "sistema" é o que o aparelho real renderiza.
 const FONTES = ["sistema", "larga"] as const;
 async function aplicarFonte(page: Page, fonte: (typeof FONTES)[number]) {
   if (fonte === "sistema") return;
@@ -457,6 +461,12 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
       });
     }));
     expect(assoc).toHaveLength(15);
+    // Ids únicos: 5 percentis + 3 idades. getElementById devolve o PRIMEIRO de
+    // um id duplicado, então "existem" sozinho não pegaria a duplicata.
+    const ids = await perc.evaluate((t) => Array.from(t.querySelectorAll("[id^='proj-perc-']")).map((e) => e.id));
+    expect(ids).toHaveLength(8);
+    expect(new Set(ids).size, ids.join(" ")).toBe(8);
+    expect(await page.evaluate(() => document.querySelectorAll("[id^='proj-perc-']").length)).toBe(8);
     for (const a of assoc) expect(a).toEqual({ ids: 2, existem: true, primeiroERotulo: true, segundoEIdade: true });
     await expect(fin.locator(".proj-tabela--correl tbody tr")).toHaveCount(15);       // 6 classes → 15 pares
     await expect(fin.locator(".proj-tabela--correl tbody tr").first()).toContainText("Ações Brasil e Ações EUA");
@@ -532,8 +542,12 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
       // Trava independente (board PR #16): `sobra` e `bComA` vêm do mesmo layout,
       // e uma coluna que encolhesse moveria os dois juntos. A 800 px a largura da
       // frase é a que o CSS DECLARA: main max-width 520 − 2 × 24 de padding −
-      // 2 × 20 da tela = 432 px. O piso é literal para não se derivar do layout.
-      if (w === 800) expect(r.subW, "largura da linha da faixa a 800 px").toBeGreaterThanOrEqual(432 - 0.5);
+      // 2 × 20 da tela = 432 px. O valor é literal para não se derivar do layout,
+      // e a asserção é de IGUALDADE (board PR #16, iteração 2): um piso deixaria
+      // a coluna alargar em silêncio e a folga medida deixaria de ser a do CSS.
+      if (w === 800) expect(Math.abs(r.subW - 432), "largura da linha da faixa a 800 px = 432 px " +
+        "(css/app.css: main max-width 520px e padding 1.5rem; .tela-detalhes padding 16px 20px). " +
+        "Mudou o CSS? Atualize o literal. Mediu " + r.subW.toFixed(1)).toBeLessThanOrEqual(0.5);
       // O p90 fica na linha do p10 SE E SÓ SE couber; |sobra| < 1 px é empate de arredondamento.
       if (Math.abs(r.sobra) >= 1) expect(r.bComA, "sobra " + r.sobra.toFixed(1) + " px").toBe(r.sobra > 0);
       // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
