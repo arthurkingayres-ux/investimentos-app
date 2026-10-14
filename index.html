@@ -1336,11 +1336,11 @@
                      DejaVu do Linux, num espaço de 232 a 320 px. -->
                 <table class="proj-tabela proj-tabela--percentis" x-show="projMarcos().length">
                   <caption class="sr-only">Os cinco percentis em cada idade, em reais de hoje</caption>
-                  <thead><tr><template x-for="m in projMarcos()" :key="m.idade"><th scope="col" x-text="m.idade + ' anos'"></th></template></tr></thead>
+                  <thead><tr><template x-for="m in projMarcos()" :key="m.idade"><th scope="col" :id="'proj-perc-m-' + m.idade" x-text="m.idade + ' anos'"></th></template></tr></thead>
                   <template x-for="p in projPercentis()" :key="p.k">
                     <tbody class="proj-percentil">
-                      <tr class="proj-percentil__nome"><th scope="rowgroup" :colspan="projMarcos().length" x-text="p.rotulo"></th></tr>
-                      <tr class="proj-percentil__valores"><template x-for="m in projMarcos()" :key="m.idade"><td class="proj-num" x-text="formatBrlCompacto(m[p.k]).replace('R$ ', '')"></td></template></tr>
+                      <tr class="proj-percentil__nome"><th scope="rowgroup" :id="'proj-perc-' + p.k" :colspan="projMarcos().length" x-text="p.rotulo"></th></tr>
+                      <tr class="proj-percentil__valores"><template x-for="m in projMarcos()" :key="m.idade"><td class="proj-num" :headers="'proj-perc-' + p.k + ' proj-perc-m-' + m.idade" x-text="formatBrlCompacto(m[p.k]).replace('R$ ', '')"></td></template></tr>
                     </tbody>
                   </template>
                 </table>

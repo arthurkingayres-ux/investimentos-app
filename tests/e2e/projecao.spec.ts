@@ -73,10 +73,32 @@ async function aplicarFonte(page: Page, fonte: (typeof FONTES)[number]) {
     '.tela-projecao, .tela-projecao * { font-family: "DejaVu Sans", Verdana, sans-serif !important; }' +
     '.tela-projecao .proj-faixa { font-family: "DejaVu Sans Mono", "Courier New", monospace !important; }' });
   await page.evaluate(() => document.fonts.ready);
-  // Controle positivo: a regra pegou (sem isto, um seletor errado deixaria o
-  // modo "larga" igual ao "sistema" e o teste verde por vacuidade).
-  const fam = await page.evaluate(() => getComputedStyle(document.querySelector(".tela-projecao .proj-faixa")!).fontFamily);
-  expect(fam).toContain("DejaVu Sans Mono");
+  // Controle positivo pela RENDERIZAÇÃO, não pela família declarada (board
+  // PR #16): uma sonda de texto fixo dentro da tela, a 100 px, medida em em
+  // por caractere. Sem isto, um seletor errado deixaria o modo "larga" igual
+  // ao "sistema" e o teste verde por vacuidade. Medido em 10/2026:
+  //   texto  Segoe 0,468 · Arial 0,477  |  DejaVu Sans 0,532 · Verdana 0,535  → piso 0,51
+  //   mono   Consolas 0,550 · Cascadia 0,586  |  Courier New 0,600 · DejaVu Mono 0,602  → piso 0,595
+  // No Linux a fonte do sistema já é a DejaVu: lá a sonda passa nos dois modos,
+  // e é verdade (a fonte renderizada É larga). O piso é absoluto por isso.
+  const em = await page.evaluate(async () => {
+    const T = "Desconto Retorno real 45 anos";
+    const caixa = document.createElement("div");
+    caixa.style.cssText = "position:absolute;left:0;top:0;visibility:hidden";
+    caixa.innerHTML = '<span></span><span class="proj-faixa"></span>';
+    document.querySelector(".tela-projecao .proj-ensaio")!.appendChild(caixa);
+    const r: number[] = [];
+    for (const s of Array.from(caixa.children) as HTMLElement[]) {
+      s.textContent = T;
+      s.style.cssText = "font-size:100px;font-weight:400;letter-spacing:0;white-space:nowrap";
+      await document.fonts.ready;
+      r.push(s.getBoundingClientRect().width / (T.length * 100));
+    }
+    caixa.remove();
+    return { texto: r[0], mono: r[1] };
+  });
+  expect(em.texto, "texto da tela em fonte larga (em/caractere)").toBeGreaterThanOrEqual(0.51);
+  expect(em.mono, "valores .proj-faixa em mono larga (em/caractere)").toBeGreaterThanOrEqual(0.595);
 }
 
 const abrirContas = (page: Page) =>
@@ -423,6 +445,19 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     // Sem o "R$ " nas células (a 320 px as três colunas não cabiam com ele); a unidade fica na frase acima.
     const p90_65 = await dados(page, "d.formatBrlCompacto(d.projFinal().p90).replace('R$ ', '')");
     await expect(perc.locator("tbody.proj-percentil").last().locator("td").last()).toHaveText(p90_65);
+    // Cada célula aponta, por headers, para o rótulo do SEU percentil e para a
+    // idade da sua coluna (sem depender de scope="rowgroup" no leitor de tela).
+    const assoc = await perc.evaluate((t) => Array.from(t.querySelectorAll("tbody.proj-percentil")).flatMap((g) => {
+      const rot = g.querySelector("th[scope='rowgroup']")!;
+      const idades = Array.from(t.querySelectorAll("thead th"));
+      return Array.from(g.querySelectorAll("td")).map((td, i) => {
+        const ids = (td.getAttribute("headers") || "").split(/\s+/).filter(Boolean);
+        return { ids: ids.length, existem: ids.every((id) => !!document.getElementById(id)),
+                 primeiroERotulo: !!rot.id && ids[0] === rot.id, segundoEIdade: !!idades[i].id && ids[1] === idades[i].id };
+      });
+    }));
+    expect(assoc).toHaveLength(15);
+    for (const a of assoc) expect(a).toEqual({ ids: 2, existem: true, primeiroERotulo: true, segundoEIdade: true });
     await expect(fin.locator(".proj-tabela--correl tbody tr")).toHaveCount(15);       // 6 classes → 15 pares
     await expect(fin.locator(".proj-tabela--correl tbody tr").first()).toContainText("Ações Brasil e Ações EUA");
     await expect(fin).toContainText("10.000 trajetórias");
@@ -489,11 +524,16 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
         const cs = getComputedStyle(sub);
         const direita = sub.getBoundingClientRect().right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
         const sobra = direita - grupo.getBoundingClientRect().right - larg(esp) - larg(cauda);
-        return { eComA: mesma(a, e), bComA: mesma(a, b), sobra, esp: larg(esp) };
+        return { eComA: mesma(a, e), bComA: mesma(a, b), sobra, esp: larg(esp), subW: direita - sub.getBoundingClientRect().left };
       });
       const r = await linha();
       expect(r.eComA).toBe(true);
       expect(r.esp).toBeGreaterThan(0);                     // a sonda do espaço mediu algo
+      // Trava independente (board PR #16): `sobra` e `bComA` vêm do mesmo layout,
+      // e uma coluna que encolhesse moveria os dois juntos. A 800 px a largura da
+      // frase é a que o CSS DECLARA: main max-width 520 − 2 × 24 de padding −
+      // 2 × 20 da tela = 432 px. O piso é literal para não se derivar do layout.
+      if (w === 800) expect(r.subW, "largura da linha da faixa a 800 px").toBeGreaterThanOrEqual(432 - 0.5);
       // O p90 fica na linha do p10 SE E SÓ SE couber; |sobra| < 1 px é empate de arredondamento.
       if (Math.abs(r.sobra) >= 1) expect(r.bComA, "sobra " + r.sobra.toFixed(1) + " px").toBe(r.sobra > 0);
       // Valores largos forçam a quebra: ela tem de cair DEPOIS do "e".
