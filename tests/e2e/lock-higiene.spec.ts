@@ -201,8 +201,8 @@ async function atrasarDecifrar(page: Page, ms: number) {
 //    zera), e "ausente" não é o mesmo marcador que "presente valendo null"
 //    para este comparador. Campo novo dessa classe → pré-declare em
 //    `js/app.js`, não tente resolver aqui
-//  · plain objects recursionam 2 níveis (senão `periodoCustom` viria "obj" nos
-//    dois lados e a divergência de twr/xirr passaria batida); instâncias
+//  · plain objects recursionam 2 níveis (senão `rent2` viria "obj" nos
+//    dois lados e a divergência da vista passaria batida); instâncias
 //    (ECharts/ResizeObserver/Promise) param em "obj"
 const ASSINATURA_FN = `(function () {
   // Hash de 32 bits (FNV-1a) do CONTEUDO da string — só o dígito (base36)
@@ -569,13 +569,14 @@ test.describe("7a.U — higiene de sessão no lock", () => {
         prov: !!d.echartsProv, patr: !!d.echartsPatr, rent: !!d.echartsRent,
         oProv: !!d.resizeObserverProv, oPatr: !!d.resizeObserverPatr,
         oRent: !!d.resizeObserverChart, ctx: !!d._rentCtx,
+        vista: !!d.rent2.vista,
       };
     });
     // Se algum vier false, o roteiro não instanciou os 3 — o teste passaria
     // por vacuidade depois do lock.
     expect(antes).toEqual({
       prov: true, patr: true, rent: true,
-      oProv: true, oPatr: true, oRent: true, ctx: true,
+      oProv: true, oPatr: true, oRent: true, ctx: true, vista: true,
     });
 
     const depois = await page.evaluate(() => {
@@ -588,17 +589,16 @@ test.describe("7a.U — higiene de sessão no lock", () => {
         oRent: d.resizeObserverChart == null,
         ctx: d._rentCtx == null,
         provLabel: d.proventosTotalLabel, provValor: d.proventosTotalValor,
-        subtitulo: d.rentabilidadeSubtitulo,
-        periodoTwr: d.periodoCustom.twr, periodoXirr: d.periodoCustom.xirr,
-        periodoFim: d.periodoCustom.fimIdx,
-        periodoBench: d.periodoCustom.benchExtras.length,
+        // 7a.BD.2: a vista da ponte (números, ativos de "quem pesou", reais)
+        rentVista: d.rent2.vista, rentJanelas: d.rent2.janelas.length,
+        rentIni: d.rent2.iIni, rentLinha: d.rent2.linhaUsuario,
       };
     });
     expect(depois).toEqual({
       prov: true, patr: true, rent: true,
       oProv: true, oPatr: true, oRent: true, ctx: true,
-      provLabel: "", provValor: 0, subtitulo: "",
-      periodoTwr: null, periodoXirr: null, periodoFim: null, periodoBench: 0,
+      provLabel: "", provValor: 0,
+      rentVista: null, rentJanelas: 0, rentIni: null, rentLinha: null,
     });
   });
 

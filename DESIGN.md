@@ -56,7 +56,7 @@ Regras:
 - Forma: emoji nativo `🇧🇷` / `🇺🇸`, classe global `.flag` (17px default, com overrides contextuais para hero/raio-x).
 - Posição: primeiro elemento da row de ativo (`.flag` antes do ticker).
 - Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes; v2.15 muda o caminho de política para `politica.categorias[].buckets[].ativos`).
-- Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, #rentabilidade card hero, card "último aporte", #ativo/:ticker header).
+- Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, card "último aporte", #ativo/:ticker header).
 - Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs / Cripto) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
 
 ### Neutrals (warm-tinted)
@@ -155,7 +155,7 @@ ensina todo mundo a calá-lo.
 | Breadcrumb h1 | 1.375rem (22px) | 700 | — | — | `.breadcrumb h1` |
 | H1 home | 1.75rem (28px) | 700 | — | — | `h1` |
 | Aporte data | 1.125rem (18px) | 700 | — | -0.01em | `.aporte-data` |
-| Rent grupo título | 1.05rem (~17px) | 600 | — | 0.01em | `.rent-grupo-titulo` |
+| Número-veredito (#rentabilidade) | `--num-poster` 2.5rem (40px) mono | 700 | 1.05 | -0.02em | `.rent2-grande` (7a.BD.2; ▲/▼ + sinal, cor do sinal) |
 | Rent linha inline | 0.9375rem (15px) | 400-700 | — | — | `.rent-linha-inline` |
 | Body padrão | 1rem (16px) | 400 | — | — | default |
 | Card título (uppercase) | 0.75rem (12px) | 600 | — | 0.08em | `.card-titulo`, `.hero-label` |
@@ -917,68 +917,59 @@ Primeiro consumidor real dos tokens `--d1`/`--d2`/`--d3`/`--ease`/`--ease-spring
 
 Toda a coreografia é gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell, `transitions.js`) — não um segundo `matchMedia` paralelo. Nenhuma trava a leitura: o usuário pode ciclar facetas e recarregar a página livremente sem re-disparar o count-up (ver seção "Hero de facetas" em Components).
 
-### Chart #rentabilidade — period-relative reanchoring (Fase 7a.L.1)
+### #rentabilidade — a ponte (Fase 7a.BD.2)
 
-Chart histórico do #rentabilidade reanchora dinamicamente conforme o `dataZoom` é movido. Sem zoom (range 100%), Y mostra **cumulativo desde origem** (1 + crescimento_total − 1). Com zoom em `[startIdx, endIdx]`, Y vira **cumulativo desde primeiro ponto visível** via chain rule: `y[i] = growth[i] / growth[startIdx] − 1`. Benchmark recebe o mesmo tratamento. Sub-título `<p class="chart-rent-subtitulo">` acima do chart explicita a âncora ("Cresceu desde Mmm/AA") e atualiza via Alpine state `rentabilidadeSubtitulo`.
+Substituiu, inteira, a tela anterior (gráfico multi-benchmark da 7a.E.25, card "Período" da 7a.L.2, os três `.rent-grupo` Ano/12m/Origem e o pulse `.live` do subtítulo da 7a.S.6). A tela é um **instrumento de rebalanceamento**, olhado com calma poucas vezes por ano, e responde duas perguntas, nessa ordem: **estou ganhando dos índices?** e **se não, por quê?** Spec: `docs/superpowers/specs/2026-10-21-fase-7a-bd-rentabilidade-ponte-design.md` no repo principal.
 
-Implementação: `hidratarRentabilidade` em `js/app.js` computa `growthPortfolio[]` e `growthBenchmark[]` em init (reconciliando `anualizado=true` → cum via `(1+aa)^(days/365.25)` com `anualizado=false` já cum). Listener `chart.on('datazoom', ...)` lê `getOption().dataZoom[0]` (startValue/endValue em category mode, startValue/endValue ou start/end fallback), mapeia para índices, chama `reancorar(growthArr, startIdx, endIdx)` e atualiza séries via `setOption({series: [...]})`. ECharts faz diff implícito + animação morph via `motionConfig`.
+**A régua.** "A mesma carteira, só com índices": em cada mês, cada ativo pesa o que pesou de fato na carteira (peso de Dietz) e rende o índice da sua classe (Ações BR → Ibovespa, FIIs → IFIX, EUA → S&P 500 com dividendos, Cripto → Bitcoin). **ETFs passivos da política** (toda cesta `passive` do `config/alocacao.yaml`) entram no composto **com o próprio retorno**: contribuição zero por construção e nenhuma linha na ponte; o que eles fazem de diferente do índice da classe é desenho da política, não seleção. A diferença carteira − composto mede só a seleção dentro de cada classe. A Renda fixa, só com passivos, entra no composto sem linha.
 
-Os 3 cards de métrica abaixo do chart (Ano/12m/Origem, ordem 7a.S.6) **mantêm valores anualizados** — o chart e os cards medem coisas diferentes propositalmente.
+**Estrutura (de cima para baixo, ordem fixa):**
+1. `.escopo-toggle` Total · Brasil · EUA (+ `.moeda-toggle` BRL/USD só em EUA): o seletor lidera.
+2. `.rent2-janelas` (`role=group`): 12 meses (padrão ao abrir) · 3 anos · 5 anos · Desde 2019, em **2 × 2** (`flex: 1 1 calc(50% - 3px)`; de 320 a 412 px as quatro nunca cabem numa linha, e o wrap livre deixava "Desde …" órfão). Selecionado = `aria-pressed` com borda `--ink` + anel `--accent-soft`. Quando o escopo começa depois de jan/19, o botão e a frase dizem "Desde {mmm/aa do início}".
+3. `figure.rent2-grafico`: subtítulo `.chart-rent-subtitulo` ("Cresceu desde {âncora} · até {fim}"; arrastado: "Período livre · de {âncora} a {fim} ({n} meses)"), `#chart-rent2.chart-rent` com duas séries e legenda HTML (`.rent2-legenda`, traço cheio e tracejado).
+4. `.rent2-veredito`: frase (1rem 600, `text-wrap: balance`), número `.rent2-grande` (mono, `--num-poster`, ▲/▼ + sinal, ±0,0 em `--ink`) com unidade "ponto(s) ao ano" ou "no período", e os dois retornos em `dl.rent2-pares`.
+5. `section.ponte` "De onde vem a diferença": waterfall horizontal (abaixo).
+6. `.grifo.ponte-pesou` "Quem pesou": **o único grifo da tela**.
+7. `.rent2-reais` "Em reais, na janela" ("Em dólares" em EUA-USD): Entrou na carteira · Ganho, com proventos · Em {fim}, em `dl` de três linhas (rótulo à esquerda, valor à direita), valores inteiros sem abreviar, fonte do texto com `tabular-nums`.
+8. `details.rent2-detalhes`, fechado por padrão (summary com "›" em `--gray` que gira 90° ao abrir, como no rascunho aprovado): "Índices, um a um" e "Duas réguas da carteira" (A carteira (TWR) = o número de "Sua carteira" do topo; Seu dinheiro (XIRR) da janela), em `.proj-tabela`, mais o aviso de rentabilidade passada.
 
-### Chart #rentabilidade — múltiplos benchmarks no escopo Total (Fase 7a.E.25)
+**O gráfico.** ECharts `line`, eixo de categoria mensal. "Sua carteira" `--g-700` 2,5 px sólida com `criarMarkPointUltimo` (rótulo em `--ink`); "Mesma carteira, só com índices" `--gray` 1,8 px tracejada `[5,5]`; sem área, sem símbolos. As duas curvas reancoram no início da janela (Π(1+r) − 1 a partir da âncora, as duas em 0 ali: a regra da 7a.L.1, agora para as duas linhas). O trilho é `criarDataZoomInstrumento(dc)` por valor, `minValueSpan: 1`: arrasto livre de 1 mês em diante. Uma única função, `ponteJanela` (espelho JS da referência Python, com teste cruzado), alimenta número, ponte, quem pesou, reais e detalhes, para botão e arrasto. A série termina no último fim de mês fechado.
 
-No escopo **Total**, o chart plota 4 linhas: portfólio + CDI + IBOV + S&P 500 (todas visíveis no load; clique na legenda do ECharts oculta/mostra cada série, comportamento nativo). No escopo **Brasil** (Fase 7a.E.26), o chart plota 3 linhas: Portfólio + CDI + IBOV. EUA segue com **1** linha de benchmark (S&P 500).
+**A ponte (waterfall).** "Só com índices" (sub "mesmos pesos, mês a mês") → uma linha por classe com escolha ativa (Total: Ações BR, FIIs, EUA, Cripto; Brasil: Ações BR, FIIs; EUA: Picks, Fora da política atual) → "Sua carteira", com um filete `--neutral-200` acima, como linha de soma. Linha sem peso na janela não aparece.
+- Grid do degrau `minmax(0,116px) minmax(0,1fr) auto` (92 px no rótulo abaixo de 360 px), `min-height: 44px`; rótulo com ponto 8 px `--cat-*` (Picks e Fora: `--cat-eua`) + sub "vs {índice}" em `--num-xs` `--gray`; valor mono `--num-sm` 600, `nowrap`.
+- **Totais em barra cheia neutra** (spec §8): "Só com índices" e "Sua carteira" ocupam o trilho inteiro, as duas do mesmo tamanho, sem eixo truncado nem marca de corte; quem diz o retorno é o valor escrito ao lado. (Um eixo truncado nos totais fazia 18,7% contra 19,7% parecer muitas vezes mais.) Só os degraus flutuantes ficam num eixo comum entre si, sobre {ind, acumulados, sua} com 12% de folga. `.ponte-trilho` tem `overflow: hidden`, que prende a guia e as barras dentro do trilho.
+- Barras por `transform: translateX() scaleX()` (`transform-origin: left`), nunca `left/width`; a guia tracejada entre degraus é uma caixa da largura do trilho com `border-left` 1 px dashed, deslocada por `translateX`.
+- Cor nunca sozinha: ≥ +0,05 `--g-700` com "▲ +"; ≤ −0,05 `--red` com "▼ −" (nunca o ocre `--sem-down`, que é FII); neutro: barra `--gray` de 2 px e "±0,0" em `--gray`. Totais: "Só com índices" `--gray`, "Sua carteira" `--ink`.
+- Cada linha é `<button aria-pressed>` com `aria-label` falado; selecionada = fundo `--surface-2` + `inset 0 0 0 1px var(--neutral-200)`. Abre na linha que mais tirou; a escolha do usuário fica enquanto a linha existir no escopo.
+- Fecho exibido: a 1 casa, "Só com índices" e "Sua carteira" pelo arredondamento simples e só as linhas absorvem o ajuste (`arredondarFechando` com total `sua − ind` exibidos, spec §4.4); o número do topo é `sua − ind` exibidos.
+- Tabela equivalente `table.ponte-tabela` dentro de um `div.sr-only` (a tabela não encolhe a 1 px e vazaria rolagem horizontal).
 
-- **Portfólio**: `--g-700` #047857, sólido 2.5px (linha-herói, slot 0 do tema).
-- **CDI**: `--gray` #5b605a, tracejado `[5,5]` 1.5px — baseline conservador, recua.
-- **IBOV**: `--amber-700` #b45309, tracejado `[5,5]` 1.5px — mercado BR.
-- **S&P 500**: `--blue-700` #1d4ed8, tracejado `[5,5]` 1.5px — mercado EUA.
+**Quem pesou.** Frase ("**{Linha}** somaram **{v} ponto(s)** ao ano contra o {índice}. Quem mais pesou:", com concordância por linha) + até 3 ativos do sinal da linha e até 3 do sinal oposto, separados por filete, ticker literal e valor mono, e "Outros {n} ativos" fechando a soma da linha. Ordena por **contribuição**, nunca por retorno do ativo. Linha neutra: só a frase "… andaram junto com o índice ({índice}) nesta janela. Nada a explicar aqui." ETFs passivos nunca aparecem. Informa, não recomenda.
 
-As 3 cores de benchmark são tokens **secundários** (não `--cat-*`, que significam classe de ativo) e cada série extra fixa `lineStyle.color` + `itemStyle.color` explícito (marker da legenda casa com a linha). O tema `drarthur` carrega os mesmos 3 hex nos slots 5/6/7 do array `color` como fallback. Schema dependency: `rentabilidade.Total.historico_twr[N].benchmarks = {CDI, IBOV, SP500}` (BRL, schema v2.17); `rentabilidade.Brasil.historico_twr[N].benchmarks = {CDI, IBOV}` (schema v2.18, additive); EUA não emite `benchmarks`. O `dataZoom` reancora todas as linhas (mesma chain rule de L.1).
+**Estados.**
+- Janela mais longa que o histórico do escopo: botão `aria-disabled="true"` (não `disabled`: segue focável e tocável), opacidade .45; tocar mostra o motivo em `.rent2-motivo` ("Histórico começa em {mmm/aa}.") e não muda a janela.
+- Janela fixa que não existe no escopo novo (ex.: Desde em EUA → Total): volta a 12 meses com o motivo à vista.
+- Arrasto que termina numa janela indisponível (mês sem cotação ou sem índice): na soltura (settle de 150 ms) volta à última janela válida e mostra o motivo; durante o movimento o número fica no último valor válido. Os motivos do backend viram texto ("Falta a cotação de um ativo em {mmm/aa}.", "O IFIX não tem dado em {mmm/aa}."), nunca o id interno.
+- Janela < 12 meses: tudo vira "no período" (número, pares, ponte, quem pesou, detalhes).
+- Payload sem o bloco `ponte` (schema < v2.30): `.rent2-indisponivel` "Rentabilidade indisponível nesta versão dos dados" + botão "Recarregar"; nunca desenha a tela anterior.
+- Payload v2.30+ com `ponte: null` (o builder do backend falhou na publicação): "A conta da rentabilidade não foi publicada nesta atualização.", sem "Recarregar" (recarregar não resolve).
+- Falha ao montar a ponte no front (exceção em `hidratarRentabilidade`, ex. classe nova no payload): estado próprio, "Não foi possível montar a rentabilidade agora." + "Recarregar"; o erro vai ao console e o app segue destravado.
 
-### Card "Período" (Fase 7a.L.2)
+**Motion.** Troca por botão anima barras e linhas (`--d2`, `--ease`; ECharts pelo `motionConfig`). Durante o arrasto, zero animação: `.tela-rentabilidade.is-arrastando` zera a transição das barras e da guia, e os números trocam o texto direto, sem count-up. Tudo dentro de `@media (prefers-reduced-motion: no-preference)`.
 
-Acima dos 3 cards fixos (Ano/12m/Origem, ordem 7a.S.6) aparece um 4º card `.rent-periodo` que reflete a janela atual do `dataZoom` — e continua o **1º** card visual da tela (Período → Ano → 12m → Origem):
+**a11y.** Duas regiões `p.sr-only aria-live="polite"` (`rent2-anuncio`, `rent2-anuncio-pesou`) escritas só fora do arrasto e no settle; os blocos visuais não são live. Alvos ≥ 44 px (janelas, degraus, summary). Modo Plantão: só tokens, nada de hex no componente; o ECharts relê `dc.tokens`.
 
-- **Título dinâmico**: `Origem` quando full range (startIdx=0 + endIdx≥maxIdx); `Período · mai/2025 → mai/2026` quando handles arrastados (português, mês abreviado minúsculo).
-- **Métricas**: XIRR a.a. + TWR a.a. + linha(s) `vs benchmark` por escopo — **Total**: CDI / IBOV / S&P 500 (3 linhas `.rent-periodo-bench`); **Brasil**: CDI / IBOV (2 linhas); **EUA**: S&P 500 (1 linha). Cada `.rent-periodo-bench` repetida produz o formato multi-row; semântica visual: texto neutro `tabular-nums`, sinal +/− carrega direção (`color-not-only`), sem CSS novo (reutiliza classe existente).
-- **Cálculo**: TWR a.a. via chain rule sobre `growthPortfolio[]` que L.1 já calcula; XIRR a.a. via **Newton-Raphson em JS puro** sobre flows da janela (`construirFlows(hist, iA, iB)` = `[-nav[iA], ...cashflows[iA+1..iB-1], +nav[iB]]`). Benchmark simétrico (TWR via `benchmark_growth` ratio; XIRR via `flowsBenchmark` escalado pelo crescimento do índice).
-- **Schema dependency**: consome `rentabilidade.{escopo}[.moeda].historico_periodo` (mensal `[{data, nav, cashflow, benchmarks_growth}]`, schema v2.18 — campo renomeado de `benchmark_growth` para `benchmarks_growth` + suporta múltiplos benchmarks).
-- **Edge cases**: Newton-Raphson não converge (janela muito curta, all-outflows) → a entrada de `benchExtras` tem `deltaXirr = null` → a `.rent-periodo-bench` correspondente renderiza `'—'` em vez de spread enganoso (`?? 0` mostraria `portfolio_xirr` como diferença).
-- **Motion**: zero transição — atualização on-drag direto via Alpine. Mesma diretriz de L.1 sobre subtítulo. (Anti-pattern explícito: animar valores num card que muda em tempo real durante drag é distractor.)
-- **Implementação**: hook `this.recomputarPeriodo(startIdx, endIdx)` chamado por (a) final de `hidratarRentabilidade`, (b) `aoMoverZoom(chart)` (mesmo handler que L.1 registra), (c) `selecionarMoeda(m)` quando escopo EUA. Estado Alpine `periodoCustom = {iniIdx, fimIdx, twr, xirr, benchExtras, titulo}`, onde `benchExtras` é um array de `{nome, deltaXirr, deltaTwr}` (deltas = portfólio − benchmark, `null` quando indefinido). Utilitárias puras top-of-file: `newtonRaphsonXirr`, `construirFlows`, `flowsBenchmark`, `parseMesData`, `gerarTituloPeriodo`.
-- **CSS isolado**: classe `.rent-periodo` separada de `.rent-grupo` (preserva invariante "3 grupos fixos" dos specs antigos que assertam `toHaveCount(3)`). Estilo espelha `.rent-grupo` intencionalmente.
-
-### #rentabilidade — seletor lidera, ordem de cards, narração do zoom (Fase 7a.S.6)
-
-**Ordem de cards (top→bottom):** `.rent-periodo` (Período, janela do `dataZoom`) → `.rent-grupo` Ano (YTD) → `.rent-grupo` 12 meses → `.rent-grupo` Origem. Origem foi movida do 1º pro **último** lugar dentro de `.rent-grupos` — a leitura vai do mais recente/tático (janela que o dedo está olhando agora, depois o ano corrente, depois 12 meses) para o mais histórico/contexto (desde a origem da carteira). Período continua fora de `.rent-grupos` (classe própria, preserva a invariante "3 grupos fixos" dos specs). Nenhum grupo foi removido — `rentabilidade-3-grupos.spec.ts` e `rentabilidade.spec.ts` seguem exigindo `toHaveCount(3)`, só migradas para a nova ordem.
-
-**Seletor lidera:** a tela já abria pelo `escopo-toggle` (Total/Brasil/EUA) — sem número-poster acima dele, gráfico e cards vêm depois. A 7a.S.6 reforça esse tratamento (a seleção **é** o gesto de abertura, não um controle secundário perdido entre o header e o gráfico):
+**Escopo APP-WIDE do `.escopo-toggle` (7a.S.6, vigente):** é a classe única de segmented-control do app, usada aqui (Total/Brasil/EUA) e em `#proventos` (Anual/Mensal). A ênfase da seleção (600/700 + anel `--accent-soft`) é linguagem única deliberada:
 
 ```css
-.escopo-toggle button        { font-weight: 600; }                          /* era 500 */
+.escopo-toggle button        { font-weight: 600; }
 .escopo-toggle button.active {
   font-weight: 700;
-  box-shadow: 0 0 0 2px var(--accent-soft);  /* 1º uso real do token (reservado S.1) */
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 ```
 
-**Escopo APP-WIDE (não só #rentabilidade):** `.escopo-toggle` é a classe única de segmented-control do app — usada tanto em #rentabilidade (Total/Brasil/EUA) quanto em #proventos (Origem/Mensal). A ênfase da seleção (600/700 + anel `--accent-soft`) é **linguagem única deliberada** em toda a marca, não um estilo local — o mesmo gesto de "a seleção lidera" vale para os dois segmented-controls. Coberto por `proventos.spec.ts` (ênfase do toggle ativo do Proventos) além dos specs de rentabilidade.
-
-`.moeda-toggle` (BRL/US$, secundário, só visível em escopo EUA) **não muda** — preserva a hierarquia visual "escopo > moeda" já documentada acima. `--accent-soft` (`rgba(4, 120, 87, 0.09)`) tinha sido reservado em S.1 e ficou "Reservado (não em uso atual)" até esta fase.
-
-**Narração do zoom (`.live`):** o subtítulo `<p class="chart-rent-subtitulo">` ("Cresceu desde Mmm/AA", L.1) ganha um micro-pulse enquanto o usuário arrasta o `dataZoom` — o texto já narrava a âncora; o pulse narra o *movimento em si* (mockup `.chart-sub.live`).
-
-```css
-@media (prefers-reduced-motion: no-preference) {
-  .chart-rent-subtitulo         { transition: transform var(--d1) ease; }
-  .chart-rent-subtitulo.live    { transform: scale(1.04); }
-}
-```
-
-- **Wiring**: `aoMoverZoom` (o mesmo handler `chart.on('datazoom', ...)` de L.1) adiciona `.live` ao subtítulo a cada evento e agenda um `setTimeout` de 300ms (`LIVE_SETTLE_MS`) que remove a classe; cada novo evento **cancela e reagenda** o timer (debounce clássico) — o ECharts `datazoom` não expõe limites nativos de "início/fim do arrasto" (dispara continuamente durante o drag e também via `dispatchAction` programático), então o settle-sem-novos-eventos é o proxy usado para "o arrasto parou".
-- **Reduced-motion**: gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell — hero de facetas S.5, motion de navegação) — sob reduced-motion a classe **nunca é adicionada** (blindagem dupla com o CSS, que também envelopa o efeito inteiro em `@media (prefers-reduced-motion: no-preference)`). Só o texto do subtítulo muda; zero pulse.
-- **Não é o anti-pattern do card Período**: a seção "Card Período" acima bane animar os *valores numéricos* do `.rent-periodo` (distractor num card que já muda em tempo real). O pulse aqui é num elemento diferente (`.chart-rent-subtitulo`, texto de âncora temporal, não um valor de retorno) e serve como narração do gesto de arrastar — não conflita com aquele anti-pattern.
+`.moeda-toggle` (BRL/USD, secundário, só em EUA) preserva a hierarquia "escopo > moeda".
 
 ---
 
@@ -999,7 +990,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
 12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
 13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho..."; sobra declarada em qualquer modo desde a 7a.AU)** · Relatório = âmbar "NÃO funcionando" · **Dossiê = `quebra_se` da tese (realizado em 7a.R.3.b — `.dossie-grifo`)** · **Projeção = "Esta taxa olha para frente, não para trás" (7a.AY.2 — `.grifo.proj-grifo`, no capítulo 3, depois da tabela por classe e do "ver a conta": as premissas são projeções de mercado para 10 a 15 anos, não o passado da carteira, com a comparação americana, 6,7% no histórico longo contra a premissa lida do payload; substituiu o grifo da 7a.AW.2, "por que as duas medidas do histórico discordam", que saiu com as quatro leituras)** · Rentabilidade = nenhum (grifo removido a pedido).
+14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho..."; sobra declarada em qualquer modo desde a 7a.AU)** · Relatório = âmbar "NÃO funcionando" · **Dossiê = `quebra_se` da tese (realizado em 7a.R.3.b — `.dossie-grifo`)** · **Projeção = "Esta taxa olha para frente, não para trás" (7a.AY.2 — `.grifo.proj-grifo`, no capítulo 3, depois da tabela por classe e do "ver a conta": as premissas são projeções de mercado para 10 a 15 anos, não o passado da carteira, com a comparação americana, 6,7% no histórico longo contra a premissa lida do payload; substituiu o grifo da 7a.AW.2, "por que as duas medidas do histórico discordam", que saiu com as quatro leituras)** · **Rentabilidade = "quem pesou" da ponte (7a.BD.2 — `.grifo.ponte-pesou`: os ativos que mais somaram ou tiraram dentro da linha tocada).**
 15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
 16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
 17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo. Sem exceção vigente: a das faixas de incerteza dos leques de projeção (7a.AV.2 → 7a.AW.2) **saiu com os leques na 7a.AX**, quando a projeção passou a desenhar a incerteza em HTML/CSS (gráfico de faixas), sem área de ECharts.
@@ -1149,7 +1140,7 @@ O tema `'drarthur'` do ECharts (`js/echarts-theme.js`) e o `tooltipBase` são re
 - `tokens` é um objeto **único e estável** (`var tokens = {}`, nunca substituído — só mutado in-place por `refreshTokens()`). Consumidores guardam `dc = window.drarthurChart` e leem `dc.tokens.x` no momento de montar cada chart — como o objeto nunca troca de referência, qualquer `dc` obtido ANTES ou DEPOIS de um `reregister()` sempre reflete os valores atuais.
 - `window.drarthurChart.reregister()` — chamado por `alternarTema()` e, desde a 7a.AV.2, também uma vez por `init()` no boot frio em Modo Plantão (ver parágrafo abaixo): `refreshTokens()` (re-lê todos os tokens do `:root` corrente) → `echarts.registerTheme('drarthur', buildTheme())` (novo objeto de tema com as cores frescas) → `window.drarthurChart.tooltipBase = buildTooltipBase()` (novo tooltip, `backgroundColor: tokens.surface` + `box-shadow` theme-aware via `tooltipShadow()`, que lê `data-theme` diretamente).
 - `tokens.surface` (novo, lê `--surface`) — o tooltip do ECharts era hardcoded `#fff`; agora acompanha o tema.
-- **Verificado**: L.1 (period-relative reanchoring via dataZoom) e L.2 (card "Período") sobrevivem a um repaint — como `hidratarRentabilidade()` sempre faz dispose+init completo a cada entrada na rota, o dataZoom/card são reconstruídos do zero lendo os dados atuais, sem estado stale.
+- **Verificado**: a reancoragem das duas curvas e a ponte de `#rentabilidade` (7a.BD.2) sobrevivem a um repaint — como `hidratarRentabilidade()` sempre faz dispose+init completo a cada entrada na rota, o dataZoom e a vista são reconstruídos do zero lendo os dados atuais, sem estado stale.
 - **Gotcha de autoria (achado nesta sub-fase)**: um comentário CSS contendo a sequência literal `*/` no meio do texto (ex. `/* ...(--g-*/--teal-700)... */`) fecha o comentário PREMATURAMENTE — todo o texto entre esse `*/` acidental e o próximo `*/` real vira CSS "solto" (não-comentário), corrompendo o parse da declaração seguinte. Causou um bug real: `--g-900` não recebia o override dark (ficava preso no valor light) enquanto `--g-700`/`--g-500`, declarados 1-2 linhas depois na mesma regra, funcionavam normalmente. Lição: nunca escrever `--algo-*/` ou qualquer `*/` não-intencional dentro de um comentário CSS.
 - **Boot frio direto em Plantão (achado na 7a.AV.2, `js/app.js::init()`)**: `echarts-theme.js` roda no `<head>`, ANTES de `init()` aplicar `data-theme="dark"` — um boot que já nasce com `localStorage.tema === "dark"` (ex.: abrir o app numa sub-rota via link direto, sem passar pelo toggle) montava o 1º chart com os tokens CLAROS (grade `--neutral-200` quase branca sobre o fundo OLED). O toggle (`alternarTema()`) sempre chamou `reregister()`, mas nada cobria o boot direto — só o **flip manual** disparava a releitura. Corrigido chamando `window.drarthurChart.reregister()` dentro do próprio `init()`, uma única vez, quando `this.tema === "dark"` logo após `_aplicarTema`. **Qualquer chart novo que leia `dc.tokens` herda a correção de graça** (o objeto `tokens` já está correto antes do primeiro `hidratarX()`) — a lição é que o boot frio é um terceiro caminho de entrada nos tokens do ECharts, distinto do load inicial (sempre light) e do toggle, e um futuro reregister-only-on-toggle reintroduziria exatamente este bug.
 
@@ -1159,7 +1150,7 @@ O tema `'drarthur'` do ECharts (`js/echarts-theme.js`) e o `tooltipBase` são re
 
 ### Testes e screenshots
 
-`tests/e2e/modo-plantao.spec.ts` — 4 tasks: (1) toggle flip/persist/boot (ignora `prefers-color-scheme`) + bloco dark resolve; (2) repaint dos charts (rentabilidade/patrimônio/proventos, markPoint + tooltip mudam de cor pós-toggle, L.1/L.2 sobrevivem); (3) treatments teal-como-luz + contraste AA; (4) screenshots `page.screenshot()` (não MCP) capturando raiox/rentabilidade/alocação/proventos/#s-dy/relatório/aportar nos DOIS temas, salvos em `tests/screenshots/modo-plantao-*-{light,dark}.png` (commitados, mesma convenção dos screenshots pré-existentes de `#aportar`).
+`tests/e2e/modo-plantao.spec.ts` — 4 tasks: (1) toggle flip/persist/boot (ignora `prefers-color-scheme`) + bloco dark resolve; (2) repaint dos charts (rentabilidade/patrimônio/proventos, markPoint + tooltip mudam de cor pós-toggle, a reancoragem sobrevive); (3) treatments teal-como-luz + contraste AA; (4) screenshots `page.screenshot()` (não MCP) capturando raiox/rentabilidade/alocação/proventos/#s-dy/relatório/aportar nos DOIS temas, salvos em `tests/screenshots/modo-plantao-*-{light,dark}.png` (commitados, mesma convenção dos screenshots pré-existentes de `#aportar`).
 
 ---
 

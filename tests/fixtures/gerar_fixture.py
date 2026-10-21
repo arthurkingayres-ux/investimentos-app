@@ -7,6 +7,18 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.30 (Fase 7a.BD.1): bloco top-level ``ponte`` — a carteira contra a
+mesma carteira feita só de índices, consumido pela #rentabilidade nova
+(7a.BD.2). Série mensal por ativo (``brl``/``usd`` com ``[i, D, G]``), índices
+por moeda, ``fluxos`` por escopo e ``buracos``. A fixture cobre todas as
+classes e linhas, um passivo por cesta, o ``AVNU_REBATE`` (D = 0), um buraco
+no mês 4 e um mês com IFIX ``null``. ``portfolio_pre_v230`` é o payload sem a
+chave (``versao: "2.29"``) — o estado "payload antigo em cache". Ao lado,
+``ponte_esperado.test.json`` (em claro, exceção nominal no ``.gitignore``) traz
+o bloco e a saída da referência Python (``src/calculadora/ponte.py``) para o
+teste cruzado da gêmea JS. Números 100% fictícios, gerados por fórmula — nunca
+lidos do DB real.
+
 Schema v2.27 (Fase 7a.AV.1): bloco top-level ``projecao`` — projeção
 patrimonial até os 65 anos (Monte Carlo backend), consumida pela tela nova
 ``#/raiox/projecao`` (7a.AV.2, Tasks 11-12). Três fixtures cobrem os três
@@ -63,6 +75,7 @@ Benchmarks aninhados por janela (xirr_espelhado/twr_espelhado dicts).
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from src.output.crypto import encriptar_json
@@ -503,8 +516,201 @@ def _valida_forma_projecao() -> None:
     assert origens == {"jpm", "historico"}, "a fixture precisa das duas especies de classe"
 
 
+# ── Fase 7a.BD.1/BD.2: bloco ``ponte`` sintético (schema v2.30) ──────────────
+# CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
+# público): valores, aportes, retornos e índices saem das senoides abaixo —
+# nunca do investimentos.db, nunca pesos ou patrimônio reais. Os tickers são
+# rótulos (os já presentes nesta fixture mais genéricos), sem relação com
+# posição real.
+#
+# Desenho (o que cada pedaço exercita no front):
+# - 30 meses, 2024-04..2026-09 (``ate`` = "2026-09"); índice 0 = null em todas
+#   as séries, por contrato.
+# - Todas as classes e linhas: acoes_br (2 picks + BOVA11 passivo), fiis (2),
+#   renda_fixa passivo (IMAB11), eua picks (2), eua passive (VOO), eua fora
+#   (um REIT, mais ``AVNU_REBATE`` com D = 0 e G pequeno), cripto (HASH11
+#   sozinho, colado no BTC: a linha arredonda a ±0,0 — estado neutro).
+# - EUA começa no mês 2 e cripto no mês 6 (``desde`` do EUA ≠ do Total).
+# - Buraco no mês 4 (BBAS3): meses 4 e 5 em ``buracos`` de Total e Brasil.
+# - IFIX null no mês 8 (2024-12): janela de Total/Brasil que o cruze fica
+#   "índice IFIX sem dado em 12/24".
+# - Salto de +100 % no S&P 500 TR (USD) no mês 16 (2025-08): retorno de janela
+#   curta grande, cujo XIRR anual passa de 1000 % (1 mês ≈ 4e3; 3 meses
+#   > 10) — o caso em que o Newton-Raphson da gêmea JS desistia (teto
+#   |taxa| > 10) e o pyxirr não (fix round 1 da Task 7).
+# - ``fluxos`` coerentes com Σ G por construção:
+#   v_t − v_{t−1} − entrou_t + prov_t = Σ G (conferido em ``_confere_ponte``).
+_PONTE_MESES = 30
+_PONTE_INICIO = (2024, 4)
+_PONTE_MES_BURACO = 4
+_PONTE_MES_IFIX_NULO = 8
+_PONTE_MES_SALTO = 16
+_PONTE_SALTO_SP = 1.00
+
+# (ticker, classe, passivo, cesta_eua, mes_inicio, valor_inicial, aporte, alfa, fase)
+# valor_inicial e aporte em BRL (Brasil/cripto) ou USD (eua).
+_PONTE_ATIVOS = [
+    ("ITSA4", "acoes_br", False, None, 0, 9000.0, 400.0, 0.0030, 0.3),
+    ("BBAS3", "acoes_br", False, None, 0, 7000.0, 300.0, -0.0020, 1.1),
+    ("BOVA11", "acoes_br", True, None, 0, 6000.0, 250.0, 0.0002, 2.0),
+    ("HGLG11", "fiis", False, None, 0, 8000.0, 350.0, 0.0025, 0.7),
+    ("XPML11", "fiis", False, None, 0, 5000.0, 200.0, -0.0020, 1.9),
+    ("IMAB11", "renda_fixa", True, None, 0, 4000.0, 150.0, 0.0, 2.6),
+    ("AMZN", "eua", False, "picks", 2, 1500.0, 80.0, 0.0050, 0.4),
+    ("MSFT", "eua", False, "picks", 2, 1200.0, 60.0, -0.0030, 1.5),
+    ("VOO", "eua", True, "passive", 2, 2500.0, 120.0, 0.0001, 2.2),
+    ("O", "eua", False, "fora", 2, 800.0, 0.0, -0.0015, 0.9),
+    ("AVNU_REBATE", "eua", False, "fora", 3, 0.0, 0.0, 0.0, 0.0),
+    ("HASH11", "cripto", False, None, 6, 3000.0, 150.0, 0.0, 0.0),
+]
+
+
+def _ponte_meses() -> list[str]:
+    ano, mes = _PONTE_INICIO
+    out = []
+    for _ in range(_PONTE_MESES):
+        out.append(f"{ano:04d}-{mes:02d}")
+        ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
+    return out
+
+
+def _ponte_fx(t: int) -> float:
+    """Câmbio sintético de fim de mês (BRL por USD)."""
+    return round(5.0 + 0.3 * math.sin(t / 4.0) + 0.01 * t, 4)
+
+
+def _ponte_indices() -> tuple[dict, dict]:
+    """Retornos mensais sintéticos; índice 0 sempre null; IFIX null no mês 8."""
+    n = _PONTE_MESES
+    ibov, ifix, sp_usd, btc_usd, cdi = ([None] * n for _ in range(5))
+    sp_brl, btc_brl = [None] * n, [None] * n
+    for t in range(1, n):
+        ibov[t] = round(0.008 + 0.035 * math.sin(0.7 * t), 6)
+        ifix[t] = round(0.006 + 0.015 * math.sin(0.5 * t + 1.0), 6)
+        sp_usd[t] = round(0.010 + 0.030 * math.sin(0.6 * t + 0.5), 6)
+        btc_usd[t] = round(0.020 + 0.120 * math.sin(0.9 * t + 0.2), 6)
+        cdi[t] = round(0.0085 + 0.0005 * math.sin(0.3 * t), 6)
+        fx = _ponte_fx(t) / _ponte_fx(t - 1)
+        sp_brl[t] = round((1.0 + sp_usd[t]) * fx - 1.0, 6)
+        btc_brl[t] = round((1.0 + btc_usd[t]) * fx - 1.0, 6)
+    ifix[_PONTE_MES_IFIX_NULO] = None
+    sp_usd[_PONTE_MES_SALTO] = _PONTE_SALTO_SP
+    fx = _ponte_fx(_PONTE_MES_SALTO) / _ponte_fx(_PONTE_MES_SALTO - 1)
+    sp_brl[_PONTE_MES_SALTO] = round((1.0 + _PONTE_SALTO_SP) * fx - 1.0, 6)
+    brl = {"IBOV": ibov, "IFIX": ifix, "SP500TR": sp_brl, "BTC": btc_brl, "CDI": cdi}
+    usd = {"SP500TR": sp_usd}
+    return brl, usd
+
+
+def _ponte_sintetica() -> dict:
+    """Bloco ``ponte`` v2.30 sintético (ver o comentário da seção)."""
+    n = _PONTE_MESES
+    meses = _ponte_meses()
+    ind_brl, ind_usd = _ponte_indices()
+    base_classe = {"acoes_br": ind_brl["IBOV"], "fiis": ind_brl["IFIX"],
+                   "renda_fixa": ind_brl["CDI"], "eua": ind_usd["SP500TR"],
+                   "cripto": ind_brl["BTC"]}
+    ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": cesta}
+              for (tk, c, p, cesta, *_resto) in _PONTE_ATIVOS]
+    brl: list[list] = [[] for _ in range(n)]
+    usd: list[list] = [[] for _ in range(n)]
+    chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
+    fluxos = {k: {"v": [0.0] * n, "entrou": [0.0] * n, "prov": [0.0] * n} for k in chaves}
+
+    def _soma(chave: str, campo: str, t: int, x: float) -> None:
+        fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
+
+    for i, (tk, classe, passivo, _cesta, ini, v0, aporte, alfa, fase) in enumerate(_PONTE_ATIVOS):
+        eua = classe == "eua"
+        escopos = ["Total"]
+        if eua:
+            escopos.append("EUA_BRL")
+        if classe in ("acoes_br", "fiis", "renda_fixa"):
+            escopos.append("Brasil")
+        v_nat = 0.0   # valor na moeda nativa (USD para eua)
+        v_brl = 0.0
+        for t in range(ini, n):
+            if tk == "AVNU_REBATE":
+                # pseudoativo sem posição: D = 0, ganho pequeno pago como provento
+                if t % 2 == 1:
+                    continue
+                g_nat = round(0.6 + 0.3 * math.sin(t), 2)
+                f_nat, prov_nat, d_nat, v_novo = 0.0, g_nat, 0.0, 0.0
+            else:
+                f_nat = v0 if t == ini else (aporte if (t + i) % 3 == 0 else 0.0)
+                b = base_classe[classe][t] or 0.0
+                if classe == "cripto":
+                    r = b + (0.00002 if t % 2 else -0.00002)  # colado no BTC
+                elif t > 0:
+                    r = b + alfa + 0.004 * math.sin(1.3 * t + fase)
+                else:
+                    r = 0.0
+                d_nat = round(v_nat + 0.5 * f_nat, 2)
+                g_nat = round(r * d_nat, 2)
+                prov_nat = 0.0
+                if not passivo and classe in ("fiis", "acoes_br") and t % 3 == 1:
+                    prov_nat = round(0.004 * v_nat, 2)
+                if not passivo and eua and t % 3 == 2:
+                    prov_nat = round(0.003 * v_nat, 2)
+                v_novo = round(v_nat + f_nat + g_nat - prov_nat, 2)
+            if eua:
+                fx = _ponte_fx(t)
+                f_brl = round(f_nat * fx, 2)
+                prov_brl = round(prov_nat * fx, 2)
+                vb_novo = round(v_novo * fx, 2)
+                g_brl = round(vb_novo - v_brl - f_brl + prov_brl, 2)
+                d_brl = round(v_brl + 0.5 * f_brl, 2)
+                if d_nat != 0 or g_nat != 0:
+                    usd[t].append([i, d_nat, g_nat])
+                for campo, x in (("v", v_novo), ("entrou", f_nat), ("prov", prov_nat)):
+                    _soma("EUA_USD", campo, t, x)
+            else:
+                f_brl, prov_brl, vb_novo, g_brl, d_brl = f_nat, prov_nat, v_novo, g_nat, d_nat
+            if d_brl != 0 or g_brl != 0:
+                brl[t].append([i, d_brl, g_brl])
+            for k in escopos:
+                for campo, x in (("v", vb_novo), ("entrou", f_brl), ("prov", prov_brl)):
+                    _soma(k, campo, t, x)
+            v_nat, v_brl = v_novo, vb_novo
+
+    buraco = [_PONTE_MES_BURACO, _PONTE_MES_BURACO + 1]  # t e t+1 (Decisão 7)
+    bloco = {
+        "ate": meses[-1],
+        "meses": meses,
+        "indices": {"BRL": ind_brl, "USD": ind_usd},
+        "ativos": ativos,
+        "brl": brl,
+        "usd": usd,
+        "fluxos": fluxos,
+        "buracos": {"Total": buraco, "Brasil": list(buraco), "EUA_BRL": [], "EUA_USD": []},
+    }
+    _confere_ponte(bloco)
+    return bloco
+
+
+def _confere_ponte(bloco: dict) -> None:
+    """Fluxos coerentes com Σ G por escopo: v_t − v_{t−1} − entrou_t + prov_t = Σ G."""
+    ativos = bloco["ativos"]
+    brasil = ("acoes_br", "fiis", "renda_fixa")
+    filtros = {
+        "Total": ("brl", lambda a: True),
+        "Brasil": ("brl", lambda a: a["classe"] in brasil),
+        "EUA_BRL": ("brl", lambda a: a["classe"] == "eua"),
+        "EUA_USD": ("usd", lambda a: a["classe"] == "eua"),
+    }
+    for chave, (serie, filtro) in filtros.items():
+        fl = bloco["fluxos"][chave]
+        for t in range(len(bloco["meses"])):
+            v_ant = fl["v"][t - 1] if t > 0 else 0.0
+            soma_g = sum(g for i, _d, g in bloco[serie][t] if filtro(ativos[i]))
+            lado = fl["v"][t] - v_ant - fl["entrou"][t] + fl["prov"][t]
+            assert abs(lado - soma_g) < 0.015, f"fluxos {chave} mes {t}: {lado} != {soma_g}"
+    assert bloco["meses"][0] == "2024-04" and bloco["ate"] == "2026-09"
+    assert all(s[0] is None for m in bloco["indices"].values() for s in m.values())
+
+
 PAYLOAD = {
-    "versao": "2.29",
+    "versao": "2.30",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1004,6 +1210,9 @@ PAYLOAD = {
     # Schema v2.28 (Fase 7a.AW): projeção como ensaio (4 cenários: âncoras
     # twr/xirr + comparações mercado_simples/mercado_rebalanceado).
     "projecao": _projecao_sintetica(),
+    # Schema v2.30 (Fase 7a.BD.1): ponte de rentabilidade (série mensal por
+    # ativo + índices + fluxos). 100% sintético, gerado por fórmula.
+    "ponte": _ponte_sintetica(),
 }
 
 
@@ -1511,6 +1720,8 @@ def gerar_portfolio_frase() -> None:
 # PIN_TESTE do fixture principal — só o conteúdo difere.
 def gerar_portfolio_projecao_variantes() -> None:
     base = OUT.parent
+    # 7a.BD.2: variantes de versão anterior à 2.30 não carregam ``ponte``.
+    sem_ponte = {k: v for k, v in PAYLOAD.items() if k != "ponte"}
 
     payload_null = {**PAYLOAD, "projecao": None}
     enc_null = encriptar_json(json.dumps(payload_null, ensure_ascii=False), PIN_TESTE)
@@ -1518,18 +1729,18 @@ def gerar_portfolio_projecao_variantes() -> None:
     alvo_null.write_text(enc_null, encoding="ascii")
     print(f"Fixture gerada: {alvo_null}")
 
-    payload_pre = {k: v for k, v in PAYLOAD.items() if k != "projecao"} | {"versao": "2.26"}
+    payload_pre = {k: v for k, v in sem_ponte.items() if k != "projecao"} | {"versao": "2.26"}
     enc_pre = encriptar_json(json.dumps(payload_pre, ensure_ascii=False), PIN_TESTE)
     alvo_pre = base / "portfolio_pre_v227.test.json.enc"
     alvo_pre.write_text(enc_pre, encoding="ascii")
     print(f"Fixture gerada: {alvo_pre}")
 
-    payload_v227 = {**PAYLOAD, "versao": "2.27", "projecao": _projecao_sintetica_v227()}
+    payload_v227 = {**sem_ponte, "versao": "2.27", "projecao": _projecao_sintetica_v227()}
     alvo = base / "portfolio_pre_v228.test.json.enc"
     alvo.write_text(encriptar_json(json.dumps(payload_v227, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
 
-    payload_v228 = {**PAYLOAD, "versao": "2.28", "projecao": _projecao_sintetica_v228()}
+    payload_v228 = {**sem_ponte, "versao": "2.28", "projecao": _projecao_sintetica_v228()}
     alvo = base / "portfolio_pre_v229.test.json.enc"
     alvo.write_text(encriptar_json(json.dumps(payload_v228, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
@@ -1539,6 +1750,123 @@ def gerar_portfolio_projecao_variantes() -> None:
         alvo = base / f"{nome}.test.json.enc"
         alvo.write_text(encriptar_json(json.dumps({**PAYLOAD, "projecao": proj}, ensure_ascii=False), PIN_TESTE), encoding="ascii")
         print(f"Fixture gerada: {alvo}")
+
+
+# 7a.BD.2 (Task 6): payload antigo (sem ``ponte``, v2.29) — o estado que a tela
+# nova precisa distinguir ("Rentabilidade indisponível nesta versão dos dados").
+def gerar_portfolio_pre_v230() -> None:
+    payload = {k: v for k, v in PAYLOAD.items() if k != "ponte"} | {"versao": "2.29"}
+    alvo = OUT.parent / "portfolio_pre_v230.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
+# 7a.BD.2 (Task 6): valores esperados para o teste cruzado da gêmea JS
+# (``ponteJanela``), saídos da referência Python ``src.calculadora.ponte`` sobre
+# o MESMO bloco sintético. JSON em claro: tudo aqui é fórmula, sem PIN nem
+# frase. Forma: {"bloco": ..., "casos": [{"funcao", "chamada", "esperado"}]}.
+_PONTE_ESCOPOS = (("Total", "BRL"), ("Brasil", "BRL"), ("EUA", "BRL"), ("EUA", "USD"))
+_PONTE_JANELAS_EXTRAS = (
+    # (escopo, moeda, i_ini, i_fim, por quê)
+    ("Total", "BRL", 3, 6, "cruza o buraco do mês 4"),
+    ("Brasil", "BRL", 7, 9, "cruza o IFIX null do mês 8"),
+    ("Total", "BRL", 9, 29, "longa anualizada depois do buraco e do IFIX null"),
+    ("EUA", "USD", 2, 2, "um mês só, o primeiro do escopo"),
+    ("EUA", "USD", 16, 16, "um mês com salto de +100 %: XIRR anual > 1000 %"),
+    ("EUA", "BRL", 15, 17, "três meses em torno do salto: XIRR anual > 1000 %"),
+)
+
+# Mini-blocos de um ativo sintético ("SINT1", EUA/picks, sem aporte), um por
+# sequência de retornos mensais: o XIRR de janela curta com retorno extremo,
+# onde o Newton-Raphson de 0.10 da gêmea JS não converge e o pyxirr acha a
+# raiz pelo fallback dele (fix round 1 da Task 7). A janela é toda a série
+# depois do mês 0 (âncora), em EUA/USD.
+_PONTE_MINI_RETORNOS = (
+    ((-0.90,), "um mês de -90 %: XIRR anual ≈ -100 %"),
+    ((4.00,), "um mês de +400 %: XIRR anual ≈ 1,7e8"),
+    ((1.50, 1.50, 1.50), "três meses de +150 %: XIRR anual > 1e4"),
+    ((-0.70, -0.70, -0.70), "três meses de -70 %"),
+)
+
+
+def _ponte_mini(retornos: tuple[float, ...]) -> dict:
+    n = len(retornos) + 1
+    meses = _ponte_meses()[:n]
+    v = [1000.0]
+    usd: list[list] = [[]]
+    for r in retornos:
+        d = v[-1]
+        g = round(d * r, 2)
+        usd.append([[0, d, g]])
+        v.append(round(d + g, 2))
+    zeros = [0.0] * n
+    fl = {"v": v, "entrou": [1000.0] + zeros[1:], "prov": list(zeros)}
+    return {
+        "ate": meses[-1],
+        "meses": meses,
+        "indices": {"BRL": {}, "USD": {"SP500TR": [None] + [0.0] * (n - 1)}},
+        "ativos": [{"t": "SINT1", "classe": "eua", "passivo": False, "cesta_eua": "picks"}],
+        "brl": [[] for _ in range(n)],
+        "usd": usd,
+        "fluxos": {"EUA_USD": fl},
+        "buracos": {},
+    }
+
+
+def gerar_ponte_esperado() -> None:
+    from src.calculadora.ponte import arredondar_fechando, janela, janelas_fixas
+
+    bloco = PAYLOAD["ponte"]
+    casos: list[dict] = []
+    for escopo, moeda in _PONTE_ESCOPOS:
+        casos.append({"funcao": "janelas_fixas",
+                      "chamada": {"escopo": escopo, "moeda": moeda},
+                      "esperado": janelas_fixas(bloco, escopo, moeda)})
+        casos.append({"funcao": "janela",
+                      "chamada": {"escopo": escopo, "moeda": moeda, "i_ini": 10, "i_fim": 14},
+                      "esperado": janela(bloco, escopo, moeda, 10, 14)})
+    for escopo, moeda, i_ini, i_fim, motivo in _PONTE_JANELAS_EXTRAS:
+        casos.append({"funcao": "janela", "nota": motivo,
+                      "chamada": {"escopo": escopo, "moeda": moeda, "i_ini": i_ini, "i_fim": i_fim},
+                      "esperado": janela(bloco, escopo, moeda, i_ini, i_fim)})
+
+    for retornos, motivo in _PONTE_MINI_RETORNOS:
+        mini = _ponte_mini(retornos)
+        n = len(retornos)
+        casos.append({"funcao": "janela", "nota": motivo,
+                      "chamada": {"escopo": "EUA", "moeda": "USD", "i_ini": 1, "i_fim": n, "bloco": mini},
+                      "esperado": janela(mini, "EUA", "USD", 1, n)})
+
+    # arredondar_fechando: em pontos percentuais (fração × 100), como o front chama
+    arred: list[tuple[list[float], float, str]] = []
+    for escopo, moeda in _PONTE_ESCOPOS:
+        j = janelas_fixas(bloco, escopo, moeda)["12m"]
+        pp = [j["ind"] * 100] + [l["contrib"] * 100 for l in j["linhas"]]
+        arred.append((pp, j["sua"] * 100, f"12m {escopo}/{moeda}: índice + linhas fecham na sua"))
+        for l in j["linhas"]:
+            arred.append(([a["contrib"] * 100 for a in j["ativos"][l["id"]]], l["contrib"] * 100,
+                          f"12m {escopo}/{moeda}: ativos fecham na linha {l['id']}"))
+    arred += [
+        ([], 5.0, "entrada vazia devolve lista vazia"),
+        ([0.04, -0.04, 1.25], 1.3, "dois neutros (±0,0) e uma linha"),
+        ([0.35, 0.35, 0.35], 1.0, "empate de restos: a primeira posição leva"),
+        ([0.16, 0.16, 0.16], 0.4, "falta negativa: tira das de menor resto"),
+        ([-1.26, 2.47, -0.04], 1.2, "sinais mistos"),
+        ([0.00048828125, 0.0004882813], 0.1,
+         "empate exato a 9 casas (5/1024): round(x, 9) do Python é meio-para-par"),
+        ([0.125, 0.125], 0.25, "total em empate exato (2,5 unidades): round() vai ao par"),
+    ]
+    for valores, total, nota in arred:
+        casos.append({"funcao": "arredondar_fechando", "nota": nota,
+                      "chamada": {"valores": valores, "total": total, "casas": 1},
+                      "esperado": arredondar_fechando(valores, total, 1)})
+
+    alvo = OUT.parent / "ponte_esperado.test.json"
+    corpo = {"descricao": "7a.BD.2: saída de src/calculadora/ponte.py sobre o bloco "
+                          "ponte sintético da fixture (100% fórmula)",
+             "bloco": bloco, "casos": casos}
+    alvo.write_text(json.dumps(corpo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"Fixture gerada: {alvo} ({len(casos)} casos)")
 
 
 def main() -> None:
@@ -1551,6 +1879,8 @@ def main() -> None:
     gerar_dossies()                        # 7a.R.3.b
     gerar_portfolio_frase()                # 7a.W.3.b
     gerar_portfolio_projecao_variantes()   # 7a.AV.2 (Task 10)
+    gerar_portfolio_pre_v230()             # 7a.BD.2 (Task 6)
+    gerar_ponte_esperado()                 # 7a.BD.2 (Task 6)
 
 
 if __name__ == "__main__":

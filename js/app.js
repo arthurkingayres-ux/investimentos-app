@@ -24,11 +24,15 @@ window.aberturaMotion = ABERTURA_MOTION;
 const css = (token, fallback = "") =>
   getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
 
-// 7a.L.2.b: utilitárias puras (top-level, fora do Alpine.data) para o card
-// "Período" do #rentabilidade. Newton-Raphson XIRR é fechado em ~5ms para
-// janelas mensais típicas (84 anchors). Convenção de sinal igual a
-// calcular_xirr_from_flows do backend: aporte = negativo, retirada = positiva.
-function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7) {
+// 7a.L.2.b: Newton-Raphson XIRR (top-level, fora do Alpine.data), nascido no
+// card "Período" do #rentabilidade (removido na 7a.BD.2); hoje o único
+// chamador é ponteXirr. Convenção de sinal igual a calcular_xirr_from_flows
+// do backend: aporte = negativo, retirada = positiva. `opcoes`: `diasAno` é a
+// base da contagem de tempo — 365.25 (default) ou 365 (ACT/365, a convenção
+// do pyxirr, que a ponte passa); `maxRate` é o teto de |taxa| anual em que o
+// iterador desiste (default 10 = 1000 % a.a.; a ponte passa Infinity).
+function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7, opcoes = {}) {
+  const { diasAno = 365.25, maxRate = 10 } = opcoes;
   if (!Array.isArray(flows) || flows.length < 2) return null;
   const d0 = flows[0][0];
   // Requer pelo menos um valor negativo E um positivo, senão XIRR é indefinida.
@@ -42,7 +46,7 @@ function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7) {
   for (let i = 0; i < maxIter; i++) {
     let npv = 0, dnpv = 0;
     for (const [d, v] of flows) {
-      const dt = (d - d0) / (1000 * 60 * 60 * 24) / 365.25;
+      const dt = (d - d0) / (1000 * 60 * 60 * 24) / diasAno;
       const base = 1 + rate;
       if (base <= 0) return null;
       const denom = Math.pow(base, dt);
@@ -54,122 +58,769 @@ function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7) {
     if (!isFinite(newRate)) return null;
     if (Math.abs(newRate - rate) < tol) return newRate;
     rate = newRate;
-    if (Math.abs(rate) > 10) return null;
+    if (Math.abs(rate) > maxRate) return null;
   }
   return null;
 }
 
-function parseMesData(yyyymm) {
-  if (!yyyymm || typeof yyyymm !== "string") return null;
-  const [ano, mes] = yyyymm.split("-").map(Number);
-  if (!ano || !mes) return null;
-  // new Date(y, m, 0) = último dia do mês m (1-indexed) — espelha
-  // parseAnchor de hidratarRentabilidade. Garante consistência com L.1.
-  return new Date(ano, mes, 0);
+// 7a.BD.2 — gêmea JS de src/calculadora/ponte.py (repo principal): a ponte de
+// rentabilidade, a carteira contra a MESMA carteira feita só de índices. A
+// conta, as guardas e os textos são os da referência Python, que é a fonte da
+// verdade (docstring "Paridade com a gêmea JS"); o teste cruzado
+// tests/e2e/rentabilidade-ponte-calculo.spec.ts compara campo a campo contra a
+// saída dela (tests/fixtures/ponte_esperado.test.json). Python None = null.
+// - Ligação GRAP (Frongello, 1997): c_t · Π_{s<t}(1+R_p,s) · Π_{s>t}(1+R_ind,s).
+// - Ordem de `ativos` por (contrib, t), com t comparado por `<`/`>` (code
+//   unit; tickers são ASCII, então coincide com o code point do Python) —
+//   nunca localeCompare — e já reetiquetado ("Rebates da corretora").
+// - XIRR: newtonRaphsonXirr com diasAno = 365 (ACT/365, a convenção do pyxirr)
+//   e datas em UTC no último dia de cada mês, sem fuso nem horário de verão;
+//   sem teto de taxa e, se o Newton falhar, bissecção no NPV (o pyxirr também
+//   tem fallback e acha a raiz onde o Newton de 0.10 diverge).
+// - Somas: o sum() do Python ≥ 3.12 é compensado (Neumaier) e o laço JS é
+//   ingênuo; a diferença é ~1e-12 em valores em reais, dentro da tolerância.
+// - round() do Python: ponteRoundPy (meio-para-par sobre o valor exato).
+const PONTE_REBATE_TICKER = "AVNU_REBATE";
+const PONTE_REBATE_ROTULO = "Rebates da corretora";
+const PONTE_INDICE_CLASSE = { acoes_br: "IBOV", fiis: "IFIX", eua: "SP500TR", cripto: "BTC" };
+const PONTE_ORDEM_LINHAS = {
+  Total: ["acoes_br", "fiis", "eua", "cripto"],
+  Brasil: ["acoes_br", "fiis"],
+  EUA: ["picks", "fora"],
+};
+const PONTE_CLASSES_ESCOPO = {
+  Total: null, // todas
+  Brasil: ["acoes_br", "fiis", "renda_fixa"],
+  EUA: ["eua"],
+};
+const PONTE_INDICES_DETALHES = {
+  Total: ["CDI", "IBOV", "IFIX", "SP500TR", "BTC"],
+  Brasil: ["CDI", "IBOV", "IFIX"],
+  EUA: ["SP500TR"],
+};
+const PONTE_MIN_DENOMINADOR = 0.01;
+const PONTE_GUARDA_DIF = 1e-9;
+const PONTE_JANELAS_FIXAS = [["12m", 12], ["3a", 36], ["5a", 60]];
+
+function ponteMmAa(ym) {
+  return `${ym.slice(5, 7)}/${ym.slice(2, 4)}`;
 }
 
-function construirFlows(hist, iA, iB) {
-  // Constrói série de fluxos para XIRR: nav inicial negativo (preço pago pra
-  // "comprar" a posição no anchor A), cashflows intermediários (aporte=neg,
-  // retirada=pos — convenção já vinda do backend), nav final positivo
-  // (resgate hipotético no anchor B).
-  if (!hist || iB <= iA) return [];
-  const flows = [];
-  const dA = parseMesData(hist[iA].data);
-  if (!dA) return [];
-  flows.push([dA, -(hist[iA].nav || 0)]);
-  for (let i = iA + 1; i < iB; i++) {
-    const cf = hist[i].cashflow;
-    if (cf) {
-      const d = parseMesData(hist[i].data);
-      if (d) flows.push([d, cf]);
-    }
+// Último dia do mês `ym` deslocado de `delta` meses, em UTC (Date.UTC com dia 0
+// = último dia do mês anterior ao índice passado).
+function ponteFimMes(ym, delta = 0) {
+  const ano = Number(ym.slice(0, 4));
+  const mes = Number(ym.slice(5, 7));
+  return new Date(Date.UTC(ano, mes + delta, 0));
+}
+
+function ponteChaveEscopo(escopo, moeda) {
+  if (!Object.hasOwn(PONTE_CLASSES_ESCOPO, escopo)) throw new Error(`escopo desconhecido: ${escopo}`);
+  if (moeda !== "BRL" && moeda !== "USD") throw new Error(`moeda desconhecida: ${moeda}`);
+  if (escopo === "EUA") return `EUA_${moeda}`;
+  if (moeda !== "BRL") throw new Error(`escopo ${escopo} só existe em BRL`);
+  return escopo;
+}
+
+function ponteNoEscopo(ativo, escopo) {
+  const classes = PONTE_CLASSES_ESCOPO[escopo];
+  return classes === null || classes.includes(ativo.classe);
+}
+
+// Linha da ponte e nome do índice de um ativo não passivo.
+function ponteLinhaEIndice(ativo, escopo) {
+  const classe = ativo.classe;
+  if (!Object.hasOwn(PONTE_INDICE_CLASSE, classe)) {
+    throw new Error(`ativo ${ativo.t} da classe ${classe} sem índice na ponte`);
   }
-  const dB = parseMesData(hist[iB].data);
-  if (!dB) return [];
-  flows.push([dB, hist[iB].nav || 0]);
-  return flows;
-}
-
-function flowsBenchmark(hist, iA, iB, growthOf) {
-  // Flows do benchmark: substitui nav portfolio por "nav hipotético se cada
-  // aporte tivesse sido investido no índice na data do aporte". Escala o nav
-  // inicial pelo crescimento do índice de iA→iB, e cashflows intermediários
-  // pelo crescimento do índice de cada mês→iB.
-  // 7a.E.26: growthOf é um accessor de growth por ponto. Default = benchmark_growth
-  // (principal/CDI) preserva o caminho single (EUA + callers legados). Para
-  // IBOV/SP500, o caller passa (p) => (p.benchmarks_growth||{})[idx] — senão o
-  // XIRR seria computado contra o growth do CDI.
-  growthOf = growthOf || ((p) => p.benchmark_growth);
-  if (!hist || iB <= iA) return [];
-  const growthA = growthOf(hist[iA]);
-  const growthB = growthOf(hist[iB]);
-  if (!growthA || !growthB) return [];
-
-  const flows = [];
-  const dA = parseMesData(hist[iA].data);
-  if (!dA) return [];
-  // Investimento inicial — mesmo nav portfolio (capital aplicado no início).
-  flows.push([dA, -(hist[iA].nav || 0)]);
-  // Cashflows intermediários: aporte real (mantém sinal/magnitude).
-  for (let i = iA + 1; i < iB; i++) {
-    const cf = hist[i].cashflow;
-    if (cf) {
-      const d = parseMesData(hist[i].data);
-      if (d) flows.push([d, cf]);
-    }
+  if (escopo === "EUA") {
+    const cesta = ativo.cesta_eua;
+    if (cesta !== "picks" && cesta !== "fora") throw new Error(`ativo ${ativo.t} sem cesta EUA de linha: ${cesta}`);
+    return [cesta, "SP500TR"];
   }
-  // Terminal: nav inicial cresce a growthB/growthA; cada aporte intermediário
-  // cresce a growthB/growth[i]. Soma e injeta como flow positivo em iB.
-  const dB = parseMesData(hist[iB].data);
-  if (!dB) return [];
-  let terminal = (hist[iA].nav || 0) * (growthB / growthA);
-  for (let i = iA + 1; i < iB; i++) {
-    const cf = hist[i].cashflow;
-    if (cf) {
-      const gi = growthOf(hist[i]);
-      if (gi) {
-        // cashflow já vem com convenção "aporte=neg" → inverte sinal para
-        // "valor investido" (positivo) antes de escalar.
-        terminal += (-cf) * (growthB / gi);
-      }
-    }
-  }
-  flows.push([dB, terminal]);
-  return flows;
+  return [classe, PONTE_INDICE_CLASSE[classe]];
 }
 
-function gerarTituloPeriodo(hist, iA, iB) {
-  if (!hist || hist.length === 0) return "Origem";
-  if (iA === 0 && iB === hist.length - 1) return "Origem";
-  const fmt = (yyyymm) => {
-    if (!yyyymm) return "";
-    const [ano, mes] = yyyymm.split("-");
-    const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-    const idx = parseInt(mes, 10) - 1;
-    if (idx < 0 || idx > 11) return yyyymm;
-    return `${meses[idx]}/${ano.slice(2)}`;
-  };
-  return `Período · ${fmt(hist[iA].data)} → ${fmt(hist[iB].data)}`;
-}
-
-// CRB final round (Finding E/7a.U): default vazio de `periodoCustom`,
-// extraído porque o literal aparecia duplicado (declaração + reset do lock)
-// — mudar o default num lugar deixaria o outro restaurando um valor velho,
-// o mesmo drift que o choke point único da fase combate. Função de
-// TOPO-DE-ARQUIVO (não método `this._periodoCustomVazio()`): a declaração
-// do `x-data` é um literal de objeto plano, sem `this` disponível para os
-// próprios vizinhos durante a construção — mesmo padrão já usado pelos
-// outros helpers puros de chart deste arquivo (`gerarTituloPeriodo` acima,
-// `parseMesData`, `construirFlows`).
-function periodoCustomVazio() {
+function ponteVazio(nMeses, motivo) {
   return {
-    iniIdx: 0,
-    fimIdx: null,
-    twr: null,
+    n_meses: nMeses,
+    anualizado: nMeses >= 12,
+    sua: null,
+    ind: null,
+    dif: null,
+    linhas: [],
+    ativos: {},
+    entrou: null,
+    ganho: null,
+    valor_fim: null,
     xirr: null,
-    benchExtras: [],
-    titulo: "Origem",
+    indices: {},
+    indisponivel: motivo,
+  };
+}
+
+// (1+acum)^(12/n) − 1; acum < −1 daria número complexo (quem chama já filtra).
+function ponteAnualizar(acum, n) {
+  if (acum < -1.0) throw new Error(`acumulado abaixo de -100%: ${acum}`);
+  return Math.pow(1.0 + acum, 12.0 / n) - 1.0;
+}
+
+// Primeiro mês com ΣD > 0 no escopo (meses.length se nunca).
+function ponteInicioEscopo(bloco, escopo, moeda) {
+  ponteChaveEscopo(escopo, moeda);
+  const ativos = bloco.ativos;
+  const serie = moeda === "USD" ? bloco.usd : bloco.brl;
+  for (let t = 0; t < serie.length; t++) {
+    let somaD = 0;
+    for (const [i, d] of serie[t]) if (ponteNoEscopo(ativos[i], escopo)) somaD += d;
+    if (somaD > 0) return t;
+  }
+  return bloco.meses.length;
+}
+
+// Fallback do XIRR: bissecção no NPV (ACT/365) sobre x = ln(1+taxa), com
+// 1+taxa ∈ [e^(-500/T), e^40], T = prazo em anos (≥ 1), para v·exp(−x·t) não
+// estourar em janela longa. Em x a precisão é relativa em (1+taxa), o que
+// importa porque, com n < 12, o XIRR é reportado "no período" como
+// (1+taxa)^(n/12) − 1: um mês de −90 % tem taxa anual ≈ −1 + 1,7e-12, e um
+// de +400 % ≈ 1,7e8 — fora de qualquer faixa linear como (−0.9999, 1e6).
+// Exige troca de sinal nas pontas; sem ela, null (como o pyxirr sem raiz).
+function ponteXirrBisseccao(flows) {
+  const d0 = flows[0][0];
+  const anos = flows.map(([d]) => (d - d0) / 86400000 / 365);
+  const npv = (x) => {
+    let s = 0;
+    for (let k = 0; k < flows.length; k++) s += flows[k][1] * Math.exp(-x * anos[k]);
+    return s;
+  };
+  let lo = -500 / Math.max(1, anos[anos.length - 1]);
+  let hi = 40;
+  let fLo = npv(lo);
+  const fHi = npv(hi);
+  if (!Number.isFinite(fLo) || !Number.isFinite(fHi)) return null;
+  if (fLo === 0) return Math.expm1(lo);
+  if (fHi === 0) return Math.expm1(hi);
+  if ((fLo > 0) === (fHi > 0)) return null;
+  for (let it = 0; it < 200; it++) {
+    const mid = (lo + hi) / 2;
+    if (mid === lo || mid === hi) break;
+    const fMid = npv(mid);
+    if (fMid === 0) return Math.expm1(mid);
+    if ((fMid > 0) === (fLo > 0)) { lo = mid; fLo = fMid; } else { hi = mid; }
+  }
+  return Math.expm1((lo + hi) / 2);
+}
+
+// Fluxos no fim de cada mês: −v_ini no fim do mês anterior à janela; em cada
+// mês −entrou_t + prov_t; +v_fim no último. Com n < 12, "no período".
+function ponteXirr(bloco, fl, iIni, iFim) {
+  const meses = bloco.meses;
+  const vIni = iIni > 0 ? fl.v[iIni - 1] : 0.0;
+  const flows = [[ponteFimMes(meses[iIni], -1), -vIni]];
+  for (let t = iIni; t <= iFim; t++) {
+    let x = -fl.entrou[t] + fl.prov[t];
+    if (t === iFim) x += fl.v[iFim];
+    flows.push([ponteFimMes(meses[t]), x]);
+  }
+  let r = newtonRaphsonXirr(flows, 0.10, 50, 1e-7, { diasAno: 365, maxRate: Infinity });
+  if (r === null || !Number.isFinite(r)) r = ponteXirrBisseccao(flows);
+  if (r === null || !Number.isFinite(r)) return null;
+  const n = iFim - iIni + 1;
+  if (n < 12) return Math.pow(1.0 + r, n / 12.0) - 1.0;
+  return r;
+}
+
+// Ponte da janela iIni..iFim (inclusivos) para escopo e moeda, em frações.
+function ponteJanela(bloco, escopo, moeda, iIni, iFim) {
+  const chave = ponteChaveEscopo(escopo, moeda);
+  const meses = bloco.meses;
+  if (!(0 <= iIni && iIni <= iFim && iFim < meses.length)) {
+    throw new Error(`janela fora de meses: ${iIni}..${iFim}`);
+  }
+  const n = iFim - iIni + 1;
+  const ativos = bloco.ativos;
+  const serie = moeda === "USD" ? bloco.usd : bloco.brl;
+  const tabInd = bloco.indices[moeda];
+  const buracos = new Set(bloco.buracos[chave] || []);
+
+  // 1) contribuições mensais por ativo, R_p e R_ind de cada mês
+  const rP = [];
+  const rI = [];
+  const mensal = []; // por mês: Map idx_ativo -> c_a,t
+  const presentes = new Map(); // idx_ativo -> [linha, índice]
+  for (let t = iIni; t <= iFim; t++) {
+    if (buracos.has(t)) return ponteVazio(n, `cotação ausente em ${ponteMmAa(meses[t])}`);
+    const entradas = serie[t].filter((e) => ponteNoEscopo(ativos[e[0]], escopo));
+    let somaD = 0;
+    let somaG = 0;
+    for (const [, d, g] of entradas) { somaD += d; somaG += g; }
+    if (Math.abs(somaD) < PONTE_MIN_DENOMINADOR) {
+      if (Math.abs(somaG) < PONTE_MIN_DENOMINADOR) {
+        rP.push(0.0);
+        rI.push(0.0);
+        mensal.push(new Map());
+        continue;
+      }
+      return ponteVazio(n, `mês sem base de cálculo em ${ponteMmAa(meses[t])}`);
+    }
+    let numInd = 0.0;
+    const contribs = new Map();
+    for (const [i, d, g] of entradas) {
+      const ativo = ativos[i];
+      if (ativo.passivo) {
+        numInd += g;
+        continue;
+      }
+      const [linha, nome] = ponteLinhaEIndice(ativo, escopo);
+      if (!presentes.has(i)) presentes.set(i, [linha, nome]);
+      let b;
+      if (d !== 0) {
+        const s = tabInd[nome];
+        b = s ? s[t] : null;
+        if (b === null || b === undefined) return ponteVazio(n, `índice ${nome} sem dado em ${ponteMmAa(meses[t])}`);
+      } else {
+        b = 0.0;
+      }
+      numInd += d * b;
+      contribs.set(i, (contribs.get(i) || 0.0) + (g - d * b) / somaD);
+    }
+    rP.push(somaG / somaD);
+    rI.push(numInd / somaD);
+    mensal.push(contribs);
+  }
+
+  // 2) GRAP: fator do mês k = Π_{s<k}(1+R_p,s) · Π_{s>k}(1+R_ind,s)
+  const sufixo = new Array(n + 1).fill(1.0);
+  for (let k = n - 1; k >= 0; k--) sufixo[k] = sufixo[k + 1] * (1.0 + rI[k]);
+  let ligado = new Map();
+  for (const i of presentes.keys()) ligado.set(i, 0.0);
+  let prefixo = 1.0;
+  for (let k = 0; k < n; k++) {
+    const fator = prefixo * sufixo[k + 1];
+    for (const [i, c] of mensal[k]) ligado.set(i, ligado.get(i) + c * fator);
+    prefixo *= 1.0 + rP[k];
+  }
+  const acumP = prefixo - 1.0;
+  const acumI = sufixo[0] - 1.0;
+  if (acumP < -1.0 || acumI < -1.0) {
+    // valor implícito negativo (Dietz degenerado): sem retorno com sentido
+    return ponteVazio(n, "retorno acumulado abaixo de -100% entre "
+      + `${ponteMmAa(meses[iIni])} e ${ponteMmAa(meses[iFim])}`);
+  }
+
+  // 3) anualização com escala proporcional (guarda ii)
+  const anualizado = n >= 12;
+  let sua;
+  let ind;
+  if (anualizado) {
+    sua = ponteAnualizar(acumP, n);
+    ind = ponteAnualizar(acumI, n);
+    const difAcum = acumP - acumI;
+    const kEsc = Math.abs(difAcum) < PONTE_GUARDA_DIF ? 0.0 : (sua - ind) / difAcum;
+    for (const [i, c] of ligado) ligado.set(i, Math.abs(difAcum) < PONTE_GUARDA_DIF ? 0.0 : c * kEsc);
+  } else {
+    sua = acumP;
+    ind = acumI;
+  }
+
+  // 4) linhas e ativos (ordenados por contribuição, nunca por retorno)
+  const porLinha = {};
+  const indiceLinha = {};
+  for (const [i, [linha, nome]] of presentes) {
+    const t = ativos[i].t === PONTE_REBATE_TICKER ? PONTE_REBATE_ROTULO : ativos[i].t;
+    (porLinha[linha] = porLinha[linha] || []).push({ t, contrib: ligado.get(i) });
+    indiceLinha[linha] = nome;
+  }
+  const linhas = [];
+  const ativosOut = {};
+  for (const lid of PONTE_ORDEM_LINHAS[escopo]) {
+    if (!(lid in porLinha)) continue;
+    porLinha[lid].sort((a, b) => {
+      if (a.contrib !== b.contrib) return a.contrib < b.contrib ? -1 : 1;
+      if (a.t === b.t) return 0;
+      return a.t < b.t ? -1 : 1;
+    });
+    let soma = 0;
+    for (const a of porLinha[lid]) soma += a.contrib;
+    linhas.push({ id: lid, indice: indiceLinha[lid], contrib: soma });
+    ativosOut[lid] = porLinha[lid];
+  }
+
+  // 5) índices dos Detalhes (anualizados como a carteira; null se faltar mês)
+  const detalhes = {};
+  for (const nome of PONTE_INDICES_DETALHES[escopo]) {
+    const s = tabInd[nome];
+    const valores = s ? s.slice(iIni, iFim + 1) : [null];
+    if (valores.some((x) => x === null || x === undefined)) {
+      detalhes[nome] = null;
+      continue;
+    }
+    let prod = 1.0;
+    for (const x of valores) prod *= 1.0 + x;
+    const acum = prod - 1.0;
+    if (acum < -1.0) detalhes[nome] = null;
+    else detalhes[nome] = anualizado ? ponteAnualizar(acum, n) : acum;
+  }
+
+  // 6) reais e XIRR
+  const fl = bloco.fluxos[chave];
+  const vIni = iIni > 0 ? fl.v[iIni - 1] : 0.0;
+  let entrou = 0;
+  let prov = 0;
+  for (let t = iIni; t <= iFim; t++) { entrou += fl.entrou[t]; prov += fl.prov[t]; }
+  const valorFim = fl.v[iFim];
+
+  return {
+    n_meses: n,
+    anualizado,
+    sua,
+    ind,
+    dif: sua - ind,
+    linhas,
+    ativos: ativosOut,
+    entrou,
+    ganho: (valorFim + prov) - (vIni + entrou),
+    valor_fim: valorFim,
+    xirr: ponteXirr(bloco, fl, iIni, iFim),
+    indices: detalhes,
+    indisponivel: null,
+  };
+}
+
+// Janelas 12m, 3a, 5a e desde, todas terminando no último mês. Fixa com
+// iIni < max(s, 1) (s = início do escopo) é "histórico curto".
+function ponteJanelasFixas(bloco, escopo, moeda) {
+  const meses = bloco.meses;
+  const nTotal = meses.length - 1;
+  const s = ponteInicioEscopo(bloco, escopo, moeda);
+  const m0 = Math.max(s, 1);
+  const out = {};
+  for (const [chave, tamanho] of PONTE_JANELAS_FIXAS) {
+    const iIni = nTotal - tamanho + 1;
+    if (m0 > nTotal) out[chave] = ponteVazio(tamanho, "sem histórico no escopo");
+    else if (iIni < m0) out[chave] = ponteVazio(tamanho, `histórico começa em ${ponteMmAa(meses[m0])}`);
+    else out[chave] = ponteJanela(bloco, escopo, moeda, iIni, nTotal);
+  }
+  out.desde = m0 > nTotal ? ponteVazio(0, "sem histórico no escopo") : ponteJanela(bloco, escopo, moeda, m0, nTotal);
+  return out;
+}
+
+// round(x, casas) do Python: arredonda o valor EXATO do double a `casas`
+// decimais, empate para o par. toFixed também usa o valor exato, mas desempata
+// para longe do zero; o empate exato existe (ex.: múltiplos ímpares de 1/1024
+// a 9 casas). O double x = m/2^k tem expansão decimal de exatamente k casas,
+// e um empate a `casas` decimais termina em 5 na casa casas+1: x·2^(casas+1)
+// inteiro e x·2^casas não (escala por potência de 2 é exata). Aí os candidatos
+// são piso e teto de x·10^casas (exato nesse caso) e vence o par. O resultado,
+// n/10^casas, é a divisão corretamente arredondada — o mesmo double do Python.
+function ponteRoundPy(x, casas = 0) {
+  const p2 = 2 ** casas;
+  if (Number.isInteger(x * p2 * 2) && !Number.isInteger(x * p2)) {
+    const esc = 10 ** casas;
+    const f = Math.floor(x * esc);
+    const n = f % 2 === 0 ? f : f + 1;
+    return casas === 0 ? n : n / esc;
+  }
+  return casas === 0 ? Math.round(x) : Number(x.toFixed(casas));
+}
+
+// Arredonda `valores` a `casas` com a soma exibida igual a `total`, em PONTOS
+// percentuais (fração × 100; casas = 1 é o décimo de ponto). Maior resto:
+// trunca em unidades de 10^-casas e as unidades que faltam (sobram) vão às
+// posições de maior (menor) resto; empate fica com a primeira posição.
+// Entrada vazia devolve [] qualquer que seja o total.
+function arredondarFechando(valores, total, casas = 1) {
+  if (!valores.length) return [];
+  const escala = 10 ** casas;
+  const unidades = valores.map((v) => ponteRoundPy(v * escala, 9));
+  const pisos = unidades.map((u) => Math.floor(u));
+  const restos = unidades.map((u, i) => ponteRoundPy(u - pisos[i], 9));
+  const falta = ponteRoundPy(total * escala) - pisos.reduce((a, b) => a + b, 0);
+  const idx = valores.map((_, i) => i);
+  if (falta >= 0) {
+    const ordem = idx.slice().sort((a, b) => (restos[b] - restos[a]) || (a - b));
+    for (let j = 0; j < falta; j++) pisos[ordem[j % ordem.length]] += 1;
+  } else {
+    const ordemInv = idx.slice().sort((a, b) => (restos[a] - restos[b]) || (a - b));
+    for (let j = 0; j < -falta; j++) pisos[ordemInv[j % ordemInv.length]] -= 1;
+  }
+  return pisos.map((p) => ponteRoundPy(p / escala, casas) + 0.0);
+}
+
+// ── 7a.BD.2: apresentação da #rentabilidade como ponte ─────────────────────
+// Funções puras de topo que transformam a saída de `ponteJanela` (frações) no
+// que a tela mostra. Nenhum número é recalculado aqui: todo valor vem de
+// `ponteJanela`/`ponteJanelasFixas`, e a exibição a 1 casa passa por
+// `arredondarFechando` (maior resto), para a soma exibida fechar — as linhas
+// da ponte somam `sua − ind` exibidos, e os ativos de "quem pesou" somam a
+// linha exibida. Copy: brief de design da 7a.BD.2 (§2); os itens marcados ali
+// "conferência" vão ao Dr. Arthur no critério 3 da spec.
+const RENT2_MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const RENT2_ROTULO_LINHA = {
+  acoes_br: "Ações BR", fiis: "FIIs", eua: "EUA", cripto: "Cripto",
+  picks: "Picks", fora: "Fora da política atual",
+};
+// Concordância da frase de "quem pesou" (somaram/somou, andaram/andou).
+const RENT2_LINHA_PLURAL = { acoes_br: true, fiis: true, eua: true, picks: true, cripto: false, fora: false };
+const RENT2_COR_LINHA = {
+  acoes_br: "var(--cat-acoes-br)", fiis: "var(--cat-fii)", eua: "var(--cat-eua)",
+  cripto: "var(--cat-cripto)", picks: "var(--cat-eua)", fora: "var(--cat-eua)",
+};
+// Nome do índice na tela (nunca o id interno do payload).
+const RENT2_NOME_INDICE = {
+  CDI: "CDI", IBOV: "Ibovespa", IFIX: "IFIX", SP500TR: "S&P 500 com dividendos", BTC: "Bitcoin",
+};
+const RENT2_ALVO_VEREDITO = {
+  Total: "sua carteira de índices",
+  Brasil: "sua carteira brasileira de índices",
+  EUA: "sua carteira americana de índices",
+};
+// [chave, rótulo do botão, prefixo da frase]; "desde" depende do início do
+// escopo (rent2RotuloDesde).
+const RENT2_JANELAS = [
+  ["12m", "12 meses", "Nos últimos 12 meses"],
+  ["3a", "3 anos", "Nos últimos 3 anos"],
+  ["5a", "5 anos", "Nos últimos 5 anos"],
+  ["desde", null, null],
+];
+// Tamanho das fixas em meses: a mesma tabela da gêmea (PONTE_JANELAS_FIXAS).
+const RENT2_TAMANHO_FIXA = Object.fromEntries(PONTE_JANELAS_FIXAS);
+const RENT2_NEUTRO = 0.05; // |valor exibido| abaixo disto é "±0,0" (spec §6)
+const RENT2_SETTLE_MS = 150; // fim do arrasto: sem evento de zoom por este tempo
+
+// "2026-09" → "set/26", o formato da TELA. Não é duplicata de ponteMmAa
+// ("09/26"): aquele reproduz o texto da referência Python nos `indisponivel`
+// (o teste cruzado compara a string exata), e rent2MmAaParaMmm converte um no
+// outro na hora de mostrar.
+function rent2MmmAa(ym) {
+  const mm = Number(String(ym).slice(5, 7));
+  if (!(mm >= 1 && mm <= 12)) return String(ym);
+  return `${RENT2_MESES[mm - 1]}/${String(ym).slice(2, 4)}`;
+}
+
+// "mm/aa" do backend → "mmm/aa" da tela.
+function rent2MmAaParaMmm(mmaa) {
+  const m = /^(\d{2})\/(\d{2})$/.exec(mmaa);
+  if (!m) return mmaa;
+  const mm = Number(m[1]);
+  return mm >= 1 && mm <= 12 ? `${RENT2_MESES[mm - 1]}/${m[2]}` : mmaa;
+}
+
+// Texto do `indisponivel` do backend na voz da tela (brief §2.10).
+function rent2MotivoTexto(motivo) {
+  if (!motivo) return "";
+  let m;
+  if ((m = /^histórico começa em (\d{2}\/\d{2})$/.exec(motivo))) return `Histórico começa em ${rent2MmAaParaMmm(m[1])}.`;
+  if (motivo === "sem histórico no escopo") return "Sem histórico neste escopo.";
+  if ((m = /^cotação ausente em (\d{2}\/\d{2})$/.exec(motivo))) return `Falta a cotação de um ativo em ${rent2MmAaParaMmm(m[1])}.`;
+  if ((m = /^mês sem base de cálculo em (\d{2}\/\d{2})$/.exec(motivo))) return `Sem valor na carteira para calcular ${rent2MmAaParaMmm(m[1])}.`;
+  if ((m = /^índice (\S+) sem dado em (\d{2}\/\d{2})$/.exec(motivo))) {
+    const nome = RENT2_NOME_INDICE[m[1]];
+    return nome ? `O ${nome} não tem dado em ${rent2MmAaParaMmm(m[2])}.` : "Janela indisponível.";
+  }
+  if ((m = /^retorno acumulado abaixo de -100% entre (\d{2}\/\d{2}) e (\d{2}\/\d{2})$/.exec(motivo))) {
+    return `O cálculo não fecha entre ${rent2MmAaParaMmm(m[1])} e ${rent2MmAaParaMmm(m[2])}.`;
+  }
+  return "Janela indisponível.";
+}
+
+// Valor absoluto a 1 casa, vírgula decimal ("1,0").
+function rent2Abs1(v) {
+  return Math.abs(v).toFixed(1).replace(".", ",");
+}
+
+// Percentual já em pontos (exibido): "19,7%" / "−3,2%".
+function rent2PctPts(p) {
+  const r = ponteRoundPy(p, 1);
+  return (r < 0 ? "−" : "") + rent2Abs1(r) + "%";
+}
+
+// Diferença em pontos (exibida): seta + sinal, nunca cor sozinha.
+function rent2Pontos(p) {
+  const r = ponteRoundPy(p, 1);
+  if (Math.abs(r) < RENT2_NEUTRO) return { texto: "±0,0", sinal: "neutro", valor: 0 };
+  if (r > 0) return { texto: `▲ +${rent2Abs1(r)}`, sinal: "pos", valor: r };
+  return { texto: `▼ −${rent2Abs1(r)}`, sinal: "neg", valor: r };
+}
+
+function rent2PontoPontos(p) {
+  return Math.abs(p) < 2 ? "ponto" : "pontos";
+}
+
+// Dinheiro inteiro, sem abreviar (Confiança nos números): "R$ 60.000".
+function rent2Dinheiro(v, moeda) {
+  const inteiro = Math.round(v);
+  const s = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: moeda === "USD" ? "USD" : "BRL",
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(Math.abs(inteiro));
+  return inteiro < 0 ? `− ${s}` : s;
+}
+
+// "Desde 2019" quando o escopo nasce no começo do histórico; senão a data da
+// âncora (brief §2.3, conferência).
+function rent2RotuloDesde(bloco, m0) {
+  const ancora = bloco.meses[m0 - 1];
+  return ancora <= "2019-01" ? "Desde 2019" : `Desde ${rent2MmmAa(ancora)}`;
+}
+
+// [iIni, iFim] de uma janela fixa (convenção de ponteJanelasFixas).
+function rent2IndicesFixa(chave, nTotal, m0) {
+  if (chave === "desde") return [m0, nTotal];
+  return [nTotal - RENT2_TAMANHO_FIXA[chave] + 1, nTotal];
+}
+
+// Janela fixa que coincide com (iIni, iFim), ou null (período livre).
+function rent2ChaveDe(iIni, iFim, nTotal, m0) {
+  if (iFim !== nTotal) return null;
+  for (const [chave] of RENT2_JANELAS) {
+    const [a] = rent2IndicesFixa(chave, nTotal, m0);
+    if (a >= m0 && a === iIni) return chave;
+  }
+  return null;
+}
+
+// Geometria do waterfall, em frações do trilho. Spec §8: os totais (início
+// e fim) são barra cheia neutra, os dois do mesmo tamanho; o valor escrito ao
+// lado é que diz o retorno. Um eixo truncado nos totais fazia 18,7% contra
+// 19,7% parecer muitas vezes mais. Só os degraus flutuantes ficam num eixo
+// comum entre si (domínio dos acumulados, com 12% de folga).
+function rent2Geometria(ind, linhas, sua) {
+  const acum = [ind];
+  for (const l of linhas) acum.push(acum[acum.length - 1] + l);
+  const vals = acum.concat([sua]);
+  const lo0 = Math.min(...vals);
+  const hi0 = Math.max(...vals);
+  const span = (hi0 - lo0) || Math.max(Math.abs(hi0), 1) * 0.1;
+  const lo = lo0 - span * 0.12;
+  const hi = hi0 + span * 0.12;
+  const cheia = { L: 0, W: 1 };
+  const x = (v) => (v - lo) / (hi - lo);
+  const barra = (a, b) => {
+    const xa = x(a);
+    const xb = x(b);
+    return { L: Math.min(xa, xb), W: Math.max(Math.abs(xb - xa), 0.012) };
+  };
+  return {
+    ind: cheia,
+    sua: cheia,
+    linhas: linhas.map((_, i) => ({ ...barra(acum[i], acum[i + 1]), guia: x(acum[i]) })),
+    acum,
+  };
+}
+
+function rent2EstiloBarra(b) {
+  return `transform: translateX(${(b.L * 100).toFixed(3)}%) scaleX(${b.W.toFixed(5)})`;
+}
+
+// "Quem pesou" da linha `lid` (brief §2.7 e §3): até 3 do sinal da linha, até
+// 3 do sinal oposto e "Outros" com o resto, para a lista fechar com a linha
+// exibida. Ordem e corte por CONTRIBUIÇÃO (nunca por retorno do ativo).
+function rent2Pesou(r, lid, valorLinha, sufixo) {
+  const rotulo = RENT2_ROTULO_LINHA[lid];
+  const plural = RENT2_LINHA_PLURAL[lid];
+  const linha = r.linhas.find((l) => l.id === lid);
+  const indice = RENT2_NOME_INDICE[linha.indice] || linha.indice;
+  if (Math.abs(valorLinha) < RENT2_NEUTRO) {
+    return {
+      neutra: true,
+      linha: rotulo,
+      verbo: "",
+      qtd: "",
+      resto: `${plural ? "andaram" : "andou"} junto com o índice (${indice}) nesta janela. Nada a explicar aqui.`,
+      itens: [],
+      opostos: [],
+      outros: null,
+    };
+  }
+  const ativos = r.ativos[lid] || [];
+  const exib = arredondarFechando(ativos.map((a) => a.contrib * 100), valorLinha);
+  const lista = ativos.map((a, i) => ({ t: a.t, v: exib[i] }));
+  const positivo = valorLinha > 0;
+  const comValor = lista.filter((a) => Math.abs(a.v) >= RENT2_NEUTRO);
+  const pos = comValor.filter((a) => a.v > 0).sort((a, b) => b.v - a.v);
+  const neg = comValor.filter((a) => a.v < 0).sort((a, b) => a.v - b.v);
+  const mesmo = (positivo ? pos : neg).slice(0, 3);
+  const oposto = (positivo ? neg : pos).slice(0, 3);
+  const mostrados = new Set(mesmo.concat(oposto));
+  const n = lista.filter((a) => !mostrados.has(a)).length;
+  const somaMostrada = mesmo.concat(oposto).reduce((s, a) => s + a.v, 0);
+  const somaResto = ponteRoundPy(valorLinha - somaMostrada, 1);
+  const fmt = (a) => ({ t: a.t, ...rent2Pontos(a.v) });
+  return {
+    neutra: false,
+    linha: rotulo,
+    verbo: positivo ? (plural ? "somaram" : "somou") : (plural ? "tiraram" : "tirou"),
+    qtd: `${rent2Abs1(valorLinha)} ${rent2PontoPontos(valorLinha)}`,
+    resto: `${sufixo} contra o ${indice}. Quem mais pesou:`,
+    itens: mesmo.map(fmt),
+    opostos: oposto.map(fmt),
+    outros: n > 0 && Math.abs(somaResto) >= RENT2_NEUTRO
+      ? { rotulo: n === 1 ? "Outro ativo" : `Outros ${n} ativos`, ...rent2Pontos(somaResto) }
+      : null,
+  };
+}
+
+// Vista completa da tela para a janela iIni..iFim (inclusivos). `r` é a saída
+// de ponteJanela; `ctx` = {bloco, escopo, moeda, chave, m0, linhaUsuario}.
+function rent2Vista(r, iIni, iFim, ctx) {
+  const { bloco, escopo, moeda, chave, m0, linhaUsuario } = ctx;
+  const ancora = rent2MmmAa(bloco.meses[iIni - 1]);
+  const fim = rent2MmmAa(bloco.meses[iFim]);
+  const n = iFim - iIni + 1;
+  let rot;
+  let subtitulo;
+  if (chave) {
+    rot = chave === "desde" ? rent2RotuloDesde(bloco, m0) : RENT2_JANELAS.find((j) => j[0] === chave)[2];
+    subtitulo = `Cresceu desde ${ancora} · até ${fim}`;
+  } else {
+    rot = `De ${ancora} a ${fim}`;
+    subtitulo = `Período livre · de ${ancora} a ${fim} (${n === 1 ? "1 mês" : `${n} meses`})`;
+  }
+  const ariaGrafico = `Sua carteira e a mesma carteira só com índices, ${subtitulo}`;
+  if (r.indisponivel) {
+    return { indisponivel: rent2MotivoTexto(r.indisponivel), subtitulo, ariaGrafico };
+  }
+  const sufixo = r.anualizado ? "ao ano" : "no período";
+  // Exibição a 1 casa: os dois totais pelo arredondamento simples e só as
+  // LINHAS absorvem o ajuste (spec §4.4, maior resto), para fecharem em
+  // `sua − ind` exibidos. Com os totais no mesmo rateio, "Só com índices"
+  // ganhava empates de resto como 1ª posição e saía 0,1 fora do valor.
+  const indD = ponteRoundPy(r.ind * 100, 1);
+  const suaD = ponteRoundPy(r.sua * 100, 1);
+  const linhasD = arredondarFechando(r.linhas.map((l) => l.contrib * 100), ponteRoundPy(suaD - indD, 1));
+  const dif = rent2Pontos(suaD - indD);
+  const alvo = RENT2_ALVO_VEREDITO[escopo];
+  let frase;
+  if (dif.sinal === "pos") frase = `${rot}, você ganhou da ${alvo}.`;
+  else if (dif.sinal === "neg") frase = `${rot}, você ficou atrás da ${alvo}.`;
+  // Empate verbatim do rascunho aprovado: "empatou com sua carteira…", sem artigo.
+  else frase = `${rot}, você empatou com ${alvo}.`;
+
+  const geo = rent2Geometria(indD, linhasD, suaD);
+  const linhas = r.linhas.map((l, i) => {
+    const v = rent2Pontos(linhasD[i]);
+    const rotulo = RENT2_ROTULO_LINHA[l.id];
+    const indice = RENT2_NOME_INDICE[l.indice] || l.indice;
+    const unidade = rent2PontoPontos(v.valor);
+    const falado = v.sinal === "neutro" ? `0,0 ${unidade}`
+      : `${v.sinal === "pos" ? "mais" : "menos"} ${rent2Abs1(v.valor)} ${unidade}`;
+    return {
+      id: l.id,
+      rotulo,
+      sub: `vs ${indice}`,
+      estiloPonto: `background: ${RENT2_COR_LINHA[l.id]}`,
+      ...v,
+      estiloBarra: rent2EstiloBarra(geo.linhas[i]),
+      // Guia por transform (nada de animar `left`): a caixa ocupa o trilho
+      // inteiro e a borda esquerda dela é a linha tracejada.
+      estiloGuia: `transform: translateX(${(geo.linhas[i].guia * 100).toFixed(3)}%)`,
+      ariaLabel: `${rotulo} contra o ${indice}, ${falado} ${sufixo}. Mostrar quem pesou`,
+      tabelaLinha: `${rotulo}, contra o ${indice}:`,
+      tabelaValor: falado,
+      tabelaAcum: rent2PctPts(geo.acum[i + 1]),
+    };
+  });
+  // Linha selecionada: a do usuário, se existir nesta janela; senão a de menor
+  // contribuição exibida (a que mais tirou; empate fica com a primeira).
+  let sel = linhas.find((l) => l.id === linhaUsuario) || null;
+  if (!sel && linhas.length) sel = linhas.reduce((m, l) => (l.valor < m.valor ? l : m), linhas[0]);
+
+  const ganhoR = Math.round(r.ganho);
+  let ganho;
+  if (ganhoR > 0) ganho = `▲ + ${rent2Dinheiro(ganhoR, moeda)}`;
+  else if (ganhoR < 0) ganho = `▼ ${rent2Dinheiro(ganhoR, moeda)}`;
+  else ganho = rent2Dinheiro(0, moeda);
+
+  return {
+    indisponivel: null,
+    subtitulo,
+    ariaGrafico,
+    sufixo,
+    frase,
+    numero: dif.texto,
+    sinal: dif.sinal,
+    unidade: `${rent2PontoPontos(dif.valor)} ${sufixo}`,
+    sua: rent2PctPts(suaD),
+    ind: rent2PctPts(indD),
+    suaValor: suaD,
+    indValor: indD,
+    ponte: {
+      unidade: `Em pontos ${sufixo}. Toque numa linha.`,
+      caption: `Ponte entre a carteira só com índices e a sua carteira, em pontos ${sufixo}`,
+      estiloInd: rent2EstiloBarra(geo.ind),
+      estiloSua: rent2EstiloBarra(geo.sua),
+      linhas,
+    },
+    linhaSel: sel ? sel.id : null,
+    pesou: sel ? rent2Pesou(r, sel.id, sel.valor, sufixo) : null,
+    reais: {
+      titulo: moeda === "USD" ? "Em dólares, na janela" : "Em reais, na janela",
+      entrou: rent2Dinheiro(r.entrou, moeda),
+      ganho,
+      ganhoSinal: ganhoR > 0 ? "pos" : ganhoR < 0 ? "neg" : "neutro",
+      rotuloFim: `Em ${fim}`,
+      valorFim: rent2Dinheiro(r.valor_fim, moeda),
+    },
+    detalhes: {
+      indices: PONTE_INDICES_DETALHES[escopo].map((id) => ({
+        id,
+        nome: RENT2_NOME_INDICE[id],
+        texto: r.indices[id] === null || r.indices[id] === undefined ? "—" : rent2PctPts(r.indices[id] * 100),
+      })),
+      xirr: r.xirr === null || r.xirr === undefined ? "—" : rent2PctPts(r.xirr * 100),
+    },
+  };
+}
+
+// Curvas do gráfico: as duas séries em Π(1+r) − 1 a partir da âncora (fim do
+// mês iIni − 1), com os retornos mensais que `ponteJanela` dá para cada mês
+// (n = 1, não anualizado). Mês sem retorno (buraco, índice nulo) corta as duas
+// curvas dali em diante: valor sem fonte não é desenhado.
+function rent2Curvas(rP, rI, off, nTotal, iIni, iFim) {
+  const tam = nTotal - off + 1;
+  const cart = new Array(tam).fill(null);
+  const ind = new Array(tam).fill(null);
+  let gP = 1;
+  let gI = 1;
+  cart[iIni - 1 - off] = 0;
+  ind[iIni - 1 - off] = 0;
+  for (let t = iIni; t <= iFim; t++) {
+    if (rP[t] === null || rI[t] === null || rP[t] === undefined || rI[t] === undefined) break;
+    gP *= 1 + rP[t];
+    gI *= 1 + rI[t];
+    cart[t - off] = gP - 1;
+    ind[t - off] = gI - 1;
+  }
+  return [cart, ind];
+}
+
+// "2.30" ≥ [2, 30], comparando número a número (nunca como texto: "2.4" > "2.30").
+function rent2VersaoAoMenos(versao, minimo) {
+  const partes = String(versao || "").split(".").map((x) => Number(x));
+  for (let i = 0; i < minimo.length; i++) {
+    const v = Number.isFinite(partes[i]) ? partes[i] : 0;
+    if (v !== minimo[i]) return v > minimo[i];
+  }
+  return true;
+}
+
+// Estado da tela. Função de topo (não método) porque a declaração do x-data é
+// um literal sem `this` — o mesmo default serve à declaração e ao reset do
+// lock (`_descartarGraficos`), sem dois literais para derivar.
+function rent2Vazio() {
+  return {
+    semBloco: false, // false | "versao" (payload sem a chave) | "nulo" (ponte null) | "erro" (falha ao montar)
+    chave: "12m",
+    iIni: null,
+    iFim: null,
+    motivo: "",
+    linhaUsuario: null,
+    arrastando: false,
+    janelas: [],
+    vista: null,
+    anuncio: "",
+    anuncioPesou: "",
   };
 }
 
@@ -483,13 +1134,14 @@ document.addEventListener("alpine:init", () => {
     // 7a.S.7b: categoria (acao_br/fii/eua) do pódio de campeões em #s-dy.
     dySelecionado: null,
     _escListenerProventos: null,
-    // 7a.L.1: sub-título do chart #rentabilidade (atualizado por dataZoom)
-    rentabilidadeSubtitulo: "",
-    // 7a.L.2.b: estado do 4º card "Período" sob #rentabilidade. fimIdx=null
-    // = card oculto (default). Populado por recomputarPeriodo a cada datazoom
-    // ou após hidratarRentabilidade. Default via periodoCustomVazio() (CRB
-    // final round Finding E) — mesmo literal usado no reset do lock.
-    periodoCustom: periodoCustomVazio(),
+    // 7a.BD.2: estado da #rentabilidade como ponte — janela (chave fixa ou
+    // livre), motivo de indisponível, linha tocada da ponte e a vista pronta
+    // (rent2Vista). Default via rent2Vazio(), o mesmo do reset do lock.
+    rent2: rent2Vazio(),
+    // Flag de um disparo: o próximo evento `datazoom` veio de um botão de
+    // janela (anima), não do arrasto (sem animação).
+    _rent2ViaBotao: false,
+    _rent2SettleTimer: null,
     // 7a.U: handles dos 3 gráficos ECharts + seus ResizeObserver + o contexto
     // derivado do chart de rentabilidade, pré-declarados com `null` — um handle
     // vazio deve ter UMA representação (`null`), não duas (ausente antes do
@@ -1378,28 +2030,12 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    rentabilidadeAtiva() {
-      // Devolve o bloco de métricas + benchmarks adequado ao escopo+moeda.
-      // EUA é nested {brl,usd}; Total e Brasil permanecem flat.
-      const rent = this.json && this.json.rentabilidade;
-      if (!rent) return null;
-      const escopo = rent[this.escopoAtivo];
-      if (!escopo) return null;
-      if (this.escopoAtivo === "EUA") {
-        if (escopo.brl || escopo.usd) {
-          const chave = this.moeda === "USD" ? "usd" : "brl";
-          return escopo[chave] || escopo.brl || null;
-        }
-        return escopo;
-      }
-      return escopo;
-    },
-
     moedaToggleVisivel() {
-      // Mostra toggle só quando escopo=EUA E o JSON é v2.6+ (tem brl/usd).
+      // 7a.BD.2: toggle BRL/USD só em escopo EUA, e só com o bloco ponte (que
+      // traz a série em dólar); sem ele a tela é o aviso de indisponível.
       if (this.escopoAtivo !== "EUA") return false;
-      const eua = this.json && this.json.rentabilidade && this.json.rentabilidade.EUA;
-      return !!(eua && eua.brl && eua.usd);
+      const ponte = this.json && this.json.ponte;
+      return !!(ponte && Array.isArray(ponte.usd));
     },
 
     get posicaoAtual() {
@@ -2059,16 +2695,24 @@ document.addEventListener("alpine:init", () => {
     _descartarRent() {
       if (this.echartsRent) { try { this.echartsRent.dispose(); } catch (_) {} this.echartsRent = null; }
       if (this.resizeObserverChart) { try { this.resizeObserverChart.disconnect(); } catch (_) {} this.resizeObserverChart = null; }
+      // 7a.BD.2: o settle do arrasto mora fora do chart (setTimeout) — sem
+      // cancelar, dispararia sobre um chart já descartado.
+      if (this._rent2SettleTimer) { clearTimeout(this._rent2SettleTimer); this._rent2SettleTimer = null; }
+      this._rent2ViaBotao = false;
+      // Quem tira a classe de arrasto é o settle; cancelado o settle, tira
+      // aqui — senão ela fica na seção (x-show só esconde) e as transições
+      // seguem desligadas até o próximo arrasto terminar.
+      const tela = document.querySelector(".tela-rentabilidade");
+      if (tela) tela.classList.remove("is-arrastando");
     },
     // Agrega o descarte dos 3 gráficos (a projeção teve ECharts de 7a.AV.2 a 7a.AW.2; saiu na 7a.AX) (cada um via seu próprio helper — o
     // agregado continua POR-GRÁFICO; nenhum helper chama este método de
     // volta, senão um render sozinho descartaria os outros dois indevidamente)
     // + os derivados do render que carregam número da carteira: `_rentCtx`
-    // (série TWR + growth), `proventosTotal*` (soma em R$ das barras
-    // exibidas) e `periodoCustom` (TWR/XIRR da janela do dataZoom).
-    // `rentabilidadeSubtitulo` acompanha por ser texto derivado da mesma
-    // série. O estado derivado fica só aqui — os helpers não o tocam, os
-    // renders o repovoam em seguida.
+    // (bloco ponte + retornos mensais do escopo), `proventosTotal*` (soma em
+    // R$ das barras exibidas) e `rent2` (a vista da ponte: números, ativos de
+    // "quem pesou", reais). O estado derivado fica só aqui — os helpers não o
+    // tocam, os renders o repovoam em seguida.
     _descartarGraficos() {
       this._descartarProv();
       this._descartarPatr();
@@ -2076,8 +2720,7 @@ document.addEventListener("alpine:init", () => {
       this._rentCtx = null;
       this.proventosTotalLabel = "";
       this.proventosTotalValor = 0;
-      this.rentabilidadeSubtitulo = "";
-      this.periodoCustom = periodoCustomVazio(); // CRB final round Finding E
+      this.rent2 = rent2Vazio();
     },
 
     // Fechamento de escopo 7a.U: `escopoAtivo` (seletor Total/Brasil/EUA,
@@ -3206,227 +3849,145 @@ document.addEventListener("alpine:init", () => {
       this.echartsPatr = chart;
     },
 
+    // ── 7a.BD.2: #rentabilidade como ponte ──────────────────────────────
+    // Monta a tela a partir do bloco `ponte` do payload (v2.30). Todo número
+    // vem de ponteJanela/ponteJanelasFixas; botão e arrasto passam pela MESMA
+    // função (spec §4.5), então nunca discordam. Sem o bloco (payload antigo
+    // em cache do SW), a tela diz que está indisponível e oferece recarregar;
+    // nunca desenha a tela antiga (spec §6). dispose+init a cada entrada na
+    // rota, troca de escopo ou de moeda (padrão dos três gráficos).
+    // Porta única da hidratação: uma falha ao montar a ponte (ex. classe nova
+    // no payload, mais novo que o app) fica NESTA tela — loga e mostra o
+    // estado indisponível. Sem isso a exceção subia ao try do auto-resume,
+    // cujo catch trata "payload não abriu" e mandava para a tela da frase.
     hidratarRentabilidade() {
-      if (this.rota !== "rentabilidade" || !this.json) return;
-      const target = document.getElementById("chart-rent");
-      if (!target) return;
-
-      const rent = (this.json.rentabilidade || {})[this.escopoAtivo];
-      // 7a.E.14: schema v2.7 aninha EUA.historico_twr em {brl, usd}.
-      let serie;
-      const rawHistorico = rent && rent.historico_twr;
-      if (this.escopoAtivo === "EUA" && rawHistorico && !Array.isArray(rawHistorico)) {
-        const chave = this.moeda === "USD" ? "usd" : "brl";
-        serie = rawHistorico[chave] || rawHistorico.brl || [];
-      } else {
-        serie = rawHistorico || [];
+      try {
+        this._hidratarRentabilidade();
+      } catch (err) {
+        console.error("rentabilidade: falha ao montar a ponte", err);
+        this._descartarRent();
+        this._rentCtx = null;
+        // Estado próprio: um erro de conta/render não pode se passar por
+        // payload de versão antiga ("versao") nem por ponte não publicada.
+        this.rent2 = { ...rent2Vazio(), semBloco: "erro" };
       }
+    },
 
-      // 7a.E.7.3: filtro firstStable preserva pontos não-cumulativos sãos
-      const firstStable = serie.findIndex((p) => {
-        if (p.twr === null) return false;
-        const cap = p.anualizado === false ? 2.0 : 1.0;
-        return Math.abs(p.twr) < cap;
-      });
-      serie = firstStable === -1 ? [] : serie.slice(firstStable);
-
-      // Cleanup
+    _hidratarRentabilidade() {
+      if (this.rota !== "rentabilidade" || !this.json) return;
+      const target = document.getElementById("chart-rent2");
       this._descartarRent();
-      target.innerHTML = "";
-      if (serie.length === 0) {
-        target.innerHTML = '<p class="placeholder">Dados insuficientes. Aguarde próximo aporte.</p>';
+      this._rentCtx = null;
+      const chaveAnterior = this.rent2.chave;
+      const bloco = this.json.ponte;
+      if (!bloco || !Array.isArray(bloco.meses) || bloco.meses.length < 2) {
+        // Payload v2.30+ com `ponte: null`: o builder do backend falhou nesta
+        // publicação (recarregar não resolve). Sem a chave (schema antigo, em
+        // cache do SW): recarregar traz o payload novo.
+        const v230 = rent2VersaoAoMenos(this.json.versao, [2, 30]);
+        this.rent2 = { ...rent2Vazio(), semBloco: v230 && "ponte" in this.json ? "nulo" : "versao" };
+        if (target) target.innerHTML = "";
         return;
       }
+      const escopo = this.escopoAtivo;
+      const moeda = escopo === "EUA" && this.moeda === "USD" ? "USD" : "BRL";
+      const nTotal = bloco.meses.length - 1;
+      const m0 = Math.max(ponteInicioEscopo(bloco, escopo, moeda), 1);
+      const estado = rent2Vazio();
+      // Janela fixa escolhida antes sobrevive à troca de escopo/moeda; o
+      // período livre volta ao padrão (12 meses). A linha tocada volta ao
+      // padrão (a que mais tirou).
+      estado.chave = chaveAnterior || "12m";
+      if (m0 > nTotal) {
+        estado.vista = { indisponivel: rent2MotivoTexto("sem histórico no escopo"), subtitulo: "", ariaGrafico: "" };
+        this.rent2 = estado;
+        if (target) target.innerHTML = "";
+        return;
+      }
+      const fixas = ponteJanelasFixas(bloco, escopo, moeda);
+      // A fixa trazida de outro escopo/moeda pode não existir aqui (histórico
+      // mais curto, ou um buraco no caminho): volta a 12 meses e diz por quê,
+      // em vez de deixar marcado um botão desabilitado e a tela sem números.
+      if (estado.chave !== "12m" && fixas[estado.chave].indisponivel) {
+        estado.motivo = rent2MotivoTexto(fixas[estado.chave].indisponivel);
+        estado.chave = "12m";
+      }
+      estado.janelas = RENT2_JANELAS.map(([chave, rotulo]) => ({
+        chave,
+        rotulo: chave === "desde" ? rent2RotuloDesde(bloco, m0) : rotulo,
+        disponivel: !fixas[chave].indisponivel,
+        motivo: rent2MotivoTexto(fixas[chave].indisponivel),
+      }));
+      // Retornos mensais do escopo, para as curvas: ponteJanela de um mês só.
+      const rP = new Array(nTotal + 1).fill(null);
+      const rI = new Array(nTotal + 1).fill(null);
+      for (let t = m0; t <= nTotal; t++) {
+        const r = ponteJanela(bloco, escopo, moeda, t, t);
+        if (!r.indisponivel) { rP[t] = r.sua; rI[t] = r.ind; }
+      }
+      const off = m0 - 1;
+      this._rentCtx = { bloco, escopo, moeda, nTotal, m0, off, rP, rI, ultimaValida: null, pendente: null };
+
+      // Janela inicial: a fixa escolhida. Se ela começa antes do histórico, o
+      // gráfico mostra o histórico inteiro e a tela diz o motivo (não troca de
+      // janela em silêncio).
+      let [iIni, iFim] = rent2IndicesFixa(estado.chave, nTotal, m0);
+      this.rent2 = estado;
+      if (iIni < m0) {
+        [iIni, iFim] = [m0, nTotal];
+        const vista = this._rent2Aplicar(iIni, iFim, rent2ChaveDe(iIni, iFim, nTotal, m0));
+        this.rent2.chave = estado.chave;
+        this.rent2.vista = { ...vista, indisponivel: rent2MotivoTexto(fixas[estado.chave].indisponivel) };
+        this._rent2Anunciar();
+      } else {
+        this._rent2Aplicar(iIni, iFim, estado.chave);
+      }
+
+      if (!target) return;
+      target.innerHTML = "";
       if (typeof echarts === "undefined" || !window.drarthurChart) {
         target.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
         return;
       }
-
-      // 7a.E.1: eixo X em "Mmm/AA"
-      const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-      const formatarMmmAA = (yyyymm) => {
-        if (!yyyymm) return "";
-        const [yy, mm] = yyyymm.split("-");
-        const idx = parseInt(mm, 10) - 1;
-        if (idx < 0 || idx > 11) return yyyymm;
-        return MESES[idx] + "/" + yy.slice(2);
-      };
-
-      // 7a.L.1: chart period-relative. Converte cada ponto para "growth factor"
-      // = (1 + cumulativo_desde_origem). Reconcilia anualizado=true (twr é aa,
-      // converte via (1+aa)^(days/365.25)) e anualizado=false (twr já é cum).
-      // Pontos com twr=null herdam o growth anterior (last-known).
-      const parseAnchor = (yyyymm) => {
-        if (!yyyymm) return null;
-        const [yy, mm] = yyyymm.split("-").map(Number);
-        if (!yy || !mm) return null;
-        // new Date(y, m, 0) = último dia do mês m (1-indexed)
-        return new Date(yy, mm, 0);
-      };
-      const primeiraAnchor = parseAnchor(serie[0].data);
-      const computeGrowth = (p) => {
-        if (p.twr === null || p.twr === undefined) return null;
-        // CRB #4: anualizado !== true (default-cumulative) — usa branch
-        // cumulativo a menos que campo seja explicitamente `true`. Defende
-        // contra schemas futuros que omitam o campo.
-        if (p.anualizado !== true) return 1 + p.twr;
-        const anchor = parseAnchor(p.data);
-        if (!anchor || !primeiraAnchor) return 1 + p.twr;
-        const days = Math.max(0, (anchor - primeiraAnchor) / 86400000);
-        if (days < 1) return 1.0;
-        return Math.pow(1 + p.twr, days / 365.25);
-      };
-      const buildGrowthArray = (key) => {
-        const out = [];
-        let last = 1.0;
-        for (const p of serie) {
-          const g =
-            key === "twr"
-              ? computeGrowth(p)
-              : p.benchmark === null || p.benchmark === undefined
-                ? null
-                : computeGrowth({
-                    twr: p.benchmark,
-                    anualizado: p.anualizado,
-                    data: p.data,
-                  });
-          if (g !== null) last = g;
-          out.push(g === null ? last : g);
-        }
-        return out;
-      };
-      const growthPortfolio = buildGrowthArray("twr");
-      const growthBenchmark = buildGrowthArray("benchmark");
-
-      // 7a.E.26: gate data-driven (substitui o gate ehTotal da 7a.E.25). Total
-      // tem benchmarks={CDI,IBOV,SP500}; Brasil={CDI,IBOV} (IBOV no gráfico BR);
-      // EUA não tem `benchmarks` → caminho single (1 linha) intacto.
       const dc = window.drarthurChart;
-      const ORDEM_BENCH = ["CDI", "IBOV", "SP500"];
-      const temMultiBench = !!(serie[0] && serie[0].benchmarks);
-      const benchList = temMultiBench
-        ? ORDEM_BENCH.filter((k) => serie[0].benchmarks[k] !== undefined)
-        : [];
-      const NOME_BENCH = { CDI: "CDI", IBOV: "IBOV", SP500: "S&P 500" };
-      const COR_BENCH = {
-        CDI: dc.tokens.gray,
-        IBOV: dc.tokens.amber700,
-        SP500: dc.tokens.blue700,
-      };
-      const buildGrowthBenchExtra = (idx) => {
-        const out = [];
-        let last = 1.0;
-        for (const p of serie) {
-          const raw = p.benchmarks ? p.benchmarks[idx] : null;
-          const g =
-            raw === null || raw === undefined
-              ? null
-              : computeGrowth({ twr: raw, anualizado: p.anualizado, data: p.data });
-          if (g !== null) last = g;
-          out.push(g === null ? last : g);
-        }
-        return out;
-      };
-      const growthExtra = temMultiBench
-        ? benchList.map((idx) => ({ idx, growth: buildGrowthBenchExtra(idx) }))
-        : [];
-
-      // Devolve a série Y reanchorada para [startIdx, endIdx]. Fora do range
-      // emite null (linha some) — preserva o comportamento esperado de zoom.
-      const reancorar = (growthArr, startIdx, endIdx) => {
-        // CRB #1: ?? em vez de || — preserva base=0 (caso extremo −100%);
-        // logical-OR coalescia para 1.0 silenciosamente, mascarando drawdown total.
-        const base = growthArr[startIdx] ?? 1.0;
-        return growthArr.map((g, i) => {
-          if (i < startIdx || i > endIdx) return null;
-          if (g === null) return null;
-          return g / base - 1;
-        });
-      };
-
-      const xLabels = serie.map((p) => formatarMmmAA(p.data));
-      const totalIdx = serie.length - 1;
-      const portfolio = reancorar(growthPortfolio, 0, totalIdx);
-      const benchmark = reancorar(growthBenchmark, 0, totalIdx);
-      const extraReanc = growthExtra.map((e) => ({
-        idx: e.idx,
-        data: reancorar(e.growth, 0, totalIdx),
-      }));
-      this.rentabilidadeSubtitulo = "Cresceu desde " + formatarMmmAA(serie[0].data);
-
-      const benchNomePorEscopo = { Total: "CDI", Brasil: "CDI", EUA: "S&P 500" };
-      const benchNome = benchNomePorEscopo[this.escopoAtivo] || "Benchmark";
-
-      // 7a.E.1 (F2): precision-aware. <1% mostra 2 casas; resto 1 casa.
-      const formatPct = (v) => {
-        if (v == null) return "—";
-        const abs = Math.abs(v);
-        const decimals = abs < 0.01 ? 2 : 1;
-        return (v * 100).toFixed(decimals) + "%";
-      };
-
+      const xLabels = bloco.meses.slice(off).map(rent2MmmAa);
+      const [cart, ind] = rent2Curvas(rP, rI, off, nTotal, iIni, iFim);
+      const fmtPct = (v) => (v == null ? "—" : rent2PctPts(v * 100));
+      const zoom = criarDataZoomInstrumento(dc).map((z) => {
+        const { start, end, ...resto } = z;
+        return { ...resto, startValue: iIni - 1 - off, endValue: iFim - off };
+      });
       const chart = echarts.init(target, "drarthur", { renderer: "canvas" });
-
       const option = {
-        grid: { top: 12, right: 24, bottom: 60, left: 8, containLabel: true },
+        grid: { top: 28, right: 20, bottom: 40, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, {
           trigger: "axis",
-          formatter: (params) => dc.tooltipFormatterAxis(params, formatPct),
+          formatter: (params) => dc.tooltipFormatterAxis(params, fmtPct),
         }),
-        legend: {
-          data: temMultiBench
-            ? ["Portfólio", ...growthExtra.map((e) => NOME_BENCH[e.idx])]
-            : ["Portfólio", benchNome],
-          bottom: 28,
-          icon: "circle",
-          itemWidth: 8,
-          itemHeight: 8,
-          textStyle: { color: dc.tokens.gray, fontSize: 12, fontFamily: dc.fontFamily },
-        },
+        legend: { show: false },
         xAxis: {
           type: "category",
           data: xLabels,
           boundaryGap: false,
-          axisLabel: {
-            interval: Math.max(0, Math.floor(xLabels.length / 6) - 1),
-            hideOverlap: true,
-          },
+          axisLabel: { hideOverlap: true },
         },
-        yAxis: { type: "value", axisLabel: { formatter: formatPct } },
-        dataZoom: criarDataZoomInstrumento(dc),
-        series: temMultiBench
-          ? [
-              {
-                name: "Portfólio", type: "line", data: portfolio, smooth: false,
-                lineStyle: { width: 2.5 }, connectNulls: false, showSymbol: false,
-                markPoint: criarMarkPointUltimo(portfolio, formatPct, dc.tokens.g700, dc.fontFamily),
-              },
-              ...extraReanc.map((e) => ({
-                name: NOME_BENCH[e.idx],
-                type: "line",
-                data: e.data,
-                smooth: false,
-                lineStyle: { type: [5, 5], width: 1.5, color: COR_BENCH[e.idx] },
-                itemStyle: { color: COR_BENCH[e.idx] },
-                connectNulls: false,
-                showSymbol: false,
-              })),
-            ]
-          : [
-              {
-                name: "Portfólio", type: "line", data: portfolio, smooth: false,
-                lineStyle: { width: 2.5 }, connectNulls: false, showSymbol: false,
-                markPoint: criarMarkPointUltimo(portfolio, formatPct, dc.tokens.g700, dc.fontFamily),
-              },
-              {
-                name: benchNome, type: "line", data: benchmark, smooth: false,
-                lineStyle: { type: [5, 5], width: 1.5 }, connectNulls: false, showSymbol: false,
-              },
-            ],
+        yAxis: { type: "value", axisLabel: { formatter: (v) => rent2PctPts(v * 100).replace(",0%", "%") } },
+        dataZoom: zoom,
+        series: [
+          {
+            name: "Sua carteira", type: "line", data: cart, smooth: false, showSymbol: false, connectNulls: false,
+            lineStyle: { width: 2.5, color: dc.tokens.g700 }, itemStyle: { color: dc.tokens.g700 },
+            markPoint: criarMarkPointUltimo(cart, fmtPct, dc.tokens.ink, dc.fontFamily),
+          },
+          {
+            name: "Mesma carteira, só com índices", type: "line", data: ind, smooth: false, showSymbol: false,
+            connectNulls: false,
+            lineStyle: { width: 1.8, type: [5, 5], color: dc.tokens.gray }, itemStyle: { color: dc.tokens.gray },
+          },
+        ],
         aria: { enabled: true },
       };
       Object.assign(option, dc.motionConfig);
-
       try {
         chart.setOption(option);
       } catch (err) {
@@ -3435,231 +3996,191 @@ document.addEventListener("alpine:init", () => {
         target.innerHTML = '<p class="placeholder">Não foi possível renderizar o gráfico.</p>';
         return;
       }
-
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserverChart = new ResizeObserver(() => {
           try { chart.resize(); } catch (_) {}
         });
         this.resizeObserverChart.observe(target);
       }
-
-      // 7a.L.2.b: ref para recomputarPeriodo. Captura `historico_periodo` da
-      // série ativa (nested {brl,usd} em EUA pós-v2.14; flat em Brasil/Total).
-      // Também guarda growthPortfolio/totalIdx para reuso pelo recomputador.
-      const rentRoot = (this.json.rentabilidade || {})[this.escopoAtivo];
-      let histPeriodo = null;
-      if (rentRoot) {
-        const hp = rentRoot.historico_periodo;
-        if (hp) {
-          if (this.escopoAtivo === "EUA" && !Array.isArray(hp)) {
-            const chave = this.moeda === "USD" ? "usd" : "brl";
-            histPeriodo = hp[chave] || hp.brl || null;
-          } else if (Array.isArray(hp)) {
-            histPeriodo = hp;
-          }
-        }
-      }
-      this._rentCtx = {
-        serie,
-        totalIdx,
-        growthPortfolio,
-        histPeriodo,
-        formatarMmmAA,
-      };
-
-      // 7a.S.6: narração do zoom — pulse `.live` no subtítulo enquanto o
-      // usuário arrasta o dataZoom (mockup .chart-sub.live). Debounce: cada
-      // evento "datazoom" (fila contínua durante o arrasto) reseta o timer;
-      // `.live` só sai depois de um settle sem novos eventos — aproxima
-      // "fim do arrasto" sem depender de mousedown/mouseup nativos do
-      // dataZoom do ECharts (que não expõe esses limites diretamente).
-      // Gated por window.drarthurNav.motion.reduced (mesma fonte de verdade
-      // do resto do app shell, ver hero de facetas 7a.S.5): sob
-      // reduced-motion a classe nunca é adicionada — só o texto muda.
-      const subtituloEl = document.querySelector(".chart-rent-subtitulo");
-      const LIVE_SETTLE_MS = 300;
-      let liveSettleTimer = null;
-
-      // 7a.L.1: listener dataZoom — reancora Y para [startIdx, endIdx] visível
-      // e atualiza sub-título. Arrow function captura `this` lexicalmente.
-      const aoMoverZoom = () => {
-        let startIdx = 0;
-        let endIdx = totalIdx;
-        try {
-          const opt = chart.getOption();
-          const dz = opt.dataZoom && opt.dataZoom[0];
-          if (dz) {
-            if (typeof dz.startValue === "number") startIdx = Math.max(0, Math.floor(dz.startValue));
-            else if (typeof dz.start === "number") startIdx = Math.max(0, Math.floor((dz.start / 100) * totalIdx));
-            if (typeof dz.endValue === "number") endIdx = Math.min(totalIdx, Math.ceil(dz.endValue));
-            else if (typeof dz.end === "number") endIdx = Math.min(totalIdx, Math.ceil((dz.end / 100) * totalIdx));
-          }
-        } catch (_) {}
-        if (endIdx <= startIdx) endIdx = Math.min(totalIdx, startIdx + 1);
-        const novaP = reancorar(growthPortfolio, startIdx, endIdx);
-        // CRB #3: atualiza subtítulo ANTES do setOption — se ECharts internal
-        // falhar (chart disposed mid-event), subtítulo fica consistente com a
-        // intenção do usuário em vez de divergir das séries renderizadas.
-        this.rentabilidadeSubtitulo =
-          "Cresceu desde " + formatarMmmAA(serie[startIdx].data);
-        // 7a.S.6: pulse `.live` — narra o arrasto sem tocar no cálculo acima.
-        if (subtituloEl && !window.drarthurNav.motion.reduced) {
-          subtituloEl.classList.add("live");
-          clearTimeout(liveSettleTimer);
-          liveSettleTimer = setTimeout(() => {
-            subtituloEl.classList.remove("live");
-          }, LIVE_SETTLE_MS);
-        }
-        // 7a.S.3 Task 1: markPoint do último ponto visível reancora junto —
-        // sem isso, ficaria preso no índice/valor da janela anterior.
-        const markPointReanc = criarMarkPointUltimo(novaP, formatPct, dc.tokens.g700, dc.fontFamily);
-        try {
-          if (temMultiBench) {
-            chart.setOption({
-              series: [
-                { name: "Portfólio", data: novaP, markPoint: markPointReanc },
-                ...growthExtra.map((e) => ({
-                  name: NOME_BENCH[e.idx],
-                  data: reancorar(e.growth, startIdx, endIdx),
-                })),
-              ],
-            });
-          } else {
-            const novaB = reancorar(growthBenchmark, startIdx, endIdx);
-            chart.setOption({
-              series: [
-                { name: "Portfólio", data: novaP, markPoint: markPointReanc },
-                { name: benchNome, data: novaB },
-              ],
-            });
-          }
-        } catch (_) {}
-        // 7a.L.2.b: recomputa card "Período" da janela atual.
-        this.recomputarPeriodo(startIdx, endIdx);
-      };
-      chart.on("datazoom", aoMoverZoom);
-
+      chart.on("datazoom", () => this._rent2AoMoverZoom());
       this.echartsRent = chart;
-
-      // 7a.L.2.b: estado inicial do card. Default = full range → titulo "Origem".
-      // Inicializado para fimIdx !== null para que x-show resolva true logo
-      // após hidratar (o card mostra os valores espelhando Origem fixo).
-      this.recomputarPeriodo(0, totalIdx);
     },
 
-    // ── 7a.L.2.b: card "Período" sob #rentabilidade ────────────────────
-    recomputarPeriodo(startIdx, endIdx) {
-      // Hook chamado por (a) aoMoverZoom do dataZoom, (b) final de
-      // hidratarRentabilidade, (c) selecionarMoeda (re-hidrata → reentra).
-      // Reseta estado se contexto inválido (rota mudou, chart disposed).
+    // Aplica a janela iIni..iFim: calcula a vista e, se válida, vira a última
+    // janela aceita (para onde o arrasto volta se terminar num mês sem dado).
+    // Devolve a vista (null fora de contexto).
+    // `r` opcional: a saída de ponteJanela já calculada para esta janela (o
+    // arrasto a calcula para saber se é indisponível), para não refazer a
+    // conta inteira — XIRR com bissecção incluso — a cada evento de zoom.
+    _rent2Aplicar(iIni, iFim, chave, r = null) {
       const ctx = this._rentCtx;
-      if (!ctx || !ctx.histPeriodo || ctx.histPeriodo.length < 2) {
-        // CRB final round Finding E: 3ª cópia do mesmo literal-default
-        // (idêntico ao da declaração/`_descartarGraficos()`) — via factory.
-        this.periodoCustom = periodoCustomVazio();
-        return;
-      }
-      const hist = ctx.histPeriodo;
-      const N = hist.length;
-      // Clamp para índices da histPeriodo (totalIdx é da serie do twr; em
-      // pipelines normais ambos têm mesma cardinalidade, mas defendemos).
-      const maxIdx = N - 1;
-      let iA = Math.max(0, Math.min(maxIdx, Math.floor(startIdx || 0)));
-      let iB = Math.max(0, Math.min(maxIdx, Math.floor(endIdx || 0)));
-      if (iB < iA) iB = iA;
-      // CRB 7a.L.2.b finding (general-swe #4): caller passa endIdx baseado
-      // na length da TWR series, que pode ser ≠ hist.length se firstStable
-      // filtrou pontos iniciais. Capturamos intenção "full range" pelo caller
-      // (startIdx=0 + endIdx>=N-1 implícito antes do clamp).
-      const fullRangeIntent = (startIdx || 0) === 0 && (endIdx || 0) >= maxIdx;
-
-      // Janela zero (single point) → métricas indefinidas mas mantém título.
-      if (iA === iB) {
-        this.periodoCustom = {
-          iniIdx: iA,
-          fimIdx: iB,
-          twr: null,
-          xirr: null,
-          benchExtras: [],
-          titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
-        };
-        return;
-      }
-
-      const dA = parseMesData(hist[iA].data);
-      const dB = parseMesData(hist[iB].data);
-      let twr_aa = null;
-      if (dA && dB) {
-        const dias = (dB - dA) / 86400000;
-        if (dias >= 1 && ctx.growthPortfolio) {
-          // TWR a.a. via chain rule sobre growthPortfolio (L.1 já calcula).
-          // Quando histPeriodo e growthPortfolio têm índices alinhados,
-          // growth[iA..iB] entrega o produto correto. Defende com fallback
-          // quando algum extremo é null.
-          const gp = ctx.growthPortfolio;
-          // gp pode ter mais/menos pontos que hist se firstStable filtrou
-          // pontos iniciais. Reusa o último crescimento conhecido.
-          const gA = gp[Math.min(iA, gp.length - 1)] ?? 1;
-          const gB = gp[Math.min(iB, gp.length - 1)] ?? 1;
-          if (gA > 0) {
-            twr_aa = Math.pow(gB / gA, 365.25 / dias) - 1;
-          }
-        }
-      }
-
-      const flows = construirFlows(hist, iA, iB);
-      const xirr_aa = newtonRaphsonXirr(flows, twr_aa ?? 0.10);
-
-      // 7a.E.26: card multi-benchmark. Total compara contra CDI/IBOV/SP500,
-      // Brasil contra CDI/IBOV, EUA contra S&P 500 (caminho single via
-      // benchmark_growth + rentBenchNome()). benchExtras: [{nome, deltaXirr,
-      // deltaTwr}] com deltas = portfólio − benchmark (null quando indefinido).
-      const ORDEM_BENCH = ["CDI", "IBOV", "SP500"];
-      const NOME_BENCH = { CDI: "CDI", IBOV: "IBOV", SP500: "S&P 500" };
-      const temMulti = hist[iA] && hist[iA].benchmarks_growth;
-      const idxs = temMulti
-        ? ORDEM_BENCH.filter((k) => hist[iA].benchmarks_growth[k] !== undefined)
-        : [null]; // null = caminho single (EUA), usa benchmark_growth
-      const benchExtras = [];
-      for (const idx of idxs) {
-        const gA = idx ? (hist[iA].benchmarks_growth || {})[idx] : hist[iA].benchmark_growth;
-        const gB = idx ? (hist[iB].benchmarks_growth || {})[idx] : hist[iB].benchmark_growth;
-        let bTwr = null;
-        let bXirr = null;
-        if (gA && gB && dA && dB) {
-          const dias = (dB - dA) / 86400000;
-          if (dias >= 1 && gA > 0) {
-            const benchGrowth = gB / gA;
-            if (benchGrowth > 0) {
-              bTwr = Math.pow(benchGrowth, 365.25 / dias) - 1;
-              const growthOf = idx
-                ? (p) => (p.benchmarks_growth || {})[idx]
-                : (p) => p.benchmark_growth;
-              bXirr = newtonRaphsonXirr(flowsBenchmark(hist, iA, iB, growthOf), bTwr);
-            }
-          }
-        }
-        benchExtras.push({
-          nome: idx ? NOME_BENCH[idx] : this.rentBenchNome(),
-          deltaXirr: (bXirr !== null && xirr_aa !== null) ? xirr_aa - bXirr : null,
-          deltaTwr: (bTwr !== null && twr_aa !== null) ? twr_aa - bTwr : null,
-        });
-      }
-
-      this.periodoCustom = {
-        iniIdx: iA,
-        fimIdx: iB,
-        twr: twr_aa,
-        xirr: xirr_aa,
-        benchExtras,
-        titulo: fullRangeIntent ? "Origem" : gerarTituloPeriodo(hist, iA, iB),
-      };
+      if (!ctx) return null;
+      if (!r) r = ponteJanela(ctx.bloco, ctx.escopo, ctx.moeda, iIni, iFim);
+      const vista = rent2Vista(r, iIni, iFim, {
+        bloco: ctx.bloco, escopo: ctx.escopo, moeda: ctx.moeda, chave, m0: ctx.m0,
+        linhaUsuario: this.rent2.linhaUsuario,
+      });
+      this.rent2.iIni = iIni;
+      this.rent2.iFim = iFim;
+      this.rent2.chave = chave;
+      this.rent2.vista = vista;
+      if (!vista.indisponivel) ctx.ultimaValida = [iIni, iFim, chave];
+      if (!this.rent2.arrastando) this._rent2Anunciar();
+      return vista;
     },
 
-    rentBenchNome() {
-      // Nome amigável do benchmark principal do escopo ativo (para o
-      // label "vs ..." no card Período). Brasil/Total = CDI, EUA = S&P 500.
-      return this.escopoAtivo === "EUA" ? "S&P 500" : "CDI";
+    // Texto das regiões aria-live (sr-only). Escrito fora do arrasto e no
+    // settle — nunca a cada evento de zoom, que inundaria o leitor de tela;
+    // a parte visual troca direto, sem esperar (brief §5).
+    _rent2Anunciar() {
+      const v = this.rent2.vista;
+      if (!v) { this.rent2.anuncio = ""; this.rent2.anuncioPesou = ""; return; }
+      if (v.indisponivel) { this.rent2.anuncio = v.indisponivel; this.rent2.anuncioPesou = ""; return; }
+      const numero = v.numero.replace(/[▲▼]\s*/, "");
+      this.rent2.anuncio = `${v.frase} ${numero} ${v.unidade}.`;
+      const p = v.pesou;
+      this.rent2.anuncioPesou = !p ? ""
+        : p.neutra ? `${p.linha} ${p.resto}`
+          : `${p.linha} ${p.verbo} ${p.qtd} ${p.resto} `
+            + p.itens.concat(p.opostos).map((a) => `${a.t} ${a.texto.replace(/[▲▼]\s*/, "")}`).join(", ")
+            + (p.outros ? `, ${p.outros.rotulo} ${p.outros.texto.replace(/[▲▼]\s*/, "")}` : "")
+            + ".";
+    },
+
+    // Redesenha as duas curvas reancoradas na janela (7a.L.1) e o markPoint.
+    // Sem animação durante o arrasto; com a do tema quando veio de botão.
+    _rent2Curvas(iIni, iFim, animar) {
+      const ctx = this._rentCtx;
+      const chart = this.echartsRent;
+      if (!ctx || !chart) return;
+      const dc = window.drarthurChart;
+      const [cart, ind] = rent2Curvas(ctx.rP, ctx.rI, ctx.off, ctx.nTotal, iIni, iFim);
+      const fmtPct = (v) => (v == null ? "—" : rent2PctPts(v * 100));
+      try {
+        chart.setOption({
+          animationDurationUpdate: animar ? dc.motionConfig.animationDurationUpdate : 0,
+          series: [
+            { name: "Sua carteira", data: cart, markPoint: criarMarkPointUltimo(cart, fmtPct, dc.tokens.ink, dc.fontFamily) },
+            { name: "Mesma carteira, só com índices", data: ind },
+          ],
+        });
+      } catch (_) {}
+    },
+
+    // Janela (iIni, iFim) do dataZoom atual, presa ao histórico do escopo.
+    _rent2LerZoom() {
+      const ctx = this._rentCtx;
+      const chart = this.echartsRent;
+      const ultimo = ctx.nTotal - ctx.off;
+      let s = 0;
+      let e = ultimo;
+      try {
+        const dz = chart.getOption().dataZoom[0];
+        if (typeof dz.startValue === "number") s = Math.round(dz.startValue);
+        else if (typeof dz.start === "number") s = Math.round((dz.start / 100) * ultimo);
+        if (typeof dz.endValue === "number") e = Math.round(dz.endValue);
+        else if (typeof dz.end === "number") e = Math.round((dz.end / 100) * ultimo);
+      } catch (_) {}
+      s = Math.max(0, Math.min(ultimo - 1, s));
+      e = Math.max(s + 1, Math.min(ultimo, e));
+      return [s + ctx.off + 1, e + ctx.off];
+    },
+
+    _rent2AoMoverZoom() {
+      const ctx = this._rentCtx;
+      if (!ctx || !this.echartsRent) return;
+      const viaBotao = this._rent2ViaBotao;
+      this._rent2ViaBotao = false;
+      const [iIni, iFim] = this._rent2LerZoom();
+      const chave = rent2ChaveDe(iIni, iFim, ctx.nTotal, ctx.m0);
+      this._rent2Curvas(iIni, iFim, viaBotao);
+      if (viaBotao) {
+        this._rent2Aplicar(iIni, iFim, chave);
+        return;
+      }
+      // Arrasto: zero transição enquanto o dedo move (classe direto no DOM,
+      // no mesmo tick do evento); o número troca o texto sem animar.
+      const tela = document.querySelector(".tela-rentabilidade");
+      if (tela) tela.classList.add("is-arrastando");
+      this.rent2.arrastando = true;
+      const r = ponteJanela(ctx.bloco, ctx.escopo, ctx.moeda, iIni, iFim);
+      if (r.indisponivel) {
+        // Durante o movimento o número fica no último valor válido.
+        ctx.pendente = rent2MotivoTexto(r.indisponivel);
+      } else {
+        ctx.pendente = null;
+        this._rent2Aplicar(iIni, iFim, chave, r);
+      }
+      clearTimeout(this._rent2SettleTimer);
+      this._rent2SettleTimer = setTimeout(() => this._rent2Soltar(), RENT2_SETTLE_MS);
+    },
+
+    // Fim do arrasto. Janela sem dado não é aceita: volta à última válida e
+    // diz o motivo (Review Focus 4). Sem janela válida anterior, mostra a
+    // janela com o motivo no lugar dos números.
+    _rent2Soltar() {
+      this._rent2SettleTimer = null;
+      const ctx = this._rentCtx;
+      const tela = document.querySelector(".tela-rentabilidade");
+      if (tela) tela.classList.remove("is-arrastando");
+      this.rent2.arrastando = false;
+      if (!ctx || !this.echartsRent) return;
+      if (!ctx.pendente) {
+        this.rent2.motivo = "";
+        this._rent2Anunciar();
+        return;
+      }
+      const motivo = ctx.pendente;
+      ctx.pendente = null;
+      if (ctx.ultimaValida) {
+        const [a, b, chave] = ctx.ultimaValida;
+        this._rent2ViaBotao = true;
+        try {
+          this.echartsRent.dispatchAction({ type: "dataZoom", startValue: a - 1 - ctx.off, endValue: b - ctx.off });
+        } catch (_) {}
+        this._rent2ViaBotao = false;
+        this._rent2Curvas(a, b, true);
+        this._rent2Aplicar(a, b, chave);
+      } else {
+        const [iIni, iFim] = this._rent2LerZoom();
+        this._rent2Aplicar(iIni, iFim, rent2ChaveDe(iIni, iFim, ctx.nTotal, ctx.m0));
+      }
+      this.rent2.motivo = motivo;
+      this._rent2Anunciar();
+    },
+
+    // Botão de janela fixa. Indisponível: diz o motivo e não muda a janela.
+    rent2EscolherJanela(chave) {
+      const ctx = this._rentCtx;
+      const j = this.rent2.janelas.find((x) => x.chave === chave);
+      if (!ctx || !j) return;
+      if (!j.disponivel) {
+        this.rent2.motivo = j.motivo;
+        return;
+      }
+      this.rent2.motivo = "";
+      const [a, b] = rent2IndicesFixa(chave, ctx.nTotal, ctx.m0);
+      if (this.echartsRent) {
+        this._rent2ViaBotao = true;
+        try {
+          this.echartsRent.dispatchAction({ type: "dataZoom", startValue: a - 1 - ctx.off, endValue: b - ctx.off });
+        } catch (_) {}
+        this._rent2ViaBotao = false;
+        this._rent2Curvas(a, b, true);
+      }
+      this._rent2Aplicar(a, b, chave);
+    },
+
+    // Toque numa linha da ponte: troca "quem pesou". A escolha fica enquanto a
+    // linha existir no escopo (rent2Vista cai no padrão quando ela some).
+    rent2EscolherLinha(id) {
+      this.rent2.linhaUsuario = id;
+      const { iIni, iFim, chave } = this.rent2;
+      if (iIni !== null) this._rent2Aplicar(iIni, iFim, chave);
+    },
+
+    rent2Recarregar() {
+      location.reload();
     },
 
     // ── 7a.H.1 / 7a.S.10: Tela #aportar (simulador vivo) ───────────────
@@ -4129,6 +4650,10 @@ document.addEventListener("alpine:init", () => {
         // então hidratarDY() precisa rodar agora que o payload chegou; senão
         // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
         if (this.rota === "dy") this.hidratarDY();
+        // 7a.BD.2: cold-start em `#rentabilidade` (o PWA reabre na última
+        // hash) — a tela inteira sai de hidratarRentabilidade, que no 1º
+        // atualizarRota rodou sem json; sem isto ela abriria vazia.
+        if (this.rota === "rentabilidade") this.hidratarRentabilidade();
       } catch (err) {
         // 7a.W.3.b: chegamos aqui com o payload EM MÃOS e ele não abriu com o
         // segredo que este aparelho guarda. Isso não é "PIN errado" (o PIN

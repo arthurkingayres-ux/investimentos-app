@@ -837,36 +837,6 @@ h1 {
   vertical-align: 0.05em;
 }
 
-.rent-benchmark {
-  display: grid;
-  grid-template-columns: 2.5rem 1fr;   /* era: 2.5rem 1fr 1fr 1fr */
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.2rem 0.25rem;
-  font-size: var(--num-xs);
-  font-variant-numeric: tabular-nums;
-  border-top: 1px dashed var(--neutral-200);
-  margin-top: 0.1rem;
-}
-
-.rent-benchmark + .rent-benchmark {
-  border-top: none;
-  padding-top: 0.1rem;
-  margin-top: 0;
-}
-
-.rent-benchmark .bench-label {
-  font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.rent-benchmark .bench-valor {
-  text-align: right;
-  font-weight: 500;
-  color: var(--ink);
-}
-
 /* ── Raio-x: lista de 5 benchmarks 12m (Fase 7a.E.9) ──────────────── */
 
 .rent-benchmarks-12m {
@@ -1430,21 +1400,6 @@ footer.rodape code {
   color: var(--gray-medium, #6b7280);
   margin: 8px 0 4px;
   text-align: center;
-}
-
-/* 7a.S.6: narração do zoom — pulse sutil (mockup .chart-sub.live) enquanto
-   o dataZoom está em movimento (js/app.js toggla `.live` no aoMoverZoom,
-   com debounce de settle). Gated inteiro em @media no-preference — não só
-   a transição: sob reduced-motion, `.live` não produz NENHUM efeito visual
-   (o JS também não adiciona a classe, dupla blindagem). Só o texto do
-   subtítulo muda, nunca o pulse. */
-@media (prefers-reduced-motion: no-preference) {
-  .chart-rent-subtitulo {
-    transition: transform var(--d1) ease;
-  }
-  .chart-rent-subtitulo.live {
-    transform: scale(1.04);
-  }
 }
 
 .chart-rent {
@@ -2270,171 +2225,355 @@ footer.rodape code {
   transform: scale(.99);
 }
 
-/* === 7a.E.1: Rentabilidade redesign === */
-.rent-grupos {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* === 7a.BD.2: #rentabilidade como ponte ===================================
+   Ordem da spec §2: escopo → janela → gráfico → número → ponte → quem pesou
+   → em reais → detalhes. Só tokens (Modo Plantão troca tudo sozinho); cor
+   nunca sozinha (sinal + seta + texto); ganho --g-700, perda --red (nunca o
+   ocre de FII). Mono só no número-veredito e nos valores da ponte, de "quem
+   pesou" e dos reais. Transições só sob no-preference e fora do arrasto. */
+
+.rent2-indisponivel {
   margin: 16px 0;
-}
-
-.rent-grupo {
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--neutral-200);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.rent-grupo-titulo {
-  margin: 0 0 8px 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+  border-radius: 14px;
   color: var(--ink);
-  letter-spacing: 0.01em;
+}
+.rent2-indisponivel p { margin: 0 0 12px; font-weight: 600; }
+.rent2-recarregar {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--g-700);
+  border-radius: 12px;
+  background: var(--g-700);
+  color: var(--surface);
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
 }
 
-.rent-metrica {
+.rent2-janelas {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 4px 0;
-  border-top: 1px solid var(--neutral-100);
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 8px;
 }
-
-.rent-metrica:first-of-type {
-  border-top: none;
-}
-
-.rent-metrica-label {
-  font-size: 0.92rem;
-  color: var(--gray);
-}
-
-.rent-metrica-valor {
-  font-size: var(--num-md);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-/* === 7a.L.2.b: card "Período" (4º card dinâmico do #rentabilidade) ===
-   Espelha visual de .rent-grupo intencionalmente — classe própria preserva
-   invariante "3 grupos fixos" dos specs de regression. Aparece acima do
-   bloco .rent-grupos quando o usuário move o dataZoom. */
-.rent-periodo {
-  background: var(--surface);
+/* 2 × 2: de 320 a 412 px os 4 botões nunca cabem numa linha, e o flex-wrap
+   livre deixava "Desde …" órfão na largura inteira (crítica 7a.BD.2). */
+.rent2-janela {
+  flex: 1 1 calc(50% - 3px);
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--neutral-200);
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin: 16px 0 12px 0;
-}
-
-.rent-periodo-titulo {
-  margin: 0 0 8px 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+  border-radius: 12px;
+  background: var(--surface);
   color: var(--ink);
-  letter-spacing: 0.01em;
-}
-
-.rent-periodo-metrica {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 4px 0;
-  border-top: 1px solid var(--neutral-100);
-}
-
-.rent-periodo-metrica:first-of-type {
-  border-top: none;
-}
-
-.rent-periodo-label {
-  font-size: 0.92rem;
-  color: var(--gray);
-}
-
-.rent-periodo-valor {
-  font-size: var(--num-md);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-.rent-periodo-bench {
-  padding: 4px 0;
-  border-top: 1px solid var(--neutral-100);
-  font-size: var(--num-xs);
-  color: var(--gray);
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.rent-periodo-bench .bench-label {
-  color: var(--gray);
-}
-
-.rent-periodo-bench .bench-valor {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.rent-periodo-bench .bench-twr {
-  color: var(--gray);
-}
-
-.rent-legenda {
-  background: var(--neutral-100);
-  border-radius: 8px;
-  padding: 0;
-  margin: 12px 0 16px 0;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--ink);
-}
-
-.rent-legenda summary {
-  padding: 10px 14px;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  list-style: none;
+  white-space: nowrap;
+}
+.rent2-janela[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 2px var(--accent-soft);
+  font-weight: 700;
+}
+.rent2-janela[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.rent2-janela:active { transform: scale(.97); }
+.rent2-janela[aria-disabled="true"]:active { transform: none; }
+
+.rent2-motivo {
+  margin: 0 0 4px;
+  font-size: var(--num-xs);
+  color: var(--gray);
+}
+
+.rent2-grafico { margin: 0; }
+#chart-rent2 {
+  min-height: 260px;
+  margin-bottom: 6px;
+}
+.rent2-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  justify-content: center;
+  margin: 0 0 20px;
+  font-size: var(--num-xs);
+  color: var(--gray);
+}
+.rent2-legenda-item { display: inline-flex; align-items: center; gap: 6px; }
+.rent2-traco { display: inline-block; width: 18px; height: 0; }
+.rent2-traco--sua { border-top: 2.5px solid var(--g-700); }
+.rent2-traco--ind { border-top: 2px dashed var(--gray); }
+
+.rent2-janela-indisp {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.rent2-janela-indisp p { margin: 0; }
+
+/* O número */
+.rent2-veredito { margin: 0 0 24px; }
+.rent2-frase {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.rent2-numero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+}
+.rent2-grande {
+  font-family: var(--mono);
+  font-size: var(--num-poster);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rent2-grande.is-pos { color: var(--g-700); }
+.rent2-grande.is-neg { color: var(--red); }
+.rent2-grande.is-neutro { color: var(--ink); }
+.rent2-unidade { font-size: 0.9375rem; color: var(--gray); }
+.rent2-pares { margin: 0; }
+.rent2-par {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--neutral-200);
+}
+.rent2-par dt { color: var(--gray); font-size: 0.875rem; min-width: 0; }
+.rent2-par dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* A ponte (waterfall horizontal) */
+.ponte { margin: 0 0 16px; }
+.ponte-titulo, .rent2-h2 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ponte-unidade { margin: 0 0 10px; font-size: var(--num-xs); color: var(--gray); }
+.ponte-degraus { display: flex; flex-direction: column; gap: 2px; }
+.ponte-degrau {
+  display: grid;
+  grid-template-columns: minmax(0, 116px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 8px;
+  margin: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+button.ponte-degrau { cursor: pointer; }
+.ponte-degrau[aria-pressed="true"] {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+}
+.ponte-rotulo { display: flex; flex-direction: column; min-width: 0; }
+.ponte-nome {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  color: var(--gray);
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
+.ponte-degrau--total .ponte-nome { font-weight: 700; }
+.ponte-ponto {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.ponte-sub { font-size: var(--num-xs); color: var(--gray); line-height: 1.25; }
+/* overflow:hidden é o que prende a guia (caixa da largura do trilho,
+   deslocada por translateX) e a barra escalada dentro do trilho, sem vazar
+   para a coluna do valor. */
+.ponte-trilho {
+  position: relative;
+  display: block;
+  height: 28px;
+  overflow: hidden;
+}
+.ponte-barra {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+}
+.ponte-barra--ind { background: var(--gray); }
+.ponte-barra--sua { background: var(--ink); }
+.ponte-barra--pos { background: var(--g-700); }
+.ponte-barra--neg { background: var(--red); }
+.ponte-barra--neutro { background: var(--gray); top: 13px; bottom: 13px; }
+.ponte-guia {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-left: 1px dashed var(--neutral-200);
+}
+/* "Sua carteira" é a soma: um filete acima dela, como linha de total. */
+.ponte-degrau--total:last-child {
+  margin-top: 4px;
+  border-top: 1px solid var(--neutral-200);
+  border-radius: 0;
+}
+.ponte-valor {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--ink);
+}
+.ponte-valor.is-pos { color: var(--g-700); }
+.ponte-valor.is-neg { color: var(--red); }
+.ponte-valor.is-neutro { color: var(--gray); }
 
-.rent-legenda summary::-webkit-details-marker { display: none; }
+/* Quem pesou — o único grifo da tela (.grifo da casa) */
+.ponte-pesou { margin: 0 0 24px; }
+.ponte-pesou-frase { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); }
+.ponte-pesou-lista { list-style: none; margin: 10px 0 0; padding: 0; }
+.ponte-pesou-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 6px 0;
+}
+.ponte-pesou-item--filete { border-top: 1px solid var(--neutral-200); margin-top: 4px; padding-top: 10px; }
+.ponte-pesou-item--outros { color: var(--gray); }
+.ponte-pesou-ticker { min-width: 0; font-weight: 600; font-size: 0.875rem; }
+.ponte-pesou-item--outros .ponte-pesou-ticker { font-weight: 500; }
+.ponte-pesou-valor {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ponte-pesou-valor.is-pos { color: var(--g-700); }
+.ponte-pesou-valor.is-neg { color: var(--red); }
+.ponte-pesou-valor.is-neutro { color: var(--gray); }
 
-.rent-legenda summary::after {
-  content: "▸";
+/* Em reais, na janela */
+.rent2-reais { margin: 0 0 20px; }
+.rent2-reais-lista { margin: 8px 0 0; }
+.rent2-reais-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--neutral-200);
+}
+.rent2-reais-linha dt { color: var(--gray); font-size: 0.875rem; min-width: 0; }
+/* Spec §8: mono só no número-veredito, nos valores da ponte e de "quem
+   pesou"; os reais ficam na fonte do texto, com tabular-nums. */
+.rent2-reais-linha dd {
+  margin: 0;
+  font-size: var(--num-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.rent2-reais-linha dd.is-pos { color: var(--g-700); }
+.rent2-reais-linha dd.is-neg { color: var(--red); }
+
+/* Detalhes (fechado por padrão) */
+.rent2-detalhes { margin: 0 0 24px; border-top: 1px solid var(--neutral-200); }
+.rent2-detalhes > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  justify-content: space-between;
+  list-style: none;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+/* Disclosure do rascunho aprovado: o display:flex apaga o marcador nativo,
+   e sem ele "Detalhes" não parecia abrir nada (crítica 7a.BD.2). */
+.rent2-detalhes > summary::-webkit-details-marker { display: none; }
+.rent2-detalhes > summary::after {
+  content: "›";
+  color: var(--gray);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.rent2-detalhes[open] > summary::after { transform: rotate(90deg); }
+.rent2-detalhes-corpo { padding: 0 0 8px; }
+.rent2-tabela { margin: 0 0 16px; }
+.rent2-tabela thead th { font-size: 0.75rem; font-weight: 600; color: var(--gray); border-top: 0; }
+.rent2-tabela td { font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 12px; }
+/* 320 px: "ao ano" do cabeçalho quebrava em duas linhas na tabela das réguas. */
+.rent2-tabela thead th + th { white-space: nowrap; padding-left: 12px; }
+.rent2-regua-sub {
+  display: block;
+  font-weight: 400;
   font-size: 0.75rem;
   color: var(--gray);
-  transition: transform 150ms ease;
+  line-height: 1.3;
+}
+.rent2-aviso { margin: 0; font-size: 0.75rem; color: var(--gray); }
+
+/* Verificação visual a 320 px: com o rótulo a 116 px o trilho ficava com
+   ~25 px e os degraus quase sumiam. Abaixo de 360 px o rótulo cede. */
+@media (max-width: 360px) {
+  .ponte-degrau { grid-template-columns: minmax(0, 92px) minmax(0, 1fr) auto; gap: 8px; padding: 4px 6px; }
 }
 
-.rent-legenda[open] summary::after {
-  transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rent-legenda summary::after { transition: none; }
-}
-
-.rent-legenda[open] summary {
-  color: var(--ink);
-  padding-bottom: 4px;
-}
-
-.rent-legenda p {
-  margin: 4px 0;
-  padding: 0 14px;
-}
-
-.rent-legenda p:last-child {
-  padding-bottom: 10px;
+@media (prefers-reduced-motion: no-preference) {
+  .rent2-janela,
+  .ponte-degrau { transition: transform var(--d1) var(--ease), background-color var(--d1) var(--ease); }
+  .ponte-degrau:active { transform: scale(.98); }
+  .ponte-barra { transition: transform var(--d2) var(--ease); }
+  .ponte-guia { transition: transform var(--d2) var(--ease); }
+  .rent2-detalhes > summary::after { transition: transform var(--d1) var(--ease); }
+  /* Durante o arrasto, zero animação (js/app.js põe a classe no mesmo tick
+     do evento de zoom e tira no settle). */
+  .tela-rentabilidade.is-arrastando .ponte-barra,
+  .tela-rentabilidade.is-arrastando .ponte-guia { transition: none; }
 }
 
 /* === 7a.E.1: tabela movimentos compacta === */

@@ -154,7 +154,7 @@ async function voltarHomeEAlternarTema(page: Page) {
 }
 
 test.describe("7a.S.12 Task 2 — repaint dos charts", () => {
-  test("rentabilidade: markPoint (Portfólio) e tooltip refletem o tema ao reentrar na tela pós-toggle", async ({ page }) => {
+  test("rentabilidade: markPoint (Sua carteira) e tooltip refletem o tema ao reentrar na tela pós-toggle", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
     await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
@@ -169,7 +169,8 @@ test.describe("7a.S.12 Task 2 — repaint dos charts", () => {
         tooltipBg: tooltip.backgroundColor,
       };
     });
-    expect(antes.markColor).toBe("#047857");
+    // 7a.BD.2: o rótulo do último ponto da carteira é --ink (brief de design §4).
+    expect(antes.markColor).toBe("#1a1d1c");
     expect(antes.tooltipBg).toBe("#ffffff");
 
     await voltarHomeEAlternarTema(page);
@@ -186,13 +187,13 @@ test.describe("7a.S.12 Task 2 — repaint dos charts", () => {
         tooltipBg: tooltip.backgroundColor,
       };
     });
-    expect(depois.markColor).toBe("#34d399");
+    expect(depois.markColor).toBe("#f1efe4");
     expect(depois.markColor).not.toBe(antes.markColor);
     expect(depois.tooltipBg).toBe("#0c1510");
     expect(depois.tooltipBg).not.toBe(antes.tooltipBg);
   });
 
-  test("L.1/L.2 sobrevivem a um repaint: dataZoom reancora Y e o card Período segue funcionando", async ({ page }) => {
+  test("L.1 sobrevive a um repaint: dataZoom reancora Y e a ponte acompanha a janela (7a.BD.2)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#rentabilidade");
     await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
@@ -207,17 +208,17 @@ test.describe("7a.S.12 Task 2 — repaint dos charts", () => {
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = (window as any).Alpine.$data(document.body);
-      data.echartsRent.dispatchAction({ type: "dataZoom", start: 60, end: 100 });
+      data.echartsRent.dispatchAction({ type: "dataZoom", start: 40, end: 100 });
     });
     await page.waitForTimeout(200);
 
-    await expect(subtitulo).toContainText(/Cresceu desde/);
-    const periodoTitulo = await page.evaluate(() => {
+    await expect(subtitulo).toContainText(/Período livre/);
+    const frase = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = (window as any).Alpine.$data(document.body);
-      return data.periodoCustom.titulo;
+      return data.rent2.vista.frase;
     });
-    expect(periodoTitulo).toBeTruthy();
+    expect(frase).toMatch(/^De .+, você/);
   });
 
   test("proventos: repaint reconstrói o chart de barras sem perder dados (mesma contagem de barras)", async ({ page }) => {

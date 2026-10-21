@@ -13,6 +13,11 @@ tests/fixtures/*.json
 # convencao de nome, e convencao nao e gate. Conteudo verificado 100%
 # sintetico (PIN_TESTE publico, nao a frase de acesso).
 !tests/fixtures/dossies_map.test.json
+# 7a.BD.2: segundo .json PURO, tambem por excecao NOMINAL (mesmo motivo acima).
+# Bloco ponte sintetico + saida da referencia Python para o teste cruzado da
+# gemea JS. Conteudo 100% sintetico, gerado por formula em gerar_fixture.py
+# (nenhum numero lido do DB; sem PIN nem frase).
+!tests/fixtures/ponte_esperado.test.json
 __pycache__/
 *.pyc
 

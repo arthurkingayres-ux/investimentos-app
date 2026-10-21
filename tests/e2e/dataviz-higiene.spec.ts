@@ -62,7 +62,9 @@ async function getOption(page: Page, propriedade: "echartsRent" | "echartsPatr" 
 
 test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
   test.describe("Task 1 — símbolo só no último ponto", () => {
-    test("rentabilidade (Total, multi-bench): Portfólio sem símbolo ao longo da linha + markPoint no último ponto; benchmarks sem símbolo e sem markPoint", async ({ page }) => {
+    // 7a.BD.2: a série principal é "Sua carteira" e a única outra é o composto
+    // ("Mesma carteira, só com índices"); as linhas de índice saíram do gráfico.
+    test("rentabilidade (Total): Sua carteira sem símbolo ao longo da linha + markPoint no último ponto; o composto sem símbolo e sem markPoint", async ({ page }) => {
       await autenticar(page);
       await abrirRentabilidade(page);
 
@@ -70,10 +72,11 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
       expect(opt).not.toBeNull();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const series = (opt as any).series as Array<Record<string, unknown>>;
-      expect(series.length).toBeGreaterThanOrEqual(2); // Portfólio + ao menos 1 benchmark
+      expect(series.length).toBe(2); // Sua carteira + o composto
 
       const portfolio = series[0];
-      expect(portfolio.name).toBe("Portfólio");
+      expect(portfolio.name).toBe("Sua carteira");
+      expect(series[1].name).toBe("Mesma carteira, só com índices");
       expect(portfolio.showSymbol).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const markPoint = portfolio.markPoint as any;
@@ -129,7 +132,11 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
         const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } }).Alpine.$data(document.body);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chart = (data as any).echartsRent;
-        chart.dispatchAction({ type: "dataZoom", start: 0, end: 60 });
+        // 7a.BD.2: janela livre sem mês indisponível na fixture (meses 10..20;
+        // eixo começa na âncora do escopo, `_rentCtx.off`). Uma janela que
+        // cruza o buraco de ago/24 volta à última válida no settle.
+        const off = (data as any)._rentCtx.off;
+        chart.dispatchAction({ type: "dataZoom", startValue: 9 - off, endValue: 20 - off });
       });
       await page.waitForTimeout(200);
 
@@ -142,6 +149,7 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
       });
       expect(idxDepois).not.toBeNull();
       expect(idxDepois).not.toBe(idxAntes);
+      expect(idxDepois).toBe(20 - (await page.evaluate(() => (window as any).Alpine.$data(document.body)._rentCtx.off)));
     });
   });
 
@@ -324,16 +332,18 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
         const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } }).Alpine.$data(document.body);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chart = (data as any).echartsRent;
-        chart.dispatchAction({ type: "dataZoom", start: 60, end: 100 });
+        // 7a.BD.2: janela livre (40%..100%) sem mês indisponível na fixture.
+        chart.dispatchAction({ type: "dataZoom", start: 40, end: 100 });
       });
       await page.waitForTimeout(200);
 
-      await expect(subtitulo).toContainText(/Cresceu desde/);
-      const periodoTitulo = await page.evaluate(() => {
+      // 7a.BD.2: o subtítulo narra a janela livre e o veredito acompanha.
+      await expect(subtitulo).toContainText(/Período livre · de .+ a set\/26/);
+      const frase = await page.evaluate(() => {
         const data = (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } }).Alpine.$data(document.body);
-        return (data as { periodoCustom: { titulo: string } }).periodoCustom.titulo;
+        return (data as { rent2: { vista: { frase: string } } }).rent2.vista.frase;
       });
-      expect(periodoTitulo).toBeTruthy();
+      expect(frase).toMatch(/^De .+ a set\/26, você/);
     });
   });
 });

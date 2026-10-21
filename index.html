@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=76">
+  <link rel="stylesheet" href="css/app.css?v=77">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=41"></script>
-  <script src="js/app.js?v=75"></script>
+  <script src="js/app.js?v=76"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -424,127 +424,220 @@
             aria-label="Mostrar carteira EUA em dólares (paridade Avenue)">USD</button>
         </div>
 
-        <p class="chart-rent-subtitulo" x-text="rentabilidadeSubtitulo" x-show="rentabilidadeSubtitulo"></p>
-        <div id="chart-rent" class="chart-rent" aria-label="Histórico TWR"></div>
-
-        <!-- 7a.L.2.b: 4º card "Período" — TWR/XIRR a.a. + vs benchmark calculados
-             para a janela atual do dataZoom. fimIdx=null = chart ainda não
-             hidratou → oculto. Título dinâmico: "Origem" (full range) ou
-             "Período · mai/25 → mai/26". Usa classe própria .rent-periodo
-             (não .rent-grupo) para preservar invariantes "3 grupos fixos"
-             dos specs existentes — CSS espelha .rent-grupo intencionalmente. -->
-        <section class="rent-periodo" x-show="periodoCustom.fimIdx !== null">
-          <h3 class="rent-periodo-titulo" x-text="periodoCustom.titulo">Período</h3>
-          <div class="rent-periodo-metrica">
-            <span class="rent-periodo-label">XIRR a.a.</span>
-            <span class="rent-periodo-valor"
-                  x-text="periodoCustom.xirr === null ? '—' : formatPct(periodoCustom.xirr)"></span>
-          </div>
-          <div class="rent-periodo-metrica">
-            <span class="rent-periodo-label">TWR a.a.</span>
-            <span class="rent-periodo-valor"
-                  x-text="periodoCustom.twr === null ? '—' : formatPct(periodoCustom.twr)"></span>
-          </div>
-          <!-- 7a.E.26: card multi-benchmark. benchExtras: [{nome, deltaXirr,
-               deltaTwr}] (deltas = portfólio − benchmark, já computados em JS).
-               Total = 3 linhas (CDI/IBOV/S&P 500), Brasil = 2 (CDI/IBOV),
-               EUA = 1 (S&P 500). .rent-periodo-bench repetido produz o formato
-               3-linhas com border-top entre elas (sem CSS novo). -->
-          <template x-for="(b, i) in periodoCustom.benchExtras" :key="i">
-            <div class="rent-periodo-bench">
-              <span class="bench-label" x-text="'vs ' + b.nome"></span>
-              <span class="bench-valor">
-                <template x-if="b.deltaXirr !== null">
-                  <span x-text="formatPct(b.deltaXirr)"></span>
-                </template>
-                <template x-if="b.deltaXirr === null">
-                  <span>—</span>
-                </template>
-                <template x-if="b.deltaTwr !== null">
-                  <span class="bench-twr"
-                        x-text="' · TWR ' + formatPct(b.deltaTwr)"></span>
-                </template>
-              </span>
+        <!-- 7a.BD.2: payload sem o bloco ponte (schema < v2.30, ex. v2.29 em
+             cache do SW). Substitui tudo abaixo; nunca desenha a tela antiga. -->
+        <div class="rent2-indisponivel" data-testid="rent2-sem-bloco" x-show="rent2.semBloco" x-cloak>
+          <template x-if="rent2.semBloco === 'nulo'">
+            <p>A conta da rentabilidade não foi publicada nesta atualização.</p>
+          </template>
+          <template x-if="rent2.semBloco === 'versao' || rent2.semBloco === 'erro'">
+            <div>
+              <p x-text="rent2.semBloco === 'erro' ? 'Não foi possível montar a rentabilidade agora.' : 'Rentabilidade indisponível nesta versão dos dados'"></p>
+              <button type="button" class="rent2-recarregar" @click="rent2Recarregar()">Recarregar</button>
             </div>
           </template>
-        </section>
-
-        <div class="rent-grupos">
-          <!-- 7a.S.6: ordem Ano → 12 meses → Origem (Origem movida para o fim;
-               Período, fora deste bloco, continua o 1º card visual). -->
-          <section class="rent-grupo">
-            <h3 class="rent-grupo-titulo">Ano (YTD)</h3>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">XIRR</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.xirr_ytd)"></span>
-            </div>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">TWR</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.twr_ytd)"></span>
-            </div>
-            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
-              <div class="rent-benchmark">
-                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
-                <span class="bench-valor">
-                  <span x-text="formatPct(bench.xirr_espelhado?.ytd)"></span>
-                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.ytd)"></span>
-                </span>
-              </div>
-            </template>
-          </section>
-          <section class="rent-grupo">
-            <h3 class="rent-grupo-titulo">12 meses</h3>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">XIRR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.xirr_12m)"></span>
-            </div>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">TWR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.twr_12m)"></span>
-            </div>
-            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
-              <div class="rent-benchmark">
-                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
-                <span class="bench-valor">
-                  <span x-text="formatPct(bench.xirr_espelhado?.['12m'])"></span>
-                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.['12m'])"></span>
-                </span>
-              </div>
-            </template>
-          </section>
-          <section class="rent-grupo">
-            <h3 class="rent-grupo-titulo">Origem</h3>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">XIRR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.xirr_origem)"></span>
-            </div>
-            <div class="rent-metrica">
-              <span class="rent-metrica-label">TWR a.a.</span>
-              <span class="rent-metrica-valor"
-                    x-text="formatPct(rentabilidadeAtiva()?.twr_origem)"></span>
-            </div>
-            <template x-for="[bkey, bench] in Object.entries(rentabilidadeAtiva()?.benchmarks || {})" :key="bkey">
-              <div class="rent-benchmark">
-                <span class="bench-label" x-text="'vs ' + (bkey === 'SP500' ? 'S&P 500' : bkey)"></span>
-                <span class="bench-valor">
-                  <span x-text="formatPct(bench.xirr_espelhado?.origem)"></span>
-                  <span class="bench-twr" x-text="' · TWR ' + formatPct(bench.twr_espelhado?.origem)"></span>
-                </span>
-              </div>
-            </template>
-          </section>
         </div>
 
-        <details class="rent-legenda">
-          <summary>Como ler</summary>
-          <p><strong>XIRR:</strong> retorno anualizado considerando quando você aportou. Capta o efeito do timing dos aportes.</p>
-          <p><strong>TWR:</strong> retorno anualizado ignorando seus aportes. Mede só a qualidade da seleção e gestão.</p>
-        </details>
+        <!-- 7a.BD.2: a ponte (spec §2): janela → gráfico → número → ponte →
+             quem pesou → em reais → detalhes. Todo número sai de rent2.vista
+             (rent2Vista sobre ponteJanela). -->
+        <div class="rent2" x-show="!rent2.semBloco">
+          <div class="rent2-janelas" role="group" aria-label="Janela">
+            <template x-for="j in rent2.janelas" :key="j.chave">
+              <button type="button" class="rent2-janela"
+                      :data-testid="'rent2-janela-' + j.chave"
+                      :aria-pressed="rent2.chave === j.chave ? 'true' : 'false'"
+                      :aria-disabled="j.disponivel ? null : 'true'"
+                      :aria-describedby="j.disponivel ? null : 'rent2-motivo'"
+                      @click="rent2EscolherJanela(j.chave)"
+                      x-text="j.rotulo"></button>
+            </template>
+          </div>
+          <p class="rent2-motivo" id="rent2-motivo" data-testid="rent2-motivo" aria-live="polite"
+             x-show="rent2.motivo" x-text="rent2.motivo" x-cloak></p>
+
+          <figure class="rent2-grafico">
+            <p class="chart-rent-subtitulo" data-testid="rent2-subtitulo" x-text="rent2.vista?.subtitulo || ''"></p>
+            <div id="chart-rent2" class="chart-rent" data-testid="rent2-grafico" role="img"
+                 :aria-label="rent2.vista?.ariaGrafico || 'Sua carteira e a mesma carteira só com índices'"></div>
+            <figcaption class="rent2-legenda">
+              <span class="rent2-legenda-item"><span class="rent2-traco rent2-traco--sua" aria-hidden="true"></span>Sua carteira</span>
+              <span class="rent2-legenda-item"><span class="rent2-traco rent2-traco--ind" aria-hidden="true"></span>Mesma carteira, só com índices</span>
+            </figcaption>
+          </figure>
+
+          <div class="rent2-janela-indisp" data-testid="rent2-janela-indisp"
+               x-show="rent2.vista && rent2.vista.indisponivel" x-cloak>
+            <p x-text="rent2.vista?.indisponivel || ''"></p>
+          </div>
+
+          <!-- Regiões aria-live só para leitor de tela, fora do x-if: existem
+               sempre (não são recriadas) e também anunciam o motivo de uma
+               janela indisponível. Texto escrito fora do arrasto e no settle
+               (_rent2Anunciar); a parte visual troca direto a cada zoom. -->
+          <p class="sr-only" aria-live="polite" data-testid="rent2-anuncio" x-text="rent2.anuncio"></p>
+          <p class="sr-only" aria-live="polite" data-testid="rent2-anuncio-pesou" x-text="rent2.anuncioPesou"></p>
+
+          <template x-if="rent2.vista && !rent2.vista.indisponivel">
+            <div class="rent2-corpo">
+              <div class="rent2-veredito">
+                <p class="rent2-frase" data-testid="rent2-frase" x-text="rent2.vista.frase"></p>
+                <p class="rent2-numero">
+                  <span class="rent2-grande" :class="'is-' + rent2.vista.sinal" data-testid="rent2-numero" x-text="rent2.vista.numero"></span>
+                  <span class="rent2-unidade" data-testid="rent2-unidade" x-text="rent2.vista.unidade"></span>
+                </p>
+                <dl class="rent2-pares">
+                  <div class="rent2-par" data-testid="rent2-par-sua">
+                    <dt>Sua carteira</dt>
+                    <dd><span class="rent2-par-valor" x-text="rent2.vista.sua"></span> <span x-text="rent2.vista.sufixo"></span></dd>
+                  </div>
+                  <div class="rent2-par" data-testid="rent2-par-ind">
+                    <dt>Mesma carteira, só com índices</dt>
+                    <dd><span class="rent2-par-valor" x-text="rent2.vista.ind"></span> <span x-text="rent2.vista.sufixo"></span></dd>
+                  </div>
+                </dl>
+              </div>
+
+              <section class="ponte" data-testid="ponte" aria-labelledby="ponte-titulo">
+                <h2 class="ponte-titulo" id="ponte-titulo">De onde vem a diferença</h2>
+                <p class="ponte-unidade" x-text="rent2.vista.ponte.unidade"></p>
+                <div class="ponte-degraus">
+                  <div class="ponte-degrau ponte-degrau--total" data-testid="ponte-total-ind" :data-valor="rent2.vista.indValor" aria-hidden="true">
+                    <span class="ponte-rotulo"><span class="ponte-nome">Só com índices</span><span class="ponte-sub">mesmos pesos, mês a mês</span></span>
+                    <span class="ponte-trilho">
+                      <span class="ponte-barra ponte-barra--ind" :style="rent2.vista.ponte.estiloInd"></span>
+                    </span>
+                    <span class="ponte-valor" x-text="rent2.vista.ind"></span>
+                  </div>
+                  <template x-for="l in rent2.vista.ponte.linhas" :key="l.id">
+                    <button type="button" class="ponte-degrau" data-testid="ponte-linha"
+                            :data-linha="l.id" :data-sinal="l.sinal" :data-valor="l.valor"
+                            :aria-pressed="rent2.vista.linhaSel === l.id ? 'true' : 'false'"
+                            :aria-label="l.ariaLabel"
+                            @click="rent2EscolherLinha(l.id)">
+                      <span class="ponte-rotulo">
+                        <span class="ponte-nome"><span class="ponte-ponto" :style="l.estiloPonto" aria-hidden="true"></span><span x-text="l.rotulo"></span></span>
+                        <span class="ponte-sub" x-text="l.sub"></span>
+                      </span>
+                      <span class="ponte-trilho" aria-hidden="true">
+                        <span class="ponte-guia" :style="l.estiloGuia"></span>
+                        <span class="ponte-barra" :class="'ponte-barra--' + l.sinal" :style="l.estiloBarra"></span>
+                      </span>
+                      <span class="ponte-valor" :class="'is-' + l.sinal" x-text="l.texto"></span>
+                    </button>
+                  </template>
+                  <div class="ponte-degrau ponte-degrau--total" data-testid="ponte-total-sua" :data-valor="rent2.vista.suaValor" aria-hidden="true">
+                    <span class="ponte-rotulo"><span class="ponte-nome">Sua carteira</span></span>
+                    <span class="ponte-trilho">
+                      <span class="ponte-barra ponte-barra--sua" :style="rent2.vista.ponte.estiloSua"></span>
+                    </span>
+                    <span class="ponte-valor" x-text="rent2.vista.sua"></span>
+                  </div>
+                </div>
+                <!-- Tabela equivalente para leitor de tela. O .sr-only fica no
+                     wrapper: tabela não encolhe a 1px (o layout de tabela cresce
+                     até o conteúdo) e vazaria rolagem horizontal. -->
+                <div class="sr-only">
+                <table class="ponte-tabela" data-testid="ponte-tabela">
+                  <caption x-text="rent2.vista.ponte.caption"></caption>
+                  <thead><tr><th scope="col">Linha</th><th scope="col">Valor</th><th scope="col">Acumulado</th></tr></thead>
+                  <tbody>
+                    <tr><th scope="row">Só com índices</th><td x-text="rent2.vista.ind + ' ' + rent2.vista.sufixo"></td><td x-text="rent2.vista.ind"></td></tr>
+                    <template x-for="l in rent2.vista.ponte.linhas" :key="'t' + l.id">
+                      <tr><th scope="row" x-text="l.tabelaLinha"></th><td x-text="l.tabelaValor"></td><td x-text="l.tabelaAcum"></td></tr>
+                    </template>
+                    <tr><th scope="row">Sua carteira</th><td x-text="rent2.vista.sua + ' ' + rent2.vista.sufixo"></td><td x-text="rent2.vista.sua"></td></tr>
+                  </tbody>
+                </table>
+                </div>
+              </section>
+
+              <section class="grifo ponte-pesou" data-testid="ponte-pesou" x-show="rent2.vista.pesou">
+                <template x-if="rent2.vista.pesou">
+                  <div>
+                    <p class="ponte-pesou-frase">
+                      <strong x-text="rent2.vista.pesou.linha"></strong>
+                      <template x-if="!rent2.vista.pesou.neutra">
+                        <span><span x-text="rent2.vista.pesou.verbo"></span> <strong x-text="rent2.vista.pesou.qtd"></strong></span>
+                      </template>
+                      <span x-text="rent2.vista.pesou.resto"></span>
+                    </p>
+                    <ul class="ponte-pesou-lista" x-show="!rent2.vista.pesou.neutra">
+                      <template x-for="a in rent2.vista.pesou.itens" :key="'m' + a.t">
+                        <li class="ponte-pesou-item" data-testid="pesou-ativo" :data-ticker="a.t">
+                          <span class="ponte-pesou-ticker" x-text="a.t"></span>
+                          <span class="ponte-pesou-valor" :class="'is-' + a.sinal" x-text="a.texto"></span>
+                        </li>
+                      </template>
+                      <template x-for="(a, i) in rent2.vista.pesou.opostos" :key="'o' + a.t">
+                        <li class="ponte-pesou-item" :class="{ 'ponte-pesou-item--filete': i === 0 && rent2.vista.pesou.itens.length }"
+                            data-testid="pesou-ativo" :data-ticker="a.t">
+                          <span class="ponte-pesou-ticker" x-text="a.t"></span>
+                          <span class="ponte-pesou-valor" :class="'is-' + a.sinal" x-text="a.texto"></span>
+                        </li>
+                      </template>
+                      <template x-if="rent2.vista.pesou.outros">
+                        <li class="ponte-pesou-item ponte-pesou-item--outros" data-testid="pesou-outros">
+                          <span class="ponte-pesou-ticker" x-text="rent2.vista.pesou.outros.rotulo"></span>
+                          <span class="ponte-pesou-valor" :class="'is-' + rent2.vista.pesou.outros.sinal" x-text="rent2.vista.pesou.outros.texto"></span>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+              </section>
+
+              <section class="rent2-reais" aria-labelledby="rent2-reais-titulo">
+                <h2 class="rent2-h2" id="rent2-reais-titulo" x-text="rent2.vista.reais.titulo"></h2>
+                <dl class="rent2-reais-lista">
+                  <div class="rent2-reais-linha">
+                    <dt>Entrou na carteira</dt>
+                    <dd data-testid="rent2-entrou" x-text="rent2.vista.reais.entrou"></dd>
+                  </div>
+                  <div class="rent2-reais-linha">
+                    <dt>Ganho, com proventos</dt>
+                    <dd data-testid="rent2-ganho" :class="'is-' + rent2.vista.reais.ganhoSinal" x-text="rent2.vista.reais.ganho"></dd>
+                  </div>
+                  <div class="rent2-reais-linha">
+                    <dt x-text="rent2.vista.reais.rotuloFim"></dt>
+                    <dd data-testid="rent2-valor-fim" x-text="rent2.vista.reais.valorFim"></dd>
+                  </div>
+                </dl>
+              </section>
+
+              <details class="rent2-detalhes" data-testid="rent2-detalhes">
+                <summary>Detalhes</summary>
+                <div class="rent2-detalhes-corpo">
+                  <table class="proj-tabela rent2-tabela">
+                    <thead><tr><th scope="col">Índices, um a um</th><th scope="col" x-text="rent2.vista.sufixo"></th></tr></thead>
+                    <tbody>
+                      <template x-for="ix in rent2.vista.detalhes.indices" :key="ix.id">
+                        <tr data-testid="rent2-indice" :data-indice="ix.id">
+                          <th scope="row" x-text="ix.nome"></th>
+                          <td x-text="ix.texto"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                  <table class="proj-tabela rent2-tabela">
+                    <thead><tr><th scope="col">Duas réguas da carteira</th><th scope="col" x-text="rent2.vista.sufixo"></th></tr></thead>
+                    <tbody>
+                      <tr data-testid="rent2-twr">
+                        <th scope="row">A carteira (TWR)<span class="rent2-regua-sub">ignora o momento dos aportes; é a régua da ponte</span></th>
+                        <td class="rent2-regua-valor" x-text="rent2.vista.sua"></td>
+                      </tr>
+                      <tr data-testid="rent2-xirr">
+                        <th scope="row">Seu dinheiro (XIRR)<span class="rent2-regua-sub">considera quando e quanto entrou na carteira</span></th>
+                        <td class="rent2-regua-valor" x-text="rent2.vista.detalhes.xirr"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p class="rent2-aviso" data-testid="rent2-aviso">Rentabilidade passada não garante resultado futuro. Valores antes de impostos.</p>
+                </div>
+              </details>
+            </div>
+          </template>
+        </div>
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
