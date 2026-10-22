@@ -66,16 +66,17 @@ test("ponteJanela/ponteJanelasFixas/arredondarFechando reproduzem a referência 
   await page.goto("/");
   await page.waitForFunction(() => typeof (window as any).Alpine !== "undefined");
 
-  const obtidos = await page.evaluate(({ bloco, casos }) => {
+  const obtidos = await page.evaluate(({ bloco, blocoLongo, casos }) => {
     const w = window as any;
     return casos.map((c: any) => {
       const ch = c.chamada;
       if ("valores" in ch) return w.arredondarFechando(ch.valores, ch.total, ch.casas);
       // casos de XIRR extremo trazem o próprio mini-bloco (gerar_fixture.py::_ponte_mini)
       if ("i_ini" in ch) return w.ponteJanela(ch.bloco ?? bloco, ch.escopo, ch.moeda, ch.i_ini, ch.i_fim);
-      return w.ponteJanelasFixas(bloco, ch.escopo, ch.moeda);
+      // 7a.BE.2: 3a/5a com valor saem do bloco longo de 72 meses (bloco_longo no JSON)
+      return w.ponteJanelasFixas(ch.bloco_ref === "longo" ? blocoLongo : bloco, ch.escopo, ch.moeda);
     });
-  }, { bloco: ESPERADO.bloco, casos: ESPERADO.casos });
+  }, { bloco: ESPERADO.bloco, blocoLongo: ESPERADO.bloco_longo, casos: ESPERADO.casos });
 
   // O fixture precisa exercitar os três caminhos e os casos-chave; um fixture
   // esvaziado daria verde vácuo.
@@ -92,6 +93,14 @@ test("ponteJanela/ponteJanelasFixas/arredondarFechando reproduzem a referência 
     && typeof c.esperado.xirr === "number" && Math.pow(1 + c.esperado.xirr, 12 / c.esperado.n_meses) - 1 > 10);
   expect(xirrExtremo.length).toBeGreaterThanOrEqual(3);
   expect(casos.filter((c) => c.chamada.bloco && typeof c.esperado.xirr === "number").length).toBe(4);
+  // 7a.BE.2: no bloco curto (30 meses) 3a e 5a são sempre indisponíveis; os
+  // 4 casos do bloco longo são os únicos que conferem esses valores na gêmea JS.
+  const longos = casos.filter((c) => c.chamada.bloco_ref === "longo");
+  expect(longos.length).toBe(4);
+  for (const c of longos) {
+    expect(c.esperado["3a"].indisponivel).toBeNull();
+    expect(c.esperado["5a"].indisponivel).toBeNull();
+  }
 
   const erros: string[] = [];
   casos.forEach((c, i) => comparar(obtidos[i], c.esperado, `caso[${i}] ${JSON.stringify(c.chamada).slice(0, 80)}`, erros));

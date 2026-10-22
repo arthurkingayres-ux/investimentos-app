@@ -162,6 +162,36 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     expect(depois.map((l) => [l.id, l.valor])).toEqual([["picks", 0.8], ["fora", -0.4]]);
   });
 
+  // 7a.BE.2: bloco longo (72 meses, `_ponte_longa`), Total/BRL. Literais derivados
+  // uma vez da referência Python (a partir de Investimentos/, PYTHONPATH=.):
+  //   caso "janelas_fixas" com bloco_ref "longo", Total/BRL, em
+  //   tests/fixtures/ponte_esperado.test.json; sua e ind = x*100 a 1 casa;
+  //   linhas = arredondar_fechando([contrib*100 ...], sua_d - ind_d, 1), com
+  //   sua_d/ind_d já arredondados (é o que a tela faz em rent2Vista: as linhas
+  //   fecham na diferença EXIBIDA). 3a: 10,7 / 9,7 -> 1,0 -> acoes_br 0,3.
+  //   5a: 12,0 / 11,1 -> 0,9 -> acoes_br 0,2 (a derivação sobre o `dif` cru
+  //   daria 0,3: os 11,0 do índice exibidos pelo arredondar_fechando de 12m
+  //   não são o que a tela mostra no par).
+  test("bloco longo: 3a e 5a disponíveis trocam número, pares e a primeira linha", async ({ page }) => {
+    await autenticar(page, "portfolio_ponte_longa.test.json.enc");
+    await abrir(page);
+
+    const casos: [string, string, string, string, number][] = [
+      ["3a", "10,7% ao ano", "9,7% ao ano", "acoes_br", 0.3],
+      ["5a", "12,0% ao ano", "11,1% ao ano", "acoes_br", 0.2],
+    ];
+    for (const [k, sua, ind, id, valor] of casos) {
+      const botao = page.locator(tid(`rent2-janela-${k}`));
+      await expect(botao).not.toHaveAttribute("aria-disabled", "true");
+      await botao.click();
+      await expect(botao).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(tid("rent2-par-sua"))).toContainText(sua);
+      await expect(page.locator(tid("rent2-par-ind"))).toContainText(ind);
+      const linhas = await linhasDaPonte(page);
+      expect([linhas[0].id, linhas[0].valor]).toEqual([id, valor]);
+    }
+  });
+
   test("janela fixa que não existe no novo escopo volta a 12 meses e diz o motivo", async ({ page }) => {
     await autenticar(page);
     await abrir(page);

@@ -565,10 +565,10 @@ _PONTE_ATIVOS = [
 ]
 
 
-def _ponte_meses() -> list[str]:
-    ano, mes = _PONTE_INICIO
+def _ponte_meses(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INICIO) -> list[str]:
+    ano, mes = inicio
     out = []
-    for _ in range(_PONTE_MESES):
+    for _ in range(n):
         out.append(f"{ano:04d}-{mes:02d}")
         ano, mes = (ano + 1, 1) if mes == 12 else (ano, mes + 1)
     return out
@@ -579,9 +579,9 @@ def _ponte_fx(t: int) -> float:
     return round(5.0 + 0.3 * math.sin(t / 4.0) + 0.01 * t, 4)
 
 
-def _ponte_indices() -> tuple[dict, dict]:
-    """Retornos mensais sintéticos; índice 0 sempre null; IFIX null no mês 8."""
-    n = _PONTE_MESES
+def _ponte_indices(n: int = _PONTE_MESES, anomalias: bool = True) -> tuple[dict, dict]:
+    """Retornos mensais sintéticos; índice 0 sempre null; com ``anomalias``,
+    IFIX null no mês 8 e salto do S&P no mês 16."""
     ibov, ifix, sp_usd, btc_usd, cdi = ([None] * n for _ in range(5))
     sp_brl, btc_brl = [None] * n, [None] * n
     for t in range(1, n):
@@ -593,20 +593,22 @@ def _ponte_indices() -> tuple[dict, dict]:
         fx = _ponte_fx(t) / _ponte_fx(t - 1)
         sp_brl[t] = round((1.0 + sp_usd[t]) * fx - 1.0, 6)
         btc_brl[t] = round((1.0 + btc_usd[t]) * fx - 1.0, 6)
-    ifix[_PONTE_MES_IFIX_NULO] = None
-    sp_usd[_PONTE_MES_SALTO] = _PONTE_SALTO_SP
-    fx = _ponte_fx(_PONTE_MES_SALTO) / _ponte_fx(_PONTE_MES_SALTO - 1)
-    sp_brl[_PONTE_MES_SALTO] = round((1.0 + _PONTE_SALTO_SP) * fx - 1.0, 6)
+    if anomalias:
+        ifix[_PONTE_MES_IFIX_NULO] = None
+        sp_usd[_PONTE_MES_SALTO] = _PONTE_SALTO_SP
+        fx = _ponte_fx(_PONTE_MES_SALTO) / _ponte_fx(_PONTE_MES_SALTO - 1)
+        sp_brl[_PONTE_MES_SALTO] = round((1.0 + _PONTE_SALTO_SP) * fx - 1.0, 6)
     brl = {"IBOV": ibov, "IFIX": ifix, "SP500TR": sp_brl, "BTC": btc_brl, "CDI": cdi}
     usd = {"SP500TR": sp_usd}
     return brl, usd
 
 
-def _ponte_sintetica() -> dict:
-    """Bloco ``ponte`` v2.30 sintético (ver o comentário da seção)."""
-    n = _PONTE_MESES
-    meses = _ponte_meses()
-    ind_brl, ind_usd = _ponte_indices()
+def _ponte_sintetica(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INICIO,
+                     anomalias: bool = True) -> dict:
+    """Bloco ``ponte`` v2.30 sintético (ver o comentário da seção). Sem
+    ``anomalias``: sem IFIX null, sem salto e ``buracos`` vazio em todos os escopos."""
+    meses = _ponte_meses(n, inicio)
+    ind_brl, ind_usd = _ponte_indices(n, anomalias)
     base_classe = {"acoes_br": ind_brl["IBOV"], "fiis": ind_brl["IFIX"],
                    "renda_fixa": ind_brl["CDI"], "eua": ind_usd["SP500TR"],
                    "cripto": ind_brl["BTC"]}
@@ -673,7 +675,7 @@ def _ponte_sintetica() -> dict:
                     _soma(k, campo, t, x)
             v_nat, v_brl = v_novo, vb_novo
 
-    buraco = [_PONTE_MES_BURACO, _PONTE_MES_BURACO + 1]  # t e t+1 (Decisão 7)
+    buraco = [_PONTE_MES_BURACO, _PONTE_MES_BURACO + 1] if anomalias else []  # t e t+1 (Decisão 7)
     bloco = {
         "ate": meses[-1],
         "meses": meses,
@@ -684,11 +686,39 @@ def _ponte_sintetica() -> dict:
         "fluxos": fluxos,
         "buracos": {"Total": buraco, "Brasil": list(buraco), "EUA_BRL": [], "EUA_USD": []},
     }
+    return bloco
+
+
+def _ponte_curta() -> dict:
+    """O bloco ``ponte`` da fixture: 30 meses, com as anomalias."""
+    bloco = _ponte_sintetica()
     _confere_ponte(bloco)
     return bloco
 
 
-def _confere_ponte(bloco: dict) -> None:
+# 7a.BE.2: bloco longo, só do teste cruzado (``bloco_longo`` em
+# ponte_esperado.test.json, nunca no payload cifrado). 72 meses terminando no
+# mesmo ``ate`` do curto, SEM anomalias -- buraco e IFIX null tornariam 5a/desde
+# indisponíveis, e o salto já é coberto pelo curto. Existe para que 3a e 5a da
+# gêmea JS sejam conferidos com valor, não só com o motivo de indisponível.
+_PONTE_LONGO_MESES = 72
+_PONTE_LONGO_INICIO = (2020, 10)
+
+
+def _ponte_longa() -> dict:
+    from src.calculadora.ponte import janelas_fixas
+
+    bloco = _ponte_sintetica(_PONTE_LONGO_MESES, _PONTE_LONGO_INICIO, anomalias=False)
+    _confere_ponte(bloco, "2020-10")
+    for escopo, moeda in _PONTE_ESCOPOS:
+        fixas = janelas_fixas(bloco, escopo, moeda)
+        for k in ("12m", "3a", "5a", "desde"):
+            assert fixas[k]["indisponivel"] is None, (
+                f"bloco longo {escopo}/{moeda} {k}: {fixas[k]['indisponivel']!r}")
+    return bloco
+
+
+def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
     """Fluxos coerentes com Σ G por escopo: v_t − v_{t−1} − entrou_t + prov_t = Σ G."""
     ativos = bloco["ativos"]
     brasil = ("acoes_br", "fiis", "renda_fixa")
@@ -705,7 +735,7 @@ def _confere_ponte(bloco: dict) -> None:
             soma_g = sum(g for i, _d, g in bloco[serie][t] if filtro(ativos[i]))
             lado = fl["v"][t] - v_ant - fl["entrou"][t] + fl["prov"][t]
             assert abs(lado - soma_g) < 0.015, f"fluxos {chave} mes {t}: {lado} != {soma_g}"
-    assert bloco["meses"][0] == "2024-04" and bloco["ate"] == "2026-09"
+    assert bloco["meses"][0] == primeiro and bloco["ate"] == "2026-09"
     assert all(s[0] is None for m in bloco["indices"].values() for s in m.values())
 
 
@@ -1212,7 +1242,7 @@ PAYLOAD = {
     "projecao": _projecao_sintetica(),
     # Schema v2.30 (Fase 7a.BD.1): ponte de rentabilidade (série mensal por
     # ativo + índices + fluxos). 100% sintético, gerado por fórmula.
-    "ponte": _ponte_sintetica(),
+    "ponte": _ponte_curta(),
 }
 
 
@@ -1761,20 +1791,72 @@ def gerar_portfolio_pre_v230() -> None:
     print(f"Fixture gerada: {alvo}")
 
 
+def gerar_portfolio_ponte_longa() -> None:
+    """7a.BE.2: PAYLOAD com o bloco longo (72 meses) para o e2e de 3a e 5a."""
+    payload = PAYLOAD | {"ponte": _ponte_longa()}
+    alvo = OUT.parent / "portfolio_ponte_longa.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BD.2 (Task 6): valores esperados para o teste cruzado da gêmea JS
 # (``ponteJanela``), saídos da referência Python ``src.calculadora.ponte`` sobre
 # o MESMO bloco sintético. JSON em claro: tudo aqui é fórmula, sem PIN nem
 # frase. Forma: {"bloco": ..., "casos": [{"funcao", "chamada", "esperado"}]}.
 _PONTE_ESCOPOS = (("Total", "BRL"), ("Brasil", "BRL"), ("EUA", "BRL"), ("EUA", "USD"))
+# Primeiro mes do escopo EUA, derivado de _PONTE_ATIVOS (tupla na forma dela).
+_PONTE_MES_EUA_INICIO = min(
+    ini for (_t, c, *_x, ini, _v, _a, _al, _f) in _PONTE_ATIVOS if c == "eua")
 _PONTE_JANELAS_EXTRAS = (
-    # (escopo, moeda, i_ini, i_fim, por quê)
-    ("Total", "BRL", 3, 6, "cruza o buraco do mês 4"),
-    ("Brasil", "BRL", 7, 9, "cruza o IFIX null do mês 8"),
-    ("Total", "BRL", 9, 29, "longa anualizada depois do buraco e do IFIX null"),
-    ("EUA", "USD", 2, 2, "um mês só, o primeiro do escopo"),
-    ("EUA", "USD", 16, 16, "um mês com salto de +100 %: XIRR anual > 1000 %"),
-    ("EUA", "BRL", 15, 17, "três meses em torno do salto: XIRR anual > 1000 %"),
+    # (escopo, moeda, i_ini, i_fim, confere, por quê) -- indices derivados das
+    # constantes do bloco; ``confere`` e so do gerador (_confere_caso), nao vai ao JSON.
+    ("Total", "BRL", _PONTE_MES_BURACO - 1, _PONTE_MES_BURACO + 2, "buraco",
+     "cruza o buraco do mês 4"),
+    ("Brasil", "BRL", _PONTE_MES_IFIX_NULO - 1, _PONTE_MES_IFIX_NULO + 1, "ifix_nulo",
+     "cruza o IFIX null do mês 8"),
+    ("Total", "BRL", _PONTE_MES_IFIX_NULO + 1, _PONTE_MESES - 1, "longa",
+     "longa anualizada depois do buraco e do IFIX null"),
+    ("EUA", "USD", _PONTE_MES_EUA_INICIO, _PONTE_MES_EUA_INICIO, "um_mes",
+     "um mês só, o primeiro do escopo"),
+    ("EUA", "USD", _PONTE_MES_SALTO, _PONTE_MES_SALTO, "salto",
+     "um mês com salto de +100 %: XIRR anual > 1000 %"),
+    ("EUA", "BRL", _PONTE_MES_SALTO - 1, _PONTE_MES_SALTO + 1, "salto",
+     "três meses em torno do salto: XIRR anual > 1000 %"),
 )
+
+
+def _confere_caso(bloco: dict, chamada: dict, esperado: dict, confere: str) -> None:
+    """Falha alto se o caso extra deixou de exercitar o que a nota promete."""
+    from src.calculadora.ponte import _chave_escopo
+
+    ini, fim = chamada["i_ini"], chamada["i_fim"]
+    janela_t = range(ini, fim + 1)
+    indisp = esperado["indisponivel"]
+    if confere == "buraco":
+        chave = _chave_escopo(chamada["escopo"], chamada["moeda"])
+        assert any(t in bloco["buracos"][chave] for t in janela_t), (
+            f"caso buraco: janela {ini}-{fim} nao cruza bloco['buracos'][{chave!r}]")
+        assert indisp and indisp.startswith("cotação ausente em"), (
+            f"caso buraco: indisponivel inesperado: {indisp!r}")
+    elif confere == "ifix_nulo":
+        ifix = bloco["indices"]["BRL"]["IFIX"]
+        assert any(ifix[t] is None for t in janela_t), (
+            f"caso ifix_nulo: janela {ini}-{fim} nao cruza IFIX nulo")
+        assert indisp and indisp.startswith("índice IFIX sem dado em"), (
+            f"caso ifix_nulo: indisponivel inesperado: {indisp!r}")
+    elif confere == "longa":
+        assert indisp is None and esperado["anualizado"] is True, (
+            f"caso longa: indisponivel={indisp!r} anualizado={esperado['anualizado']!r}")
+    elif confere == "um_mes":
+        assert esperado["n_meses"] == 1 and indisp is None, (
+            f"caso um_mes: n_meses={esperado['n_meses']!r} indisponivel={indisp!r}")
+    elif confere == "salto":
+        x = esperado["xirr"]
+        assert isinstance(x, (int, float)) and (1 + x) ** (12 / esperado["n_meses"]) - 1 > 10, (
+            f"caso salto: xirr={x!r} nao e extremo")
+    else:
+        raise AssertionError(f"confere desconhecido: {confere!r}")
+
 
 # Mini-blocos de um ativo sintético ("SINT1", EUA/picks, sem aporte), um por
 # sequência de retornos mensais: o XIRR de janela curta com retorno extremo,
@@ -1825,10 +1907,12 @@ def gerar_ponte_esperado() -> None:
         casos.append({"funcao": "janela",
                       "chamada": {"escopo": escopo, "moeda": moeda, "i_ini": 10, "i_fim": 14},
                       "esperado": janela(bloco, escopo, moeda, 10, 14)})
-    for escopo, moeda, i_ini, i_fim, motivo in _PONTE_JANELAS_EXTRAS:
-        casos.append({"funcao": "janela", "nota": motivo,
-                      "chamada": {"escopo": escopo, "moeda": moeda, "i_ini": i_ini, "i_fim": i_fim},
-                      "esperado": janela(bloco, escopo, moeda, i_ini, i_fim)})
+    for escopo, moeda, i_ini, i_fim, confere, motivo in _PONTE_JANELAS_EXTRAS:
+        chamada = {"escopo": escopo, "moeda": moeda, "i_ini": i_ini, "i_fim": i_fim}
+        esperado = janela(bloco, escopo, moeda, i_ini, i_fim)
+        _confere_caso(bloco, chamada, esperado, confere)
+        casos.append({"funcao": "janela", "nota": motivo, "chamada": chamada,
+                      "esperado": esperado})
 
     for retornos, motivo in _PONTE_MINI_RETORNOS:
         mini = _ponte_mini(retornos)
@@ -1861,10 +1945,17 @@ def gerar_ponte_esperado() -> None:
                       "chamada": {"valores": valores, "total": total, "casas": 1},
                       "esperado": arredondar_fechando(valores, total, 1)})
 
+    # 7a.BE.2: 3a e 5a com valor, sobre o bloco longo (referenciado, não copiado)
+    longo = _ponte_longa()
+    for escopo, moeda in _PONTE_ESCOPOS:
+        casos.append({"funcao": "janelas_fixas",
+                      "chamada": {"escopo": escopo, "moeda": moeda, "bloco_ref": "longo"},
+                      "esperado": janelas_fixas(longo, escopo, moeda)})
+
     alvo = OUT.parent / "ponte_esperado.test.json"
     corpo = {"descricao": "7a.BD.2: saída de src/calculadora/ponte.py sobre o bloco "
                           "ponte sintético da fixture (100% fórmula)",
-             "bloco": bloco, "casos": casos}
+             "bloco": bloco, "bloco_longo": longo, "casos": casos}
     alvo.write_text(json.dumps(corpo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"Fixture gerada: {alvo} ({len(casos)} casos)")
 
@@ -1881,6 +1972,7 @@ def main() -> None:
     gerar_portfolio_projecao_variantes()   # 7a.AV.2 (Task 10)
     gerar_portfolio_pre_v230()             # 7a.BD.2 (Task 6)
     gerar_ponte_esperado()                 # 7a.BD.2 (Task 6)
+    gerar_portfolio_ponte_longa()          # 7a.BE.2 (Task 7)
 
 
 if __name__ == "__main__":
