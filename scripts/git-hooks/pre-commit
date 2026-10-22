@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Pre-commit de PII do sibling publico (Fase 7a.BE.1).
+# Ativacao: `npm install` (script `prepare`) ou
+#   git config core.hooksPath scripts/git-hooks
+#
+# Mesmo detector e mesmo modo do CI (tests/pii/check_pii.py --mode audit), lendo
+# o index em vez da arvore. Falha FECHADO: sem python, ou com o detector
+# quebrado, o commit e barrado - nunca aceito em silencio.
+#
+# Os commits automaticos do pipeline (sync_pwa, sync_dossies, relatorio_artefato)
+# passam por aqui, sem --no-verify.
+
+set -euo pipefail
+
+# Sintoma: maquina so com `python3` no PATH e barrada DE PROPOSITO (falha fechado); a correcao e prover `python`.
+if ! command -v python >/dev/null 2>&1; then
+  echo "pre-commit (PII): python ausente no PATH — commit barrado" >&2
+  exit 1
+fi
+
+if ! python tests/pii/check_pii.py --mode audit --staged; then
+  echo "pre-commit (PII): commit barrado" >&2
+  exit 1
+fi
+
+exit 0

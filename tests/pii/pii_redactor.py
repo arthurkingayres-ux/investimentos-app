@@ -5,6 +5,7 @@ recebe dict, devolve novo dict. Idempotente por construcao.
 """
 from __future__ import annotations
 
+import importlib
 import re
 from dataclasses import dataclass
 from typing import Callable, Literal
@@ -35,6 +36,7 @@ PLACEHOLDER_CPF_FORMATADO = "000.000.000-00"
 PLACEHOLDER_CPF_LIMPO = "00000000000"
 PLACEHOLDER_CONTA = "9999999"
 PLACEHOLDER_NOME_ARQUIVO = "REDACTED.pdf"
+PLACEHOLDER_TOKEN_ARQUIVO = "REDACTED"
 
 
 # Mesmos padroes do pre-commit hook e do audit-history.sh:
@@ -46,15 +48,6 @@ _CPF_FORMATADO_RE = re.compile(r"(?<!\d)\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)")
 _CPF_LIMPO_RE = re.compile(r"(?<!\d)\d{11}(?!\d)")
 
 
-def _redigir_nome_arquivo(nome: str) -> str:
-    """Retorna PLACEHOLDER_NOME_ARQUIVO se nome contem padrao de CPF; senao nome intacto."""
-    if _CPF_FORMATADO_RE.search(nome):
-        return PLACEHOLDER_NOME_ARQUIVO
-    if _CPF_LIMPO_RE.search(nome):
-        return PLACEHOLDER_NOME_ARQUIVO
-    return nome
-
-
 # Fonte unica: scripts/git-hooks/pre-commit e scripts/audit-history.sh
 # delegam para listar_violacoes (via scripts/security/check_pii.py) desde 7a.25.
 _CPF_LIMPO_ADJ_RE = re.compile(
@@ -63,10 +56,95 @@ _CPF_LIMPO_ADJ_RE = re.compile(
 _CONTA_ADJ_RE = re.compile(
     r"(conta|CONTA)[^\n]{0,20}\b\d{7}\b"
 )
+# Conta (7 digitos exatos) embutida num nome de arquivo — o ponto cego que deixou
+# a conta XP vazar em fonte_arquivo (Fase 7a.31). Desacoplado em dois passos para
+# pegar TODAS as contas num mesmo token (nao so a primeira):
+#   1. _FILENAME_TOKEN_RE: token que termina em extensao de documento.
+#   2. _CONTA_7_RE: cada run de exatamente 7 digitos (lookarounds NAO casam
+#      numero_nota de 9 dig nem anos/datas de 2/4 dig).
+_FILENAME_TOKEN_RE = re.compile(
+    r"[\w.\-]*\.(?:pdf|png|jpe?g|heic)\b",
+    re.IGNORECASE,
+)
+_CONTA_7_RE = re.compile(r"(?<!\d)\d{7}(?!\d)")
+
+# Conta ALFANUMERICA marcada pelo literal `account=` — o ponto cego da Avenue
+# (Fase 7a.Y.3). Ela nomeia confirmacoes como
+# `Doc_<n>_CONFIRMATIONaccount=<TOKEN>_<TOKEN>_...`: token Avenue alfanumerico
+# marcado por `account=`. `_CONTA_7_RE` cobre so a conta XP de 7 digitos, entao
+# nem o redator nem o detector alcancavam esse token.
+#
+# A regra e ancorada no MARCADOR, nao na forma do token, e e isso que a mantem
+# estreita — alargar `_CONTA_7_RE` para alfanumerico transformaria ticker, data e
+# hash em suspeitos, em toda a arvore. O preco e conhecido e declarado: um token
+# solto, sem `account=` em lugar nenhum do texto, nao e detectado.
+_CONTA_MARCADA_RE = re.compile(r"account=([A-Za-z0-9]{4,})", re.IGNORECASE)
 
 _WHITELIST_CPF_FORMATADO = {"000.000.000-00"}
 _WHITELIST_CPF_LIMPO = {"00000000000"}
 _WHITELIST_CONTA = {"9999999"}
+
+
+# Modulos cuja AUSENCIA significa "nao ha whitelist local" (ex.: no sibling, onde
+# este arquivo roda sem o pacote `src`). Qualquer outro erro — inclusive um
+# ModuleNotFoundError levantado DENTRO do modulo local — propaga: falha alto em
+# vez de sumir com a whitelist.
+_MODULOS_LOCAIS_AUSENTES = frozenset(
+    {"src", "src.security", "src.security.pii_whitelist_local"}
+)
+
+
+def _carregar_whitelist_local() -> frozenset[str]:
+    # `import_module`, nao `from src.security import ...`: com o pacote presente e
+    # o modulo ausente, o `from` levanta ImportError generico, sem `e.name` util.
+    try:
+        pii_whitelist_local = importlib.import_module("src.security.pii_whitelist_local")
+    except ModuleNotFoundError as e:
+        if e.name in _MODULOS_LOCAIS_AUSENTES:
+            return frozenset()
+        raise
+    return frozenset(pii_whitelist_local.WHITELIST_CONTA_MARCADA)
+
+
+# Whitelist publica: so placeholders (`REDACTED` mantem a redacao idempotente);
+# a local, se existir, soma (`src/security/pii_whitelist_local.py`).
+_WHITELIST_CONTA_MARCADA = frozenset({PLACEHOLDER_TOKEN_ARQUIVO}) | _carregar_whitelist_local()
+
+
+def redigir_nome_arquivo(nome: str) -> str:
+    """Redige PII em nome de arquivo.
+
+    CPF (formatado ou limpo) -> nome inteiro vira PLACEHOLDER_NOME_ARQUIVO.
+    Conta (cada run de 7 digitos exatos num token de filename, fora da whitelist)
+    -> troca SO o(s) token(s) da conta por PLACEHOLDER_TOKEN_ARQUIVO, preservando
+    o resto. Redige TODAS as contas do token, nao so a primeira.
+    Idempotente (REDACTED nao tem digitos). (Fase 7a.31)
+    """
+    if _CPF_FORMATADO_RE.search(nome):
+        return PLACEHOLDER_NOME_ARQUIVO
+    if _CPF_LIMPO_RE.search(nome):
+        return PLACEHOLDER_NOME_ARQUIVO
+
+    def _redigir_contas_no_token(conta: "re.Match[str]") -> str:
+        return conta.group(0) if conta.group(0) in _WHITELIST_CONTA else PLACEHOLDER_TOKEN_ARQUIVO
+
+    def _sub_token(token: "re.Match[str]") -> str:
+        return _CONTA_7_RE.sub(_redigir_contas_no_token, token.group(0))
+
+    # Conta alfanumerica da Avenue: o TOKEN se repete no mesmo nome FORA do
+    # marcador (`account=<TOKEN>_<TOKEN>_...`), entao redige o VALOR em todas as
+    # posicoes — redigir so a ocorrencia casada deixaria a conta em claro logo ao
+    # lado. Roda ANTES do passo de 7 digitos, que e independente.
+    for marcada in set(_CONTA_MARCADA_RE.findall(nome)):
+        if marcada not in _WHITELIST_CONTA_MARCADA:
+            nome = nome.replace(marcada, PLACEHOLDER_TOKEN_ARQUIVO)
+
+    return _FILENAME_TOKEN_RE.sub(_sub_token, nome)
+
+
+# Alias interno: `_REGRAS` referencia o nome privado desde a 7a.31, e o
+# publico foi introduzido na 7a.Y.3 para consumo fora deste modulo.
+_redigir_nome_arquivo = redigir_nome_arquivo
 
 # Canonicos documentados aceitos em modo audit (sinteticos, publicos). Montados
 # via concatenacao para nao tropecar no proprio pre-commit hook, que e mais
@@ -118,6 +196,21 @@ def listar_violacoes(texto: str, mode: Literal["precommit", "audit"] = "precommi
             linha = texto[: match.start()].count("\n") + 1
             ctx = linhas[linha - 1] if 1 <= linha <= len(linhas) else ""
             violacoes.append(Violacao(categoria="conta_adj", valor=valor, linha=linha, contexto=ctx))
+    for match in _CONTA_MARCADA_RE.finditer(texto):
+        valor = match.group(1)
+        if valor not in _WHITELIST_CONTA_MARCADA:
+            linha = texto[: match.start()].count("\n") + 1
+            ctx = linhas[linha - 1] if 1 <= linha <= len(linhas) else ""
+            violacoes.append(Violacao(categoria="conta_marcada", valor=valor, linha=linha, contexto=ctx))
+    for fmatch in _FILENAME_TOKEN_RE.finditer(texto):
+        token = fmatch.group(0)
+        for cmatch in _CONTA_7_RE.finditer(token):
+            valor = cmatch.group(0)
+            if valor not in wl_conta:
+                abspos = fmatch.start() + cmatch.start()
+                linha = texto[:abspos].count("\n") + 1
+                ctx = linhas[linha - 1] if 1 <= linha <= len(linhas) else ""
+                violacoes.append(Violacao(categoria="conta_arquivo", valor=valor, linha=linha, contexto=ctx))
     return violacoes
 
 
@@ -136,6 +229,7 @@ _REGRAS: dict[str, list[_Regra]] = {
     "xp_notas": [
         _Regra(campo="cpf", substituir_por=PLACEHOLDER_CPF_FORMATADO),
         _Regra(campo="conta_xp", substituir_por=PLACEHOLDER_CONTA),
+        _Regra(campo="fonte_arquivo", transformacao=_redigir_nome_arquivo),
     ],
     "irpf": [
         _Regra(campo="arquivo_original", transformacao=_redigir_nome_arquivo),
