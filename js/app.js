@@ -4622,6 +4622,11 @@ document.addEventListener("alpine:init", () => {
         localStorage.setItem("pinTimestamp", String(Date.now()));
         // 7a.Q.3: carga do índice de relatórios (payload separado).
         await this.carregarIndiceRelatorios();
+        // Race guard: o lock (bloquear() ou o handler storage) pode ter rodado
+        // durante o await acima, já com a fase em raiox. Ele zera `json`, e o
+        // resto deste try lê `this.json.atualizado_em`: o throw cairia no catch
+        // abaixo e pintaria "carteira republicada" no lugar do PIN.
+        if (!this.segredo) return;
         // 7a.R.3.b: índice de dossiês — carga NÃO-bloqueante, fora do caminho
         // crítico. Nada na primeira pintura depende dele: as duas superfícies
         // que o consomem (a entrada no #ativo e os links do Relatório) são
