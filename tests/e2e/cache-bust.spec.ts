@@ -40,7 +40,12 @@ function versaoDe(texto: string): string {
  */
 function shellSemBump(ref?: string): string[] {
   const alvo = ref ?? "HEAD";
-  const ultimoSw = git("log", "-1", "--format=%H", alvo, "--", "service-worker.js");
+  // A base é o último commit que mudou o VALOR do CACHE_VERSION, não o último
+  // que tocou o arquivo: um worker novo com o mesmo nome de cache reusa o
+  // cache antigo, e o shell stale continua sendo servido.
+  const ultimoSw = git(
+    "log", "-1", "--format=%H", "-G", "const CACHE_VERSION = ", alvo, "--", "service-worker.js",
+  );
   const mudados = git("diff", "--name-only", ultimoSw, ...(ref ? [ref] : []), "--", ...SHELL)
     .split("\n")
     .filter(Boolean);
@@ -61,6 +66,11 @@ test.describe("guard: shell mudou ⇒ CACHE_VERSION subiu", () => {
   });
 
   test("controle positivo: o guard acusa a regressão real da 7a.BG.2", () => {
+    for (const sha of ["c20c76f", "82a30ac"]) {
+      let existe = true;
+      try { git("cat-file", "-e", `${sha}^{commit}`); } catch { existe = false; }
+      expect(existe, `commit ${sha} sumiu do histórico (squash/rebase?): troque o controle positivo`).toBe(true);
+    }
     expect(shellSemBump("c20c76f")).toEqual(["js/app.js"]);
     expect(shellSemBump("82a30ac")).toEqual([]);
   });
