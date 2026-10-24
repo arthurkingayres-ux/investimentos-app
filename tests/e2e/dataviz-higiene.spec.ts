@@ -64,7 +64,9 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
   test.describe("Task 1 — símbolo só no último ponto", () => {
     // 7a.BD.2: a série principal é "Sua carteira" e a única outra é o composto
     // ("Mesma carteira, só com índices"); as linhas de índice saíram do gráfico.
-    test("rentabilidade (Total): Sua carteira sem símbolo ao longo da linha + markPoint no último ponto; o composto sem símbolo e sem markPoint", async ({ page }) => {
+    // 7a.BG.2: o composto PASSA a ter o seu markPoint (subordinado: --gray,
+    // peso 600, círculo de 6 px), com o número no fim da curva tracejada.
+    test("rentabilidade (Total): as duas séries sem símbolo ao longo da linha + markPoint só no último ponto de cada uma", async ({ page }) => {
       await autenticar(page);
       await abrirRentabilidade(page);
 
@@ -84,11 +86,13 @@ test.describe("7a.S.3 — Higiene de dataviz (ECharts)", () => {
       expect(Array.isArray(markPoint.data)).toBe(true);
       expect(markPoint.data.length).toBe(1);
 
-      for (let i = 1; i < series.length; i++) {
-        const bench = series[i];
-        expect(bench.showSymbol).toBe(false);
-        expect(bench.markPoint ?? undefined).toBeUndefined();
-      }
+      const composto = series[1];
+      expect(composto.showSymbol).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const markPointInd = composto.markPoint as any;
+      expect(markPointInd).toBeTruthy();
+      expect(Array.isArray(markPointInd.data)).toBe(true);
+      expect(markPointInd.data.length).toBe(1);
     });
 
     test("patrimônio: Patrimônio sem símbolo + markPoint no último ponto; Aporte acum. sem símbolo e sem markPoint", async ({ page }) => {

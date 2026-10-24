@@ -795,6 +795,79 @@ function rent2Curvas(rP, rI, off, nTotal, iIni, iFim) {
   return [cart, ind];
 }
 
+// 7a.BG.2: valor de uma curva (fração) como texto do gráfico, "19,7%". O
+// mesmo formatter do tooltip, do markPoint e do aria (nada desenhado num
+// lugar e calculado noutro).
+function rent2FmtCurva(v) {
+  return v === null || v === undefined ? "—" : rent2PctPts(v * 100);
+}
+
+// 7a.BG.2: os textos do fim das duas curvas (último ponto DESENHADO de cada
+// uma; "—" sem ponto). Pura e sem `dc` de propósito: `_rent2Aplicar` a usa
+// para o aria e roda antes do guard de echarts/drarthurChart do
+// renderRentabilidade, e o placeholder de degradação tem de sobreviver.
+function rent2TextosFim(cart, ind, fmtPct) {
+  const iC = ultimoIndiceValido(cart);
+  const iI = ultimoIndiceValido(ind);
+  return {
+    textoCart: iC === -1 ? "—" : fmtPct(cart[iC]),
+    textoInd: iI === -1 ? "—" : fmtPct(ind[iI]),
+  };
+}
+
+// 7a.BG.2: os dois marcadores de fim de curva. Regra SEM limiar: o maior dos
+// dois valores finais leva o rótulo em cima e o menor embaixo, sempre (não só
+// quando estão próximos) — uma regra sem limiar não tem fronteira que possa
+// falhar, e nenhum rótulo se esconde. Empate: a carteira em cima. As duas
+// curvas são cortadas no mesmo t (rent2Curvas), então o último índice da
+// carteira serve às duas. A carteira segue protagonista (--ink, 700, 8 px);
+// os índices ficam subordinados (--gray, 600, 6 px), no mesmo círculo vazado.
+function rent2MarcadoresFim(cart, ind, fmtPct, dc) {
+  const idx = ultimoIndiceValido(cart);
+  const vC = idx === -1 ? null : cart[idx];
+  const vI = idx === -1 ? null : ind[idx];
+  const cartEmCima = vC === null || vI === null || vC >= vI;
+  const marcas = {
+    cart: criarMarkPointUltimo(cart, fmtPct, dc.tokens.ink, dc.fontFamily,
+      { posicao: cartEmCima ? "top" : "bottom" }),
+    ind: criarMarkPointUltimo(ind, fmtPct, dc.tokens.gray, dc.fontFamily,
+      { posicao: cartEmCima ? "bottom" : "top", peso: 600, tamanho: 6 }),
+  };
+  // Contorno na cor da superfície do card: o rótulo `bottom` fica no caminho
+  // da própria curva quando ela sobe íngreme até o fim (conferência visual,
+  // janela curta), e a linha cortava os dígitos. É legibilidade, não enfeite.
+  for (const m of [marcas.cart, marcas.ind]) {
+    if (m.label) Object.assign(m.label, { textBorderColor: dc.tokens.surface, textBorderWidth: 3 });
+  }
+  return marcas;
+}
+
+// 7a.BG.2: folga do eixo y embaixo, só quando o rótulo `bottom` precisa. O
+// rótulo de baixo é o do MENOR valor final; quando ele está perto do mínimo
+// das curvas (a janela termina em queda), caía abaixo do chão do grid, na
+// faixa dos mmm/aa do eixo x (medido: 16 px abaixo). A folga garante que o
+// valor final de baixo fique a ≥ RENT2_FOLGA_ROTULO da altura do eixo acima
+// do piso: com o gráfico de ~150 px de área útil, ~33 px, contra os ~23 px
+// que o rótulo ocupa (raio 4 + distância 8 + texto 11). Fora desse caso, a
+// folga é 0 e o eixo fica como sempre foi. Devolve o `boundaryGap` do yAxis,
+// em fração do intervalo dos dados. O ECharts arredonda o extent depois: o
+// piso arredondado só aumenta a folga; o teto arredondado a encolhe um pouco
+// em px, daí a margem entre os ~23 px e os ~33 px.
+const RENT2_FOLGA_ROTULO = 0.22;
+function rent2FolgaEixoY(cart, ind) {
+  const idx = ultimoIndiceValido(cart);
+  const vals = cart.concat(ind).filter((v) => v !== null && v !== undefined);
+  if (idx === -1 || ind[idx] === null || ind[idx] === undefined || !vals.length) return ["0%", 0];
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  const span = hi - lo;
+  if (!(span > 0)) return ["0%", 0];
+  const e = (Math.min(cart[idx], ind[idx]) - lo) / span; // altura do valor final de baixo, 0..1
+  const f = RENT2_FOLGA_ROTULO;
+  const g = Math.max(0, (f - e) / (1 - f));
+  return [`${(g * 100).toFixed(1)}%`, 0];
+}
+
 // "2.30" ≥ [2, 30], comparando número a número (nunca como texto: "2.4" > "2.30").
 function rent2VersaoAoMenos(versao, minimo) {
   const partes = String(versao || "").split(".").map((x) => Number(x));
@@ -830,7 +903,9 @@ function rent2Vazio() {
 // DESIGN.md anti-pattern #20) + rótulo do valor acima. Usa markPoint em vez
 // de per-point symbol callback: mais simples de recomputar a cada zoom
 // (L.1 já reancora a série; aqui só recalculamos coord+label do markPoint).
-// Benchmarks NUNCA recebem markPoint (função não é chamada para eles).
+// Benchmarks não recebem markPoint, com uma exceção nomeada (7a.BG.2): a
+// curva "Mesma carteira, só com índices" da #rentabilidade ganha o marcador
+// subordinado (rent2MarcadoresFim). "Aporte acum." do #patrimonio, nunca.
 function ultimoIndiceValido(dataArr) {
   if (!Array.isArray(dataArr)) return -1;
   for (let i = dataArr.length - 1; i >= 0; i--) {
@@ -909,20 +984,24 @@ function criarDataZoomInstrumento(dc) {
   ];
 }
 
-function criarMarkPointUltimo(dataArr, formatFn, cor, fontFamily) {
+// `opcoes` (7a.BG.2): `posicao` ("top" default), `peso` (700) e `tamanho` (8);
+// sem elas, o comportamento de antes (os chamadores do #patrimonio e da
+// carteira não mudam).
+function criarMarkPointUltimo(dataArr, formatFn, cor, fontFamily, opcoes = {}) {
+  const { posicao = "top", peso = 700, tamanho = 8 } = opcoes;
   const idx = ultimoIndiceValido(dataArr);
   if (idx === -1) return { data: [] };
   const valor = dataArr[idx];
   return {
     symbol: "circle",
-    symbolSize: 8,
+    symbolSize: tamanho,
     itemStyle: { color: "#fff", borderColor: cor, borderWidth: 2.5 },
     label: {
       show: true,
-      position: "top",
+      position: posicao,
       distance: 8,
       color: cor,
-      fontWeight: 700,
+      fontWeight: peso,
       fontSize: 11,
       fontFamily: fontFamily,
       formatter: () => formatFn(valor),
@@ -3952,14 +4031,19 @@ document.addEventListener("alpine:init", () => {
       const dc = window.drarthurChart;
       const xLabels = bloco.meses.slice(off).map(rent2MmmAa);
       const [cart, ind] = rent2Curvas(rP, rI, off, nTotal, iIni, iFim);
-      const fmtPct = (v) => (v == null ? "—" : rent2PctPts(v * 100));
+      const fmtPct = rent2FmtCurva;
+      const marcas = rent2MarcadoresFim(cart, ind, fmtPct, dc);
       const zoom = criarDataZoomInstrumento(dc).map((z) => {
         const { start, end, ...resto } = z;
         return { ...resto, startValue: iIni - 1 - off, endValue: iFim - off };
       });
       const chart = echarts.init(target, "drarthur", { renderer: "canvas" });
       const option = {
-        grid: { top: 28, right: 20, bottom: 40, left: 8, containLabel: true },
+        // 7a.BG.2: right 20 → 28. O rótulo do fim de curva é centrado no último
+        // ponto, que fica na borda direita do grid; com o contorno, um "−17,6%"
+        // tem ~42 px e passava 1 px da borda do canvas (medido pela caixa do
+        // zrender). 28 comporta até ~56 px ("−99,9%" com folga).
+        grid: { top: 28, right: 28, bottom: 40, left: 8, containLabel: true },
         tooltip: Object.assign({}, dc.tooltipBase, {
           trigger: "axis",
           formatter: (params) => dc.tooltipFormatterAxis(params, fmtPct),
@@ -3971,21 +4055,34 @@ document.addEventListener("alpine:init", () => {
           boundaryGap: false,
           axisLabel: { hideOverlap: true },
         },
-        yAxis: { type: "value", axisLabel: { formatter: (v) => rent2PctPts(v * 100).replace(",0%", "%") } },
+        // 7a.BG.2: folga embaixo só quando o rótulo `bottom` precisa
+        // (rent2FolgaEixoY). Em cima, a margem do grid (top: 28) já comporta o
+        // rótulo `top`.
+        yAxis: {
+          type: "value",
+          boundaryGap: rent2FolgaEixoY(cart, ind),
+          axisLabel: { formatter: (v) => rent2PctPts(v * 100).replace(",0%", "%") },
+        },
         dataZoom: zoom,
         series: [
           {
             name: "Sua carteira", type: "line", data: cart, smooth: false, showSymbol: false, connectNulls: false,
             lineStyle: { width: 2.5, color: dc.tokens.g700 }, itemStyle: { color: dc.tokens.g700 },
-            markPoint: criarMarkPointUltimo(cart, fmtPct, dc.tokens.ink, dc.fontFamily),
+            markPoint: marcas.cart,
           },
           {
             name: "Mesma carteira, só com índices", type: "line", data: ind, smooth: false, showSymbol: false,
             connectNulls: false,
             lineStyle: { width: 1.8, type: [5, 5], color: dc.tokens.gray }, itemStyle: { color: dc.tokens.gray },
+            markPoint: marcas.ind,
           },
         ],
-        aria: { enabled: true },
+        // 7a.BG.2: sem a descrição automática do ECharts. Ela grava o próprio
+        // aria-label (em inglês, com as frações cruas) no MESMO contêiner, depois
+        // do binding do Alpine, e o aria que diz os dois números (rent2Vista +
+        // _rent2Aplicar) sumia ao abrir a tela. O contêiner é role="img" e o
+        // único escritor do aria-label é o :aria-label do index.html.
+        aria: { enabled: false },
       };
       Object.assign(option, dc.motionConfig);
       try {
@@ -4020,6 +4117,12 @@ document.addEventListener("alpine:init", () => {
         bloco: ctx.bloco, escopo: ctx.escopo, moeda: ctx.moeda, chave, m0: ctx.m0,
         linhaUsuario: this.rent2.linhaUsuario,
       });
+      // 7a.BG.2: o aria do gráfico diz os dois números do fim das curvas, das
+      // MESMAS curvas que _rent2Curvas desenha para esta janela (também na vista
+      // indisponível: o rótulo segue a curva desenhada, cortada no buraco).
+      const [cart, ind] = rent2Curvas(ctx.rP, ctx.rI, ctx.off, ctx.nTotal, iIni, iFim);
+      const { textoCart, textoInd } = rent2TextosFim(cart, ind, rent2FmtCurva);
+      vista.ariaGrafico = `${vista.ariaGrafico}. Sua carteira ${textoCart}; só com índices ${textoInd}.`;
       this.rent2.iIni = iIni;
       this.rent2.iFim = iFim;
       this.rent2.chave = chave;
@@ -4047,7 +4150,8 @@ document.addEventListener("alpine:init", () => {
             + ".";
     },
 
-    // Redesenha as duas curvas reancoradas na janela (7a.L.1) e o markPoint.
+    // Redesenha as duas curvas reancoradas na janela (7a.L.1) e os dois
+    // markPoints (7a.BG.2: o da carteira e o dos índices, com o ranking novo).
     // Sem animação durante o arrasto; com a do tema quando veio de botão.
     _rent2Curvas(iIni, iFim, animar) {
       const ctx = this._rentCtx;
@@ -4055,13 +4159,14 @@ document.addEventListener("alpine:init", () => {
       if (!ctx || !chart) return;
       const dc = window.drarthurChart;
       const [cart, ind] = rent2Curvas(ctx.rP, ctx.rI, ctx.off, ctx.nTotal, iIni, iFim);
-      const fmtPct = (v) => (v == null ? "—" : rent2PctPts(v * 100));
+      const marcas = rent2MarcadoresFim(cart, ind, rent2FmtCurva, dc);
       try {
         chart.setOption({
           animationDurationUpdate: animar ? dc.motionConfig.animationDurationUpdate : 0,
+          yAxis: { boundaryGap: rent2FolgaEixoY(cart, ind) },
           series: [
-            { name: "Sua carteira", data: cart, markPoint: criarMarkPointUltimo(cart, fmtPct, dc.tokens.ink, dc.fontFamily) },
-            { name: "Mesma carteira, só com índices", data: ind },
+            { name: "Sua carteira", data: cart, markPoint: marcas.cart },
+            { name: "Mesma carteira, só com índices", data: ind, markPoint: marcas.ind },
           ],
         });
       } catch (_) {}
