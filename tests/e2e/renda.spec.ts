@@ -290,6 +290,10 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
     const i = r.heranca.pisos.findIndex((p: any) => p.configurado);
     expect(r.heranca.pisos[i].piso).toBeGreaterThanOrEqual(1_000_000);
     expect(norm(await page.locator(".renda-pisos tbody[aria-current='true']").textContent())).toContain(norm(fmt.pisos[i].piso));
+    // O rótulo já diz "O seu piso": o marcador da linha de baixo não se repete.
+    const t = norm(await page.locator(".renda-pisos tbody[aria-current='true']").textContent());
+    expect(t.startsWith("O seu piso")).toBe(true);
+    expect((t.match(/o seu piso/gi) || []).length).toBe(1);
   });
 
   test("notas do rodapé: IR, fonte do payload, premissas de hoje, US$ 60 mil, motivação", async ({ page }) => {
@@ -379,11 +383,51 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
 });
 
 test.describe("7a.BJ.2 — 320 px e Modo Plantão", () => {
-  for (const [nome, corpo] of [["normal", PRINCIPAL], ["zero", ZERO], ["cobrem", COBREM]] as const) {
-    test(`a 320 px (${nome}): sem rolagem horizontal e folga ≥ 8 px entre rótulo e valor nas tabelas`, async ({ page }) => {
+  // Fonte LARGA forçada além da do sistema (lição da projeção, 7a.AV.2/10-2026):
+  // o CI roda na DejaVu do Linux, mais larga que a Segoe; a 1ª versão deste
+  // teste passou no Windows e a tabela de pisos transbordou no CI.
+  // Escala ×100 (board do hotfix): os valores da fixture têm 3 a 4 dígitos por
+  // mês; a renda real pode ter 5 ou mais, e a largura que transborda é a do
+  // valor. Multiplica todo campo monetário do bloco no aparelho, sem fixture nova.
+  const MOEDA = "for (const k of ['anual','mensal','dividendos_mensal','vendas_mensal']) r.hoje[k] *= e;" +
+    "if (r.hoje.variacao_12m_mensal != null) r.hoje.variacao_12m_mensal *= e;" +
+    "r.premissas.piso_heranca_brl *= e; r.heranca.mediana_horizonte *= e;" +
+    "r.historico.forEach((x) => { x.mensal *= e; });" +
+    "r.projecao.forEach((x) => { x.p10 *= e; x.p50 *= e; x.p90 *= e; });" +
+    "r.guardrails.forEach((g) => { g.patrimonio *= e; g.mensal *= e; });" +
+    "r.heranca.pisos.forEach((p) => { p.piso *= e; p.mensal *= e; });";
+  for (const fonte of ["sistema", "larga"] as const) {
+    for (const escala of [1, 100] as const) {
+      for (const [nome, corpo] of [["normal", PRINCIPAL], ["zero", ZERO], ["cobrem", COBREM]] as const) {
+    test(`a 320 px (${nome}, fonte ${fonte}, valores ×${escala}): cada tabela cabe na coluna e folga ≥ 8 px entre rótulo e valor`, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 800 });
       await autenticar(page, corpo);
+      if (escala !== 1) {
+        await page.evaluate(([m, e]) => {
+          const d = (window as any).Alpine.$data(document.body);
+          const r = JSON.parse(JSON.stringify(d.json.renda));
+          new Function("r", "e", m as string)(r, e);
+          d.json = { ...d.json, renda: r };
+        }, [MOEDA, escala] as const);
+      }
       await abrirRenda(page);
+      if (fonte === "larga") {
+        await page.addStyleTag({ content:
+          '.tela-renda, .tela-renda * { font-family: "DejaVu Sans", Verdana, sans-serif !important; }' +
+          '.tela-renda .renda-heroi { font-family: "DejaVu Sans Mono", "Courier New", monospace !important; }' });
+        await page.evaluate(() => document.fonts.ready);
+        // Controle positivo pela renderização (piso 0,51 em/caractere, medido na projeção).
+        const em = await page.evaluate(() => {
+          const s = document.createElement("span");
+          s.textContent = "Desconto Retorno real 45 anos";
+          s.style.cssText = "position:absolute;visibility:hidden;font-size:100px;font-weight:400;letter-spacing:0;white-space:nowrap";
+          document.querySelector(".tela-renda .renda-ensaio")!.appendChild(s);
+          const w = s.getBoundingClientRect().width / (s.textContent!.length * 100);
+          s.remove();
+          return w;
+        });
+        expect(em).toBeGreaterThanOrEqual(0.51);
+      }
       const r = await page.evaluate(() => {
         const texto = (el: Element) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg.getBoundingClientRect(); };
         const folgas: { linha: string; folga: number }[] = [];
@@ -395,10 +439,18 @@ test.describe("7a.BJ.2 — 320 px e Modo Plantão", () => {
           folgas.push({ linha: norm(tr.textContent), folga: mesma ? b.left - a.right : 999 });
         }
         function norm(s: string | null) { return (s || "").replace(/\s+/g, " ").trim(); }
-        const tela = document.querySelector(".tela-renda")!.getBoundingClientRect();
+        // A régua é a COLUNA do ensaio (sem o padding da tela): medir contra
+        // .tela-renda escondia uma tabela 5 px mais larga dentro do padding.
+        const col = document.querySelector(".renda-ensaio")!.getBoundingClientRect();
         const fora = Array.from(document.querySelectorAll(".renda-ensaio *"))
-          .filter((el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.right > tela.right + 0.5; })
-          .map((el) => el.className);
+          .filter((el) => { const b = el.getBoundingClientRect(); return b.width > 0 && (b.right > col.right + 0.5 || b.left < col.left - 0.5); })
+          // O rótulo "hoje" é centrado no marcador (translateX(-50%)) e, com
+          // hoje perto do início do eixo, cruza a coluna e cai no padding da
+          // tela: ele é conferido contra a TELA logo abaixo, não contra a coluna.
+          .filter((el) => !el.classList.contains("renda-grafico__eixo-hoje") && !el.closest(".sr-only"))
+          .map((el) => el.className + " " + norm(el.textContent).slice(0, 30));
+        const h = document.querySelector(".renda-grafico__eixo-hoje")!.getBoundingClientRect();
+        if (h.left < 0 || h.right > document.documentElement.clientWidth) fora.push("renda-grafico__eixo-hoje fora da tela");
         return { folgas, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, fora };
       });
       expect(r.sw).toBeLessThanOrEqual(r.cw);
@@ -406,6 +458,8 @@ test.describe("7a.BJ.2 — 320 px e Modo Plantão", () => {
       expect(r.folgas.length).toBeGreaterThanOrEqual(8);
       for (const f of r.folgas) expect(f.folga, f.linha).toBeGreaterThanOrEqual(8);
     });
+      }
+    }
   }
 
   test("Modo Plantão: linha do passado, mediana e herói leem os tokens escuros", async ({ page }) => {

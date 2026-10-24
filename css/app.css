@@ -4196,7 +4196,12 @@ body:has(.tab-bar) main {
 .renda-tabela { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin: 0.5rem 0 0; }
 .renda-linha th, .renda-linha td { padding: 10px 0 0; border-top: 1px solid var(--neutral-200); vertical-align: baseline; }
 .renda-linha th { text-align: left; font-weight: 600; color: var(--ink); }
-.renda-linha td { text-align: right; padding-left: 12px; white-space: nowrap; color: var(--ink); }
+/* Só o número é inquebrável; "por mês" desce de linha quando falta espaço.
+   Com o td inteiro nowrap, a largura mínima da linha era a maior palavra do
+   rótulo + "R$ X por mês", e a 320 px na DejaVu do CI passava da coluna com
+   valores de 5+ dígitos (board do hotfix 7a.BJ.2). */
+.renda-linha td { text-align: right; padding-left: 12px; color: var(--ink); }
+.renda-linha td .renda-num { white-space: nowrap; }
 .renda-linha__sub td { padding: 2px 0 10px; color: var(--gray); font-size: 0.8125rem; line-height: 1.4; }
 .renda-linha__sub .renda-num { color: var(--ink); white-space: nowrap; }
 /* "e R$ Y" não se separa: a quebra cai antes do "e", nunca depois. */

@@ -2549,13 +2549,17 @@ document.addEventListener("alpine:init", () => {
       const P = r.guardrails.find((g) => g.choque === 0).patrimonio, H = r.premissas.idade_horizonte;
       const perto = (a, b) => Math.abs(a - b) <= Math.max(1, 0.005 * b);
       return r.heranca.pisos.map((p) => {
-        let rotulo = "Deixar " + this.formatBrlInteiro(p.piso);
+        // Rótulo curto: "Deixar R$ 1.200.000" não quebra (espaço inseparável
+        // depois do "R$") e, ao lado do valor nowrap, transbordava a 320 px na
+        // DejaVu do CI. O valor vai na linha de baixo, que quebra.
+        let rotulo = "O seu piso";
         if (p.piso === 0) rotulo = "Sem piso";
         else if (perto(p.piso, P / 2)) rotulo = "Metade do patrimônio";
         else if (perto(p.piso, P)) rotulo = "O patrimônio inteiro";
         const detalhe = p.piso === 0 ? "a carteira só não pode zerar antes dos " + H
           : "deixa ao menos " + this.formatBrlInteiro(p.piso) + " aos " + H;
-        return { ...p, rotulo, detalhe };
+        // O template só acrescenta "· o seu piso" quando o rótulo ainda não o diz.
+        return { ...p, rotulo, detalhe, rotuloDizSeuPiso: rotulo === "O seu piso" };
       });
     },
     rendaHerancaTexto() {

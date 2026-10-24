@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=80">
+  <link rel="stylesheet" href="css/app.css?v=81">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=82"></script>
+  <script src="js/app.js?v=83"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -1495,7 +1495,7 @@
               <template x-if="!rendaZero()">
                 <p class="renda-resposta">
                   <span class="renda-resposta__linha">Se você parasse de trabalhar hoje, sua carteira sustentaria</span>
-                  <span class="renda-resposta__valor"><strong class="renda-heroi" x-text="formatBrlInteiro(renda.hoje.mensal)"></strong><span class="renda-resposta__unidade"> por mês</span></span>
+                  <span class="renda-resposta__valor"><strong class="renda-heroi" x-text="formatBrlInteiro(renda.hoje.mensal)"></strong> <span class="renda-resposta__unidade">por mês</span></span>
                   <span class="renda-resposta__sub"><span class="renda-num" x-text="formatBrlInteiro(renda.hoje.anual)"></span> por ano, em reais de hoje.</span>
                 </p>
               </template>
@@ -1519,7 +1519,7 @@
                     <tbody>
                       <template x-for="l in rendaOrigem()" :key="l.chave">
                         <tr class="renda-linha"><th scope="row"><span class="renda-origem__marca" :class="'renda-origem__seg--' + l.chave" aria-hidden="true"></span><span x-text="l.rotulo"></span></th>
-                          <td class="renda-num" x-text="formatBrlInteiro(l.valor)"></td></tr>
+                          <td><span class="renda-num" x-text="formatBrlInteiro(l.valor)"></span></td></tr>
                       </template>
                     </tbody>
                   </table>
@@ -1569,7 +1569,7 @@
                 <template x-for="m in rendaMarcos()" :key="m.idade">
                   <tbody>
                     <tr class="renda-linha"><th scope="row" x-text="'Aos ' + m.idade"></th>
-                      <td class="renda-num" x-text="formatBrlInteiro(m.p50) + ' por mês'"></td></tr>
+                      <td><span class="renda-num" x-text="formatBrlInteiro(m.p50)"></span> por mês</td></tr>
                     <tr class="renda-linha__sub"><td colspan="2">8 em 10 cenários entre <span class="renda-num" x-text="formatBrlInteiro(m.p10)"></span> <span class="renda-par">e <span class="renda-num" x-text="formatBrlInteiro(m.p90)"></span></span></td></tr>
                   </tbody>
                 </template>
@@ -1585,7 +1585,7 @@
                 <template x-for="g in rendaGuardrails()" :key="g.choque">
                   <tbody>
                     <tr class="renda-linha"><th scope="row" x-text="g.rotulo"></th>
-                      <td class="renda-num" x-text="formatBrlInteiro(g.mensal) + ' por mês'"></td></tr>
+                      <td><span class="renda-num" x-text="formatBrlInteiro(g.mensal)"></span> por mês</td></tr>
                     <tr class="renda-linha__sub"><td colspan="2">carteira em <span class="renda-num" x-text="formatBrlInteiro(g.patrimonio)"></span></td></tr>
                   </tbody>
                 </template>
@@ -1603,8 +1603,8 @@
                 <template x-for="p in rendaPisos()" :key="p.piso">
                   <tbody :class="p.configurado ? 'renda-pisos__atual' : ''" :aria-current="p.configurado ? 'true' : null">
                     <tr class="renda-linha"><th scope="row" x-text="p.rotulo"></th>
-                      <td class="renda-num" x-text="formatBrlInteiro(p.mensal) + ' por mês'"></td></tr>
-                    <tr class="renda-linha__sub"><td colspan="2"><span x-text="p.detalhe"></span><template x-if="p.configurado"><span class="renda-pisos__seu"> · o seu piso</span></template></td></tr>
+                      <td><span class="renda-num" x-text="formatBrlInteiro(p.mensal)"></span> por mês</td></tr>
+                    <tr class="renda-linha__sub"><td colspan="2"><span x-text="p.detalhe"></span><template x-if="p.configurado && !p.rotuloDizSeuPiso"><span class="renda-pisos__seu"> · o seu piso</span></template></td></tr>
                   </tbody>
                 </template>
               </table>
