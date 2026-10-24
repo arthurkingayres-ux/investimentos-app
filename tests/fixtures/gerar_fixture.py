@@ -614,8 +614,11 @@ def _ponte_indices(n: int = _PONTE_MESES, anomalias: bool = True,
 
 
 def _ponte_sintetica(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INICIO,
-                     anomalias: bool = True, legado_cripto: bool = False) -> dict:
-    """Bloco ``ponte`` sintético (ver o comentário da seção). Sem
+                     anomalias: bool = True, legado_cripto: bool = False,
+                     extras: tuple = ()) -> dict:
+    """Bloco ``ponte`` sintético (ver o comentário da seção). ``extras`` são
+    ativos a mais, na forma de ``_PONTE_ATIVOS``, anexados DEPOIS de toda a
+    lista (nenhum id existente se desloca). Sem
     ``anomalias``: sem IFIX null, sem salto e ``buracos`` vazio em todos os escopos.
     ``legado_cripto`` devolve a forma 2.30 (HASH11 + BTC), só para ``pre_v231``."""
     meses = _ponte_meses(n, inicio)
@@ -626,6 +629,7 @@ def _ponte_sintetica(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INI
     if legado_cripto:
         base_classe["cripto"] = ind_brl["BTC"]
         lista.append(_PONTE_ATIVO_CRIPTO_LEGADO)
+    lista.extend(extras)
     ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": cesta}
               for (tk, c, p, cesta, *_resto) in lista]
     brl: list[list] = [[] for _ in range(n)]
@@ -729,6 +733,51 @@ def _ponte_longa() -> dict:
         for k in ("12m", "3a", "5a", "desde"):
             assert fixas[k]["indisponivel"] is None, (
                 f"bloco longo {escopo}/{moeda} {k}: {fixas[k]['indisponivel']!r}")
+    return bloco
+
+
+# 7a.BH.1: linha longa. 9 ativos SINT* a mais em ``acoes_br`` (4 de alfa
+# positivo, 4 de negativo e 1 minúsculo, que cai em "junto"): com ITSA4 e BBAS3
+# a linha ``acoes_br`` tem 11 ativos, para o e2e de "todos os ativos, sem Outros".
+_PONTE_EXTRAS_MUITOS = [
+    ("SINTA3", "acoes_br", False, None, 0, 5000.0, 200.0, 0.0090, 0.2),
+    ("SINTB3", "acoes_br", False, None, 0, 4500.0, 180.0, 0.0060, 0.8),
+    ("SINTC3", "acoes_br", False, None, 0, 4000.0, 160.0, 0.0040, 1.4),
+    ("SINTD3", "acoes_br", False, None, 0, 3500.0, 140.0, 0.0025, 2.1),
+    ("SINTE3", "acoes_br", False, None, 0, 5000.0, 200.0, -0.0180, 0.5),
+    ("SINTF3", "acoes_br", False, None, 0, 4500.0, 180.0, -0.0120, 1.1),
+    ("SINTG3", "acoes_br", False, None, 0, 4000.0, 160.0, -0.0080, 1.7),
+    ("SINTH3", "acoes_br", False, None, 0, 3500.0, 140.0, -0.0050, 2.4),
+    ("SINTI3", "acoes_br", False, None, 0, 20.0, 0.0, 0.0, 0.0),
+]
+
+
+def _ponte_muitos() -> dict:
+    """Bloco ``ponte`` da fixture de linha longa: a forma do curto (30 meses,
+    com anomalias) mais ``_PONTE_EXTRAS_MUITOS``. Afirma, pela referência
+    Python e com a conta da tela, que a janela 12m do Brasil exercita os três
+    grupos de ``acoes_br`` e que existem linhas exibidas > 0 e < 0."""
+    from src.calculadora.ponte import arredondar_fechando, janelas_fixas
+
+    bloco = _ponte_sintetica(extras=tuple(_PONTE_EXTRAS_MUITOS))
+    _confere_ponte(bloco)
+    j = janelas_fixas(bloco, "Brasil", "BRL")["12m"]
+    assert j["indisponivel"] is None, j["indisponivel"]
+    sua_d = round(j["sua"] * 100, 1)
+    ind_d = round(j["ind"] * 100, 1)
+    exib = arredondar_fechando([l["contrib"] * 100 for l in j["linhas"]], round(sua_d - ind_d, 1))
+    linhas = {l["id"]: v for l, v in zip(j["linhas"], exib)}
+    ativos = j["ativos"]["acoes_br"]
+    itens = arredondar_fechando([a["contrib"] * 100 for a in ativos], linhas["acoes_br"])
+    pos = sum(1 for v in itens if v >= 0.05)
+    neg = sum(1 for v in itens if v <= -0.05)
+    zero = sum(1 for v in itens if abs(v) < 0.05)
+    assert len(itens) == 11, len(itens)
+    assert pos >= 4 and neg >= 4 and zero >= 1, (pos, neg, zero, itens)
+    # Escopos nomeados do e2e "ordem dos grupos na tela": uma linha exibida < 0
+    # (``acoes_br``) e uma > 0 (``fiis``) na 12m do Brasil.
+    assert linhas["acoes_br"] < 0 < linhas["fiis"], linhas
+    print("ponte_muitos 12m Brasil:", linhas, "itens acoes_br:", itens)
     return bloco
 
 
@@ -1838,6 +1887,14 @@ def gerar_portfolio_pre_v230() -> None:
     print(f"Fixture gerada: {alvo}")
 
 
+def gerar_portfolio_ponte_muitos() -> None:
+    """7a.BH.1: PAYLOAD com a linha ``acoes_br`` de 11 ativos (e2e de "quem pesou")."""
+    payload = PAYLOAD | {"ponte": _ponte_muitos()}
+    alvo = OUT.parent / "portfolio_ponte_muitos.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
 def gerar_portfolio_ponte_longa() -> None:
     """7a.BE.2: PAYLOAD com o bloco longo (72 meses) para o e2e de 3a e 5a."""
     payload = PAYLOAD | {"ponte": _ponte_longa()}
@@ -2022,6 +2079,7 @@ def main() -> None:
     gerar_portfolio_cripto_zero()          # 7a.BG.1 (Task 7)
     gerar_ponte_esperado()                 # 7a.BD.2 (Task 6)
     gerar_portfolio_ponte_longa()          # 7a.BE.2 (Task 7)
+    gerar_portfolio_ponte_muitos()         # 7a.BH.1 (Task 2)
 
 
 if __name__ == "__main__":

@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=78">
+  <link rel="stylesheet" href="css/app.css?v=79">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=79"></script>
+  <script src="js/app.js?v=81"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -562,27 +562,24 @@
                       </template>
                       <span x-text="rent2.vista.pesou.resto"></span>
                     </p>
-                    <ul class="ponte-pesou-lista" x-show="!rent2.vista.pesou.neutra">
-                      <template x-for="a in rent2.vista.pesou.itens" :key="'m' + a.t">
-                        <li class="ponte-pesou-item" data-testid="pesou-ativo" :data-ticker="a.t">
-                          <span class="ponte-pesou-ticker" x-text="a.t"></span>
-                          <span class="ponte-pesou-valor" :class="'is-' + a.sinal" x-text="a.texto"></span>
-                        </li>
-                      </template>
-                      <template x-for="(a, i) in rent2.vista.pesou.opostos" :key="'o' + a.t">
-                        <li class="ponte-pesou-item" :class="{ 'ponte-pesou-item--filete': i === 0 && rent2.vista.pesou.itens.length }"
-                            data-testid="pesou-ativo" :data-ticker="a.t">
-                          <span class="ponte-pesou-ticker" x-text="a.t"></span>
-                          <span class="ponte-pesou-valor" :class="'is-' + a.sinal" x-text="a.texto"></span>
-                        </li>
-                      </template>
-                      <template x-if="rent2.vista.pesou.outros">
-                        <li class="ponte-pesou-item ponte-pesou-item--outros" data-testid="pesou-outros">
-                          <span class="ponte-pesou-ticker" x-text="rent2.vista.pesou.outros.rotulo"></span>
-                          <span class="ponte-pesou-valor" :class="'is-' + rent2.vista.pesou.outros.sinal" x-text="rent2.vista.pesou.outros.texto"></span>
-                        </li>
-                      </template>
-                    </ul>
+                    <template x-for="g in rent2.vista.pesou.grupos" :key="g.id">
+                      <div class="ponte-pesou-grupo" data-testid="pesou-grupo" :data-grupo="g.id">
+                        <p class="ponte-pesou-cab" :id="'pesou-cab-' + g.id" data-testid="pesou-cab">
+                          <span class="ponte-pesou-cab-rotulo"><span x-text="g.titulo"></span><span class="ponte-pesou-cab-conta" x-text="' · ' + g.contagem"></span></span>
+                          <template x-if="g.sub">
+                            <span class="ponte-pesou-valor" :class="'is-' + g.sub.sinal" data-testid="pesou-sub" :data-valor="g.sub.valor" x-text="g.sub.texto"></span>
+                          </template>
+                        </p>
+                        <ul class="ponte-pesou-lista" :aria-labelledby="'pesou-cab-' + g.id">
+                          <template x-for="a in g.itens" :key="g.id + a.t">
+                            <li class="ponte-pesou-item" data-testid="pesou-ativo" :data-ticker="a.t" :data-valor="a.valor">
+                              <span class="ponte-pesou-ticker" x-text="a.t"></span>
+                              <span class="ponte-pesou-valor" :class="'is-' + a.sinal" x-text="a.texto"></span>
+                            </li>
+                          </template>
+                        </ul>
+                      </div>
+                    </template>
                   </div>
                 </template>
               </section>

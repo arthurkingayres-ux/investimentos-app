@@ -613,52 +613,77 @@ function rent2EstiloBarra(b) {
   return `transform: translateX(${(b.L * 100).toFixed(3)}%) scaleX(${b.W.toFixed(5)})`;
 }
 
-// "Quem pesou" da linha `lid` (brief §2.7 e §3): até 3 do sinal da linha, até
-// 3 do sinal oposto e "Outros" com o resto, para a lista fechar com a linha
-// exibida. Ordem e corte por CONTRIBUIÇÃO (nunca por retorno do ativo).
+// "Quem pesou" da linha `lid` (spec 7a.BH §3): TODOS os ativos da linha, em
+// até três grupos — tiraram, somaram e "junto" (|valor exibido| < RENT2_NEUTRO)
+// —, cada um com contagem e subtotal (o "junto" não tem). O grupo sai do valor
+// EXIBIDO (pós `arredondarFechando`), nunca do bruto, então os subtotais fecham
+// com a linha exibida. Ordem dos grupos: o do sinal da linha primeiro; linha
+// neutra, maior |subtotal| (empate: tiraram); "junto" sempre por último; grupo
+// vazio não entra. Dentro do grupo: |valor| decrescente, empate pelo ticker.
 function rent2Pesou(r, lid, valorLinha, sufixo) {
   const rotulo = RENT2_ROTULO_LINHA[lid];
   const plural = RENT2_LINHA_PLURAL[lid];
   const linha = r.linhas.find((l) => l.id === lid);
   const indice = RENT2_NOME_INDICE[linha.indice] || linha.indice;
-  if (Math.abs(valorLinha) < RENT2_NEUTRO) {
+  const neutra = Math.abs(valorLinha) < RENT2_NEUTRO;
+  const ativos = r.ativos[lid] || [];
+  const exib = arredondarFechando(ativos.map((a) => a.contrib * 100), valorLinha);
+  const lista = ativos.map((a, i) => ({ t: a.t, v: exib[i] }));
+  const porTamanho = (a, b) => (Math.abs(b.v) - Math.abs(a.v)) || (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  const porTicker = (a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  const fmt = (a) => ({ t: a.t, ...rent2Pontos(a.v) });
+  const qtdAtivos = (n) => `${n} ${n === 1 ? "ativo" : "ativos"}`;
+  const monta = (id, itens, titulos) => {
+    if (!itens.length) return null;
+    const soma = ponteRoundPy(itens.reduce((s, a) => s + a.v, 0), 1);
+    return {
+      id,
+      titulo: itens.length === 1 ? titulos[1] : titulos[0],
+      contagem: qtdAtivos(itens.length),
+      sub: id === "junto" ? null : rent2Pontos(soma),
+      itens: itens.map(fmt),
+    };
+  };
+  const junto = lista.filter((a) => Math.abs(a.v) < RENT2_NEUTRO).sort(porTicker);
+  const tiraram = lista.filter((a) => a.v <= -RENT2_NEUTRO).sort(porTamanho);
+  const somaram = lista.filter((a) => a.v >= RENT2_NEUTRO).sort(porTamanho);
+  const gT = monta("tiraram", tiraram, ["Tiraram pontos", "Tirou pontos"]);
+  const gS = monta("somaram", somaram, ["Somaram pontos", "Somou pontos"]);
+  const gJ = monta("junto", junto, ["Andaram junto", "Andou junto"]);
+  // Spec 7a.BH §3.1: "maior |subtotal| primeiro; empate, tiraram". Na linha neutra
+  // o valorLinha é 0 e arredondarFechando fecha a soma exibida em 0, então
+  // |somaram| = |tiraram| sempre: a regra se reduz a "tiraram primeiro".
+  const sinais = neutra ? [gT, gS] : valorLinha > 0 ? [gS, gT] : [gT, gS];
+  const grupos = sinais.concat([gJ]).filter(Boolean);
+  if (neutra) {
     return {
       neutra: true,
       linha: rotulo,
       verbo: "",
       qtd: "",
-      resto: `${plural ? "andaram" : "andou"} junto com o índice (${indice}) nesta janela. Nada a explicar aqui.`,
-      itens: [],
-      opostos: [],
-      outros: null,
+      resto: `${plural ? "andaram" : "andou"} junto com o ${indice} nesta janela.`,
+      grupos,
     };
   }
-  const ativos = r.ativos[lid] || [];
-  const exib = arredondarFechando(ativos.map((a) => a.contrib * 100), valorLinha);
-  const lista = ativos.map((a, i) => ({ t: a.t, v: exib[i] }));
   const positivo = valorLinha > 0;
-  const comValor = lista.filter((a) => Math.abs(a.v) >= RENT2_NEUTRO);
-  const pos = comValor.filter((a) => a.v > 0).sort((a, b) => b.v - a.v);
-  const neg = comValor.filter((a) => a.v < 0).sort((a, b) => a.v - b.v);
-  const mesmo = (positivo ? pos : neg).slice(0, 3);
-  const oposto = (positivo ? neg : pos).slice(0, 3);
-  const mostrados = new Set(mesmo.concat(oposto));
-  const n = lista.filter((a) => !mostrados.has(a)).length;
-  const somaMostrada = mesmo.concat(oposto).reduce((s, a) => s + a.v, 0);
-  const somaResto = ponteRoundPy(valorLinha - somaMostrada, 1);
-  const fmt = (a) => ({ t: a.t, ...rent2Pontos(a.v) });
   return {
     neutra: false,
     linha: rotulo,
     verbo: positivo ? (plural ? "somaram" : "somou") : (plural ? "tiraram" : "tirou"),
     qtd: `${rent2Abs1(valorLinha)} ${rent2PontoPontos(valorLinha)}`,
-    resto: `${sufixo} contra o ${indice}. Quem mais pesou:`,
-    itens: mesmo.map(fmt),
-    opostos: oposto.map(fmt),
-    outros: n > 0 && Math.abs(somaResto) >= RENT2_NEUTRO
-      ? { rotulo: n === 1 ? "Outro ativo" : `Outros ${n} ativos`, ...rent2Pontos(somaResto) }
-      : null,
+    resto: `${sufixo} contra o ${indice}.`,
+    grupos,
   };
+}
+
+// Texto do aria-live de "quem pesou": a frase da linha e, por grupo, só
+// cabeçalho, contagem e subtotal — nenhum ticker (spec 7a.BH §3).
+function rent2AnuncioPesou(p) {
+  if (!p) return "";
+  const base = p.neutra ? `${p.linha} ${p.resto}` : `${p.linha} ${p.verbo} ${p.qtd} ${p.resto}`;
+  return base + p.grupos.map((g) => (g.sub
+    ? ` ${g.titulo}, ${g.contagem}, ${g.sub.valor > 0 ? "mais" : "menos"} ${rent2Abs1(g.sub.valor)}.`
+    : ` ${g.titulo}, ${g.contagem}.`)).join("");
 }
 
 // Vista completa da tela para a janela iIni..iFim (inclusivos). `r` é a saída
@@ -4167,13 +4192,7 @@ document.addEventListener("alpine:init", () => {
       if (v.indisponivel) { this.rent2.anuncio = v.indisponivel; this.rent2.anuncioPesou = ""; return; }
       const numero = v.numero.replace(/[▲▼]\s*/, "");
       this.rent2.anuncio = `${v.frase} ${numero} ${v.unidade}.`;
-      const p = v.pesou;
-      this.rent2.anuncioPesou = !p ? ""
-        : p.neutra ? `${p.linha} ${p.resto}`
-          : `${p.linha} ${p.verbo} ${p.qtd} ${p.resto} `
-            + p.itens.concat(p.opostos).map((a) => `${a.t} ${a.texto.replace(/[▲▼]\s*/, "")}`).join(", ")
-            + (p.outros ? `, ${p.outros.rotulo} ${p.outros.texto.replace(/[▲▼]\s*/, "")}` : "")
-            + ".";
+      this.rent2.anuncioPesou = rent2AnuncioPesou(v.pesou);
     },
 
     // Redesenha as duas curvas reancoradas na janela (7a.L.1) e os dois

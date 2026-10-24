@@ -283,7 +283,7 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     expect(aberta.valor).toBe(menor);
     expect(aberta.id).toBe("fiis");
     await expect(page.locator(tid("ponte-pesou"))).toContainText(
-      "FIIs somaram 0,4 ponto ao ano contra o IFIX. Quem mais pesou:",
+      "FIIs somaram 0,4 ponto ao ano contra o IFIX.",
     );
     expect((await tickersPesou(page)).sort()).toEqual(["HGLG11", "XPML11"]);
 
@@ -291,9 +291,9 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     await expect(page.locator(`${tid("ponte-linha")}[data-linha="acoes_br"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`${tid("ponte-linha")}[data-linha="fiis"]`)).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator(tid("ponte-pesou"))).toContainText(
-      "Ações BR somaram 0,5 ponto ao ano contra o Ibovespa. Quem mais pesou:",
+      "Ações BR somaram 0,5 ponto ao ano contra o Ibovespa.",
     );
-    // a linha positiva lista primeiro quem somou
+    // a linha positiva lista primeiro o grupo de quem somou
     expect(await tickersPesou(page)).toEqual(["ITSA4", "BBAS3"]);
     await expect(page.locator(`${tid("pesou-ativo")}[data-ticker="ITSA4"]`)).toContainText("▲ +0,9");
     await expect(page.locator(`${tid("pesou-ativo")}[data-ticker="BBAS3"]`)).toContainText("▼ −0,4");
@@ -396,12 +396,16 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     expect(fora.texto).not.toMatch(/[▲▼]/);
     expect(fora.pressed).toBe("true"); // a menor contribuição exibida
     await expect(page.locator(tid("ponte-pesou"))).toContainText(
-      "Fora da política atual andou junto com o índice (S&P 500 com dividendos) nesta janela. Nada a explicar aqui.",
+      "Fora da política atual andou junto com o S&P 500 com dividendos nesta janela.",
     );
-    await expect(page.locator(tid("pesou-ativo"))).toHaveCount(0);
+    // linha neutra: os ativos da linha (O e o rebate, que não é mais escondido
+    // atrás de "Outros") aparecem, ambos no grupo "junto"
+    await expect(page.locator(tid("pesou-ativo"))).toHaveCount(2);
+    await expect(page.locator(`${tid("pesou-grupo")}[data-grupo="junto"] [data-ticker="O"]`)).toHaveCount(1);
+    await expect(page.locator(`${tid("pesou-grupo")}[data-grupo="junto"] [data-ticker="Rebates da corretora"]`)).toHaveCount(1);
     // a live region leva a mesma frase neutra (ramo `neutra` de _rent2Anunciar)
     await expect(page.locator(tid("rent2-anuncio-pesou"))).toHaveText(
-      "Fora da política atual andou junto com o índice (S&P 500 com dividendos) nesta janela. Nada a explicar aqui.",
+      "Fora da política atual andou junto com o S&P 500 com dividendos nesta janela. Andaram junto, 2 ativos.",
     );
     const corNeutra = await page.locator(`${tid("ponte-linha")}[data-linha="fora"] .ponte-valor`).evaluate(
       (e) => [getComputedStyle(e).color, getComputedStyle(document.documentElement).getPropertyValue("--gray").trim()],
@@ -498,7 +502,7 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
       .toEqual(["SP500TR"]);
   });
 
-  test("Fora da política, linha de um ativo só: 'quem pesou' mostra só ele", async ({ page }) => {
+  test("Fora da política, linha de um ativo e o rebate: 'quem pesou' mostra os dois, cada um no seu grupo", async ({ page }) => {
     await autenticar(page);
     await abrir(page);
     await escopo(page, "EUA");
@@ -516,8 +520,13 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     await fora.click();
     await expect(page.locator(tid("ponte-pesou"))).toContainText("Fora da política atual somou");
     await expect(page.locator(tid("ponte-pesou"))).toContainText("contra o S&P 500 com dividendos");
-    expect(await tickersPesou(page)).toEqual(["O"]);
-    await expect(page.locator(tid("pesou-outros"))).toHaveCount(0);
+    // 7a.BH.1: o rebate (±0,0) deixou de sumir atrás de "Outros" e vai a "junto"
+    expect(await tickersPesou(page)).toEqual(["O", "Rebates da corretora"]);
+    expect(await page.locator(tid("pesou-grupo")).evaluateAll((els) => els.map((e) => e.getAttribute("data-grupo")))).toEqual(["somaram", "junto"]);
+    // Trava contra "Outros" com qualquer testid: todo li da lista é um pesou-ativo.
+    const totalLi = await page.locator(`${tid("ponte-pesou")} li`).count();
+    expect(totalLi).toBeGreaterThan(0);
+    await expect(page.locator(`${tid("ponte-pesou")} li[data-testid="pesou-ativo"]`)).toHaveCount(totalLi);
   });
 
   test("veredito em perda e em empate", async ({ page }) => {
@@ -639,7 +648,7 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
       "Nos últimos 12 meses, você ganhou da sua carteira de índices. +1,0 ponto ao ano.",
     );
     await expect(page.locator(tid("rent2-anuncio-pesou"))).toHaveText(
-      "Ações BR somaram 0,2 ponto ao ano contra o Ibovespa. Quem mais pesou: ITSA4 +0,4, BBAS3 −0,2.",
+      "Ações BR somaram 0,2 ponto ao ano contra o Ibovespa. Somou pontos, 1 ativo, mais 0,4. Tirou pontos, 1 ativo, menos 0,2.",
     );
     // a parte visual não é live region (senão o arrasto inundaria o leitor de tela)
     await expect(page.locator(`${TELA} .rent2-veredito`)).not.toHaveAttribute("aria-live", /.*/);

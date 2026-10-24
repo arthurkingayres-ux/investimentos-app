@@ -2495,7 +2495,26 @@ button.ponte-degrau { cursor: pointer; }
 /* Quem pesou — o único grifo da tela (.grifo da casa) */
 .ponte-pesou { margin: 0 0 24px; }
 .ponte-pesou-frase { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); }
-.ponte-pesou-lista { list-style: none; margin: 10px 0 0; padding: 0; }
+/* Grupos (7a.BH.1): sem cartão nem borda lateral; o filete só separa o 2º grupo
+   em diante. O cabeçalho quebra a 320px; contagem e subtotal nunca truncam. */
+.ponte-pesou-grupo + .ponte-pesou-grupo { border-top: 1px solid var(--neutral-200); margin-top: 8px; }
+.ponte-pesou-cab {
+  margin: 0;
+  padding: 12px 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  column-gap: 16px;
+  row-gap: 2px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ponte-pesou-cab-rotulo { min-width: 0; }
+.ponte-pesou-cab-conta { font-weight: 500; color: var(--gray); }
+.ponte-pesou-cab .ponte-pesou-valor { margin-left: auto; }  /* quebrado, o subtotal fica na coluna dos valores */
+.ponte-pesou-lista { list-style: none; margin: 0; padding: 0; }
 .ponte-pesou-item {
   display: flex;
   justify-content: space-between;
@@ -2503,10 +2522,7 @@ button.ponte-degrau { cursor: pointer; }
   gap: 16px;
   padding: 6px 0;
 }
-.ponte-pesou-item--filete { border-top: 1px solid var(--neutral-200); margin-top: 4px; padding-top: 10px; }
-.ponte-pesou-item--outros { color: var(--gray); }
-.ponte-pesou-ticker { min-width: 0; font-weight: 600; font-size: 0.875rem; }
-.ponte-pesou-item--outros .ponte-pesou-ticker { font-weight: 500; }
+.ponte-pesou-ticker { min-width: 0; font-weight: 500; font-size: 0.875rem; color: var(--ink); }
 .ponte-pesou-valor {
   font-family: var(--mono);
   font-size: var(--num-sm);
