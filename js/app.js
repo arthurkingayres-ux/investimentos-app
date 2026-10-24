@@ -1461,6 +1461,13 @@ document.addEventListener("alpine:init", () => {
         this.tab = "raiox";
         return;
       }
+      if (path === "/raiox/renda") {
+        // 7a.BJ.2: renda da carteira, push child da tab Raio-X, irmã da
+        // projeção. voltar() cai em home["raiox"] = "" (mapa genérico).
+        this.rota = "renda";
+        this.tab = "raiox";
+        return;
+      }
       if (path === "/raiox/chart") {
         // 7a.I.5: chart full é push child da tab Raio-X. URL canônica.
         this.rota = "patrimonio";
@@ -2406,6 +2413,166 @@ document.addEventListener("alpine:init", () => {
       return 10 * p;
     },
     projPercentis() { return PROJ_PERCENTIS; },
+
+    // 7a.BJ.2: bloco `renda` v2.32 — quanto a carteira sustenta de renda hoje,
+    // no passado e na projeção (src/output/renda_bloco.py). Como na projeção,
+    // só é "disponível" com a forma completa: payload < 2.32, `renda: null` ou
+    // bloco parcial caem em null (card some, rota diz "indisponível hoje"),
+    // nunca em TypeError no template. Número tem de ser finito, não só presente.
+    get renda() {
+      const j = this.json, r = j && j.renda;
+      if (!r || !rent2VersaoAoMenos(j.versao, [2, 32])) return null;
+      const num = Number.isFinite;
+      const p = r.premissas, h = r.hoje, he = r.heranca;
+      if (!p || !num(p.idade_atual) || !num(p.idade_horizonte) || !num(p.probabilidade) || !num(p.piso_heranca_brl)) return null;
+      if (!p.fonte || !p.fonte.nome) return null;
+      if (!h || !["anual", "mensal", "dividendos_mensal", "vendas_mensal"].every((k) => num(h[k]))) return null;
+      if (!(h.variacao_12m_mensal == null || num(h.variacao_12m_mensal))) return null;
+      if (!Array.isArray(r.historico) || !r.historico.length || !r.historico.every((x) => x && x.data && num(x.mensal))) return null;
+      if (!Array.isArray(r.projecao) || !r.projecao.every((x) => x && num(x.idade) && num(x.ano) && num(x.p10) && num(x.p50) && num(x.p90))) return null;
+      if (!Array.isArray(r.marcos)) return null;
+      // Board BJ.2: sem cardinalidade fixa (o backend publica 4 choques hoje);
+      // o que o template exige é o choque 0, régua dos pisos, e os booleanos.
+      if (!Array.isArray(r.guardrails) || !r.guardrails.every((g) => g && num(g.choque) && num(g.patrimonio) && num(g.mensal))) return null;
+      if (!r.guardrails.some((g) => g.choque === 0)) return null;
+      if (typeof h.proventos_cobrem !== "boolean") return null;
+      if (!he || !num(he.mediana_horizonte) || !Array.isArray(he.pisos) || !he.pisos.length) return null;
+      if (!he.pisos.every((x) => x && num(x.piso) && num(x.mensal) && typeof x.configurado === "boolean")) return null;
+      return r;
+    },
+    // Renda 0 por piso alto (spec §5.4): a frase do piso toma o lugar do herói.
+    rendaZero() { const r = this.renda; return !!r && !(r.hoje.mensal > 0); },
+    rendaCardTexto() {
+      const r = this.renda;
+      if (!r) return "";
+      return this.rendaZero() ? "Com o piso atual, ainda não sustenta renda"
+        : "Sua carteira já pagaria " + this.formatBrlInteiro(r.hoje.mensal) + " por mês";
+    },
+    // Chip de 12 meses (reais de cada época, spec §6 a): informa, não celebra.
+    // O sinal vai em TEXTO (+/−); a cor do chip é neutra nos dois sentidos.
+    rendaChip() {
+      const r = this.renda;
+      if (!r || this.rendaZero() || r.hoje.variacao_12m_mensal == null) return null;
+      // Arredonda o MÓDULO: Math.round(−95,5) daria −95, e o mesmo valor
+      // positivo daria 96 (assimetria do JS, achada pelo e2e do chip negativo).
+      const v = r.hoje.variacao_12m_mensal, a = Math.round(Math.abs(v));
+      if (a === 0) return "Igual a 12 meses atrás";
+      return (v < 0 ? "−" : "+") + this.formatBrlInteiro(a) + " por mês em 12 meses";
+    },
+    // "De onde viria": proventos e vendas por mês. Se os proventos cobrem a
+    // renda, uma linha só, 100% proventos.
+    rendaOrigem() {
+      const r = this.renda;
+      if (!r || this.rendaZero()) return [];
+      const h = r.hoje, pct = (v) => Math.min(100, Math.max(0, (v / h.mensal) * 100));
+      const prov = { chave: "proventos", rotulo: "Dividendos e aluguéis", valor: h.dividendos_mensal, pct: pct(h.dividendos_mensal) };
+      if (h.proventos_cobrem) return [{ ...prov, valor: h.mensal, pct: 100 }];
+      return [prov, { chave: "vendas", rotulo: "Vendas de cotas", valor: h.vendas_mensal, pct: pct(h.vendas_mensal) }];
+    },
+    rendaFmtProb() { const r = this.renda; return r ? Math.round(r.premissas.probabilidade * 100) + "%" : ""; },
+    // Linhas da projeção que são marcos da tabela (o backend já os filtra para
+    // o futuro); marco sem linha publicada sai.
+    rendaMarcos() {
+      const r = this.renda;
+      return r ? r.projecao.filter((l) => r.marcos.includes(l.idade)) : [];
+    },
+    rendaFinal() { const r = this.renda; return r && r.projecao.length ? r.projecao[r.projecao.length - 1] : null; },
+    // Gráfico SVG (viewBox 0..100 nos dois eixos, preserveAspectRatio none,
+    // traço com vector-effect: non-scaling-stroke). Tempo em anos fracionários:
+    // o passado nas datas da série, a projeção em 31/12 de cada ano. Eixo de
+    // R$ 0 ao teto redondo do maior valor desenhado (a escada da projeção). O
+    // marcador de hoje é HTML posicionado em %, para não se deformar.
+    rendaGrafico() {
+      const r = this.renda;
+      const vazio = { passado: "", mediana: "", faixa: "", hoje: { x: 0, y: 100 }, teto: 1, inicio: "", fim: "", mostrarInicio: false };
+      if (!r) return vazio;
+      const anos = (iso) => { const [a, m, d] = iso.split("-").map(Number); return a + (m - 1) / 12 + (d - 1) / 365; };
+      const hist = r.historico.map((x) => ({ t: anos(x.data), v: x.mensal }));
+      const h = hist[hist.length - 1];
+      const proj = r.projecao.map((l) => ({ t: l.ano + 1, p10: l.p10, p50: l.p50, p90: l.p90, idade: l.idade })).filter((l) => l.t > h.t);
+      const t0 = hist[0].t, t1 = proj.length ? proj[proj.length - 1].t : h.t;
+      const span = t1 - t0 > 0 ? t1 - t0 : 1;
+      const teto = this.projEixoTeto(Math.max(0, ...hist.map((x) => x.v), ...proj.map((l) => l.p90)));
+      const X = (t) => +(((t - t0) / span) * 100).toFixed(2);
+      const Y = (v) => +(100 - Math.min(100, Math.max(0, (v / teto) * 100))).toFixed(2);
+      const linha = (pts) => pts.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ");
+      const hoje = [X(h.t), Y(h.v)];
+      return {
+        passado: linha(hist.map((x) => [X(x.t), Y(x.v)])),
+        mediana: proj.length ? linha([hoje, ...proj.map((l) => [X(l.t), Y(l.p50)])]) : "",
+        faixa: proj.length ? [hoje, ...proj.map((l) => [X(l.t), Y(l.p90)]), ...proj.slice().reverse().map((l) => [X(l.t), Y(l.p10)])].map((p) => p.join(",")).join(" ") : "",
+        hoje: { x: hoje[0], y: hoje[1] },
+        teto,
+        inicio: r.historico[0].data.slice(0, 4),
+        fim: proj.length ? "aos " + proj[proj.length - 1].idade : "",
+        // "hoje" perto do começo do eixo colidiria com o ano inicial: o ano sai.
+        mostrarInicio: hoje[0] >= 18,
+      };
+    },
+    rendaGraficoLabel() {
+      const r = this.renda, f = this.rendaFinal();
+      if (!r) return "";
+      const ini = r.historico[0];
+      let t = "Renda que a carteira sustentaria por mês: " + this.formatBrlInteiro(ini.mensal) + " em "
+        + window.formatMesAno(ini.data.slice(0, 7)) + ", " + this.formatBrlInteiro(r.hoje.mensal) + " hoje";
+      if (f) t += " e, no cenário central, " + this.formatBrlInteiro(f.p50) + " aos " + f.idade + ", em reais de hoje";
+      return t + ".";
+    },
+    rendaResumo() {
+      const r = this.renda, f = this.rendaFinal();
+      if (!r) return "";
+      const ini = r.historico[0];
+      // Mês em prosa: "outubro de 2028" (formatMesAno é rótulo: "Outubro 2028").
+      const mes = window.formatMesAno(ini.data.slice(0, 7)).toLowerCase().replace(" ", " de ");
+      let t = "Em " + mes + ", o patrimônio de então sustentaria "
+        + this.formatBrlInteiro(ini.mensal) + " por mês, em reais da época. Hoje, " + this.formatBrlInteiro(r.hoje.mensal) + ".";
+      if (f) t += " Aos " + f.idade + ", no cenário central, " + this.formatBrlInteiro(f.p50) + " por mês, em reais de hoje.";
+      return t;
+    },
+    // Guardrails em reais: +20%, hoje, −20%, −35% (na ordem do backend).
+    rendaGuardrails() {
+      const r = this.renda;
+      if (!r) return [];
+      return r.guardrails.map((g) => {
+        const pct = Math.round(Math.abs(g.choque) * 100);
+        // Curto de propósito: "Se a carteira subir 20%" quebrava em duas linhas
+        // a 320 px; a frase de abertura da seção já diz que é a carteira.
+        const rotulo = g.choque === 0 ? "Hoje" : "Se " + (g.choque > 0 ? "subir " : "cair ") + pct + "%";
+        return { ...g, rotulo };
+      });
+    },
+    // Pisos relativos ao patrimônio de hoje (decisão do Dr. Arthur): sem piso,
+    // metade, o patrimônio inteiro, e o configurado quando for outro valor.
+    rendaPisos() {
+      const r = this.renda;
+      if (!r) return [];
+      const P = r.guardrails.find((g) => g.choque === 0).patrimonio, H = r.premissas.idade_horizonte;
+      const perto = (a, b) => Math.abs(a - b) <= Math.max(1, 0.005 * b);
+      return r.heranca.pisos.map((p) => {
+        let rotulo = "Deixar " + this.formatBrlInteiro(p.piso);
+        if (p.piso === 0) rotulo = "Sem piso";
+        else if (perto(p.piso, P / 2)) rotulo = "Metade do patrimônio";
+        else if (perto(p.piso, P)) rotulo = "O patrimônio inteiro";
+        const detalhe = p.piso === 0 ? "a carteira só não pode zerar antes dos " + H
+          : "deixa ao menos " + this.formatBrlInteiro(p.piso) + " aos " + H;
+        return { ...p, rotulo, detalhe };
+      });
+    },
+    rendaHerancaTexto() {
+      const r = this.renda;
+      if (!r) return "";
+      const H = r.premissas.idade_horizonte;
+      if (this.rendaZero()) return "Com o piso atual não há renda a sacar; aos " + H + " ficaria ao menos o piso, "
+        + this.formatBrlInteiro(r.premissas.piso_heranca_brl) + ", em reais de hoje.";
+      return "Sacando " + this.formatBrlInteiro(r.hoje.mensal) + " por mês de hoje até os " + H + ", no cenário central sobrariam "
+        + this.formatBrlInteiro(r.heranca.mediana_horizonte) + " aos " + H + ", em reais de hoje.";
+    },
+    rendaFonteTexto() {
+      const r = this.renda;
+      if (!r) return "";
+      const f = r.premissas.fonte;
+      return f.nome + (f.edicao ? " (edição " + f.edicao + ")" : "") + ", em retorno acima da inflação, as mesmas da projeção até os 65.";
+    },
 
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;

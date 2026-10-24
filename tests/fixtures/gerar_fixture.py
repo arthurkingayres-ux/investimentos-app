@@ -7,6 +7,12 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.32 (Fase 7a.BJ.2): bloco top-level ``renda`` — quanto a carteira
+sustenta de renda hoje, no passado e na projeção até os 65, com guardrails e
+herança, consumido pela tela ``#/raiox/renda`` e pelo card da home. Variantes:
+``portfolio_renda_{null,cobrem,zero,curta}`` e ``portfolio_pre_v232`` (2.31,
+sem a chave). Números 100% fictícios, coerentes com a projeção sintética.
+
 Schema v2.30 (Fase 7a.BD.1): bloco top-level ``ponte`` — a carteira contra a
 mesma carteira feita só de índices, consumido pela #rentabilidade nova
 (7a.BD.2). Série mensal por ativo (``brl``/``usd`` com ``[i, D, G]``), índices
@@ -76,6 +82,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import date, timedelta
 from pathlib import Path
 
 from src.output.crypto import encriptar_json
@@ -516,6 +523,134 @@ def _valida_forma_projecao() -> None:
     assert origens == {"jpm", "historico"}, "a fixture precisa das duas especies de classe"
 
 
+# ── Fase 7a.BJ.2: bloco ``renda`` sintético (schema v2.32) ───────────────────
+# CONTEÚDO 100% SINTÉTICO (repo público, PIN de teste público): renda, série,
+# guardrails e pisos são números redondos INVENTADOS, coerentes com
+# ``_projecao_sintetica()`` (idade 30, patrimônio de partida 400.000, hoje
+# 2030-09-25, mesma fonte inventada) — nunca lidos do investimentos.db.
+# Variantes (o que cada uma exercita no front):
+# - ``normal``: proventos < renda (barra de 2 segmentos), chip positivo.
+# - ``cobrem``: proventos cobrem a renda (100% proventos), chip NEGATIVO.
+# - ``zero``: piso de herança acima do patrimônio — renda de hoje 0, a tabela
+#   de pisos continua e traz o piso configurado de 7 dígitos (teste de 320 px).
+# - ``curta``: 6 pontos de histórico, sem o mês de 12 meses atrás (chip some).
+_RENDA_P = 400000.0
+_RENDA_MESES = [f"{a}-{m:02d}" for a, m in
+                [(2028 + (9 + i) // 12, (9 + i) % 12 + 1) for i in range(24)]]  # 2028-10..2030-09
+
+
+def _eom(ym: str) -> str:
+    a, m = map(int, ym.split("-"))
+    if ym == "2030-09":
+        return "2030-09-25"   # o último ponto é o "hoje" (data da partida da projeção)
+    prox = date(a + m // 12, m % 12 + 1, 1)
+    return (prox - timedelta(days=1)).isoformat()
+
+
+def _renda_historico(inicio: float, ha12: float, fim: float, n: int = 24) -> list[dict]:
+    """Série linear por trechos: ``inicio`` no 1º mês, ``ha12`` no mês de 12
+    meses atrás (índice 11 de 24) e ``fim`` hoje. ``n`` < 13 corta o começo."""
+    vals = []
+    for i in range(24):
+        if i <= 11:
+            v = inicio + (ha12 - inicio) * i / 11
+        else:
+            v = ha12 + (fim - ha12) * (i - 11) / 12
+        vals.append(round(v, 2))
+    pontos = [{"data": _eom(ym), "mensal": v} for ym, v in zip(_RENDA_MESES, vals)]
+    return pontos[-n:]
+
+
+def _renda_sintetica(variante: str = "normal") -> dict:
+    assert variante in ("normal", "cobrem", "zero", "curta"), variante
+    proj = _projecao_sintetica()
+    zero = variante == "zero"
+    piso_cfg = 1200000.0 if zero else 0.0
+    mensal = 0.0 if zero else 1250.0
+    if variante == "cobrem":
+        historico = _renda_historico(700.0, 1345.5, mensal)
+    elif zero:
+        historico = [{**p, "mensal": 0.0} for p in _renda_historico(1.0, 1.0, 1.0)]
+    else:
+        historico = _renda_historico(600.0, 1070.0, mensal, n=6 if variante == "curta" else 24)
+    variacao = None if variante == "curta" else round(mensal - historico[-13]["mensal"], 2)
+    dividendos = {"normal": 520.0, "curta": 520.0, "cobrem": 1250.0, "zero": 0.0}[variante]
+    linhas = []
+    for f in proj["faixas"][1:]:   # o ponto 0 da projeção é "hoje"
+        cresce = f["p50"] / _RENDA_P * (1 + 0.01 * (f["idade"] - 30))
+        p50 = 1250.0 * cresce
+        lin = {"idade": f["idade"], "ano": f["ano"],
+               "p10": p50 * f["p10"] / f["p50"], "p50": p50, "p90": p50 * f["p90"] / f["p50"]}
+        if zero:
+            lin.update({k: max(0.0, lin[k] - 3000.0) for k in ("p10", "p50", "p90")})
+        linhas.append({k: (round(v, 2) if isinstance(v, float) else v) for k, v in lin.items()})
+    guard = {0.2: 1530.0, 0.0: 1250.0, -0.2: 980.0, -0.35: 780.0}
+    guardrails = [{"choque": s, "patrimonio": round(_RENDA_P * (1 + s), 2),
+                   "mensal": 0.0 if zero else m} for s, m in guard.items()]
+    pisos = [(0.0, 1250.0), (200000.0, 1010.0), (400000.0, 760.0)]
+    if zero:
+        pisos.append((piso_cfg, 0.0))
+    return {
+        "premissas": {"idade_atual": 30, "idade_horizonte": 95, "probabilidade": 0.9,
+                      "piso_heranca_brl": piso_cfg,
+                      "fonte": {"nome": proj["premissas"]["fonte"]["nome"],
+                                "edicao": proj["premissas"]["fonte"]["edicao"]}},
+        "hoje": {"anual": round(mensal * 12, 2), "mensal": mensal,
+                 "variacao_12m_mensal": variacao, "dividendos_mensal": dividendos,
+                 "vendas_mensal": round(mensal - dividendos, 2),
+                 "proventos_cobrem": variante == "cobrem"},
+        "historico": historico,
+        "projecao": linhas,
+        "marcos": [i for i in range(5, 66, 5) if i > 30],
+        "guardrails": guardrails,
+        "heranca": {"mediana_horizonte": 0.0 if zero else 1850000.0,
+                    "pisos": [{"piso": p, "mensal": m, "configurado": p == piso_cfg} for p, m in pisos]},
+    }
+
+
+# Molde de tipos medido no bloco ``renda`` real do backend (24/10/2026, só
+# tipos, nenhum valor). ``variacao_12m_mensal`` é ``None`` sem 12 meses.
+_MOLDE_RENDA = json.loads(r'''{
+    "premissas": {"idade_atual": "int", "idade_horizonte": "int", "probabilidade": "float",
+                  "piso_heranca_brl": "float", "fonte": {"nome": "str", "edicao": "int"}},
+    "hoje": {"anual": "float", "mensal": "float", "variacao_12m_mensal": "float|NoneType",
+             "dividendos_mensal": "float", "vendas_mensal": "float", "proventos_cobrem": "bool"},
+    "historico": [{"data": "str", "mensal": "float"}],
+    "projecao": [{"idade": "int", "ano": "int", "p10": "float", "p50": "float", "p90": "float"}],
+    "marcos": ["int"],
+    "guardrails": [{"choque": "float", "patrimonio": "float", "mensal": "float"}],
+    "heranca": {"mediana_horizonte": "float",
+                "pisos": [{"piso": "float", "mensal": "float", "configurado": "bool"}]}
+}''')
+
+
+def _valida_forma_renda() -> None:
+    """Paridade de forma com o backend + as invariantes que o bloco real
+    garante (``src/output/renda_bloco.py``), para a fixture não ensinar ao
+    front um estado que o backend não produz."""
+    for v in ("normal", "cobrem", "zero", "curta"):
+        b = _renda_sintetica(v)
+        _confere_forma(_forma(b), _MOLDE_RENDA, "renda")
+        h = b["hoje"]
+        assert b["historico"][-1]["mensal"] == h["mensal"], f"{v}: costura do hoje"
+        assert [g["choque"] for g in b["guardrails"]] == [0.2, 0.0, -0.2, -0.35]
+        assert b["guardrails"][1]["mensal"] == h["mensal"], f"{v}: guardrail 0 != hoje"
+        assert round(h["anual"] / 12, 2) == h["mensal"]
+        assert h["dividendos_mensal"] <= h["mensal"] or h["mensal"] == 0
+        assert h["vendas_mensal"] >= 0
+        assert h["proventos_cobrem"] == (h["mensal"] > 0 and h["vendas_mensal"] == 0)
+        assert all(p["p10"] <= p["p50"] <= p["p90"] for p in b["projecao"])
+        assert all(m > b["premissas"]["idade_atual"] for m in b["marcos"])
+        pisos = [p["piso"] for p in b["heranca"]["pisos"]]
+        assert pisos == sorted(pisos) and len(set(pisos)) == len(pisos)
+        assert sum(p["configurado"] for p in b["heranca"]["pisos"]) == 1
+        if h["variacao_12m_mensal"] is not None:
+            assert len(b["historico"]) >= 13
+    assert _renda_sintetica("cobrem")["hoje"]["variacao_12m_mensal"] < 0, "chip negativo"
+    assert _renda_sintetica("curta")["hoje"]["variacao_12m_mensal"] is None
+    assert max(p["piso"] for p in _renda_sintetica("zero")["heranca"]["pisos"]) >= 1_000_000, "7 dígitos"
+
+
 # ── Fase 7a.BD.1/BD.2: bloco ``ponte`` sintético (schema v2.30) ──────────────
 # CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
 # público): valores, aportes, retornos e índices saem das senoides abaixo —
@@ -803,7 +938,7 @@ def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
 
 
 PAYLOAD = {
-    "versao": "2.31",
+    "versao": "2.32",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1310,7 +1445,12 @@ PAYLOAD = {
     # Schema v2.30 (Fase 7a.BD.1): ponte de rentabilidade (série mensal por
     # ativo + índices + fluxos). 100% sintético, gerado por fórmula.
     "ponte": _ponte_curta(),
+    # Schema v2.32 (Fase 7a.BJ.1/BJ.2): renda da carteira. 100% sintético.
+    "renda": _renda_sintetica("normal"),
 }
+
+# Payloads de versão anterior à 2.32 não carregam ``renda``.
+_PRE_RENDA = {k: v for k, v in PAYLOAD.items() if k != "renda"}
 
 
 # ── Fase 7a.Q.3: fixtures do Relatório Mensal (índice + 2 meses) ─────────────
@@ -1818,9 +1958,10 @@ def gerar_portfolio_frase() -> None:
 def gerar_portfolio_projecao_variantes() -> None:
     base = OUT.parent
     # 7a.BD.2: variantes de versão anterior à 2.30 não carregam ``ponte``.
-    sem_ponte = {k: v for k, v in PAYLOAD.items() if k != "ponte"}
+    sem_ponte = {k: v for k, v in _PRE_RENDA.items() if k != "ponte"}
 
-    payload_null = {**PAYLOAD, "projecao": None}
+    # 7a.BJ: sem projeção o backend também não publica a renda.
+    payload_null = {**PAYLOAD, "projecao": None, "renda": None}
     enc_null = encriptar_json(json.dumps(payload_null, ensure_ascii=False), PIN_TESTE)
     alvo_null = base / "portfolio_projecao_null.test.json.enc"
     alvo_null.write_text(enc_null, encoding="ascii")
@@ -1858,7 +1999,7 @@ def gerar_portfolio_pre_v231() -> None:
     pat["br_brl"] = 170280.0   # forma 2.30 real: ``br_brl`` COM a cripto (149640 + 20640)
     bloco = _ponte_sintetica(legado_cripto=True)
     _confere_ponte(bloco)
-    payload = PAYLOAD | {"versao": "2.30", "patrimonio": pat, "ponte": bloco}
+    payload = _PRE_RENDA | {"versao": "2.30", "patrimonio": pat, "ponte": bloco}
     alvo = OUT.parent / "portfolio_pre_v231.test.json.enc"
     alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
@@ -1881,10 +2022,24 @@ def gerar_portfolio_cripto_zero() -> None:
 # 7a.BD.2 (Task 6): payload antigo (sem ``ponte``, v2.29) — o estado que a tela
 # nova precisa distinguir ("Rentabilidade indisponível nesta versão dos dados").
 def gerar_portfolio_pre_v230() -> None:
-    payload = {k: v for k, v in PAYLOAD.items() if k != "ponte"} | {"versao": "2.29"}
+    payload = {k: v for k, v in _PRE_RENDA.items() if k != "ponte"} | {"versao": "2.29"}
     alvo = OUT.parent / "portfolio_pre_v230.test.json.enc"
     alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
     print(f"Fixture gerada: {alvo}")
+
+
+# 7a.BJ.2 (Task 5): os estados da tela ``#/raiox/renda`` — ``renda: null``
+# (builder falhou ou sem projeção), as três variantes do bloco e o payload
+# 2.31, de antes da chave existir.
+def gerar_portfolio_renda_variantes() -> None:
+    alvos = [("portfolio_renda_null", PAYLOAD | {"renda": None}),
+             ("portfolio_pre_v232", _PRE_RENDA | {"versao": "2.31"})]
+    alvos += [(f"portfolio_renda_{v}", PAYLOAD | {"renda": _renda_sintetica(v)})
+              for v in ("cobrem", "zero", "curta")]
+    for nome, payload in alvos:
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
 
 
 def gerar_portfolio_ponte_muitos() -> None:
@@ -2066,6 +2221,7 @@ def gerar_ponte_esperado() -> None:
 
 def main() -> None:
     _valida_forma_projecao()               # 7a.AY.2 (Task 9): paridade de forma
+    _valida_forma_renda()                  # 7a.BJ.2 (Task 5): paridade de forma
     enc = encriptar_json(json.dumps(PAYLOAD, ensure_ascii=False), PIN_TESTE)
     OUT.write_text(enc, encoding="ascii")
     print(f"Fixture gerada: {OUT}")
@@ -2080,6 +2236,7 @@ def main() -> None:
     gerar_ponte_esperado()                 # 7a.BD.2 (Task 6)
     gerar_portfolio_ponte_longa()          # 7a.BE.2 (Task 7)
     gerar_portfolio_ponte_muitos()         # 7a.BH.1 (Task 2)
+    gerar_portfolio_renda_variantes()      # 7a.BJ.2 (Task 5)
 
 
 if __name__ == "__main__":

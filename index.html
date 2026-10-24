@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=79">
+  <link rel="stylesheet" href="css/app.css?v=80">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=81"></script>
+  <script src="js/app.js?v=82"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -378,6 +378,17 @@
           <div class="rel-card-home__meta">
             <span class="rel-card-home__label">Projeção até os 65</span>
             <span class="rel-card-home__mes" x-text="projCardTexto()"></span>
+          </div>
+          <span class="rel-card-home__chevron" aria-hidden="true">›</span>
+        </a>
+
+        <!-- 7a.BJ.2: renda da carteira, logo abaixo da projeção, no mesmo idioma
+             e empty-safe (payload pré-v2.32 ou renda null: some). -->
+        <a class="renda-card-home" x-show="renda" href="#/raiox/renda"
+           aria-label="Abrir renda da carteira" x-cloak>
+          <div class="rel-card-home__meta">
+            <span class="rel-card-home__label">Renda da carteira</span>
+            <span class="rel-card-home__mes" x-text="rendaCardTexto()"></span>
           </div>
           <span class="rel-card-home__chevron" aria-hidden="true">›</span>
         </a>
@@ -1452,7 +1463,162 @@
                 <p><span class="proj-num" x-text="projecao.trajetorias.toLocaleString('pt-BR')"></span> trajetórias simuladas, cada uma um cenário de <span x-text="projAnosTotal()"></span> anos.</p>
               </div></details>
 
+            <!-- 7a.BJ.2: link cruzado, discreto, para a renda (só com o bloco publicado). -->
+            <a class="renda-link" href="#/raiox/renda" x-show="renda" x-cloak>Quanto esta carteira pagaria de renda <span aria-hidden="true">›</span></a>
             <p class="proj-rodape" x-text="projecao.trajetorias.toLocaleString('pt-BR') + ' trajetórias · recalculada toda noite · projeção, não promessa'"></p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/renda (7a.BJ.2) ── -->
+      <!-- Push child da tab Raio-X, irmã da projeção e da mesma família "ensaio":
+           coluna única, sem cards, separação tipográfica. Mono só no herói. -->
+      <section class="tela-detalhes tela-renda" x-show="rota === 'renda'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="renda-titulo" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="renda-titulo">Renda</h1>
+        </header>
+
+        <template x-if="!renda">
+          <p class="placeholder">Renda indisponível hoje.</p>
+        </template>
+
+        <template x-if="renda">
+          <article class="renda-ensaio">
+            <!-- 1. O salário de hoje. Com renda 0 (piso acima do patrimônio) a
+                 frase do piso toma o lugar do herói, e o chip e o split somem. -->
+            <section class="renda-hoje" aria-label="O salário de hoje">
+              <template x-if="!rendaZero()">
+                <p class="renda-resposta">
+                  <span class="renda-resposta__linha">Se você parasse de trabalhar hoje, sua carteira sustentaria</span>
+                  <span class="renda-resposta__valor"><strong class="renda-heroi" x-text="formatBrlInteiro(renda.hoje.mensal)"></strong><span class="renda-resposta__unidade"> por mês</span></span>
+                  <span class="renda-resposta__sub"><span class="renda-num" x-text="formatBrlInteiro(renda.hoje.anual)"></span> por ano, em reais de hoje.</span>
+                </p>
+              </template>
+              <template x-if="rendaZero()">
+                <p class="renda-resposta renda-resposta--zero">Com o piso de herança atual, a carteira ainda não sustenta renda. A tabela de pisos, mais abaixo, mostra quanto um piso menor liberaria.</p>
+              </template>
+              <template x-if="rendaChip()">
+                <p class="renda-chip" x-text="rendaChip()"></p>
+              </template>
+
+              <template x-if="!rendaZero()">
+                <div class="renda-origem">
+                  <h2 class="renda-subtitulo">De onde viria</h2>
+                  <div class="renda-origem__barra" aria-hidden="true">
+                    <template x-for="l in rendaOrigem().filter(l => l.pct > 0)" :key="l.chave">
+                      <span class="renda-origem__seg" :class="'renda-origem__seg--' + l.chave" :style="'width:' + l.pct + '%'"></span>
+                    </template>
+                  </div>
+                  <table class="renda-tabela renda-tabela--origem">
+                    <caption class="sr-only">De onde viria a renda de hoje, por mês</caption>
+                    <tbody>
+                      <template x-for="l in rendaOrigem()" :key="l.chave">
+                        <tr class="renda-linha"><th scope="row"><span class="renda-origem__marca" :class="'renda-origem__seg--' + l.chave" aria-hidden="true"></span><span x-text="l.rotulo"></span></th>
+                          <td class="renda-num" x-text="formatBrlInteiro(l.valor)"></td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                  <p class="renda-texto" x-show="renda.hoje.proventos_cobrem">Os proventos de hoje já cobrem essa renda, e o que sobra deles fica na carteira.</p>
+                  <p class="renda-texto" x-show="!renda.hoje.proventos_cobrem">O que faltasse viria da venda de cotas, de preferência das classes acima do alvo, o que também ajuda a rebalancear a carteira.</p>
+                  <p class="renda-nota">Proventos e aluguéis dos últimos 12 meses, por mês. É uma fotografia de hoje, não uma previsão.</p>
+                </div>
+              </template>
+
+              <div class="renda-seguro">
+                <h2 class="renda-subtitulo">O que “seguro” quer dizer aqui</h2>
+                <p class="renda-texto">Em <span class="renda-num" x-text="rendaFmtProb()"></span> dos cenários, a renda dura até os <span x-text="renda.premissas.idade_horizonte"></span> anos sem a carteira zerar<span x-text="renda.premissas.piso_heranca_brl > 0 ? ' e sem passar abaixo do piso de herança' : ''"></span>.
+                  Piso de herança hoje: <span class="renda-num" x-text="formatBrlInteiro(renda.premissas.piso_heranca_brl)"></span>; mudá-lo é uma decisão sua, feita fora do app.
+                  O número varia a cada atualização da carteira.</p>
+              </div>
+            </section>
+
+            <!-- 2. Como ele cresce: o passado (reais de cada época) e a projeção
+                 (reais de hoje) num SVG inline, sem ECharts. O desenho é role=img
+                 com resumo; a tabela de marcos é a leitura acessível. -->
+            <section class="renda-cap renda-cresce" aria-labelledby="renda-cap-cresce">
+              <h2 class="renda-titulo" id="renda-cap-cresce">Como ele cresce</h2>
+              <p class="renda-texto" x-text="rendaResumo()"></p>
+              <figure class="renda-grafico">
+                <p class="renda-grafico__teto" aria-hidden="true" x-text="formatBrlInteiro(rendaGrafico().teto) + ' por mês'"></p>
+                <div class="renda-grafico__area">
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" :aria-label="rendaGraficoLabel()">
+                    <line class="renda-grafico__base" x1="0" y1="100" x2="100" y2="100"></line>
+                    <polygon class="renda-grafico__faixa" :points="rendaGrafico().faixa"></polygon>
+                    <path class="renda-grafico__mediana" :d="rendaGrafico().mediana"></path>
+                    <path class="renda-grafico__passado" :d="rendaGrafico().passado"></path>
+                  </svg>
+                  <span class="renda-grafico__hoje" aria-hidden="true" :style="'left:' + rendaGrafico().hoje.x + '%;top:' + rendaGrafico().hoje.y + '%'"></span>
+                </div>
+                <p class="renda-grafico__eixo" aria-hidden="true">
+                  <span class="renda-grafico__eixo-ini" x-show="rendaGrafico().mostrarInicio" x-text="rendaGrafico().inicio"></span>
+                  <span class="renda-grafico__eixo-hoje" :style="'left:' + rendaGrafico().hoje.x + '%'">hoje</span>
+                  <span class="renda-grafico__eixo-fim" x-text="rendaGrafico().fim"></span>
+                </p>
+                <figcaption class="renda-grafico__legenda">Linha cheia: o que a carteira sustentaria em cada mês, em reais de cada época. Tracejada: a mediana da projeção, em reais de hoje. Faixa: 8 em 10 cenários.</figcaption>
+              </figure>
+
+              <h3 class="renda-subtitulo">Se você parasse aos…</h3>
+              <p class="renda-nota" x-show="!rendaMarcos().length" x-cloak>Não há idade futura para a tabela.</p>
+              <table class="renda-tabela renda-marcos" x-show="rendaMarcos().length">
+                <caption class="sr-only">Renda por mês se você parasse em cada idade, em reais de hoje</caption>
+                <template x-for="m in rendaMarcos()" :key="m.idade">
+                  <tbody>
+                    <tr class="renda-linha"><th scope="row" x-text="'Aos ' + m.idade"></th>
+                      <td class="renda-num" x-text="formatBrlInteiro(m.p50) + ' por mês'"></td></tr>
+                    <tr class="renda-linha__sub"><td colspan="2">8 em 10 cenários entre <span class="renda-num" x-text="formatBrlInteiro(m.p10)"></span> <span class="renda-par">e <span class="renda-num" x-text="formatBrlInteiro(m.p90)"></span></span></td></tr>
+                  </tbody>
+                </template>
+              </table>
+            </section>
+
+            <!-- 3. Ano bom, ano ruim: guardrails em reais, herança e o custo do piso. -->
+            <section class="renda-cap" aria-labelledby="renda-cap-ano">
+              <h2 class="renda-titulo" id="renda-cap-ano">Ano bom, ano ruim</h2>
+              <p class="renda-texto">A renda acompanha a carteira: num ano bom dá para tirar mais, num ano ruim, menos.</p>
+              <table class="renda-tabela renda-guardrails">
+                <caption class="sr-only">Renda por mês conforme o valor da carteira</caption>
+                <template x-for="g in rendaGuardrails()" :key="g.choque">
+                  <tbody>
+                    <tr class="renda-linha"><th scope="row" x-text="g.rotulo"></th>
+                      <td class="renda-num" x-text="formatBrlInteiro(g.mensal) + ' por mês'"></td></tr>
+                    <tr class="renda-linha__sub"><td colspan="2">carteira em <span class="renda-num" x-text="formatBrlInteiro(g.patrimonio)"></span></td></tr>
+                  </tbody>
+                </template>
+              </table>
+
+              <div class="renda-heranca">
+                <h3 class="renda-subtitulo">O que fica para os descendentes</h3>
+                <p class="renda-texto" x-text="rendaHerancaTexto()"></p>
+              </div>
+
+              <h3 class="renda-subtitulo">Quanto custa garantir uma herança maior</h3>
+              <p class="renda-texto">Quanto maior o piso que precisa sobrar aos <span x-text="renda.premissas.idade_horizonte"></span>, menor a renda de hoje.</p>
+              <table class="renda-tabela renda-pisos">
+                <caption class="sr-only">Renda de hoje por piso de herança, em reais de hoje</caption>
+                <template x-for="p in rendaPisos()" :key="p.piso">
+                  <tbody :class="p.configurado ? 'renda-pisos__atual' : ''" :aria-current="p.configurado ? 'true' : null">
+                    <tr class="renda-linha"><th scope="row" x-text="p.rotulo"></th>
+                      <td class="renda-num" x-text="formatBrlInteiro(p.mensal) + ' por mês'"></td></tr>
+                    <tr class="renda-linha__sub"><td colspan="2"><span x-text="p.detalhe"></span><template x-if="p.configurado"><span class="renda-pisos__seu"> · o seu piso</span></template></td></tr>
+                  </tbody>
+                </template>
+              </table>
+            </section>
+
+            <ul class="renda-notas">
+              <li><strong>Valores antes do IR sobre vendas.</strong> Os dividendos já entram líquidos; o imposto sobre o ganho das cotas vendidas não está descontado.</li>
+              <li><strong>Premissas da projeção.</strong> <span x-text="rendaFonteTexto()"></span></li>
+              <li><strong>O passado usa as premissas de hoje.</strong> É quanto aquele patrimônio sustentaria pela régua atual, não o que se esperava na época.</li>
+              <li><strong>Imposto sobre herança nos EUA fora da conta.</strong> Para quem não mora lá, só US$ 60 mil em ativos americanos são isentos.</li>
+              <li><strong>Você ainda aporta.</strong> Este número é motivação, não plano de saque.</li>
+            </ul>
+
+            <a class="renda-link" href="#/raiox/projecao" x-show="projecao" x-cloak>Como o patrimônio chega aos 65 <span aria-hidden="true">›</span></a>
           </article>
         </template>
       </section>

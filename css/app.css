@@ -3939,7 +3939,8 @@ body:has(.tab-bar) main {
    idioma por agrupamento de seletor, NÃO por reuso da classe raiz (reusar
    .rel-card-home faria os locators do Relatório resolverem a 2 nós). */
 .rel-card-home,
-.proj-card-home {
+.proj-card-home,
+.renda-card-home {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3954,11 +3955,12 @@ body:has(.tab-bar) main {
   min-height: 44px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .rel-card-home, .proj-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+  .rel-card-home, .proj-card-home, .renda-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
 }
 /* 7a.S.2: mapeia .relcard do mockup. */
 .rel-card-home:active,
-.proj-card-home:active {
+.proj-card-home:active,
+.renda-card-home:active {
   transform: scale(.98);
   box-shadow: var(--shadow-pressed);
 }
@@ -4145,6 +4147,90 @@ body:has(.tab-bar) main {
   font-size: 0.8125rem;
   text-align: center;
 }
+/* 7a.BJ.2 — Tela #/raiox/renda. Irmã da projeção, da mesma família "ensaio":
+   coluna única, sem cards, separação tipográfica e espacial. Ousadia num lugar
+   só: o R$ por mês do herói, o único mono da tela. Cores só por token (flipam
+   no Modo Plantão sozinhas), zero motion novo. */
+.renda-ensaio { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.renda-resposta { margin: 4px 0 12px; color: var(--ink); font-size: 1rem; line-height: 1.35; }
+.renda-resposta__linha { display: block; }
+.renda-resposta__valor { display: block; font-size: var(--num-xl); line-height: 1.2; margin: 4px 0 2px; }
+.renda-heroi {
+  font-family: var(--mono);
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--g-900);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+/* Unidade no corpo do texto, ao lado do número (regra da projeção). */
+.renda-resposta__unidade { font-size: 1rem; font-weight: 400; color: var(--ink); white-space: nowrap; }
+.renda-resposta__sub { display: block; margin-top: 6px; color: var(--gray); font-size: 0.875rem; }
+.renda-resposta__sub .renda-num { color: var(--ink); }
+.renda-resposta--zero { font-size: 1.125rem; font-weight: 600; line-height: 1.4; max-width: 34ch; }
+/* Chip de 12 meses: informa, não celebra — neutro nos dois sentidos, o sinal
+   vai no texto. */
+.renda-chip {
+  display: inline-block; margin: 0 0 4px; padding: 4px 10px;
+  border: 1px solid var(--neutral-200); border-radius: 999px;
+  color: var(--ink); font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+}
+.renda-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.renda-cap { margin-top: 3rem; }
+.renda-titulo { font-size: 1.25rem; line-height: 1.25; font-weight: 700; color: var(--ink); margin: 0 0 0.75rem; }
+.renda-subtitulo { font-size: 1rem; line-height: 1.3; font-weight: 700; color: var(--ink); margin: 1.75rem 0 0.5rem; }
+.renda-texto { max-width: 68ch; line-height: 1.55; color: var(--ink); margin: 0 0 0.75rem; }
+.renda-nota { margin: 8px 0 0; color: var(--gray); font-size: 0.8125rem; line-height: 1.4; max-width: 68ch; }
+
+/* "De onde viria": barra de dois segmentos (o idioma da decomposição da
+   projeção) + uma linha por origem. */
+.renda-origem__barra { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--neutral-200); margin: 0 0 6px; }
+.renda-origem__seg--proventos { background: var(--g-700); }
+.renda-origem__seg--vendas { background: var(--gray); }
+.renda-origem__marca { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+/* Tabelas de leitura: rótulo à esquerda, valor à direita na mesma linha, a
+   segunda linha (faixa, carteira, piso) embaixo em cinza. A 320 px a guarda é a
+   FOLGA entre rótulo e valor (≥ 8 px, lição da 7a.BH), não só o transbordo. */
+.renda-tabela { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin: 0.5rem 0 0; }
+.renda-linha th, .renda-linha td { padding: 10px 0 0; border-top: 1px solid var(--neutral-200); vertical-align: baseline; }
+.renda-linha th { text-align: left; font-weight: 600; color: var(--ink); }
+.renda-linha td { text-align: right; padding-left: 12px; white-space: nowrap; color: var(--ink); }
+.renda-linha__sub td { padding: 2px 0 10px; color: var(--gray); font-size: 0.8125rem; line-height: 1.4; }
+.renda-linha__sub .renda-num { color: var(--ink); white-space: nowrap; }
+/* "e R$ Y" não se separa: a quebra cai antes do "e", nunca depois. */
+.renda-par { white-space: nowrap; }
+.renda-tabela--origem .renda-linha th, .renda-tabela--origem .renda-linha td { padding-bottom: 8px; }
+.renda-pisos__atual .renda-linha th { color: var(--g-900); }
+.renda-pisos__seu { color: var(--accent); font-weight: 600; }
+
+/* Gráfico SVG inline (sem ECharts, família "ensaio"). viewBox 0..100 esticado
+   na caixa; o traço não escala (vector-effect) e o marcador de hoje é HTML,
+   para não se deformar. A faixa 8 em 10 é a incerteza da projeção, chapada,
+   sem gradiente (DESIGN.md, anti-pattern 17). */
+.renda-grafico { margin: 1rem 0 0.25rem; }
+.renda-grafico__teto { margin: 0 0 4px; font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+.renda-grafico__area { position: relative; height: 160px; }
+.renda-grafico__area svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.renda-grafico__base { stroke: var(--neutral-200); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.renda-grafico__faixa { fill: var(--g-700); fill-opacity: 0.16; stroke: none; }
+.renda-grafico__mediana { fill: none; stroke: var(--g-700); stroke-width: 2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.renda-grafico__passado { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.renda-grafico__hoje { position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: var(--ink); box-shadow: 0 0 0 2px var(--neutral-50); }
+.renda-grafico__eixo { position: relative; height: 1.25rem; margin: 6px 0 0; font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+.renda-grafico__eixo span { position: absolute; top: 0; white-space: nowrap; }
+.renda-grafico__eixo-ini { left: 0; }
+.renda-grafico__eixo-hoje { transform: translateX(-50%); color: var(--ink); font-weight: 600; }
+.renda-grafico__eixo-fim { right: 0; }
+.renda-grafico__legenda { font-size: 0.8125rem; line-height: 1.4; color: var(--gray); margin: 8px 0 0; max-width: 68ch; }
+
+.renda-notas { margin: 2.5rem 0 0; padding-left: 1.1rem; color: var(--gray); font-size: 0.875rem; line-height: 1.5; }
+.renda-notas li + li { margin-top: 6px; }
+/* Link cruzado projeção ↔ renda: uma linha discreta, alvo de toque de 44 px. */
+.renda-link { display: flex; align-items: center; gap: 6px; min-height: 44px; margin: 1.75rem 0 0; color: var(--accent); font-size: 0.9375rem; text-decoration: none; }
+
 .rel-breadcrumb__mes {
   margin-left: auto; font-size: var(--num-sm); color: var(--gray);
   font-variant-numeric: tabular-nums;
@@ -4470,7 +4556,8 @@ body:has(.tab-bar) main {
 [data-theme="dark"] .ticker-hero,
 [data-theme="dark"] .rel-radar-card,
 [data-theme="dark"] .rel-card-home,
-[data-theme="dark"] .proj-card-home {
+[data-theme="dark"] .proj-card-home,
+[data-theme="dark"] .renda-card-home {
   box-shadow: inset 0 1px 0 var(--card-topline), var(--card-shadow);
 }
 [data-theme="dark"] .aloca-cat {

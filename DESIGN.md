@@ -1113,6 +1113,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
                      .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
                      .theme-toggle (☽/☀ Modo Plantão, topo do Raio-X — 7a.S.12, ver seção dedicada abaixo)
+                     .renda-ensaio/.renda-tabela/.renda-grafico/.renda-origem/.renda-pisos (Renda da carteira #/raiox/renda, 7a.BJ.2 — ver seção dedicada abaixo); .renda-card-home agrupado com .rel-card-home/.proj-card-home
                      .proj-ensaio/.proj-cap/.proj-faixas/.proj-decomp/.proj-ponteiro/.proj-tabela/.proj-conta (Projeção como ensaio #/raiox/projecao, 7a.AW.2, forma refeita na 7a.AX, um cenário na 7a.AY — ver seção dedicada abaixo); .proj-card-home agrupado com .rel-card-home (mesmo idioma, seletor próprio)
 
 /* Modo Plantão (7a.S.12) — bloco :root[data-theme="dark"], warm OLED, teal-como-luz */
@@ -1259,6 +1260,21 @@ Push screen `#/raiox/projecao`, um **ensaio em capítulos**: coluna única, sem 
 - **Estados.** `projecao === null` ou payload anterior à v2.29: o card some e a rota diz "Projeção indisponível hoje".
 - **Plantão.** Faixas, pontos e barra de decomposição leem os tokens do tema por CSS puro. Verificado visualmente a 390 e 320 px, claro e Plantão, com a fixture sintética (7a.AY.2).
 - **Tipografia.** Mono só nos **três** valores da frase-resposta (`.proj-faixa`: p50, p10, p90). `.proj-num` é fonte do texto, `tabular-nums`, 600, corpo herdado. Unidades e conectivos no corpo do número que ligam, 400, `--gray`. Na linha da faixa, A e o "e" formam um grupo sem quebra: a 320 px a quebra cai depois do "e".
+
+### Renda da carteira — ensaio (7a.BJ.2)
+
+Push screen `#/raiox/renda`, irmã da projeção e da mesma família: coluna única, sem cards, separação tipográfica e espacial, zero motion novo. Responde "quanto a carteira já paga por mês, e como isso cresce". Consome o bloco `renda` do payload **v2.32**. Classes próprias `renda-*` (os testes da projeção têm locators globais `.proj-*`; reusar a classe faria colidir).
+
+- **Herói (`.renda-resposta`).** "Se você parasse de trabalhar hoje, sua carteira sustentaria" / **R$ X** (`.renda-heroi`, `--num-xl`, mono, `--g-900`: o **único mono da tela**, travado por teste) "por mês" / "R$ Y por ano, em reais de hoje." Valores em reais inteiros (`formatBrlInteiro`).
+- **Chip de 12 meses (`.renda-chip`).** Borda `--neutral-200`, texto `--ink` nos dois sentidos: informa, não celebra (sem verde no positivo, sem vermelho no negativo). O sinal vai em texto (`+` / `−`), arredondando o **módulo** (o `Math.round` do JS é assimétrico em .5). Some com histórico < 12 meses.
+- **De onde viria (`.renda-origem`).** Barra de dois segmentos no idioma da decomposição da projeção (proventos `--g-700`, vendas `--gray`) + uma linha por origem com a marca da cor (a cor nunca é o único sinal: o rótulo está na linha). Proventos cobrem a renda: uma linha só, segmento 100%, e a frase do excedente.
+- **Tabelas de leitura (`.renda-tabela`).** Um `tbody` por item: `tr.renda-linha` com rótulo à esquerda e valor à direita na **mesma** linha (`td` `nowrap`, `padding-left: 12px`), e `tr.renda-linha__sub` em cinza embaixo (faixa 8 em 10, carteira em R$, piso). A 320 px o teste confere a **folga ≥ 8 px** entre rótulo e valor em toda linha, nas variantes normal, zero e cobrem, além do transbordo (lição da 7a.BH). Rótulos curtos de propósito ("Se subir 20%"), porque o longo quebrava em duas linhas a 320 px.
+- **Gráfico (`.renda-grafico`).** SVG inline, `viewBox 0 0 100 100` esticado com `preserveAspectRatio="none"` e traço `vector-effect: non-scaling-stroke`; passado em linha cheia `--ink` (reais de cada época), mediana tracejada `--g-700` e faixa p10–p90 em `--g-700` a 16% de opacidade, **chapada** (incerteza, não enfeite: o anti-pattern 17 bane o gradiente). O marcador de hoje é HTML posicionado em %, para não se deformar. `role="img"` com resumo no `aria-label`; a tabela "Se você parasse aos…" é a leitura acessível. Eixo em texto: ano inicial (some quando "hoje" fica a menos de 18% do começo), "hoje", "aos 65".
+- **Pisos (`.renda-pisos`).** Relativos ao patrimônio de hoje (sem piso, metade, o patrimônio inteiro, e o configurado quando for outro). A linha configurada leva `aria-current="true"`, título em `--g-900` e o texto "o seu piso" em `--accent`.
+- **Estados.** `renda === null`, bloco parcial ou payload anterior à v2.32: o card some e a rota diz "Renda indisponível hoje.". Renda 0 por piso alto: a frase "Com o piso de herança atual, a carteira ainda não sustenta renda" toma o lugar do herói, chip e "De onde viria" saem, e a tabela de pisos continua.
+- **Card na home (`.renda-card-home`).** Logo abaixo de `.proj-card-home`, agrupado por seletor com `.rel-card-home`/`.proj-card-home` (mesma geometria, `:active` e sombra do Plantão), sem reusar a classe.
+- **Link cruzado (`.renda-link`).** Uma linha `--accent`, alvo de 44 px: no fim da projeção ("Quanto esta carteira pagaria de renda", só com o bloco publicado) e no fim da renda ("Como o patrimônio chega aos 65").
+- **Plantão.** Tudo por token. Verificado visualmente a 320 e 390 px, claro e Plantão, com a fixture sintética (7a.BJ.2).
 
 ## Frase de acesso — envelope local (Fase 7a.W.3.a)
 
