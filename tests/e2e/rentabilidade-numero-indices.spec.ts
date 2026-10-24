@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { esperarResume } from "./esperar-resume";
 import path from "path";
 import fs from "fs";
 
@@ -50,6 +51,7 @@ async function mexerNoPayload(page: Page, corpo: string) {
 
 async function abrir(page: Page) {
   await page.goto("/#rentabilidade");
+  await esperarResume(page);
   await expect(page.locator(tid("rent2-frase"))).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(`${TELA} canvas[data-zr-dom-id]`)).toBeVisible({ timeout: 5_000 });
 }
@@ -383,6 +385,7 @@ test.describe("7a.BG.2 — número no fim da curva só com índices", () => {
     await autenticar(page);
     // Sem `abrir`: com a vista indisponível não há frase do veredito para esperar.
     await page.goto("/#rentabilidade");
+    await esperarResume(page);
     await expect(page.locator(`${TELA} canvas[data-zr-dom-id]`)).toBeVisible({ timeout: 10_000 });
     await arrastar(page, 2, 10);
     await page.waitForTimeout(SETTLE);

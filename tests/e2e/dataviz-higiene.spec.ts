@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { esperarResume } from "./esperar-resume";
 import path from "path";
 import fs from "fs";
 
@@ -24,6 +25,7 @@ async function autenticar(page: Page) {
 
 async function abrirRentabilidade(page: Page) {
   await page.goto("/#rentabilidade");
+  await esperarResume(page);
   await expect(
     page.locator(".tela-rentabilidade canvas[data-zr-dom-id]"),
   ).toBeVisible({ timeout: 5_000 });

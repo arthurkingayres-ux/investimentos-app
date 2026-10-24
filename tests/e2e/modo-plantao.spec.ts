@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { esperarResume } from "./esperar-resume";
 import path from "path";
 import fs from "fs";
 
@@ -200,6 +201,7 @@ test.describe("7a.S.12 Task 2 — repaint dos charts", () => {
 
     await voltarHomeEAlternarTema(page);
     await page.goto("/#rentabilidade");
+    await esperarResume(page);
     await expect(page.locator(".tela-rentabilidade canvas[data-zr-dom-id]")).toBeVisible({ timeout: 5_000 });
 
     const subtitulo = page.locator(".tela-rentabilidade .chart-rent-subtitulo");
