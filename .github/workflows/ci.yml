@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historico completo: tests/e2e/cache-bust.spec.ts le o git log e
+          # recusa clone raso (sem historico o guard passaria vacuo).
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
