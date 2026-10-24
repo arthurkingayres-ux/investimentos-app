@@ -528,9 +528,9 @@ def _valida_forma_projecao() -> None:
 #   as séries, por contrato.
 # - Todas as classes e linhas: acoes_br (2 picks + BOVA11 passivo), fiis (2),
 #   renda_fixa passivo (IMAB11), eua picks (2), eua passive (VOO), eua fora
-#   (um REIT, mais ``AVNU_REBATE`` com D = 0 e G pequeno), cripto (HASH11
-#   sozinho, colado no BTC: a linha arredonda a ±0,0 — estado neutro).
-# - EUA começa no mês 2 e cripto no mês 6 (``desde`` do EUA ≠ do Total).
+#   (um REIT, mais ``AVNU_REBATE`` com D = 0 e G pequeno). Sem cripto desde a
+#   7a.BG.1 (só a variante ``pre_v231`` a carrega, via ``legado_cripto``).
+# - EUA começa no mês 2 (``desde`` do EUA ≠ do Total).
 # - Buraco no mês 4 (BBAS3): meses 4 e 5 em ``buracos`` de Total e Brasil.
 # - IFIX null no mês 8 (2024-12): janela de Total/Brasil que o cruze fica
 #   "índice IFIX sem dado em 12/24".
@@ -561,8 +561,14 @@ _PONTE_ATIVOS = [
     ("VOO", "eua", True, "passive", 2, 2500.0, 120.0, 0.0001, 2.2),
     ("O", "eua", False, "fora", 2, 800.0, 0.0, -0.0015, 0.9),
     ("AVNU_REBATE", "eua", False, "fora", 3, 0.0, 0.0, 0.0, 0.0),
-    ("HASH11", "cripto", False, None, 6, 3000.0, 150.0, 0.0, 0.0),
 ]
+
+# 7a.BG.1: o backend (schema 2.31) não publica cripto no bloco ``ponte``; a
+# fixture espelha isso. O ativo abaixo existe só para a variante ``pre_v231``
+# (forma 2.30, com a linha ``cripto`` e o índice BTC), o payload "antigo em
+# cache" que o PWA novo precisa reconhecer como desatualizado. Vai por último,
+# então o id dele não desloca os dos demais.
+_PONTE_ATIVO_CRIPTO_LEGADO = ("HASH11", "cripto", False, None, 6, 3000.0, 150.0, 0.0, 0.0)
 
 
 def _ponte_meses(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INICIO) -> list[str]:
@@ -579,9 +585,11 @@ def _ponte_fx(t: int) -> float:
     return round(5.0 + 0.3 * math.sin(t / 4.0) + 0.01 * t, 4)
 
 
-def _ponte_indices(n: int = _PONTE_MESES, anomalias: bool = True) -> tuple[dict, dict]:
+def _ponte_indices(n: int = _PONTE_MESES, anomalias: bool = True,
+                   legado_cripto: bool = False) -> tuple[dict, dict]:
     """Retornos mensais sintéticos; índice 0 sempre null; com ``anomalias``,
-    IFIX null no mês 8 e salto do S&P no mês 16."""
+    IFIX null no mês 8 e salto do S&P no mês 16. Sem ``legado_cripto``, sem BTC
+    (7a.BG.1)."""
     ibov, ifix, sp_usd, btc_usd, cdi = ([None] * n for _ in range(5))
     sp_brl, btc_brl = [None] * n, [None] * n
     for t in range(1, n):
@@ -598,22 +606,28 @@ def _ponte_indices(n: int = _PONTE_MESES, anomalias: bool = True) -> tuple[dict,
         sp_usd[_PONTE_MES_SALTO] = _PONTE_SALTO_SP
         fx = _ponte_fx(_PONTE_MES_SALTO) / _ponte_fx(_PONTE_MES_SALTO - 1)
         sp_brl[_PONTE_MES_SALTO] = round((1.0 + _PONTE_SALTO_SP) * fx - 1.0, 6)
-    brl = {"IBOV": ibov, "IFIX": ifix, "SP500TR": sp_brl, "BTC": btc_brl, "CDI": cdi}
+    brl = {"IBOV": ibov, "IFIX": ifix, "SP500TR": sp_brl, "CDI": cdi}
+    if legado_cripto:
+        brl = {**brl, "BTC": btc_brl}
     usd = {"SP500TR": sp_usd}
     return brl, usd
 
 
 def _ponte_sintetica(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INICIO,
-                     anomalias: bool = True) -> dict:
-    """Bloco ``ponte`` v2.30 sintético (ver o comentário da seção). Sem
-    ``anomalias``: sem IFIX null, sem salto e ``buracos`` vazio em todos os escopos."""
+                     anomalias: bool = True, legado_cripto: bool = False) -> dict:
+    """Bloco ``ponte`` sintético (ver o comentário da seção). Sem
+    ``anomalias``: sem IFIX null, sem salto e ``buracos`` vazio em todos os escopos.
+    ``legado_cripto`` devolve a forma 2.30 (HASH11 + BTC), só para ``pre_v231``."""
     meses = _ponte_meses(n, inicio)
-    ind_brl, ind_usd = _ponte_indices(n, anomalias)
+    ind_brl, ind_usd = _ponte_indices(n, anomalias, legado_cripto)
     base_classe = {"acoes_br": ind_brl["IBOV"], "fiis": ind_brl["IFIX"],
-                   "renda_fixa": ind_brl["CDI"], "eua": ind_usd["SP500TR"],
-                   "cripto": ind_brl["BTC"]}
+                   "renda_fixa": ind_brl["CDI"], "eua": ind_usd["SP500TR"]}
+    lista = list(_PONTE_ATIVOS)
+    if legado_cripto:
+        base_classe["cripto"] = ind_brl["BTC"]
+        lista.append(_PONTE_ATIVO_CRIPTO_LEGADO)
     ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": cesta}
-              for (tk, c, p, cesta, *_resto) in _PONTE_ATIVOS]
+              for (tk, c, p, cesta, *_resto) in lista]
     brl: list[list] = [[] for _ in range(n)]
     usd: list[list] = [[] for _ in range(n)]
     chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
@@ -622,7 +636,7 @@ def _ponte_sintetica(n: int = _PONTE_MESES, inicio: tuple[int, int] = _PONTE_INI
     def _soma(chave: str, campo: str, t: int, x: float) -> None:
         fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
 
-    for i, (tk, classe, passivo, _cesta, ini, v0, aporte, alfa, fase) in enumerate(_PONTE_ATIVOS):
+    for i, (tk, classe, passivo, _cesta, ini, v0, aporte, alfa, fase) in enumerate(lista):
         eua = classe == "eua"
         escopos = ["Total"]
         if eua:
@@ -740,7 +754,7 @@ def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
 
 
 PAYLOAD = {
-    "versao": "2.30",
+    "versao": "2.31",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -757,9 +771,13 @@ PAYLOAD = {
     },
     "patrimonio": {
         "total_brl": 258000.0,
-        "br_brl": 149640.0,
+        # 7a.BG.1 (2.31): ``br_brl`` INCLUI a cripto (149640 + 20640), como o
+        # backend; ``carteira_*`` é o recorte sem cripto. 170280 + 87720 = 258000.
+        "br_brl": 170280.0,
         "eua_brl": 87720.0,
         "cripto_brl": 20640.0,
+        "carteira_brl": 237360.0,
+        "carteira_br_brl": 149640.0,
         "variacao_semanal_brl": 3100.0,
         "variacao_semanal_pct": 0.012,
         "evolucao": [
@@ -780,8 +798,8 @@ PAYLOAD = {
     },
     "alocacao": {
         # 7a.M.1: +Renda Fixa BR (5ª categoria; EUA 0.40→0.30, RF BR 0.10 conforme spec).
-        "atual": {"EUA": 0.40, "Ações BR": 0.27, "FIIs": 0.21, "Cripto": 0.07, "Renda Fixa BR": 0.05},
-        "alvo":  {"EUA": 0.30, "Ações BR": 0.30, "FIIs": 0.20, "Cripto": 0.10, "Renda Fixa BR": 0.10},
+        "atual": {"EUA": 0.43, "Ações BR": 0.29, "FIIs": 0.22, "Renda Fixa BR": 0.06},
+        "alvo":  {"EUA": 0.33, "Ações BR": 0.33, "FIIs": 0.22, "Renda Fixa BR": 0.12},
     },
     "rentabilidade": {
         "Total": {
@@ -1782,6 +1800,35 @@ def gerar_portfolio_projecao_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BG.1: payload 2.30 (antes da cripto sair da carteira): sem ``carteira_brl``
+# e ``carteira_br_brl``, ponte COM a linha ``cripto`` (HASH11) e o índice BTC.
+# O PWA novo deve tratá-lo como desatualizado; não tem valores esperados.
+def gerar_portfolio_pre_v231() -> None:
+    pat = {k: v for k, v in PAYLOAD["patrimonio"].items()
+           if k not in ("carteira_brl", "carteira_br_brl")}
+    pat["br_brl"] = 170280.0   # forma 2.30 real: ``br_brl`` COM a cripto (149640 + 20640)
+    bloco = _ponte_sintetica(legado_cripto=True)
+    _confere_ponte(bloco)
+    payload = PAYLOAD | {"versao": "2.30", "patrimonio": pat, "ponte": bloco}
+    alvo = OUT.parent / "portfolio_pre_v231.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
+# 7a.BG.1: carteira sem nenhuma cripto (``cripto_brl`` = 0, ``carteira_brl`` =
+# ``total_brl``) — o e2e do rodapé ausente. Mínimo, derivado de PAYLOAD.
+def gerar_portfolio_cripto_zero() -> None:
+    pat = dict(PAYLOAD["patrimonio"])
+    carteira = pat["carteira_brl"]
+    pat.update(cripto_brl=0.0, br_brl=pat["carteira_br_brl"], total_brl=carteira,
+               carteira_brl=carteira)
+    pat["evolucao"] = [*pat["evolucao"][:-1], {**pat["evolucao"][-1], "total_brl": carteira}]
+    payload = PAYLOAD | {"patrimonio": pat}
+    alvo = OUT.parent / "portfolio_cripto_zero.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BD.2 (Task 6): payload antigo (sem ``ponte``, v2.29) — o estado que a tela
 # nova precisa distinguir ("Rentabilidade indisponível nesta versão dos dados").
 def gerar_portfolio_pre_v230() -> None:
@@ -1971,6 +2018,8 @@ def main() -> None:
     gerar_portfolio_frase()                # 7a.W.3.b
     gerar_portfolio_projecao_variantes()   # 7a.AV.2 (Task 10)
     gerar_portfolio_pre_v230()             # 7a.BD.2 (Task 6)
+    gerar_portfolio_pre_v231()             # 7a.BG.1 (Task 7)
+    gerar_portfolio_cripto_zero()          # 7a.BG.1 (Task 7)
     gerar_ponte_esperado()                 # 7a.BD.2 (Task 6)
     gerar_portfolio_ponte_longa()          # 7a.BE.2 (Task 7)
 

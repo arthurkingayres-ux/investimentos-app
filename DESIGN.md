@@ -43,11 +43,13 @@ Cada categoria de ativo tem um token semântico em `:root` que é a **fonte úni
 | Ações BR | `#047857` | `--cat-acoes-br` |
 | EUA | `#1e6091` | `--cat-eua` |
 | FIIs | `#b8731f` | `--cat-fii` |
-| Cripto | `#6d4ea8` | `--cat-cripto` |
+| Cripto (ativo, não categoria) | `#6d4ea8` | `--cat-cripto` |
+
+Desde a 7a.BG.1 a cripto está **fora da carteira** e não é categoria da `#alocacao`. O token `--cat-cripto` permanece só para o ativo cripto nas posições e no dossiê (ponte `catCssVar`/`dossieCatStyle`); as 3 categorias de alocação são Ações BR, EUA e FIIs.
 
 Regras:
-- Hex hardcoded fora de `:root` para essas 4 cores é proibido. Sempre `var(--cat-*)` em CSS ou `getComputedStyle(...).getPropertyValue('--cat-*')` em JS.
-- Tema ECharts `drarthur` deriva o array `color` via helper `readToken` (`js/echarts-theme.js`). Slots 0-3 são as 4 categorias na ordem [Ações BR, EUA, FII, Cripto]; slots 4+ são tokens secundários.
+- Hex hardcoded fora de `:root` para essas cores é proibido. Sempre `var(--cat-*)` em CSS ou `getComputedStyle(...).getPropertyValue('--cat-*')` em JS.
+- Tema ECharts `drarthur` deriva o array `color` via helper `readToken` (`js/echarts-theme.js`). Slots 0-3 são os tokens na ordem [Ações BR, EUA, FII, Cripto] (o slot Cripto serve a séries do ativo cripto, não a uma categoria de alocação); slots 4+ são tokens secundários.
 - Intensidade: cor aparece em **dot 8-12px** (`.classe-dot.dot-*`) e nas séries de gráfico do PWA. **Texto nunca é colorido por categoria** — hierarquia tipográfica carrega o peso.
 - **Theme-aware (7a.S.12):** cada `--cat-*` ganha um 2º valor sob `:root[data-theme="dark"]`, mais claro/saturado que o light (ex.: Ações BR `#047857` claro → `#34d399` dark) — legível como dot/série contra o fundo quase-preto. Ver "Modo Plantão" abaixo.
 
@@ -57,7 +59,7 @@ Regras:
 - Posição: primeiro elemento da row de ativo (`.flag` antes do ticker).
 - Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes; v2.15 muda o caminho de política para `politica.categorias[].buckets[].ativos`).
 - Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, card "último aporte", #ativo/:ticker header).
-- Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs / Cripto) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
+- Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
 
 ### Neutrals (warm-tinted)
 - `--ink: #1a1d1c` — Primary text. Levemente tintado pra warm (não pure black).
@@ -258,7 +260,7 @@ Hero size = `--num-poster` (2.5rem), calibrada no raio-x enxuto pós-7a.I (cabe 
 O hero deixou de ser um `<a>` com uma única leitura (patrimônio) e um único destino (clique → `#/raiox/chart`). Virou um **card de facetas**: `<div role="button" tabindex="0">` que cicla **4 fatos read-only**, todos derivados do `portfolio.json` já existente — nenhum campo novo de backend:
 
 1. **Patrimônio total** (`patrimonio.total_brl`) — faceta inicial, com o count-up 1×/sessão preservado.
-2. **Divisão Brasil · EUA** (`patrimonio.br_brl` / `patrimonio.eua_brl`, campos diretos, não derivados) — split visual: 2 colunas (bandeira + R$ + % do total) + barra proporcional 2 cores.
+2. **Divisão Brasil · EUA** (`patrimonio.carteira_br_brl` / `patrimonio.eua_brl` sobre `patrimonio.carteira_brl`, campos diretos, não derivados; payload < v2.31 cai em `br_brl`/`total_brl`) — split visual: 2 colunas (bandeira + R$ + % da carteira) + barra proporcional 2 cores. Desde a 7a.BG.1 a divisão vale sobre a **carteira** (patrimônio sem a cripto): Brasil + EUA = 100 %, e o rodapé de reconciliação (ver "Rodapé de reconciliação da cripto") fica sob a barra.
 3. **Variação · 7 dias** (`patrimonio.variacao_semanal_brl`/`_pct`) — mesma métrica do antigo `.hero-delta`, agora com sua própria leitura em destaque (número grande + subtítulo).
 4. **Desde a origem** (`rentabilidade.Total.xirr_origem`, fallback `twr_origem` se o XIRR for `null`) — retorno anualizado acumulado desde o início da carteira.
 
@@ -528,7 +530,7 @@ segmento e mostra o rótulo (`visibility: visible`) só quando ele **cabe** de
 fato; senão fica escondido (`visibility: hidden`, o default do `.sl`) e o
 segmento fala só por cor + `aria-label`. Assim uma categoria real de ~9-10%
 (ex.: Renda Fixa BR) **mostra** seu % num celular normal (≥360px) e some só
-onde não caberia (320px), enquanto uma fatia minúscula (ex.: Cripto ~2%)
+onde não caberia (320px), enquanto uma fatia minúscula (ex.: uma categoria de ~2%)
 nunca ganha número. Roda via `x-effect` na `.compo-band` (depende de `rota` +
 `composicaoSegmentos`, com `$nextTick` — re-mede ao abrir a tela, quando a
 faixa deixa de ser `display:none` e ganha largura real) e num `@resize.window`
@@ -548,7 +550,7 @@ e os ticks usam `peso_alvo`, a régua compara visualmente atual × alvo sem
 precisar de dois gráficos separados.
 
 **Categoria de alvo 0% não emite tick (fix 2026-07-05):** uma categoria em
-quarentena com alvo zerado (ex.: Cripto) tem posição atual mas 0% de
+quarentena com alvo zerado (ex.: uma categoria cujo único pick está em quarentena) tem posição atual mas 0% de
 alvo — sua marca cumulativa cairia no mesmo ponto da anterior (soma 0 ao
 acumulado) e o label "0%" é só ruído. O tick é omitido (o acumulado ainda
 avança por 0, então as posições dos demais ficam intactas); o segmento
@@ -591,6 +593,47 @@ suprimido é justamente quando a confirmação por leitor de tela mais importa).
 .compo-seg { background: var(--cat); }
 .compo-seg.dim { opacity: .35; }
 .aloca-cat.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07); }
+```
+
+### Rodapé de reconciliação da cripto (7a.BG.1)
+
+Toda divisão percentual exibida vale sobre a **carteira** (patrimônio sem a
+cripto). Para as partes fecharem com o número do topo, e a cripto não sumir
+da vista, a divisão ganha **uma linha** sob ela: `+ R$ X em cripto, fora da
+divisão`. Dois lugares: sob a `.hero-splitbar` da faceta "Divisão Brasil ·
+EUA" (`.hero-split-cripto`) e sob as réguas da faixa de composição da
+`#alocacao` (`.compo-cripto`, dentro de `.compo`). Fonte única do texto:
+`rodapeCriptoTexto()` em `app.js`.
+
+- **Condição:** `patrimonio.carteira_brl` presente (payload v2.31+) **e**
+  `cripto_brl > 0`. Num payload antigo a divisão ainda inclui a cripto, e o
+  rodapé a contaria duas vezes; por isso some, não cai em fallback.
+- **Valor com centavos** (`formatBrl`, 2 casas), igual aos R$ do split:
+  Brasil + EUA + cripto fecha ao centavo com o patrimônio da faceta 1.
+- **Voz secundária, sem cor nova.** No hero escuro, a mesma do `.pct`
+  (branco 62 %, 12px); na tela clara, `--gray` a 12px (`--faint` não fecha
+  AA para um valor a ler). Alinhado à esquerda, `tabular-nums`, sem ícone,
+  sem borda: é nota de rodapé, não chamada.
+- **Na `#alocacao`, `x-if` (não `x-show`):** a ausência é testada pela
+  contagem de nós (`[data-testid="cripto-rodape"]`).
+
+`.hero-splitbar--com-rodape` existe porque, sem ela, o rodapé colide com os
+facet-dots logo abaixo: com o rodapé a barra sobe 6px (`margin-top` de
+`1rem` para `0.625rem`) e o rodapé cola nela (`0.375rem`), de modo que a
+faceta cabe no mesmo `.hero-body` das outras (altura mínima fixa, sem salto
+ao trocar de faceta) e o rodapé não encosta nos facet-dots. Não "reconciliar"
+estes valores com os de outra faceta sem rever a colisão.
+
+```css
+.hero-splitbar--com-rodape { margin-top: 0.625rem; }   /* barra sobe 6px quando há rodapé */
+.hero-split-cripto {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+.compo-cripto { margin: 8px 0 0; font-size: .75rem; color: var(--gray); }
 ```
 
 ### Proventos — linha-razão + chamada DY + KPI scroll affordance (7a.S.7b)
@@ -921,7 +964,7 @@ Toda a coreografia é gated por `window.drarthurNav.motion.reduced` (mesma fonte
 
 Substituiu, inteira, a tela anterior (gráfico multi-benchmark da 7a.E.25, card "Período" da 7a.L.2, os três `.rent-grupo` Ano/12m/Origem e o pulse `.live` do subtítulo da 7a.S.6). A tela é um **instrumento de rebalanceamento**, olhado com calma poucas vezes por ano, e responde duas perguntas, nessa ordem: **estou ganhando dos índices?** e **se não, por quê?** Spec: `docs/superpowers/specs/2026-10-21-fase-7a-bd-rentabilidade-ponte-design.md` no repo principal.
 
-**A régua.** "A mesma carteira, só com índices": em cada mês, cada ativo pesa o que pesou de fato na carteira (peso de Dietz) e rende o índice da sua classe (Ações BR → Ibovespa, FIIs → IFIX, EUA → S&P 500 com dividendos, Cripto → Bitcoin). **ETFs passivos da política** (toda cesta `passive` do `config/alocacao.yaml`) entram no composto **com o próprio retorno**: contribuição zero por construção e nenhuma linha na ponte; o que eles fazem de diferente do índice da classe é desenho da política, não seleção. A diferença carteira − composto mede só a seleção dentro de cada classe. A Renda fixa, só com passivos, entra no composto sem linha.
+**A régua.** "A mesma carteira, só com índices": em cada mês, cada ativo pesa o que pesou de fato na carteira (peso de Dietz) e rende o índice da sua classe (Ações BR → Ibovespa, FIIs → IFIX, EUA → S&P 500 com dividendos; a cripto está fora da carteira desde a 7a.BG.1 e não entra na régua). **ETFs passivos da política** (toda cesta `passive` do `config/alocacao.yaml`) entram no composto **com o próprio retorno**: contribuição zero por construção e nenhuma linha na ponte; o que eles fazem de diferente do índice da classe é desenho da política, não seleção. A diferença carteira − composto mede só a seleção dentro de cada classe. A Renda fixa, só com passivos, entra no composto sem linha.
 
 **Estrutura (de cima para baixo, ordem fixa):**
 1. `.escopo-toggle` Total · Brasil · EUA (+ `.moeda-toggle` BRL/USD só em EUA): o seletor lidera.
@@ -935,7 +978,7 @@ Substituiu, inteira, a tela anterior (gráfico multi-benchmark da 7a.E.25, card 
 
 **O gráfico.** ECharts `line`, eixo de categoria mensal. "Sua carteira" `--g-700` 2,5 px sólida com `criarMarkPointUltimo` (rótulo em `--ink`); "Mesma carteira, só com índices" `--gray` 1,8 px tracejada `[5,5]`; sem área, sem símbolos. **Número no fim das duas curvas** (7a.BG.2, `rent2MarcadoresFim`): cada uma tem o seu markPoint no último ponto desenhado (`ultimoIndiceValido`; no corte por buraco, o rótulo segue a curva cortada). O da carteira é o protagonista (`--ink`, 700, 8 px); o dos índices é subordinado (`--gray`, 600, 6 px). Regra de posição **sem limiar**: o maior dos dois valores finais leva `label.position: "top"` e o menor `"bottom"`, **sempre**, e não só quando estão próximos (uma regra sem limiar não tem fronteira que falhe; nenhum rótulo se esconde); empate, a carteira em cima. O `aria-label` do gráfico (`role="img"`) diz os dois números: `Sua carteira e a mesma carteira só com índices, {subtitulo}. Sua carteira {X}; só com índices {Y}.`, das mesmas curvas desenhadas (`rent2TextosFim`, sem `dc`, para o placeholder de degradação sobreviver). A descrição automática do ECharts fica desligada (`aria.enabled: false`): ela sobrescrevia esse aria-label ao abrir a tela. Três ajustes da conferência visual (7a.BG.2, medidos pelas caixas de texto do zrender em `rentabilidade-numero-indices.spec.ts`): (1) **folga do eixo y embaixo só quando o rótulo `bottom` precisa** (`rent2FolgaEixoY`, `yAxis.boundaryGap` dinâmico): com a janela terminando no mínimo, o rótulo caía 16 px abaixo do chão do grid, na faixa dos mmm/aa; fora desse caso a folga é 0 e o eixo não muda; (2) **contorno na cor de `--surface`** (`textBorderWidth: 3`) nos dois rótulos, porque o de baixo fica no caminho da própria curva quando ela sobe íngreme até o fim; (3) `grid.right` 20 → 28, porque o rótulo é centrado no último ponto e um "−17,6%" com contorno passava 1 px da borda do canvas. As duas curvas reancoram no início da janela (Π(1+r) − 1 a partir da âncora, as duas em 0 ali: a regra da 7a.L.1, agora para as duas linhas). O trilho é `criarDataZoomInstrumento(dc)` por valor, `minValueSpan: 1`: arrasto livre de 1 mês em diante. Uma única função, `ponteJanela` (espelho JS da referência Python, com teste cruzado), alimenta número, ponte, quem pesou, reais e detalhes, para botão e arrasto. A série termina no último fim de mês fechado.
 
-**A ponte (waterfall).** "Só com índices" (sub "mesmos pesos, mês a mês") → uma linha por classe com escolha ativa (Total: Ações BR, FIIs, EUA, Cripto; Brasil: Ações BR, FIIs; EUA: Picks, Fora da política atual) → "Sua carteira", com um filete `--neutral-200` acima, como linha de soma. Linha sem peso na janela não aparece.
+**A ponte (waterfall).** "Só com índices" (sub "mesmos pesos, mês a mês") → uma linha por classe com escolha ativa (Total: Ações BR, FIIs, EUA; Brasil: Ações BR, FIIs; EUA: Picks, Fora da política atual) → "Sua carteira", com um filete `--neutral-200` acima, como linha de soma. Linha sem peso na janela não aparece.
 - Grid do degrau `minmax(0,116px) minmax(0,1fr) auto` (92 px no rótulo abaixo de 360 px), `min-height: 44px`; rótulo com ponto 8 px `--cat-*` (Picks e Fora: `--cat-eua`) + sub "vs {índice}" em `--num-xs` `--gray`; valor mono `--num-sm` 600, `nowrap`.
 - **Totais em barra cheia neutra** (spec §8): "Só com índices" e "Sua carteira" ocupam o trilho inteiro, as duas do mesmo tamanho, sem eixo truncado nem marca de corte; quem diz o retorno é o valor escrito ao lado. (Um eixo truncado nos totais fazia 18,7% contra 19,7% parecer muitas vezes mais.) Só os degraus flutuantes ficam num eixo comum entre si, sobre {ind, acumulados, sua} com 12% de folga. `.ponte-trilho` tem `overflow: hidden`, que prende a guia e as barras dentro do trilho.
 - Barras por `transform: translateX() scaleX()` (`transform-origin: left`), nunca `left/width`; a guia tracejada entre degraus é uma caixa da largura do trilho com `border-left` 1 px dashed, deslocada por `translateX`.

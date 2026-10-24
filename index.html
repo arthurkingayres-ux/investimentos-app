@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=77">
+  <link rel="stylesheet" href="css/app.css?v=78">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
-  <script src="js/aportar.js?v=41"></script>
-  <script src="js/app.js?v=78"></script>
+  <script src="js/aportar.js?v=42"></script>
+  <script src="js/app.js?v=79"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -677,6 +677,12 @@
               </div>
             </template>
           </div>
+          <!-- 7a.BG.1: rodapé de reconciliação. A faixa e os cards somam 100%
+               da carteira (sem a cripto); esta linha devolve a cripto à vista.
+               Só com payload 2.31+ e cripto > 0 (rodapeCriptoTexto). -->
+          <template x-if="rodapeCriptoTexto()">
+            <p class="compo-cripto" data-testid="cripto-rodape" x-text="rodapeCriptoTexto()"></p>
+          </template>
           <!-- 7a.S.8 CRB: confirmação não-visual do tap p/ leitor de tela.
                O dim/flash/scroll é puramente visual; esta região aria-live
                narra "{categoria} em destaque" quando um segmento é tocado
@@ -1177,7 +1183,7 @@
           <div class="kpi">
             <span class="kpi-label">Patrimônio atual</span>
             <span class="kpi-valor" x-text="formatBrl(patrimonioAtual())"></span>
-            <span class="kpi-descricao">Valor de mercado consolidado da carteira (Brasil + EUA) na data mais recente.</span>
+            <span class="kpi-descricao">Valor de mercado consolidado do patrimônio (Brasil + EUA, cripto incluída) na data mais recente.</span>
           </div>
           <div class="kpi">
             <span class="kpi-label">Aporte cumulativo</span>
@@ -1188,7 +1194,7 @@
             <span class="kpi-label">Retorno acumulado</span>
             <span class="kpi-valor" x-text="formatBrl(retornoAcumuladoBrl())"></span>
             <span class="kpi-meta" x-text="retornoAcumuladoPctTexto()"></span>
-            <span class="kpi-descricao">Diferença entre patrimônio atual e aporte cumulativo. Mede ganho ou perda total da carteira.</span>
+            <span class="kpi-descricao">Diferença entre patrimônio atual e aporte cumulativo. Mede ganho ou perda total do patrimônio.</span>
           </div>
         </div>
 
@@ -1230,7 +1236,7 @@
               <h2 class="proj-cap__titulo" id="proj-cap-1">De onde você parte</h2>
               <p class="proj-cap__tema proj-num" x-text="formatBrlInteiro(projecao.partida.patrimonio)"></p>
               <p class="proj-cap__texto">É o valor de mercado de tudo o que você tem investido em
-                <span x-text="projFmtData(projecao.partida.data)"></span>, cripto incluído. Daqui até os
+                <span x-text="projFmtData(projecao.partida.data)"></span>, cripto incluída. Daqui até os
                 <span x-text="projecao.idade_final"></span> são <span x-text="projAnosTotal()"></span> anos de acumulação.</p>
               <details class="proj-conta"><summary>ver a conta</summary>
                 <div class="proj-conta__corpo">
@@ -1326,7 +1332,7 @@
             <section class="proj-cap" data-cap="4" aria-labelledby="proj-cap-4">
               <p class="proj-cap__ordinal" aria-hidden="true">4</p>
               <h2 class="proj-cap__titulo" id="proj-cap-4">O que isso dá</h2>
-              <p class="proj-cap__texto">A carteira levada adiante em <span x-text="projecao.trajetorias.toLocaleString('pt-BR')"></span> cenários, com o mesmo aporte, em reais de hoje. Cada linha é uma idade, na mesma escala.</p>
+              <p class="proj-cap__texto">O patrimônio levado adiante em <span x-text="projecao.trajetorias.toLocaleString('pt-BR')"></span> cenários, com o mesmo aporte, em reais de hoje. Cada linha é uma idade, na mesma escala.</p>
               <!-- Gráfico de faixas (7a.AX), uma linha por marco de idade (7a.AY).
                    Desenho com role="img" e os cinco percentis no aria-label; os
                    valores escritos EMBAIXO, em linha própria e fora do role="img". -->
@@ -1406,7 +1412,7 @@
               <p class="proj-cap__ordinal" aria-hidden="true">6</p>
               <h2 class="proj-cap__titulo" id="proj-cap-6">O que esta conta não inclui</h2>
               <ul class="proj-limites">
-                <li><strong>Imposto sobre o ganho.</strong> O número é o valor de mercado da carteira, antes do imposto que você pagaria ao vender.</li>
+                <li><strong>Imposto sobre o ganho.</strong> O número é o valor de mercado do patrimônio, antes do imposto que você pagaria ao vender.</li>
                 <li><strong>Rebalancear custa.</strong> Vender para voltar à alocação gera imposto e custos, que a conta não desconta.</li>
                 <li><strong>Premissas de 10 a 15 anos.</strong> A conta as aplica aos <span x-text="projAnosTotal()"></span> anos inteiros, que é a prática comum, mas ninguém publica premissa para tanto tempo.</li>
                 <template x-for="c in projHistoricas()" :key="c.classe">

@@ -33,9 +33,15 @@
     return MERCADOS.includes(mercado) ? mercado : "tudo";
   }
 
+  // 7a.BG.1: a cripto fica fora da carteira, e "Só Brasil" é a carteira
+  // brasileira. Payload 2.31+ já não publica a categoria; um payload antigo,
+  // em cache, ainda pode trazê-la, e ela não pode virar compra "no Brasil".
+  // Espelho do critério do backend (`src/common/escopo.py::e_cripto`).
+  const CATEGORIA_CRIPTO = "Cripto";
+
   function _categoriaNoMercado(nomeCategoria, mercado) {
     if (mercado === "eua") return nomeCategoria === "EUA";
-    if (mercado === "brasil") return nomeCategoria !== "EUA";
+    if (mercado === "brasil") return nomeCategoria !== "EUA" && nomeCategoria !== CATEGORIA_CRIPTO;
     return true;
   }
 
@@ -289,7 +295,12 @@
       return vazio;
     }
 
-    const patrimonio_atual = (portfolio.patrimonio && portfolio.patrimonio.total_brl) || 0;
+    // 7a.BG.1: os pesos (`peso_atual`) valem sobre a CARTEIRA (patrimônio sem
+    // a cripto), então o valor atual de cada ativo/categoria é peso × carteira.
+    // Este denominador alimenta candidatos (valor_atual/valor_alvo), o card
+    // (valor_pos/posPct) e patrimonio_pos. Payload < 2.31: cai no total_brl.
+    const pat = portfolio.patrimonio || {};
+    const patrimonio_atual = (pat.carteira_brl ?? pat.total_brl) || 0;
     const patrimonio_pos = patrimonio_atual + valorAporte;
     const cats = portfolio.politica.categorias;
     const preco_brl_por_ticker = derivarPrecoBrlPorTicker(portfolio);

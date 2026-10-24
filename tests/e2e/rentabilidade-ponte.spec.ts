@@ -103,8 +103,8 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     );
     await expect(page.locator(tid("rent2-numero"))).toHaveText("▲ +1,0");
     await expect(page.locator(tid("rent2-unidade"))).toHaveText("ponto ao ano");
-    await expect(page.locator(tid("rent2-par-sua"))).toContainText("19,7% ao ano");
-    await expect(page.locator(tid("rent2-par-ind"))).toContainText("18,7% ao ano");
+    await expect(page.locator(tid("rent2-par-sua"))).toContainText("19,6% ao ano");
+    await expect(page.locator(tid("rent2-par-ind"))).toContainText("18,6% ao ano");
     // fim da série a partir de ponte.ate (2026-09), âncora = fim de set/25
     await expect(page.locator(tid("rent2-subtitulo"))).toHaveText("Cresceu desde set/25 · até set/26");
     // nada da tela antiga
@@ -170,17 +170,16 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
   //   tests/fixtures/ponte_esperado.test.json; sua e ind = x*100 a 1 casa;
   //   linhas = arredondar_fechando([contrib*100 ...], sua_d - ind_d, 1), com
   //   sua_d/ind_d já arredondados (é o que a tela faz em rent2Vista: as linhas
-  //   fecham na diferença EXIBIDA). 3a: 10,7 / 9,7 -> 1,0 -> acoes_br 0,3.
-  //   5a: 12,0 / 11,1 -> 0,9 -> acoes_br 0,2 (a derivação sobre o `dif` cru
-  //   daria 0,3: os 11,0 do índice exibidos pelo arredondar_fechando de 12m
-  //   não são o que a tela mostra no par).
+  //   fecham na diferença EXIBIDA). 3a: 9,8 / 8,8 -> 1,0 -> acoes_br 0,3.
+  //   5a: 11,4 / 10,4 -> 1,0 -> acoes_br 0,3. Refeitos na 7a.BG.1 (cripto fora
+  //   da carteira: a fixture regenerada não tem mais a linha Cripto).
   test("bloco longo: 3a e 5a disponíveis trocam número, pares e a primeira linha", async ({ page }) => {
     await autenticar(page, "portfolio_ponte_longa.test.json.enc");
     await abrir(page);
 
     const casos: [string, string, string, string, number][] = [
-      ["3a", "10,7% ao ano", "9,7% ao ano", "acoes_br", 0.3],
-      ["5a", "12,0% ao ano", "11,1% ao ano", "acoes_br", 0.2],
+      ["3a", "9,8% ao ano", "8,8% ao ano", "acoes_br", 0.3],
+      ["5a", "11,4% ao ano", "10,4% ao ano", "acoes_br", 0.3],
     ];
     for (const [k, sua, ind, id, valor] of casos) {
       const botao = page.locator(tid(`rent2-janela-${k}`));
@@ -237,8 +236,8 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     );
     await expect(page.locator(tid("rent2-numero"))).toHaveText("▲ +0,4");
     await expect(page.locator(tid("rent2-unidade"))).toHaveText("ponto no período");
-    await expect(page.locator(tid("rent2-par-sua"))).toContainText("9,1% no período");
-    await expect(page.locator(tid("rent2-par-ind"))).toContainText("8,7% no período");
+    await expect(page.locator(tid("rent2-par-sua"))).toContainText("10,4% no período");
+    await expect(page.locator(tid("rent2-par-ind"))).toContainText("10,0% no período");
     await expect(page.locator(tid("ponte"))).toContainText("Em pontos no período. Toque numa linha.");
     await page.locator(`${tid("ponte-linha")}[data-linha="eua"]`).click();
     await expect(page.locator(tid("ponte-pesou"))).toContainText(
@@ -375,19 +374,36 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
   test("contribuição entre −0,05 e +0,05 é neutra: '±0,0' cinza e 'andou junto com o índice'", async ({ page }) => {
     await autenticar(page);
     await abrir(page);
+    await escopo(page, "EUA");
+    // Na fixture o O (linha `fora`) pesa −0,1999 ponto ao ano. Para a linha
+    // neutra, o teste soma 0,14% da base ao ganho mensal dele NA MEMÓRIA (bloco
+    // sintético). A contribuição é linear no ganho (~149 pontos por unidade de
+    // k; medido: k=0,002 dá +0,0985 e k=0 dá −0,1999), logo k=0,0014 dá cerca de
+    // +0,009: não nula, e abaixo de 0,05, então a tela arredonda para "±0,0".
+    await page.evaluate(() => {
+      const d = (window as any).Alpine.$data(document.body);
+      const p = d.json.ponte;
+      const idx = p.ativos.findIndex((a: any) => a.t === "O");
+      for (const mes of p.brl) for (const e of mes) if (e[0] === idx) e[2] = e[2] + e[1] * 0.0014;
+      d.hidratarRentabilidade();
+    });
 
     const linhas = await linhasDaPonte(page);
-    expect(linhas.map((l) => l.id)).toEqual(["acoes_br", "fiis", "eua", "cripto"]);
-    const cripto = linhas.find((l) => l.id === "cripto")!;
-    expect(cripto.sinal).toBe("neutro");
-    expect(cripto.texto).toContain("±0,0");
-    expect(cripto.texto).not.toMatch(/[▲▼]/);
-    expect(cripto.pressed).toBe("true"); // a menor contribuição exibida
+    expect(linhas.map((l) => l.id)).toEqual(["picks", "fora"]);
+    const fora = linhas.find((l) => l.id === "fora")!;
+    expect(fora.sinal).toBe("neutro");
+    expect(fora.texto).toContain("±0,0");
+    expect(fora.texto).not.toMatch(/[▲▼]/);
+    expect(fora.pressed).toBe("true"); // a menor contribuição exibida
     await expect(page.locator(tid("ponte-pesou"))).toContainText(
-      "Cripto andou junto com o índice (Bitcoin) nesta janela. Nada a explicar aqui.",
+      "Fora da política atual andou junto com o índice (S&P 500 com dividendos) nesta janela. Nada a explicar aqui.",
     );
     await expect(page.locator(tid("pesou-ativo"))).toHaveCount(0);
-    const corNeutra = await page.locator(`${tid("ponte-linha")}[data-linha="cripto"] .ponte-valor`).evaluate(
+    // a live region leva a mesma frase neutra (ramo `neutra` de _rent2Anunciar)
+    await expect(page.locator(tid("rent2-anuncio-pesou"))).toHaveText(
+      "Fora da política atual andou junto com o índice (S&P 500 com dividendos) nesta janela. Nada a explicar aqui.",
+    );
+    const corNeutra = await page.locator(`${tid("ponte-linha")}[data-linha="fora"] .ponte-valor`).evaluate(
       (e) => [getComputedStyle(e).color, getComputedStyle(document.documentElement).getPropertyValue("--gray").trim()],
     );
     const rgb = await page.evaluate((hex) => {
@@ -443,9 +459,9 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     await expect(reais).toContainText("Ganho, com proventos");
     await expect(reais).toContainText("Em set/26");
     await expect(reais).not.toContainText(/Aportado|Hoje/);
-    await expect(page.locator(tid("rent2-entrou"))).toHaveText(/^R\$\s12\.557$/);
-    await expect(page.locator(tid("rent2-ganho"))).toHaveText(/^▲ \+ R\$\s28\.740$/);
-    await expect(page.locator(tid("rent2-valor-fim"))).toHaveText(/^R\$\s180\.202$/);
+    await expect(page.locator(tid("rent2-entrou"))).toHaveText(/^R\$\s11\.957$/);
+    await expect(page.locator(tid("rent2-ganho"))).toHaveText(/^▲ \+ R\$\s27\.570$/);
+    await expect(page.locator(tid("rent2-valor-fim"))).toHaveText(/^R\$\s173\.532$/);
   });
 
   test("Detalhes fechado por padrão: índices do escopo, TWR igual ao topo, XIRR e o aviso", async ({ page }) => {
@@ -461,14 +477,14 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     const indices = await page.locator(tid("rent2-indice")).evaluateAll((els) =>
       els.map((e) => [e.getAttribute("data-indice"), (e.textContent || "").replace(/\s+/g, " ").trim()]),
     );
-    expect(indices.map((i) => i[0])).toEqual(["CDI", "IBOV", "IFIX", "SP500TR", "BTC"]);
+    expect(indices.map((i) => i[0])).toEqual(["CDI", "IBOV", "IFIX", "SP500TR"]);
     expect(indices.map((i) => i[1])).toEqual([
-      "CDI 10,9%", "Ibovespa 16,4%", "IFIX 7,5%", "S&P 500 com dividendos 22,0%", "Bitcoin 21,1%",
+      "CDI 10,9%", "Ibovespa 16,4%", "IFIX 7,5%", "S&P 500 com dividendos 22,0%",
     ]);
     const topo = await page.locator(`${tid("rent2-par-sua")} .rent2-par-valor`).textContent();
     await expect(page.locator(`${tid("rent2-twr")} .rent2-regua-valor`)).toHaveText(topo!.trim());
     await expect(page.locator(tid("rent2-twr"))).toContainText("A carteira (TWR)");
-    await expect(page.locator(`${tid("rent2-xirr")} .rent2-regua-valor`)).toHaveText("19,8%");
+    await expect(page.locator(`${tid("rent2-xirr")} .rent2-regua-valor`)).toHaveText("19,7%");
     await expect(page.locator(tid("rent2-xirr"))).toContainText("Seu dinheiro (XIRR)");
     await expect(page.locator(tid("rent2-aviso"))).toHaveText(
       "Rentabilidade passada não garante resultado futuro. Valores antes de impostos.",
@@ -482,24 +498,25 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
       .toEqual(["SP500TR"]);
   });
 
-  test("Cripto, classe de um ativo só: 'quem pesou' mostra só ele", async ({ page }) => {
+  test("Fora da política, linha de um ativo só: 'quem pesou' mostra só ele", async ({ page }) => {
     await autenticar(page);
     await abrir(page);
-    // Na fixture o HASH11 rende igual ao Bitcoin (linha neutra). Para ver a
-    // lista, o teste afasta o ganho dele do índice NA MEMÓRIA (bloco sintético).
+    await escopo(page, "EUA");
+    // Na fixture a linha `fora` tem um ativo só (O; o rebate não pesa). Para a
+    // linha ficar positiva, o teste afasta o ganho dele do índice NA MEMÓRIA.
     await page.evaluate(() => {
       const d = (window as any).Alpine.$data(document.body);
       const p = d.json.ponte;
-      const idx = p.ativos.findIndex((a: any) => a.t === "HASH11");
+      const idx = p.ativos.findIndex((a: any) => a.t === "O");
       for (const mes of p.brl) for (const e of mes) if (e[0] === idx) e[2] = e[2] + e[1] * 0.03;
       d.hidratarRentabilidade();
     });
-    const cripto = page.locator(`${tid("ponte-linha")}[data-linha="cripto"]`);
-    await expect(cripto).toHaveAttribute("data-sinal", "pos");
-    await cripto.click();
-    await expect(page.locator(tid("ponte-pesou"))).toContainText("Cripto somou");
-    await expect(page.locator(tid("ponte-pesou"))).toContainText("contra o Bitcoin");
-    expect(await tickersPesou(page)).toEqual(["HASH11"]);
+    const fora = page.locator(`${tid("ponte-linha")}[data-linha="fora"]`);
+    await expect(fora).toHaveAttribute("data-sinal", "pos");
+    await fora.click();
+    await expect(page.locator(tid("ponte-pesou"))).toContainText("Fora da política atual somou");
+    await expect(page.locator(tid("ponte-pesou"))).toContainText("contra o S&P 500 com dividendos");
+    expect(await tickersPesou(page)).toEqual(["O"]);
     await expect(page.locator(tid("pesou-outros"))).toHaveCount(0);
   });
 
@@ -601,12 +618,12 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
     const linhas = await tabela.locator("tbody tr").evaluateAll((els) =>
       els.map((e) => Array.from(e.children).map((c) => (c.textContent || "").trim()).join(" ")),
     );
-    expect(linhas.length).toBe(6);
+    expect(linhas.length).toBe(5);
     expect(linhas[0]).toContain("Só com índices");
-    expect(linhas[0]).toContain("18,7% ao ano");
+    expect(linhas[0]).toContain("18,6% ao ano");
     expect(linhas[1]).toContain("Ações BR, contra o Ibovespa: mais 0,2 ponto");
-    expect(linhas[5]).toContain("Sua carteira");
-    expect(linhas[5]).toContain("19,7% ao ano");
+    expect(linhas[4]).toContain("Sua carteira");
+    expect(linhas[4]).toContain("19,6% ao ano");
     // escondida da vista, não do leitor de tela: o wrapper .sr-only recorta a 1px
     const recorte = await tabela.evaluate((e) => {
       const w = e.parentElement!;
@@ -622,7 +639,7 @@ test.describe("7a.BD.2 — #rentabilidade como ponte", () => {
       "Nos últimos 12 meses, você ganhou da sua carteira de índices. +1,0 ponto ao ano.",
     );
     await expect(page.locator(tid("rent2-anuncio-pesou"))).toHaveText(
-      "Cripto andou junto com o índice (Bitcoin) nesta janela. Nada a explicar aqui.",
+      "Ações BR somaram 0,2 ponto ao ano contra o Ibovespa. Quem mais pesou: ITSA4 +0,4, BBAS3 −0,2.",
     );
     // a parte visual não é live region (senão o arrasto inundaria o leitor de tela)
     await expect(page.locator(`${TELA} .rent2-veredito`)).not.toHaveAttribute("aria-live", /.*/);

@@ -82,9 +82,9 @@ function newtonRaphsonXirr(flows, guess = 0.10, maxIter = 50, tol = 1e-7, opcoes
 // - round() do Python: ponteRoundPy (meio-para-par sobre o valor exato).
 const PONTE_REBATE_TICKER = "AVNU_REBATE";
 const PONTE_REBATE_ROTULO = "Rebates da corretora";
-const PONTE_INDICE_CLASSE = { acoes_br: "IBOV", fiis: "IFIX", eua: "SP500TR", cripto: "BTC" };
+const PONTE_INDICE_CLASSE = { acoes_br: "IBOV", fiis: "IFIX", eua: "SP500TR" };
 const PONTE_ORDEM_LINHAS = {
-  Total: ["acoes_br", "fiis", "eua", "cripto"],
+  Total: ["acoes_br", "fiis", "eua"],
   Brasil: ["acoes_br", "fiis"],
   EUA: ["picks", "fora"],
 };
@@ -94,7 +94,7 @@ const PONTE_CLASSES_ESCOPO = {
   EUA: ["eua"],
 };
 const PONTE_INDICES_DETALHES = {
-  Total: ["CDI", "IBOV", "IFIX", "SP500TR", "BTC"],
+  Total: ["CDI", "IBOV", "IFIX", "SP500TR"],
   Brasil: ["CDI", "IBOV", "IFIX"],
   EUA: ["SP500TR"],
 };
@@ -457,18 +457,18 @@ function arredondarFechando(valores, total, casas = 1) {
 // "conferência" vão ao Dr. Arthur no critério 3 da spec.
 const RENT2_MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const RENT2_ROTULO_LINHA = {
-  acoes_br: "Ações BR", fiis: "FIIs", eua: "EUA", cripto: "Cripto",
+  acoes_br: "Ações BR", fiis: "FIIs", eua: "EUA",
   picks: "Picks", fora: "Fora da política atual",
 };
 // Concordância da frase de "quem pesou" (somaram/somou, andaram/andou).
-const RENT2_LINHA_PLURAL = { acoes_br: true, fiis: true, eua: true, picks: true, cripto: false, fora: false };
+const RENT2_LINHA_PLURAL = { acoes_br: true, fiis: true, eua: true, picks: true, fora: false };
 const RENT2_COR_LINHA = {
   acoes_br: "var(--cat-acoes-br)", fiis: "var(--cat-fii)", eua: "var(--cat-eua)",
-  cripto: "var(--cat-cripto)", picks: "var(--cat-eua)", fora: "var(--cat-eua)",
+  picks: "var(--cat-eua)", fora: "var(--cat-eua)",
 };
 // Nome do índice na tela (nunca o id interno do payload).
 const RENT2_NOME_INDICE = {
-  CDI: "CDI", IBOV: "Ibovespa", IFIX: "IFIX", SP500TR: "S&P 500 com dividendos", BTC: "Bitcoin",
+  CDI: "CDI", IBOV: "Ibovespa", IFIX: "IFIX", SP500TR: "S&P 500 com dividendos",
 };
 const RENT2_ALVO_VEREDITO = {
   Total: "sua carteira de índices",
@@ -1588,11 +1588,16 @@ document.addEventListener("alpine:init", () => {
           deltaPct: p.variacao_semanal_pct,
         },
         {
+          // 7a.BG.1: a divisão vale sobre a CARTEIRA (patrimônio sem a cripto).
+          // `br_brl` segue com a cripto (não muda de sentido no payload); o
+          // R$ Brasil exibido é `carteira_br_brl`. Payload < 2.31 não tem os
+          // campos: cai no total/br de antes, sem rodapé.
           tipo: "split",
           eyebrow: this.heroFacetLabels[1],
-          totalBrl: p.total_brl,
-          brBrl: p.br_brl,
+          totalBrl: p.carteira_brl ?? p.total_brl,
+          brBrl: p.carteira_br_brl ?? p.br_brl,
           euaBrl: p.eua_brl,
+          criptoRodape: this.rodapeCriptoTexto(),
         },
         {
           tipo: "variacao7d",
@@ -1636,10 +1641,13 @@ document.addEventListener("alpine:init", () => {
           '<div class="num">' + window.formatBrl(f.euaBrl) + "</div>" +
           '<div class="pct">' + window.formatPctSemSinal(euaPct, 1) + "</div></div>" +
           "</div>" +
-          '<div class="hero-splitbar">' +
+          '<div class="hero-splitbar' + (f.criptoRodape ? " hero-splitbar--com-rodape" : "") + '">' +
           '<i style="width:' + (brPct * 100).toFixed(2) + '%;background:var(--cat-acoes-br)"></i>' +
           '<i style="width:' + (euaPct * 100).toFixed(2) + '%;background:var(--cat-eua)"></i>' +
-          "</div>"
+          "</div>" +
+          (f.criptoRodape
+            ? '<p class="hero-split-cripto" data-testid="cripto-rodape">' + f.criptoRodape + "</p>"
+            : "")
         );
       }
       if (f.tipo === "variacao7d") {
@@ -1903,6 +1911,21 @@ document.addEventListener("alpine:init", () => {
 
     // 7a.E.31: R$ de mercado da categoria / do ativo (schema v2.20).
     valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
+
+    // 7a.BG.1 — rodapé de reconciliação. Toda divisão percentual (faceta
+    // split do hero, faixa da #alocacao) vale sobre a carteira, que exclui a
+    // cripto; esta linha devolve a cripto à vista para as partes fecharem com
+    // o número do topo. Só existe com payload 2.31+ (`carteira_brl` presente:
+    // num payload antigo a divisão ainda inclui a cripto, e o rodapé a
+    // contaria duas vezes) e com cripto > 0. Texto numérico computado, nunca
+    // vindo do usuário: seguro para o innerHTML do hero.
+    rodapeCriptoTexto() {
+      const p = (this.json && this.json.patrimonio) || {};
+      const cripto = p.cripto_brl;
+      if (typeof p.carteira_brl !== "number") return "";
+      if (typeof cripto !== "number" || !(cripto > 0)) return "";
+      return "+ " + window.formatBrl(cripto) + " em cripto, fora da divisão";
+    },
     valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
 
     // 7a.E.32/7a.E.33: DY trailing-12m do ativo (schema v2.24). `por_ativo`
@@ -3060,7 +3083,7 @@ document.addEventListener("alpine:init", () => {
           // em ajustarLabelsFaixa (o número aparece se couber no segmento),
           // não por um threshold fixo — assim uma categoria real de ~9-10%
           // (ex.: Renda Fixa BR) mostra seu % num celular normal, e só o que
-          // não cabe (ex.: Cripto ~2%) fica sem número. O threshold fixo antigo
+          // não cabe (ex.: uma categoria de ~2%) fica sem número. O threshold fixo antigo
           // (7%→12%) escondia categorias mesmo quando o "PP%" caberia, e o nome
           // dentro do segmento (pré-fix) transbordava e colidia com o vizinho.
           label: window.formatPctSemSinal(atual, 0),
@@ -3086,7 +3109,7 @@ document.addEventListener("alpine:init", () => {
       cats.forEach((c) => {
         const alvo = c.peso_alvo || 0;
         acumulado += alvo;
-        // Categoria de alvo ~0 (ex.: Cripto em quarentena) não tem régua
+        // Categoria de alvo ~0 (ex.: uma classe em quarentena) não tem régua
         // própria: sua marca cumulativa cairia no mesmo ponto da anterior
         // (soma 0 ao acumulado) e o label "0%" é só ruído — não emite tick.
         // O acumulado já avançou (por 0), então as posições dos demais ficam
@@ -3959,12 +3982,15 @@ document.addEventListener("alpine:init", () => {
       this._rentCtx = null;
       const chaveAnterior = this.rent2.chave;
       const bloco = this.json.ponte;
-      if (!bloco || !Array.isArray(bloco.meses) || bloco.meses.length < 2) {
-        // Payload v2.30+ com `ponte: null`: o builder do backend falhou nesta
+      // 7a.BG.1: a ponte só vale a partir da 2.31 (cripto fora da carteira). Um
+      // payload 2.30, em cache do SW, ainda traz a linha Cripto e o BTC: cai no
+      // estado "versão" (recarregar traz o payload novo), nunca no de "erro".
+      const v231 = rent2VersaoAoMenos(this.json.versao, [2, 31]);
+      if (!v231 || !bloco || !Array.isArray(bloco.meses) || bloco.meses.length < 2) {
+        // Payload v2.31+ com `ponte: null`: o builder do backend falhou nesta
         // publicação (recarregar não resolve). Sem a chave (schema antigo, em
         // cache do SW): recarregar traz o payload novo.
-        const v230 = rent2VersaoAoMenos(this.json.versao, [2, 30]);
-        this.rent2 = { ...rent2Vazio(), semBloco: v230 && "ponte" in this.json ? "nulo" : "versao" };
+        this.rent2 = { ...rent2Vazio(), semBloco: v231 && "ponte" in this.json ? "nulo" : "versao" };
         if (target) target.innerHTML = "";
         return;
       }
@@ -4838,45 +4864,6 @@ document.addEventListener("alpine:init", () => {
     dispararShake() {
       this.shake = true;
       setTimeout(() => { this.shake = false; }, 420);
-    },
-
-    get linhasAlocacao() {
-      const a = (this.json && this.json.alocacao) || {};
-      const atual = a.atual || {};
-      const alvo = a.alvo || {};
-      const aliases = { "FIIs BR": "FII", "Ações Brasil": "Ações BR" };
-      // 7a.E.20.1: gradiente e dot derivam de var(--cat-*) (single source).
-      // 7a.M.1: +Renda Fixa BR.
-      // Stops escuros das gradientes são tonais; ficam inline (não são "a cor da categoria").
-      const grad = {
-        "EUA":           `linear-gradient(90deg, #133e5d 0%, ${COLORS.catEua()} 100%)`,
-        "Ações BR":      `linear-gradient(90deg, var(--g-900) 0%, ${COLORS.catAcoesBr()} 100%)`,
-        "FII":           `linear-gradient(90deg, #8a5418 0%, ${COLORS.catFii()} 100%)`,
-        "Cripto":        `linear-gradient(90deg, #4e3979 0%, ${COLORS.catCripto()} 100%)`,
-        "Renda Fixa BR": `linear-gradient(90deg, #0a4a5e 0%, ${COLORS.catRendaFixaBr()} 100%)`,
-      };
-      const dot = {
-        "EUA":           COLORS.catEua(),
-        "Ações BR":      COLORS.catAcoesBr(),
-        "FII":           COLORS.catFii(),
-        "Cripto":        COLORS.catCripto(),
-        "Renda Fixa BR": COLORS.catRendaFixaBr(),
-      };
-      return Object.keys(atual)
-        .sort((x, y) => (atual[y] || 0) - (atual[x] || 0))
-        .map((k) => {
-          let alvoKey = k in alvo ? k : Object.keys(alvo).find((ak) => (aliases[ak] || ak) === k);
-          const pctAtual = atual[k] || 0;
-          const pctAlvo = (alvoKey && alvo[alvoKey]) || 0;
-          return {
-            nome: k,
-            pct_atual: pctAtual,
-            pct_alvo: pctAlvo,
-            drift: pctAtual - pctAlvo,
-            gradiente: grad[k] || "linear-gradient(90deg, var(--gray), var(--neutral-200))",
-            cor: dot[k] || "var(--gray)",
-          };
-        });
     },
 
     get anoCorrente() {

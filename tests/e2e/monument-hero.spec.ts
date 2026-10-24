@@ -174,8 +174,11 @@ test.describe("Hero de facetas (7a.S.5)", () => {
     await expect(cols).toHaveCount(2);
     await expect(cols.nth(0).locator(".num")).toHaveText("R$ 149.640,00");
     await expect(cols.nth(1).locator(".num")).toHaveText("R$ 87.720,00");
-    await expect(cols.nth(0).locator(".pct")).toHaveText("58,0%");
-    await expect(cols.nth(1).locator(".pct")).toHaveText("34,0%");
+    // 7a.BG.1: denominador = carteira (carteira_brl 237.360, sem a cripto);
+    // R$ Brasil = carteira_br_brl (149.640, sem o HASH11). 149.640/237.360 =
+    // 63,04%; 87.720/237.360 = 36,96%: Brasil + EUA fecham 100% da carteira.
+    await expect(cols.nth(0).locator(".pct")).toHaveText("63,0%");
+    await expect(cols.nth(1).locator(".pct")).toHaveText("37,0%");
   });
 
   test("faceta 'Desde a origem' mostra o retorno acumulado", async ({ page }) => {

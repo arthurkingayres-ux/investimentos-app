@@ -632,6 +632,20 @@ h1 {
   background: rgba(255, 255, 255, 0.14);
 }
 .hero-splitbar i { display: block; height: 100%; }
+/* 7a.BG.1 — rodapé de reconciliação da cripto sob a split-bar. Mesma voz do
+   .pct (branco 62%, secundária no hero escuro): fecha a conta Brasil + EUA +
+   cripto = número do topo sem competir com os dois valores da divisão. */
+/* Com o rodapé, a barra sobe 6px e o rodapé cola nela (6px): a faceta cabe
+   no mesmo .hero-body das outras (min-height fixo, sem salto ao trocar de
+   faceta) e o rodapé não encosta nos facet-dots logo abaixo. */
+.hero-splitbar--com-rodape { margin-top: 0.625rem; }
+.hero-split-cripto {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.62);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Facet-dots: indicador discreto de qual das 4 facetas está ativa. O botão
    (.fd) tem hit-area ≥44px (touch target); o traço visível de 22×3px vem do
@@ -1642,6 +1656,16 @@ footer.rodape code {
   font-size: 9px;
   color: var(--faint);
   margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 7a.BG.1 — rodapé de reconciliação da cripto sob a faixa de composição.
+   --gray (não --faint): é um valor a ler, e --faint não fecha AA em 12px. */
+.compo-cripto {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--gray);
   font-variant-numeric: tabular-nums;
 }
 

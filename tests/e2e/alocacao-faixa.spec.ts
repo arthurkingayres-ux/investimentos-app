@@ -47,7 +47,7 @@ const CATS_COM_ESTREITA = [
     buckets: [],
   },
   {
-    nome: "Cripto",
+    nome: "Classe X",
     peso_alvo: 0.05,
     peso_atual: 0.048,
     drift: -0.002,
@@ -101,14 +101,14 @@ function parseStyleFloat(style: string, prop: "width" | "left"): number {
 // repo público) que reproduz a FORMA do caso que quebrava a faixa no celular
 // (fix 2026-07-05): 5 categorias, incluindo um nome longo ("Renda Fixa BR"),
 // uma estreita na faixa 7–12% (Renda Fixa BR ~9%) e uma de alvo 0% mas com
-// posição atual (Cripto). Pesos redondos que somam 1.0; BRL de magnitude
+// posição atual (Classe X). Pesos redondos que somam 1.0; BRL de magnitude
 // redonda não relacionada ao patrimônio real.
 const CATS_SINTETICAS = [
   { nome: "EUA", peso_alvo: 0.50, peso_atual: 0.55, drift: 0.05, valor_brl: 55000, buckets: [] },
   { nome: "FIIs", peso_alvo: 0.22, peso_atual: 0.19, drift: -0.03, valor_brl: 19000, buckets: [] },
   { nome: "Ações BR", peso_alvo: 0.15, peso_atual: 0.14, drift: -0.01, valor_brl: 14000, buckets: [] },
   { nome: "Renda Fixa BR", peso_alvo: 0.13, peso_atual: 0.09, drift: -0.04, valor_brl: 9000, buckets: [] },
-  { nome: "Cripto", peso_alvo: 0.0, peso_atual: 0.03, drift: 0.03, valor_brl: 3000, buckets: [] },
+  { nome: "Classe X", peso_alvo: 0.0, peso_atual: 0.03, drift: 0.03, valor_brl: 3000, buckets: [] },
 ];
 
 test.describe("Faixa de composição 100% #alocacao (7a.S.8)", () => {
@@ -195,7 +195,7 @@ test.describe("Faixa de composição 100% #alocacao (7a.S.8)", () => {
     await expect(page.locator(".compo-seg")).toHaveCount(3);
 
     // A visibilidade do rótulo agora é decidida por medição (ajustarLabelsFaixa
-    // alterna .sl visibility). Cripto (~5%) é estreita demais → escondida; Ações
+    // alterna .sl visibility). Classe X (~5%) é estreita demais → escondida; Ações
     // BR (27%) e EUA (68%) cabem → visíveis. A medição é assíncrona ($nextTick),
     // então poll até assentar.
     const dado = async (nome: string) =>
@@ -213,12 +213,12 @@ test.describe("Faixa de composição 100% #alocacao (7a.S.8)", () => {
 
     await expect.poll(async () => (await dado("Ações BR"))?.labelVisivel).toBe(true);
     await expect.poll(async () => (await dado("EUA"))?.labelVisivel).toBe(true);
-    const cripto = await dado("Cripto");
-    expect(cripto!.labelVisivel).toBe(false);
-    expect(cripto!.aria).toMatch(/Cripto/);
-    expect(cripto!.aria).toMatch(/atual/);
-    expect(cripto!.aria).toMatch(/alvo/);
-    expect(cripto!.aria).toMatch(/%/);
+    const estreita = await dado("Classe X");
+    expect(estreita!.labelVisivel).toBe(false);
+    expect(estreita!.aria).toMatch(/Classe X/);
+    expect(estreita!.aria).toMatch(/atual/);
+    expect(estreita!.aria).toMatch(/alvo/);
+    expect(estreita!.aria).toMatch(/%/);
   });
 
   test("segmentos são <button> operáveis (a11y)", async ({ page }) => {
@@ -366,10 +366,10 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     });
   }
 
-  test("categoria de ~9% (Renda Fixa BR) MOSTRA seu % quando cabe; Cripto (estreita) fica só cor", async ({ page }) => {
+  test("categoria de ~9% (Renda Fixa BR) MOSTRA seu % quando cabe; Classe X (estreita) fica só cor", async ({ page }) => {
     // Num celular típico (390px), Renda Fixa BR (~9%) tem largura suficiente
     // p/ "9%" — deve aparecer (era o ponto do Dr. Arthur: não podia ficar sem
-    // número). Cripto (~3%, alvo 0) é estreita demais → só cor, mas o
+    // número). Classe X (~3%, alvo 0) é estreita demais → só cor, mas o
     // aria-label de ambas segue completo (a11y).
     await page.setViewportSize({ width: 390, height: 844 });
     await autenticar(page);
@@ -398,11 +398,11 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     expect(rf!.texto).toMatch(/^\d+%$/);
     expect(rf!.aria).toMatch(/Renda Fixa BR/);
 
-    const cripto = await dado("Cripto");
-    expect(cripto!.visivel).toBe(false);
-    expect(cripto!.aria).toMatch(/Cripto/);
-    expect(cripto!.aria).toMatch(/atual/);
-    expect(cripto!.aria).toMatch(/alvo/);
+    const estreita = await dado("Classe X");
+    expect(estreita!.visivel).toBe(false);
+    expect(estreita!.aria).toMatch(/Classe X/);
+    expect(estreita!.aria).toMatch(/atual/);
+    expect(estreita!.aria).toMatch(/alvo/);
   });
 
   test("resize re-mede: Renda Fixa BR aparece ao alargar de 320px → 390px", async ({ page }) => {
@@ -431,7 +431,7 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     await expect.poll(rfVisivel).toBe(true);
   });
 
-  test("categoria de alvo 0% (Cripto) NÃO emite tick; ticks = categorias com alvo > 0", async ({ page }) => {
+  test("categoria de alvo 0% (Classe X) NÃO emite tick; ticks = categorias com alvo > 0", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
     await autenticar(page);
     await injetarCategorias(page, CATS_SINTETICAS);
@@ -441,7 +441,7 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     await expect(page.locator(".compo-tick")).toHaveCount(4);
 
     const tvs = await page.$$eval(".compo-tick .tv", (els) => els.map((e) => e.textContent?.trim() || ""));
-    // Nenhum tick mostra "0%" (o alvo 0% da Cripto não vira régua).
+    // Nenhum tick mostra "0%" (o alvo 0% da Classe X não vira régua).
     expect(tvs).not.toContain("0%");
   });
 
@@ -453,7 +453,7 @@ test.describe("Faixa mobile — legibilidade com 5 categorias (fix 2026-07-05)",
     // label arredondaria p/ "0%". Vizinhas somam o resto p/ alvos = 1.0.
     await injetarCategorias(page, [
       { nome: "EUA", peso_alvo: 0.6, peso_atual: 0.5, drift: -0.1, valor_brl: 50000, buckets: [] },
-      { nome: "Cripto", peso_alvo: 0.003, peso_atual: 0.05, drift: 0.047, valor_brl: 5000, buckets: [] },
+      { nome: "Classe X", peso_alvo: 0.003, peso_atual: 0.05, drift: 0.047, valor_brl: 5000, buckets: [] },
       { nome: "FIIs", peso_alvo: 0.397, peso_atual: 0.45, drift: 0.053, valor_brl: 45000, buckets: [] },
     ]);
     await expect(page.locator(".compo-seg")).toHaveCount(3);
