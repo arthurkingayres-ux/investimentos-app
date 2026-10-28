@@ -60,31 +60,36 @@ test.describe("Tela #alocacao unificada (7a.E.31)", () => {
     }
   });
 
-  test("header mostra nome + R$ da categoria; foot mostra atual/alvo/drift", async ({ page }) => {
+  test("header mostra nome + R$ da categoria; rodapé mostra estado e faixa", async ({ page }) => {
     await autenticar(page);
     const card = page.locator(".tela-alocacao .aloca-cat").first();
     await expect(card.locator(".aloca-cat__nome")).toBeVisible();
     const rs = await card.locator(".aloca-cat__rs-valor").textContent();
     expect(rs?.trim()).toMatch(/R\$\s?\d/);
-    const foot = await card.locator(".aloca-cat__foot").textContent();
-    expect(foot).toMatch(/atual/);
-    expect(foot).toMatch(/alvo/);
+    // 7a.BK.1: Ações BR 0,30/0,272 — tolerância 0,03, faixa 27% a 33%.
+    const acoes = page.locator(".tela-alocacao .aloca-cat", {
+      has: page.locator(".aloca-cat__nome", { hasText: "Ações BR" }),
+    });
+    await expect(acoes.locator('[data-testid="aloca-cat-estado"]')).toHaveText("Na faixa");
+    await expect(acoes.locator('[data-testid="aloca-cat-faixa"]')).toHaveText(
+      "alvo 30,0% · faixa 27,0% a 33,0%",
+    );
   });
 
-  test("clicar no header expande o corpo com cestas", async ({ page }) => {
+  test("clicar no header expande o corpo com os grupos", async ({ page }) => {
     await autenticar(page);
     const card = page.locator(".tela-alocacao .aloca-cat").first();
     await card.locator(".aloca-cat__head").click();
     await expect(card.locator(".aloca-cat__head")).toHaveAttribute("aria-expanded", "true");
     await expect(card.locator(".aloca-cat__body")).toBeVisible();
-    await expect(card.locator(".aloca-alvo__cesta").first()).toBeVisible();
+    await expect(card.locator(".aloca-grupo").first()).toBeVisible();
   });
 
   test("clicar num ativo dentro do card navega para #ativo/:ticker", async ({ page }) => {
     await autenticar(page);
     const card = page.locator(".tela-alocacao .aloca-cat").first();
     await card.locator(".aloca-cat__head").click();
-    await card.locator(".aloca-alvo__ativo").first().click();
+    await card.locator(".aloca-ativo, .aloca-etq").first().click();
     expect(await page.evaluate(() => location.hash)).toMatch(/^#ativo\//);
   });
 

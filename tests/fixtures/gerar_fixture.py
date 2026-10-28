@@ -80,6 +80,7 @@ Benchmarks aninhados por janela (xirr_espelhado/twr_espelhado dicts).
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 from datetime import date, timedelta
@@ -2042,6 +2043,108 @@ def gerar_portfolio_renda_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BK.1 (Task 2): a #alocacao por faixa de tolerância. Duas variantes do
+# PAYLOAD com a ``politica`` trocada por pesos SINTÉTICOS redondos (repo
+# público). Regra da faixa: tol = max(0,02; 0,10 × alvo), bordas inclusivas.
+def _ativo_aloca(ticker: str, cat_alvo: float, bucket_alvo: float, peso_intra: float,
+                 peso_intra_atual: float, valor: float, base: float = 100000.0,
+                 **extra) -> dict:
+    """Ativo na forma do PAYLOAD: ``peso_alvo``/``peso_atual`` sobre a carteira."""
+    peso_alvo = round(cat_alvo * bucket_alvo * peso_intra, 6)
+    peso_atual = round(valor / base, 6)
+    return {
+        "ticker": ticker, "tipo": extra.pop("tipo", "pick"), "quarentena": False,
+        "peso_intra": peso_intra, "peso_intra_atual": peso_intra_atual,
+        "drift_intra": round(peso_intra_atual - peso_intra, 6),
+        "peso_alvo": peso_alvo, "peso_atual": peso_atual,
+        "drift": round(peso_atual - peso_alvo, 6),
+        "valor_brl": valor, "bandeira": extra.pop("bandeira", "🇧🇷"), **extra,
+    }
+
+
+def _cat_simples(nome: str, alvo: float, atual: float, ticker: str,
+                 bandeira: str = "🇧🇷") -> dict:
+    """Categoria de cesta única e ativo único (o ativo herda o peso da categoria)."""
+    valor = round(atual * 100000.0, 2)
+    ativo = _ativo_aloca(ticker, alvo, 1.0, 1.0, 1.0, valor, tipo="passive",
+                         bandeira=bandeira)
+    return {
+        "nome": nome, "peso_alvo": alvo, "peso_atual": atual,
+        "drift": round(atual - alvo, 6), "valor_brl": valor,
+        "buckets": [{"tipo": "passive", "peso_bucket": 1.0, "peso_atual_bucket": 1.0,
+                     "drift_bucket": 0.0, "ativos": [ativo]}],
+    }
+
+
+def _politica_alocacao_faixa() -> dict:
+    """As quatro situações da faixa (abaixo, na faixa, acima, sem alvo).
+
+    Base de peso: carteira de 100 000. ATENÇÃO: a soma dos ``valor_brl`` das
+    categorias dá 102 000 (o off-policy LREN3 entra no valor da Ações BR, como
+    no backend), e não fecha com os ``peso_atual`` (base 100 000). Nenhum assert
+    cruza os dois.
+
+    Ações BR (a categoria asserida por ativo): passiva 0,45 / picks 0,55 —
+    splits deliberadamente diferentes dos da política real. Os
+    ``peso_intra_atual`` dos picks são valor ÷ 11 000 (o universo
+    equal-weight, que exclui KNIP11 em quarentena e LREN3 fora do alvo).
+    """
+    ca = 0.25  # alvo da categoria Ações BR
+    passiva = [_ativo_aloca("BOVA11", ca, 0.45, 1.0, 1.0, 6000.0, tipo="passive")]
+    picks = [
+        _ativo_aloca("ITSA4", ca, 0.55, 0.333333, 0.545455, 6000.0),
+        _ativo_aloca("BBAS3", ca, 0.55, 0.333333, 0.090909, 1000.0),
+        _ativo_aloca("WEGE3", ca, 0.55, 0.333333, 0.363636, 4000.0),
+        # Quarentena: fora do equal-weight (peso_intra 0), numerador próprio
+        # sobre o universo EW (3000 / 11000), como o backend computa.
+        _ativo_aloca("KNIP11", ca, 0.55, 0.0, 0.272727, 3000.0) | {"quarentena": True},
+        # Off-policy (fora do YAML): ``peso_atual`` não zero; zera só
+        # ``peso_intra*``, ``peso_alvo`` e ``drift`` (forma de construir_bloco_politica).
+        {"ticker": "LREN3", "tipo": "pick", "fora_do_alvo": True, "quarentena": False,
+         "peso_intra": 0, "peso_intra_atual": 0, "drift_intra": 0, "peso_alvo": 0,
+         "peso_atual": 0.02, "drift": 0, "valor_brl": 2000.0, "bandeira": "🇧🇷"},
+    ]
+    acoes = {
+        "nome": "Ações BR", "peso_alvo": ca, "peso_atual": 0.20, "drift": -0.05,
+        "valor_brl": 22000.0,
+        "buckets": [
+            {"tipo": "passive", "peso_bucket": 0.45, "peso_atual_bucket": 0.30,
+             "drift_bucket": -0.15, "ativos": passiva},
+            {"tipo": "picks", "equal_weight": True, "peso_bucket": 0.55,
+             "peso_atual_bucket": 0.70, "drift_bucket": 0.15, "ativos": picks},
+        ],
+    }
+    classe_x = _cat_simples("Classe X", 0.0, 0.03, "XPTO3")
+    return {"categorias": [
+        _cat_simples("EUA", 0.50, 0.58, "VOO", "🇺🇸"),
+        acoes,
+        _cat_simples("FIIs", 0.15, 0.14, "HGLG11"),
+        _cat_simples("Renda Fixa BR", 0.10, 0.05, "IMAB11"),
+        classe_x,
+    ]}
+
+
+def _politica_alocacao_na_faixa() -> dict:
+    """Tudo na faixa. Ações BR com drift de −1,5 pp: o grifo antigo (qualquer
+    drift ≤ −0,5 pp) apareceria, o novo (só abaixo da faixa) não."""
+    return {"categorias": [
+        _cat_simples("EUA", 0.50, 0.51, "VOO", "🇺🇸"),
+        _cat_simples("Ações BR", 0.30, 0.285, "BOVA11"),
+        _cat_simples("FIIs", 0.20, 0.205, "HGLG11"),
+    ]}
+
+
+def gerar_portfolio_alocacao_variantes() -> None:
+    alvos = [("portfolio_alocacao_faixa", _politica_alocacao_faixa()),
+             ("portfolio_alocacao_na_faixa", _politica_alocacao_na_faixa())]
+    for nome, politica in alvos:
+        payload = copy.deepcopy(PAYLOAD)
+        payload["politica"] = politica
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 def gerar_portfolio_ponte_muitos() -> None:
     """7a.BH.1: PAYLOAD com a linha ``acoes_br`` de 11 ativos (e2e de "quem pesou")."""
     payload = PAYLOAD | {"ponte": _ponte_muitos()}
@@ -2237,6 +2340,7 @@ def main() -> None:
     gerar_portfolio_ponte_longa()          # 7a.BE.2 (Task 7)
     gerar_portfolio_ponte_muitos()         # 7a.BH.1 (Task 2)
     gerar_portfolio_renda_variantes()      # 7a.BJ.2 (Task 5)
+    gerar_portfolio_alocacao_variantes()   # 7a.BK.1 (Task 2)
 
 
 if __name__ == "__main__":

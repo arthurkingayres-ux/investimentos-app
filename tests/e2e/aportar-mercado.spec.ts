@@ -13,9 +13,9 @@ const FIXTURE = fs.readFileSync(
 
 test.use({ viewport: { width: 390, height: 844 } });
 
-async function abrirApp(page: Page) {
+async function abrirApp(page: Page, corpo: string = FIXTURE) {
   await page.route("**/portfolio.json.enc", (route) =>
-    route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
+    route.fulfill({ status: 200, body: corpo, contentType: "text/plain" }),
   );
   await page.addInitScript(() => {
     localStorage.setItem("pin", "123456");
@@ -290,7 +290,10 @@ test.describe("7a.AU · seletor de mercado na tela", () => {
   });
 
   test("preset do grifo de #alocação abre em Tudo, mesmo vindo de um EUA", async ({ page }) => {
-    await abrirApp(page);
+    // 7a.BK.1: o grifo só aparece com categoria abaixo da faixa, o que a
+    // fixture principal não tem; a variante sintética tem duas.
+    await abrirApp(page, fs.readFileSync(
+      path.join(__dirname, "../fixtures/portfolio_alocacao_faixa.test.json.enc"), "utf-8"));
     await page.evaluate(() => (location.hash = "#aportar"));
     await botao(page, "eua").click();
     expect(await estado(page)).toBe("eua");

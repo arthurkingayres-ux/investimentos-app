@@ -106,12 +106,15 @@ test.describe("7a.BG.1 — cripto fora da carteira", () => {
     const nomes = await page.locator(".tela-alocacao .aloca-cat__nome").allInnerTexts();
     expect(nomes.length).toBeGreaterThan(0);
     expect(nomes.map((n) => n.trim())).not.toContain("Cripto");
-    await expect(page.locator(".tela-alocacao .compo-seg[aria-label^='Cripto']")).toHaveCount(0);
-    const atuais = await page.locator(".tela-alocacao .aloca-cat__foot-atual b").allInnerTexts();
+    // 7a.BK.1: o percentual atual de cada categoria é a etiqueta do trilho.
+    const atuais = await page
+      .locator('.tela-alocacao [data-testid="aloca-trilho"] .aloca-trilho__etq')
+      .allInnerTexts();
+    expect(atuais.length).toBe(nomes.length);
     const soma = atuais.map(pctNum).reduce((a, b) => a + b, 0);
-    // A fixture soma 100,2% (resíduo de arredondamento documentado em
-    // composicaoSegmentos); com a cripto dentro do denominador a soma das
-    // demais cairia ~8 pp abaixo de 100.
+    // A fixture soma 100,2% (resíduo de arredondamento dos pesos sintéticos);
+    // com a cripto dentro do denominador a soma das demais cairia ~8 pp
+    // abaixo de 100.
     expect(Math.abs(soma - 100)).toBeLessThan(0.5);
     const rodape = page.locator(`.tela-alocacao ${RODAPE}`);
     await expect(rodape).toBeVisible();

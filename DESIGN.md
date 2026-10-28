@@ -113,8 +113,8 @@ eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
 | `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.aporte-data` |
 | `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
 | `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
-| `--num-xs` | 13px (0.8125rem) | `.aloca-alvo__delta/cnum`, `.aloca-alvo__valor-ativo`, benchmark rows |
-| `--num-2xs` | 10px (0.625rem) | `.aloca-alvo__ativo-sub`, `.aporte-compra-qty-sub` |
+| `--num-xs` | 13px (0.8125rem) | `.aloca-cat__foot`, `.aloca-ativo__rs`, `.aloca-trilho__etq`, `.aloca-cripto`, benchmark rows |
+| `--num-2xs` | 10px (0.625rem) | `.aporte-compra-qty-sub` |
 
 **Banda "monument display" (7a.S.1)** — posters de herói, degraus finos (razões <1.25), distinta da escada de dados acima:
 
@@ -438,24 +438,25 @@ total, que já é o hero do #raiox).
   `--cat` · nome (1.08rem 800) · `.aloca-cat__rs-valor` (R$ da categoria,
   mono `--num-sm` cor `--cat`) + chevron `▸/▾`. `aria-expanded` +
   `aria-controls` apontando o corpo.
-- **Barra** reusa `.aloca-alvo__trilha-cat` (14px, marker preto + cap-dot,
-  fill gradient `--cat`; overflow → `fill--over` em `--sem-down`).
-- **Foot** (`.aloca-cat__foot`): `atual X%` · `alvo Y%` · drift pp colorido
-  (`--sem-up`/`--sem-down`/`--gray` via `formatDelta`).
-- **Corpo** (`.aloca-cat__body`, `x-show` por `catAberta[nome]`): cestas
-  `.aloca-alvo__cesta` (passiva/picks, `border-top 1px`, sem nested card) +
-  ativos `.aloca-alvo__ativo` (grid `18px 1fr auto`).
+- **Trilho** (`.aloca-trilho`, 7a.BK.1): cápsula de 22px em três zonas, sem
+  escala nem marca de alvo. Abaixo em `--sem-up-tint`, na faixa em
+  `--faixa-ok-tint`, acima em `--sem-down-tint`; as bordas da zona central vêm
+  por style (`--na-ini`/`--na-fim`, de `alocTrilho`). Uma etiqueta na cor da
+  categoria (`.aloca-trilho__etq`, largura fixa `--etq-w`) mostra o peso atual
+  e mora dentro da cápsula. Decorativo (`aria-hidden`). Ver "Faixa de
+  tolerância" abaixo.
+- **Foot** (`.aloca-cat__foot`, `flex-wrap`): o estado em palavra
+  (`.aloca-cat__estado--<estado>`: "Pedindo aporte" / "Na faixa" / "Acima da
+  faixa" / "Sem alvo", "—" sem dado) à esquerda, na cor do estado; "alvo X% ·
+  faixa A% a B%" (`.aloca-cat__faixa`) à direita. A 320px quebra em duas linhas.
+- **Corpo** (`.aloca-cat__body`, `x-show` por `catAberta[nome]`): o acordeão
+  agrupado por estado (`.aloca-grupos`, ver abaixo).
 
 **Colapso:** todas as categorias **começam fechadas** (`catAberta: {}`
 vazio). Estado **não-persistente** (reseta no reload), preservado em memória
 Alpine ao trocar de aba. Ordem dos cards por **alvo decrescente**
 (`categoriasAlocacaoOrdenadas`). Chevron rotation 150ms ease,
 `prefers-reduced-motion: reduce` → `transition: none`.
-
-**Linha de ativo:** coluna direita `.aloca-alvo__ativo-right` empilha R$ de
-mercado (`.aloca-alvo__valor-ativo`, mono `--num-xs`) sobre o delta/selo —
-evita que o R$ vire 4ª coluna e esprema o subtexto. Mini-bar 3px
-(`atual/alvo intra`) + delta pill mono direcional só para picks normais.
 
 **DY do ativo em `#alocação` — removido (7a.E.34):** a 7a.E.32.b tinha posto
 `DY x%` como sufixo cinza do ticker na linha de ativo. Depois de conviver com
@@ -474,19 +475,19 @@ na última linha, célula vizinha vazia — **por design, zero CSS novo**. Fallb
 superfícies visuais que restam (`#s-dy`, `#ativo`): mesma fonte, mesmo
 `round(dy,4)` do backend, nunca divergem.
 
-**Held off-policy (`fora_do_alvo`, schema v2.20):** ativo com posição fora
-do YAML, misturado na cesta picks. Selo `.aloca-alvo__selo-fora` "fora do
-alvo" (`--sem-down-tint`/`--sem-down`, espelha o selo de quarentena) +
-subtexto "a zerar · sem alvo"; **sem** mini-bar nem delta. Guarda
-`fora_do_alvo && !quarentena` (quarentena tem precedência se ambos).
+**Held off-policy (`fora_do_alvo`, schema v2.20) e quarentena:** vão para o
+grupo "Sem alvo" do acordeão, como etiqueta apagada com o motivo ("a zerar" /
+"quarentena"; a quarentena tem precedência se os dois valem).
 
 **Regra de cor (identidade × semântica):**
-- **Identidade** (`--cat-*`): dot, R$ do header, fill da trilha/cesta/minibar normal.
-- **Semântica** (fixa): delta `↑ −X pp` em `--sem-up`; `↓ +X pp` + minibar
-  overflow + selo fora-do-alvo em `--sem-down`. Verde = aportar; amber = acima/zerar.
+- **Identidade** (`--cat-*`): dot, R$ do header e a etiqueta do trilho. Nada mais.
+- **Semântica** (fixa): "pedindo aporte" em `--sem-up`/`--sem-up-tint`; "acima"
+  em `--sem-down-tint` e, como texto, `--sem-down-texto`; "na faixa" em
+  `--faixa-ok`/`--faixa-ok-tint`. O estado está sempre em palavra; a cor só
+  reforça.
 
-**Naming:** "Cesta passiva" / "Cesta de picks" na UI via `labelCestaTipo`;
-backend mantém `bucket.tipo: "passive" | "picks"`.
+**Naming:** "Passivo" / "Picks" na UI (`ALOC_NOME_CESTA`); o backend mantém
+`bucket.tipo: "passive" | "picks"`.
 
 **Princípio de overflow:** dinheiro/percentual nunca é truncado nem
 reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
@@ -495,104 +496,57 @@ reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
 
 ```css
 .aloca-cat__rs-valor { font-size: var(--num-sm); font-family: var(--mono); color: var(--cat); }
-.aloca-alvo__minibar .fill--over { background: var(--sem-down); }
-.aloca-alvo__selo-fora-tag { background: var(--sem-down-tint); color: var(--sem-down); }
+.aloca-cat__estado--abaixo   { color: var(--sem-up); }
+.aloca-cat__estado--acima    { color: var(--sem-down-texto); }
+.aloca-cat__estado--na_faixa { color: var(--faixa-ok); }
 ```
 
-### Faixa de composição 100% (7a.S.8)
-`#alocacao` abre respondendo "como estou dividido?" — uma **faixa de
-composição** (`.compo`) ACIMA de `.aloca-lista`, mapa do todo antes dos
-cards individuais. Um `<button class="compo-seg">` por categoria (mesmo
-recorte/ordem de `.aloca-lista` — `categoriasAlocacaoOrdenadas`, alvo
-decrescente), `background: var(--cat)` via `catStyleVar(nome)` inline
-(reusa a identidade 7a.E.20, zero cor nova).
+### Faixa de tolerância (7a.BK.1)
+A faixa de composição 100% da 7a.S.8 (`.compo`) saiu. `#alocacao` abre
+respondendo "cada categoria, e cada ativo, está dentro ou fora da faixa
+aceitável?": uma frase-resumo (`.aloca-frase`, texto comum, some quando não há
+categoria classificável) e o grifo (`.aloca-grifo`, abaixo), depois os cards.
+A regra mora nas funções puras de topo de `app.js` (`alocFaixa`, `alocTrilho`,
+`alocFraseResumo`, `alocAgruparAtivos`, `alocRsCurto`).
 
-**Larguras — normalizadas, não literais:** `largura% = peso_atual /
-Σ(peso_atual das categorias presentes) × 100`. Decisão explícita (não
-"neutral remainder segment"): a faixa **sempre preenche exatamente 100%**
-do espaço visual, blindada contra (a) resíduo de arredondamento — a
-fixture de teste soma 100,2% — e (b) categorias fora do escopo da política
-publicada. Mesmo recorte que os cards abaixo já usam: a faixa nunca mostra
-mais nem menos categorias do que `.aloca-lista`. Rótulo interno (`.sl`)
-mostra o `peso_atual` **real** (não a largura normalizada) — a normalização
-é só geometria do desenho, nunca o número reportado.
+**Trilho em três tons.** A cápsula não tem escala: só diz em que zona o peso
+atual cai. A etiqueta é presa duas vezes: `alocTrilho` a limita a 5%–95% da
+janela (`--etq-x`), e o CSS segura a meia largura dela
+(`left: clamp(var(--etq-w)/2, --etq-x, 100% − var(--etq-w)/2)`), para que a
+etiqueta de borda não vaze a cápsula a 320px. Sob
+`prefers-reduced-motion: no-preference` a etiqueta anda com
+`transition: left var(--d2) var(--ease)`; sob `reduce`, sem transição.
 
-**Rótulo interno — só o percentual (fix 2026-07-05):** `.compo-seg .sl`
-mostra **apenas** `PP%` (ex.: "58%") — nunca o nome da categoria. O nome
-vive no card logo abaixo (`.aloca-cat`, em `atual X% · alvo Y%`) e no
-`aria-label` completo; repeti-lo dentro de um segmento estreito era o que
-colidia os labels no celular.
+**Tokens da faixa** (par no `:root[data-theme="dark"]`):
+- `--faixa-ok` / `--faixa-ok-tint`: verde-acinzentado contido para "na
+  faixa", que não compete com o teal de "pedindo aporte" nem com o ocre de
+  "acima".
+- `--sem-down-texto`: o ocre de `--sem-down` escurecido, só para TEXTO de
+  estado no claro (o ocre puro não fecha AA como texto). No escuro resolve
+  para `--sem-down`.
+- `--etq-veu` / `--etq-texto`: no claro, um véu escuro sobre `--cat` e texto
+  branco (o ocre do FII puro não fecha AA com branco); no escuro, sem véu e
+  texto `--neutral-50` sobre o `--cat` claro.
 
-**Regra dos estreitos — por medição, não por threshold fixo:** qual `.sl`
-aparece é decidido por `ajustarLabelsFaixa(band)` (JS): para cada segmento,
-compara `sl.scrollWidth` (largura natural do "PP%") com o `clientWidth` do
-segmento e mostra o rótulo (`visibility: visible`) só quando ele **cabe** de
-fato; senão fica escondido (`visibility: hidden`, o default do `.sl`) e o
-segmento fala só por cor + `aria-label`. Assim uma categoria real de ~9-10%
-(ex.: Renda Fixa BR) **mostra** seu % num celular normal (≥360px) e some só
-onde não caberia (320px), enquanto uma fatia minúscula (ex.: uma categoria de ~2%)
-nunca ganha número. Roda via `x-effect` na `.compo-band` (depende de `rota` +
-`composicaoSegmentos`, com `$nextTick` — re-mede ao abrir a tela, quando a
-faixa deixa de ser `display:none` e ganha largura real) e num `@resize.window`
-debounced (rotação). Guarda contra `clientWidth 0` (faixa oculta → nada é
-mostrado até a tela abrir). O threshold fixo anterior (`peso_atual ≥ 7%` →
-`larguraPct ≥ 12%`) escondia categorias mesmo quando o número caberia. Rede
-de segurança: `.compo-seg { overflow: hidden }` — nenhum rótulo vaza pro
-vizinho, p/ qualquer dado/viewport.
-
-**`.compo-ticks` — réguas do alvo:** abaixo da faixa, uma marca (`.mk`,
-1.5px × 7px) por categoria **com alvo > 0** em posição **cumulativa** de
-`peso_alvo` (normalizada pela soma de `peso_alvo` — defensivo; por construção
-`/alocar` já bloqueia categorias que não somem 1.0). O valor exibido (`.tv`)
-é o `peso_alvo` **próprio** da categoria (não o acumulado) — leitura "esta
-fatia vale X%", não "isto é X% do total". Como os segmentos usam `peso_atual`
-e os ticks usam `peso_alvo`, a régua compara visualmente atual × alvo sem
-precisar de dois gráficos separados.
-
-**Categoria de alvo 0% não emite tick (fix 2026-07-05):** uma categoria em
-quarentena com alvo zerado (ex.: uma categoria cujo único pick está em quarentena) tem posição atual mas 0% de
-alvo — sua marca cumulativa cairia no mesmo ponto da anterior (soma 0 ao
-acumulado) e o label "0%" é só ruído. O tick é omitido (o acumulado ainda
-avança por 0, então as posições dos demais ficam intactas); o segmento
-correspondente **continua** na faixa (usa `peso_atual`). **Clamp nas bordas:**
-o último tick fica sempre em `left:100%` (alvos somam 1.0); centralizado, o
-label vazaria a borda direita. `composicaoTicks` marca `edge` (`'end'` se
-`leftPct ≥ 96`, `'start'` se `≤ 4`, senão `'center'`) e as classes
-`.compo-tick--end`/`--start` reancoram só o label pra dentro — a marca `.mk`
-permanece no ponto exato.
-
-**Tap → dim + flash + scroll:** tocar um segmento (`tocarSegmentoComposicao`)
-esmaece os irmãos (`.compo-seg.dim`, opacity .35, ~1400ms) sem esmaecer o
-próprio segmento tocado, faz o `.aloca-cat` correspondente piscar
-(`.aloca-cat.flash`: ring `0 0 0 3px var(--accent-soft)` + `border-color:
-var(--accent)`) e chama `scrollIntoView({behavior:'smooth', block:'start'})`
-nesse card (`id="aloca-cat-<categoria-slug>"`, `scroll-margin-top: 12px`
-evita que o topo cole na borda da viewport). Ambas as classes são
-removidas por `setTimeout` após 1400ms.
-
-**`prefers-reduced-motion: reduce`:** o tap ainda rola até o card
-(`behavior: 'auto'`, instantâneo) mas **não aplica nem dim nem flash** —
-motion zero por design (nenhum pulso), lido de
-`window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do
-app shell, ver 7a.S.6 `.chart-sub.live`). Escolha explícita entre as duas
-opções da spec ("flash-estado curto sem animar" vs "nada") — optamos por
-"nada": sob motion reduzido, o scroll sozinho já entrega a navegação; um
-estado visual que aparece e desaparece sem transição ainda seria um
-"pulso", só que instantâneo.
-
-**Confirmação não-visual (a11y, CRB 7a.S.8):** o dim/flash/scroll é
-puramente visual — um leitor de tela não saberia que o tap registrou. Uma
-região `.sr-only` com `aria-live="polite"` (dentro de `.compo`,
-`x-text="compoAnuncio"`) narra "{categoria} em destaque" a cada tap.
-Setada em `tocarSegmentoComposicao` **fora** do guard de reduced-motion —
-o anúncio dispara sempre; é a11y, não motion (quando o pulso visual é
-suprimido é justamente quando a confirmação por leitor de tela mais importa).
+**Acordeão agrupado por estado.** Dentro do card aberto, de cima para baixo: a
+linha das cestas (`.aloca-cestas`, só com 2+ cestas), "Pedindo aporte" + a
+contagem, "Acima da faixa" + "ficam sem aporte", "Na faixa" + a contagem,
+"Sem alvo" + "não recebem aporte". Grupo vazio não aparece. Cabeçalhos
+(`h2.aloca-grupo__head`) em `--ink` 600. O que pede atenção vem em linhas
+(`a.aloca-ativo`, ≥44px, fundo `--sem-up-tint` / `--sem-down-tint`, R$ à
+direita, que desce para uma segunda linha a 320px); o que está bem vem
+compacto, em etiquetas em fluxo (`a.aloca-etq`, `--faixa-ok-tint`). "Sem
+alvo" é a etiqueta apagada (`.aloca-etq--apagada`: tracejado `--faint`,
+opacidade .9, texto ainda AA). Linha cujo R$ arredonda a zero não mostra o
+trecho do valor. Todo ativo é link para `#ativo/<ticker>`.
 
 ```css
-.compo-band { height: 46px; border-radius: 12px; background: var(--surface-2); overflow: hidden; }
-.compo-seg { background: var(--cat); }
-.compo-seg.dim { opacity: .35; }
-.aloca-cat.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07); }
+.aloca-trilho { height: 22px; border-radius: 999px; overflow: hidden; }
+.aloca-trilho__na { background: var(--faixa-ok-tint); }
+.aloca-trilho__etq { width: var(--etq-w); transform: translate(-50%, -50%);
+  background: linear-gradient(var(--etq-veu), var(--etq-veu)), var(--cat); color: var(--etq-texto); }
+.aloca-grupo--pedindo .aloca-ativo { background: var(--sem-up-tint); }
+.aloca-etq { background: var(--faixa-ok-tint); }
 ```
 
 ### Rodapé de reconciliação da cripto (7a.BG.1)
@@ -601,8 +555,8 @@ Toda divisão percentual exibida vale sobre a **carteira** (patrimônio sem a
 cripto). Para as partes fecharem com o número do topo, e a cripto não sumir
 da vista, a divisão ganha **uma linha** sob ela: `+ R$ X em cripto, fora da
 divisão`. Dois lugares: sob a `.hero-splitbar` da faceta "Divisão Brasil ·
-EUA" (`.hero-split-cripto`) e sob as réguas da faixa de composição da
-`#alocacao` (`.compo-cripto`, dentro de `.compo`). Fonte única do texto:
+EUA" (`.hero-split-cripto`) e na `#alocacao`, logo depois da lista de
+categorias (`.aloca-cripto`, 7a.BK.1). Fonte única do texto:
 `rodapeCriptoTexto()` em `app.js`.
 
 - **Condição:** `patrimonio.carteira_brl` presente (payload v2.31+) **e**
@@ -611,7 +565,7 @@ EUA" (`.hero-split-cripto`) e sob as réguas da faixa de composição da
 - **Valor com centavos** (`formatBrl`, 2 casas), igual aos R$ do split:
   Brasil + EUA + cripto fecha ao centavo com o patrimônio da faceta 1.
 - **Voz secundária, sem cor nova.** No hero escuro, a mesma do `.pct`
-  (branco 62 %, 12px); na tela clara, `--gray` a 12px (`--faint` não fecha
+  (branco 62 %, 12px); na tela clara, `--gray` (`--faint` não fecha
   AA para um valor a ler). Alinhado à esquerda, `tabular-nums`, sem ícone,
   sem borda: é nota de rodapé, não chamada.
 - **Na `#alocacao`, `x-if` (não `x-show`):** a ausência é testada pela
@@ -633,7 +587,7 @@ estes valores com os de outra faceta sem rever a colisão.
   color: rgba(255, 255, 255, 0.62);
   font-variant-numeric: tabular-nums;
 }
-.compo-cripto { margin: 8px 0 0; font-size: .75rem; color: var(--gray); }
+.aloca-cripto { margin: 12px 0 0; font-size: var(--num-xs); color: var(--gray); }
 ```
 
 ### Proventos — linha-razão + chamada DY + KPI scroll affordance (7a.S.7b)
@@ -801,10 +755,10 @@ do valor.
   "Simulação pura: nada é enviado, nada é gravado." **Sempre visível**,
   independente do valor.
 - **Cross-screen (`#alocação` → `#aportar`, Task 4)** — um `.grifo`
-  (`.aloca-grifo`) em `#alocação`, entre `.compo` e `.aloca-lista`, aponta
-  a categoria com o **drift mais negativo** (mesmo threshold `-0.005` de
-  `formatDelta`) — "{Categoria} está **N pp abaixo** do alvo... **Simular
-  aporte ›**". Tocar/Enter/Space seta `_aportePresetPendente` (bridge de
+  (`.aloca-grifo`) em `#alocação`, entre a frase-resumo e `.aloca-lista`,
+  nomeia as categorias **abaixo da faixa** (7a.BK.1; o nome entra por
+  `x-text`, nunca como HTML): "Próximo aporte vai para {categorias}
+  **Simular aporte ›**". Tocar/Enter/Space seta `_aportePresetPendente` (bridge de
   estado, NÃO um parâmetro de URL — evita tocar no parser de hash/query
   do router ou na faixa S.8) com o valor do **último aporte** (mesmo do
   hero-chip "Repetir" — sugestão de ponto de partida familiar, não um
@@ -1167,7 +1121,7 @@ Todo token que varia por tema ganha um 2º valor (ver tabela em "Tokens summary"
 
 **Component-level overrides** (fora do bloco `:root`, sob `[data-theme="dark"] .seletor`):
 - `.hero` — fica um card "monumento" escuro nos DOIS temas (`background: #03110a` direto), independente do flip de `--g-900` (que vira claro para servir de heading/link em outros lugares).
-- **"seg.on dark ink"** — `.pin-submit`, `.aporte-pill`, `.toast`, `.escopo-toggle button.active`, `.moeda-toggle button.active`, `.lado-B`, `.lado-S`, `.compo-seg .sl` ganham `color: #04130c` (tinta escura) — seus fundos derivam de `--g-700`/`--g-900`/`--red`/`--cat-*`, que viram claros no dark; texto branco sobre um fundo agora claro falharia AA. Um único valor de tinta, mesma convenção do mockup (`.seg.on`).
+- **"seg.on dark ink"** — `.pin-submit`, `.aporte-pill`, `.toast`, `.escopo-toggle button.active`, `.moeda-toggle button.active`, `.lado-B`, `.lado-S` ganham `color: #04130c` (tinta escura) — seus fundos derivam de `--g-700`/`--g-900`/`--red`/`--cat-*`, que viram claros no dark; texto branco sobre um fundo agora claro falharia AA. Um único valor de tinta, mesma convenção do mockup (`.seg.on`). A etiqueta do trilho da `#alocacao` resolve o mesmo problema por token (`--etq-texto`, ver "Faixa de tolerância").
 - `.champ-bar .bw` (trilho da barrinha #s-dy) → `background: var(--neutral-50)` — "afunda" no fundo da página (groove), distinto do `--surface-2` do card em volta.
 
 ### Teal-como-luz treatments
@@ -1204,7 +1158,7 @@ Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **
 
 - `.rel-card-home` — card de entrada na home Raio-X (surface branca, `--neutral-200` border, chevron `--g-700`); empty-safe (`x-show="relUltimoMes"`).
 - `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — layout: borda-esquerda arredondada + padding/gap; peso por hierarquia, **calma, sem vermelho gritante**). Desde 7a.S.9 a *cor* de `.rel-secao--destaque` vem inteira de `.grifo--amber` (abaixo) — a classe de layout não carrega mais `--sem-down` própria.
-- `.rel-selo` (+ `--intacta` cinza / `--pressao` `--sem-down` âmbar / `--deteriorando` `--red`) — veredito de tese por ticker. **Forma (glyph `aria-hidden` ●/◐/▽) + texto + cor**, nunca cor sozinha (deuteranopia coberta). Modelado em `.aloca-alvo__delta`.
+- `.rel-selo` (+ `--intacta` cinza / `--pressao` `--sem-down` âmbar / `--deteriorando` `--red`) — veredito de tese por ticker. **Forma (glyph `aria-hidden` ●/◐/▽) + texto + cor**, nunca cor sozinha (deuteranopia coberta). Pílula mono (`--mono`, `--num-xs`, peso 700) de raio total, `padding: 3px 10px`, fundo em tint do tom e texto na cor cheia do tom.
 - `.rel-kpis` reusa `.kpi` para os mini-cards do dossiê (performance/decomposição/renda). `.rel-radar` / `.rel-concentracao` / `.rel-evidencias` / `.rel-prestacao` — listas. `.rel-seletor` — dropdown de meses (botão + itens ≥44px). `.rel-loading`/`.rel-erro`/`.rel-vazio` — estados mutuamente exclusivos (skeleton com `prefers-reduced-motion: reduce` honored; degradação graciosa).
 
 ### Capa editorial + evento mensal (7a.S.9)

@@ -447,6 +447,154 @@ function arredondarFechando(valores, total, casas = 1) {
   return pisos.map((p) => ponteRoundPy(p / escala, casas) + 0.0);
 }
 
+// ── 7a.BK.1: faixa de tolerância da #alocacao (spec 7a.BK §3.1) ────────────
+// Funções puras de topo. Uma categoria está "na faixa" enquanto o peso atual
+// fica a no máximo `tol` do alvo, com bordas inclusivas; `tol` é o maior entre
+// um piso absoluto e uma fração do alvo. Nenhum valor real mora aqui.
+const ALOC_TOL_MIN = 0.02; // piso absoluto da tolerância (2 pontos de peso)
+const ALOC_TOL_REL = 0.10; // fração do alvo (10%)
+// Folga de ponto flutuante: 0.05 − 0.02 dá 0.030000000000000002 em IEEE 754 e,
+// sem ela, a borda inclusiva viraria "abaixo".
+const ALOC_EPS = 1e-9;
+
+function alocFaixa(alvo, atual) {
+  const semDado = atual === null || atual === undefined || Number.isNaN(atual);
+  const nulo = { tol: null, min: null, max: null };
+  if (!(alvo > 0)) return { estado: "sem_alvo", ...nulo };
+  if (semDado) return { estado: "sem_dado", ...nulo };
+  const tol = Math.max(ALOC_TOL_MIN, ALOC_TOL_REL * alvo);
+  const min = alvo - tol;
+  const max = alvo + tol;
+  let estado = "na_faixa";
+  if (atual < min - ALOC_EPS) estado = "abaixo";
+  else if (atual > max + ALOC_EPS) estado = "acima";
+  return { estado, tol, min, max };
+}
+
+// Posições (em % da largura) da faixa e da etiqueta no trilho. A janela vai de
+// alvo − R a alvo + R, com R = max(2,2 × tol, 0,05); a etiqueta fica presa
+// entre 5% e 95% para não vazar a cápsula.
+function alocTrilho(alvo, atual) {
+  const f = alocFaixa(alvo, atual);
+  if (f.estado !== "abaixo" && f.estado !== "na_faixa" && f.estado !== "acima") return null;
+  const R = Math.max(2.2 * f.tol, 0.05);
+  const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+  return {
+    naIni: ((R - f.tol) / (2 * R)) * 100,
+    naFim: ((R + f.tol) / (2 * R)) * 100,
+    etiqueta: clamp((atual - (alvo - R)) / (2 * R), 0.05, 0.95) * 100,
+  };
+}
+
+// "A", "A e B", "A, B e C".
+function alocListaNomes(nomes) {
+  if (nomes.length <= 1) return nomes.join("");
+  return nomes.slice(0, -1).join(", ") + " e " + nomes[nomes.length - 1];
+}
+
+// Frase-resumo: uma oração por estado não vazio (pedindo aporte, depois acima).
+// `cats` já vem ordenada; sem alvo ou sem dado fica fora, e sem nenhuma
+// categoria classificável a frase é "" (a tela esconde o elemento).
+function alocFraseResumo(cats) {
+  const abaixo = [];
+  const acima = [];
+  let naFaixa = 0;
+  for (const c of cats || []) {
+    const e = alocFaixa(c.peso_alvo, c.peso_atual).estado;
+    if (e === "abaixo") abaixo.push(c.nome);
+    else if (e === "acima") acima.push(c.nome);
+    else if (e === "na_faixa") naFaixa += 1;
+  }
+  if (!abaixo.length && !acima.length) {
+    return naFaixa ? "Todas as categorias estão na faixa." : "";
+  }
+  const verbo = (n, sing, plur) => (n.length === 1 ? sing : plur);
+  const partes = [];
+  if (abaixo.length) {
+    partes.push(`${alocListaNomes(abaixo)} ${verbo(abaixo, "está", "estão")} pedindo aporte.`);
+  }
+  if (acima.length) {
+    partes.push(`${alocListaNomes(acima)} ${verbo(acima, "está", "estão")} acima da faixa.`);
+  }
+  if ((!abaixo.length || !acima.length) && naFaixa) partes.push("O resto está na faixa.");
+  return partes.join(" ");
+}
+
+// "R$ 450", "R$ 4,2 mil", "R$ 38 mil" (valor absoluto). Arredonda na casa da
+// faixa ANTES de escolher a faixa: 9960 vira "R$ 10 mil", nunca "R$ 10,0 mil".
+function alocRsCurto(v) {
+  const abs = Math.abs(v);
+  const fmt = (n, casas) =>
+    new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(n);
+  if (Math.round(abs) < 1000) return "R$ " + fmt(Math.round(abs), 0);
+  const mil1 = Math.round(abs / 100) / 10;
+  if (mil1 < 10) return "R$ " + fmt(mil1, 1) + " mil";
+  return "R$ " + fmt(Math.round(abs / 1000), 0) + " mil";
+}
+
+// Acordeão da categoria: ativos agrupados por estado (spec 7a.BK §3.4).
+// - quarentena / fora_do_alvo → semAlvo (quarentena vence se os dois valem);
+// - valor EW da cesta = soma dos elegíveis (sem quarentena e sem fora_do_alvo),
+//   o mesmo universo do peso_intra_atual no payload;
+// - cesta com UM elegível herda a cesta: alocFaixa(peso_bucket,
+//   peso_atual_bucket) e R$ = |Δ| × valor da categoria sem o off-policy (o
+//   denominador do peso_atual_bucket em construir_bloco_politica, que inclui a
+//   quarentena; cat.valor_brl inclui o off-policy e daria outro número);
+// - demais: alocFaixa(peso_intra, peso_intra_atual), R$ = |Δ| × valor EW.
+// `cestas` só com 2+ cestas; com uma, `cesta` é null nas linhas.
+const ALOC_NOME_CESTA = { passive: "Passivo", picks: "Picks" };
+
+function alocAgruparAtivos(cat) {
+  const buckets = (cat && cat.buckets) || [];
+  const multi = buckets.length > 1;
+  const valor = (a) => (a && typeof a.valor_brl === "number" ? a.valor_brl : 0);
+  const elegivel = (a) => !a.quarentena && !a.fora_do_alvo;
+  let valorPolitica = 0;
+  for (const b of buckets) {
+    for (const a of b.ativos || []) if (!a.fora_do_alvo) valorPolitica += valor(a);
+  }
+  const out = { cestas: [], pedindo: [], acima: [], naFaixa: [], semAlvo: [] };
+  for (const b of buckets) {
+    const nome = ALOC_NOME_CESTA[b.tipo] || b.tipo || "";
+    // Cesta única: é a categoria inteira, então está sempre na faixa (letra do
+    // §3.4). Sem isso, uma categoria sem posição (peso_atual_bucket 0) poria o
+    // ativo único em "pedindo aporte" com "faltam R$ 0".
+    const fCesta = multi ? alocFaixa(b.peso_bucket, b.peso_atual_bucket) : { estado: "na_faixa" };
+    if (multi) {
+      out.cestas.push({ nome, estado: fCesta.estado, atual: b.peso_atual_bucket, alvo: b.peso_bucket });
+    }
+    const ativos = b.ativos || [];
+    const eleg = ativos.filter(elegivel);
+    const valorEW = eleg.reduce((s, a) => s + valor(a), 0);
+    for (const a of ativos) {
+      if (!elegivel(a)) {
+        out.semAlvo.push({ ticker: a.ticker, motivo: a.quarentena ? "quarentena" : "a zerar" });
+        continue;
+      }
+      let estado;
+      let rs;
+      if (eleg.length === 1) {
+        estado = fCesta.estado;
+        rs = Math.abs((b.peso_bucket || 0) - (b.peso_atual_bucket || 0)) * valorPolitica;
+      } else {
+        estado = alocFaixa(a.peso_intra, a.peso_intra_atual).estado;
+        rs = Math.abs((a.peso_intra || 0) - (a.peso_intra_atual || 0)) * valorEW;
+      }
+      if (!Number.isFinite(rs)) rs = 0;
+      const linha = { ticker: a.ticker, cesta: multi ? nome : null, rs };
+      if (estado === "abaixo") out.pedindo.push(linha);
+      else if (estado === "acima") out.acima.push(linha);
+      // na_faixa — e também sem_alvo/sem_dado de um ativo elegível, que o
+      // payload não produz: fica como etiqueta sem número, nunca some.
+      else out.naFaixa.push(a.ticker);
+    }
+  }
+  const porRs = (x, y) => (y.rs - x.rs) || (x.ticker < y.ticker ? -1 : x.ticker > y.ticker ? 1 : 0);
+  out.pedindo.sort(porRs);
+  out.acima.sort(porRs);
+  return out;
+}
+
 // ── 7a.BD.2: apresentação da #rentabilidade como ponte ─────────────────────
 // Funções puras de topo que transformam a saída de `ponteJanela` (frações) no
 // que a tela mostra. Nenhum número é recalculado aqui: todo valor vem de
@@ -1217,18 +1365,6 @@ document.addEventListener("alpine:init", () => {
     // vazio = false). Não-persistente (reseta no reload), preservado ao
     // trocar de aba (vive só em memória Alpine).
     catAberta: {},
-    // 7a.S.8: faixa de composição 100% — estado transiente do tap num
-    // segmento. compoSegmentoAtivo = nome da categoria tocada (dima os
-    // irmãos); compoCardFlash = nome da categoria cujo .aloca-cat pisca.
-    // Ambos null = repouso. Não-persistente; limpo por _compoFlashTimer
-    // após ~1400ms (ou nunca setado sob prefers-reduced-motion).
-    compoSegmentoAtivo: null,
-    compoCardFlash: null,
-    _compoFlashTimer: null,
-    // 7a.S.8 CRB (a11y): texto da região aria-live sob a faixa — confirma o
-    // tap p/ leitor de tela ("{categoria} em destaque"). Setado em
-    // tocarSegmentoComposicao inclusive sob reduced-motion (é a11y, não motion).
-    compoAnuncio: "",
     proventosToggle: "origem",
     proventosMesSelecionado: null, // 7a.E.18: índice em mensal_12m ou null
     // 7a.S.7b: linha-razão do card do chart (= soma exata das barras exibidas;
@@ -1250,7 +1386,7 @@ document.addEventListener("alpine:init", () => {
     // derivado do chart de rentabilidade, pré-declarados com `null` — um handle
     // vazio deve ter UMA representação (`null`), não duas (ausente antes do
     // 1º render, `null` depois do lock). Mesmo padrão de
-    // `_heroEyebrowSwapTimeout`/`_compoFlashTimer` acima; zero mudança de
+    // `_heroEyebrowSwapTimeout` acima; zero mudança de
     // comportamento (todo consumidor usa checagem de truthy). Populados por
     // renderProventosGrafico/renderPatrimonioGrafico/hidratarRentabilidade,
     // zerados por _descartarProv/_descartarPatr/_descartarRent. Ver o
@@ -1945,7 +2081,7 @@ document.addEventListener("alpine:init", () => {
     valorBrlCategoria(cat) { return (cat && cat.valor_brl) || 0; },
 
     // 7a.BG.1 — rodapé de reconciliação. Toda divisão percentual (faceta
-    // split do hero, faixa da #alocacao) vale sobre a carteira, que exclui a
+    // split do hero, cartões da #alocacao) vale sobre a carteira, que exclui a
     // cripto; esta linha devolve a cripto à vista para as partes fecharem com
     // o número do topo. Só existe com payload 2.31+ (`carteira_brl` presente:
     // num payload antigo a divisão ainda inclui a cripto, e o rodapé a
@@ -1958,7 +2094,6 @@ document.addEventListener("alpine:init", () => {
       if (typeof cripto !== "number" || !(cripto > 0)) return "";
       return "+ " + window.formatBrl(cripto) + " em cripto, fora da divisão";
     },
-    valorBrlAtivo(ativo) { return (ativo && ativo.valor_brl) || 0; },
 
     // 7a.E.32/7a.E.33: DY trailing-12m do ativo (schema v2.24). `por_ativo`
     // carrega SÓ tickers com DY válido — a ausência da chave É o "não há número
@@ -2068,57 +2203,43 @@ document.addEventListener("alpine:init", () => {
       }).format(q);
     },
 
-    // ===== 7a.E.23 — helpers da vista Alvo (#alocacao) =====
-
-    labelCestaTipo(tipo) {
-      if (tipo === "passive") return "Cesta passiva";
-      if (tipo === "picks") return "Cesta de picks";
-      return tipo || "";
+    // 7a.BK.1: faixa de tolerância da categoria (spec 7a.BK §3.3). Delegam
+    // às funções puras de topo (alocFaixa/alocTrilho) — a regra mora lá.
+    catFaixa(cat) { return alocFaixa(cat?.peso_alvo, cat?.peso_atual); },
+    catTrilho(cat) { return alocTrilho(cat?.peso_alvo, cat?.peso_atual); },
+    // "alvo 50,0% · faixa 45,0% a 55,0%"; "" sem alvo ou sem dado (o x-show
+    // esconde o elemento pela própria string).
+    catFaixaTexto(cat) {
+      const f = this.catFaixa(cat);
+      if (f.min === null) return "";
+      const p = (v) => window.formatPctSemSinal(v, 1);
+      return `alvo ${p(cat.peso_alvo)} · faixa ${p(f.min)} a ${p(f.max)}`;
+    },
+    // Copy fixa do estado (spec 7a.BK §3.3/§3.5). "—" para sem dado.
+    rotuloEstado(estado) {
+      return {
+        abaixo: "Pedindo aporte",
+        na_faixa: "Na faixa",
+        acima: "Acima da faixa",
+        sem_alvo: "Sem alvo",
+      }[estado] || "—";
     },
 
-    // Recebe drift como FRAÇÃO (ex.: -0.0168 = -1,68 pp; convenção do backend
-    // espelhando formatPctSinalPP()) e devolve
-    // { texto: "−1,68 pp" | "+4,30 pp" | "0,00 pp", classe: "under"|"over"|"hold", arrow: "↑"|"↓"|"·" }.
-    // Threshold ±0.005 fraction = ±0,5 pp evita ruído de arredondamento como ação.
-    // classe reflete posição vs alvo: "under" = atual<alvo (precisa aportar); "over" = acima.
-    formatDelta(pp) {
-      if (pp === null || pp === undefined || Number.isNaN(pp)) {
-        return { texto: "—", classe: "hold", arrow: "" };
-      }
-      const ppVal = pp * 100;
-      const fmt = new Intl.NumberFormat("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(Math.abs(ppVal));
-      if (pp <= -0.005) return { texto: `−${fmt} pp`, classe: "under", arrow: "↑" };
-      if (pp >= 0.005) return { texto: `+${fmt} pp`, classe: "over",  arrow: "↓" };
-      return { texto: "0,00 pp", classe: "hold", arrow: "·" };
+    // 7a.BK.1: acordeão agrupado por estado (spec 7a.BK §3.4). A regra mora
+    // na função pura de topo alocAgruparAtivos.
+    gruposCategoria(cat) { return alocAgruparAtivos(cat); },
+    // Estado da cesta em minúscula, dentro da frase da linha das cestas:
+    // "Passivo pedindo aporte (30,0% de 45%)".
+    rotuloEstadoCesta(estado) { return (this.rotuloEstado(estado) || "").toLowerCase(); },
+    cestaPctTexto(c) {
+      return `(${window.formatPctSemSinal(c.atual, 1)} de ${window.formatPctSemSinal(c.alvo, 0)})`;
     },
-
-    // Razão atual/alvo capada em 1 (acima de 100 % usa marker pra mostrar overflow).
-    // `!alvo` já captura 0/null/undefined/NaN (Number.isNaN(alvo) seria dead code).
-    _ratio(atual, alvo) {
-      if (!alvo || alvo <= 0) return 0;
-      if (atual === null || atual === undefined || Number.isNaN(atual)) return 0;
-      return Math.min(1, atual / alvo);
-    },
-
-    catFillPct(cat) { return this._ratio(cat?.peso_atual, cat?.peso_alvo); },
-    catIsOver(cat) {
-      const a = cat?.peso_alvo;
-      return a && a > 0 && cat?.peso_atual > a;
-    },
-
-    cestaFillPct(bucket) { return this._ratio(bucket?.peso_atual_bucket, bucket?.peso_bucket); },
-    cestaIsOver(bucket) {
-      const a = bucket?.peso_bucket;
-      return a && a > 0 && bucket?.peso_atual_bucket > a;
-    },
-
-    ativoFillPct(ativo) { return this._ratio(ativo?.peso_intra_atual, ativo?.peso_intra); },
-    ativoIsOver(ativo) {
-      const a = ativo?.peso_intra;
-      return a && a > 0 && ativo?.peso_intra_atual > a;
+    // "" quando o R$ arredonda a zero (ex.: cesta em que só o quarentenado
+    // está em carteira, valor EW 0): a linha fica com ticker e cesta, sem
+    // "faltam R$ 0".
+    linhaRsTexto(linha, grupo) {
+      if (!(Math.round(Math.abs(linha.rs)) > 0)) return "";
+      return (grupo === "pedindo" ? "faltam " : "sobram ") + alocRsCurto(linha.rs);
     },
 
     // Map nome categoria → token CSS de identidade.
@@ -2136,13 +2257,6 @@ document.addEventListener("alpine:init", () => {
 
     catStyleVar(nome) {
       return `--cat: var(${this.catCssVar(nome)});`;
-    },
-
-    // Posição do marker quando há overflow: trilha sempre 100 % preenchida,
-    // marker fica no ponto onde o alvo está em relação ao atual.
-    markerLeftOver(alvo, atual) {
-      if (!atual || atual <= 0 || !alvo) return "100%";
-      return `${Math.min(99, (alvo / atual) * 100)}%`;
     },
 
     // Tipo de provento abreviado: "Dividendo" → "Div"; "Rendimento" → "Rend"; "JCP" → "JCP".
@@ -2898,19 +3012,8 @@ document.addEventListener("alpine:init", () => {
     // vazio literal da declaração, que já é o comportamento documentado da
     // tela (todas as categorias nascem fechadas, sem hidratação especial).
     //
-    // CRB final round (Finding B): a faixa de composição 100% (7a.S.8, mesma
-    // tela) guarda o nome da categoria tocada — mesma classe de `catAberta`
-    // (deriva do conteúdo do payload, não preferência/infra). Os três voltam
-    // ao literal exato da declaração. `_compoFlashTimer` NÃO é tocado aqui:
-    // é handle de timer (infra, mesma classe de `_heroEyebrowSwapTimeout`),
-    // não payload — se um timer pendente de um tap pré-lock disparar depois,
-    // o callback só reescreve estes três campos com o mesmo valor que já
-    // restauramos (inofensivo).
     _limparEstadoAlocacao() {
       this.catAberta = {};
-      this.compoSegmentoAtivo = null;
-      this.compoCardFlash = null;
-      this.compoAnuncio = "";
     },
 
     // 7a.Q.3: o artefato `relatorio_mensal_v1` do mês aberto (prosa + radar +
@@ -3045,8 +3148,8 @@ document.addEventListener("alpine:init", () => {
     // ("estado de app-shell", já usado acima), não o inventário.
     //
     // Review final pós-7a.U (Finding 5): `toast.timer` é handle de
-    // `setTimeout` (mesma classe de `_escListenerProventos`/
-    // `_compoFlashTimer`) e é cancelado ANTES de reatribuir `this.toast` —
+    // `setTimeout` (mesma classe de `_escListenerProventos`) e é cancelado
+    // ANTES de reatribuir `this.toast` —
     // mas NÃO pelo motivo que uma versão anterior deste comentário afirmava
     // ("o callback em voo escreveria em `toast`, que já é outro objeto,
     // deixando um timer órfão"): o callback de `mostrarToast()` é
@@ -3221,165 +3324,37 @@ document.addEventListener("alpine:init", () => {
         .sort((a, b) => (b.peso_alvo || 0) - (a.peso_alvo || 0) || a.nome.localeCompare(b.nome));
     },
 
-    // 7a.S.10 Task 4 (cross-screen, Apêndice B "Alocação = callout 'abaixo
-    // do alvo'"): categoria MAIS abaixo do alvo (drift mais negativo),
-    // mesmo threshold de .005 (0,5pp) usado por formatDelta p/ classificar
-    // "under". null quando nenhuma categoria está abaixo — grifo some.
-    _alocGrifoCategoriaPior() {
-      const cats = this.categoriasAlocacaoOrdenadas || [];
-      let pior = null;
-      for (const c of cats) {
-        if ((c.drift || 0) <= -0.005 && (!pior || c.drift < pior.drift)) pior = c;
-      }
-      return pior;
+    // 7a.BK.1: frase-resumo do topo (spec 7a.BK §3.2). "" quando nenhuma
+    // categoria é classificável — o x-show usa a própria string.
+    get alocFrase() {
+      return alocFraseResumo(this.categoriasAlocacaoOrdenadas);
     },
 
-    // HTML do grifo (mesma categoria acima); "" quando nada está abaixo do
-    // alvo — x-show usa a MESMA string (truthy/falsy), sem recomputar 2x
-    // com resultados divergentes.
-    get alocGrifoHtml() {
-      const cat = this._alocGrifoCategoriaPior();
-      if (!cat) return "";
-      const pp = Math.round(Math.abs(cat.drift) * 100);
-      return `${cat.nome} está <b>${pp} pp abaixo</b> do alvo — é onde o próximo aporte trabalha primeiro. <span class="aloca-grifo-cta">Simular aporte &rsaquo;</span>`;
+    // 7a.BK.1: categorias ABAIXO da faixa, na ordem da lista. Alimenta o
+    // grifo e o guard de irSimularAporteAlvo (spec 7a.BK §3.2, decisão (c)).
+    get alocCategoriasAbaixo() {
+      return (this.categoriasAlocacaoOrdenadas || []).filter(
+        (c) => alocFaixa(c.peso_alvo, c.peso_atual).estado === "abaixo",
+      );
+    },
+
+    // Texto do grifo; "" sem categoria abaixo da faixa — x-show usa a MESMA
+    // string. Entra por x-text: um nome de categoria com "<" aparece literal.
+    get alocGrifoTexto() {
+      const abaixo = this.alocCategoriasAbaixo;
+      if (!abaixo.length) return "";
+      // Copy aprovada verbatim (spec 7a.BK §3.2, §4(h)): sem ponto final.
+      return "Próximo aporte vai para " + alocListaNomes(abaixo.map((c) => c.nome));
     },
 
     // Deep-link cross-screen: preset = último aporte (mesmo valor do
     // hero-chip "Repetir" em #aportar) — não recalcula um "aporte ideal"
     // pro gap, só sugere um ponto de partida familiar pro simulador.
     irSimularAporteAlvo() {
-      const cat = this._alocGrifoCategoriaPior();
-      if (!cat) return;
+      if (!this.alocCategoriasAbaixo.length) return;
       const total = (this.json && this.json.ultimo_aporte && this.json.ultimo_aporte.total_brl) || 0;
       this._aportePresetPendente = total;
       location.hash = "#aportar";
-    },
-
-    // 7a.S.8: faixa de composição 100% — segmentos (largura ∝ peso_atual).
-    // Larguras NORMALIZADAS pela soma de peso_atual das categorias presentes
-    // em politica.categorias (não pelo literal 100%): garante que a faixa
-    // sempre preenche exatamente 100% do espaço visual, mesmo com resíduo de
-    // arredondamento (fixture soma 100,2%) ou com categorias fora do escopo
-    // da política publicada (mesmo recorte que .aloca-lista já usa — a faixa
-    // nunca mostra mais nem menos categorias do que os cards abaixo dela).
-    // Rótulo interno (.sl) = SÓ o percentual; a visibilidade é decidida por
-    // MEDIÇÃO (ajustarLabelsFaixa) — o número aparece sempre que couber no
-    // segmento, senão o segmento fala só via cor + aria-label completo (a11y).
-    get composicaoSegmentos() {
-      const cats = this.categoriasAlocacaoOrdenadas;
-      const soma = cats.reduce((acc, c) => acc + (c.peso_atual || 0), 0) || 1;
-      return cats.map((c) => {
-        const atual = c.peso_atual || 0;
-        const alvo = c.peso_alvo || 0;
-        return {
-          nome: c.nome,
-          larguraPct: (atual / soma) * 100,
-          // Rótulo interno = SÓ o percentual (o nome da categoria mora no card
-          // logo abaixo + no aria-label). Quais aparecem é decidido por medição
-          // em ajustarLabelsFaixa (o número aparece se couber no segmento),
-          // não por um threshold fixo — assim uma categoria real de ~9-10%
-          // (ex.: Renda Fixa BR) mostra seu % num celular normal, e só o que
-          // não cabe (ex.: uma categoria de ~2%) fica sem número. O threshold fixo antigo
-          // (7%→12%) escondia categorias mesmo quando o "PP%" caberia, e o nome
-          // dentro do segmento (pré-fix) transbordava e colidia com o vizinho.
-          label: window.formatPctSemSinal(atual, 0),
-          ariaLabel:
-            `${c.nome}: ${window.formatPctSemSinal(atual, 0)} atual, ` +
-            `${window.formatPctSemSinal(alvo, 0)} alvo`,
-        };
-      });
-    },
-
-    // 7a.S.8: réguas do alvo — marcas cumulativas de peso_alvo (mesma ordem
-    // dos segmentos, categoriasAlocacaoOrdenadas). Normalizadas pela soma de
-    // peso_alvo (por construção deve somar 1.0 — /alocar bloqueia categorias
-    // que não somem 1.0 — mas a normalização aqui é defensiva contra
-    // arredondamento). Cada tick marca ONDE a fatia-alvo daquela categoria
-    // termina; o rótulo mostra o peso_alvo PRÓPRIO da categoria (não o
-    // acumulado) — leitura "esta fatia vale X%", não "estamos em X% do total".
-    get composicaoTicks() {
-      const cats = this.categoriasAlocacaoOrdenadas;
-      const somaAlvo = cats.reduce((acc, c) => acc + (c.peso_alvo || 0), 0) || 1;
-      let acumulado = 0;
-      const ticks = [];
-      cats.forEach((c) => {
-        const alvo = c.peso_alvo || 0;
-        acumulado += alvo;
-        // Categoria de alvo ~0 (ex.: uma classe em quarentena) não tem régua
-        // própria: sua marca cumulativa cairia no mesmo ponto da anterior
-        // (soma 0 ao acumulado) e o label "0%" é só ruído — não emite tick.
-        // O acumulado já avançou (por 0), então as posições dos demais ficam
-        // intactas.
-        if (alvo < 0.005) return;
-        const leftPct = (acumulado / somaAlvo) * 100;
-        ticks.push({
-          nome: c.nome,
-          leftPct,
-          label: window.formatPctSemSinal(alvo, 0),
-          // Clamp do label nas bordas: o último tick fica sempre em 100%
-          // (alvos somam 1.0) e, centralizado, seu label vazaria a borda
-          // direita da faixa. 'end' ancora o label pra dentro; 'start' faz o
-          // simétrico à esquerda. A marca (.mk) permanece no ponto exato.
-          edge: leftPct >= 96 ? "end" : leftPct <= 4 ? "start" : "center",
-        });
-      });
-      return ticks;
-    },
-
-    // Fix 2026-07-05 (refino): decide QUAIS rótulos "PP%" da faixa cabem no
-    // segmento e devem aparecer. Roda após o render dos segmentos (x-effect +
-    // $nextTick) e no resize/rotação. Mede a largura natural do .sl contra a
-    // largura interna do segmento; mostra os que cabem, esconde os demais por
-    // visibility (mantém o nó no layout p/ poder re-medir sem reflow). Guarda
-    // contra clientWidth 0 (faixa ainda display:none numa rota não-alocacao):
-    // nesse caso deixa tudo escondido — o x-effect re-mede quando a tela abre.
-    ajustarLabelsFaixa(band) {
-      if (!band) return;
-      band.querySelectorAll(".compo-seg").forEach((seg) => {
-        const sl = seg.querySelector(".sl");
-        if (!sl) return;
-        const largSeg = seg.clientWidth;
-        // scrollWidth do .sl = conteúdo + padding do próprio .sl; +1px de
-        // tolerância p/ arredondamento sub-pixel. Só mostra com largura real.
-        const cabe = largSeg > 0 && sl.scrollWidth <= largSeg + 1;
-        sl.style.visibility = cabe ? "visible" : "hidden";
-      });
-    },
-
-    // 7a.S.8: tap num segmento da faixa → esmaece os irmãos + faz o card
-    // .aloca-cat correspondente piscar + rola até ele. Sob prefers-reduced-
-    // motion o scroll ainda acontece (behavior:auto) mas SEM dim/flash —
-    // motion zero por design, mesma convenção do resto do app shell
-    // (window.drarthurNav.motion.reduced, ver 7a.S.6/transitions.js).
-    tocarSegmentoComposicao(nome) {
-      const reduced = !!(
-        window.drarthurNav &&
-        window.drarthurNav.motion &&
-        window.drarthurNav.motion.reduced
-      );
-      const slug = nome.replace(/\s+/g, "-");
-      const card = document.getElementById("aloca-cat-" + slug);
-      if (card) {
-        card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-      }
-      // CRB (a11y): confirmação não-visual do tap. Fora do guard de
-      // reduced-motion — o leitor de tela precisa saber que o tap registrou
-      // mesmo quando o dim/flash é suprimido por motion reduzido.
-      this.compoAnuncio = `${nome} em destaque`;
-      clearTimeout(this._compoFlashTimer);
-      if (reduced) {
-        // Sem pulso sob reduced-motion: garante estado limpo (caso um tap
-        // anterior, sem reduced-motion, ainda estivesse com timer pendente).
-        this.compoSegmentoAtivo = null;
-        this.compoCardFlash = null;
-        return;
-      }
-      this.compoSegmentoAtivo = nome;
-      this.compoCardFlash = nome;
-      this._compoFlashTimer = setTimeout(() => {
-        this.compoSegmentoAtivo = null;
-        this.compoCardFlash = null;
-      }, 1400);
     },
 
     // ── #proventos ──────────────────────────────────────────────────

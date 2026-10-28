@@ -51,6 +51,19 @@
   --sem-up-tint:   rgba(4, 120, 87, 0.10);
   --sem-down:      var(--cat-fii);
   --sem-down-tint: rgba(184, 115, 31, 0.12);
+  /* 7a.BK.1: o ocre de --sem-down não fecha AA como TEXTO no claro (3,8:1 no
+     branco, 3,3:1 na própria tinta); este é o mesmo ocre escurecido, só para
+     texto de estado. No escuro resolve para --sem-down (já passa). */
+  --sem-down-texto: #8f5b16;
+  /* 7a.BK.1: "na faixa" — verde-acinzentado contido, para não competir com o
+     teal de "pedindo aporte" nem com o ocre de "acima" (spec 7a.BK §3.7). */
+  --faixa-ok:      #4f6b5d;
+  --faixa-ok-tint: rgba(79, 107, 93, 0.14);
+  /* Véu sobre --cat na etiqueta do trilho: no claro escurece a cor da
+     categoria o bastante para o texto branco fechar AA (o ocre do FII puro dá
+     3,8:1). No escuro some, e o texto passa a escuro. */
+  --etq-veu:       rgba(0, 0, 0, 0.15);
+  --etq-texto:     #fff;
 
   /* === Escala tipográfica numérica (7a.E.27, FONTE ÚNICA, NÃO DUPLICAR) ===
      7 degraus semânticos para TODO valor numérico (R$, %, contagem, ticker-
@@ -1545,7 +1558,7 @@ footer.rodape code {
 
 /* 7a.S.3 Task 3: nota "em curso" sob o chart de proventos — honestidade de
    dado (a última barra, ano/mês corrente, ainda está acumulando). Estilo
-   caption discreto, espelha .compo-legend do mockup Monument. */
+   caption discreto, no tom das legendas de gráfico da casa. */
 .chart-partial-note {
   font-size: 11px;
   color: var(--faint);
@@ -1559,111 +1572,21 @@ footer.rodape code {
 
 /* ── #alocacao ────────────────────────────────────────────────────── */
 
-/* 7a.S.8: faixa de composição 100% — mapa do todo no topo de #alocação,
-   ACIMA de .aloca-lista. Espelha .compo/.compo-band/.compo-seg/.compo-ticks
-   do mockup Monument. Larguras dos segmentos normalizadas pela soma de
-   peso_atual das categorias presentes (garante 100% exato do espaço visual
-   mesmo com resíduo de arredondamento); ticks do alvo normalizados pela
-   soma de peso_alvo (cumulativos, réguas do alvo). Ver DESIGN.md. */
-.compo {
-  margin-bottom: 18px;
-}
-.compo-cap {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--faint);
-  margin-bottom: 8px;
-  letter-spacing: .03em;
-}
-.compo-band {
-  position: relative;
-  display: flex;
-  height: 46px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--surface-2);
-}
-/* --cat vem de catStyleVar(nome) no inline style, igual .aloca-cat__dot. */
-.compo-seg {
-  height: 100%;
-  cursor: pointer;
-  position: relative;
-  border: 0;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  background: var(--cat);
-  -webkit-tap-highlight-color: transparent;
-  /* Safety net: o rótulo (.sl) nunca pode vazar pro segmento vizinho, para
-     qualquer dado/viewport futuro. A medição (ajustarLabelsFaixa) já esconde
-     os que não cabem; isto garante a contenção mesmo no caso-limite. */
-  overflow: hidden;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .compo-seg { transition: opacity var(--d2) ease, transform var(--d1) ease; }
-}
-.compo-seg .sl {
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
-  font-variant-numeric: tabular-nums;
-  padding: 0 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  /* Escondido por padrão; ajustarLabelsFaixa (medição) mostra os que cabem no
-     segmento. visibility (não display) preserva o layout p/ poder re-medir. */
-  visibility: hidden;
-}
-/* Tap num segmento esmaece os irmãos por ~1400ms (tocarSegmentoComposicao). */
-.compo-seg.dim {
-  opacity: .35;
-}
-.compo-ticks {
-  position: relative;
-  height: 16px;
-  margin-top: 5px;
-}
-.compo-tick {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-/* Clamp do label nas bordas (fix 2026-07-05): o último tick fica em left:100%
-   e, centralizado, seu label ("PP%") vazaria a borda direita da faixa. 'end'
-   ancora a coluna pela direita (translateX(-100%) + align flex-end) — a marca
-   .mk continua exatamente no ponto (borda direita da coluna = leftPct), só o
-   label passa a crescer pra dentro. 'start' é o simétrico à esquerda. */
-.compo-tick--end {
-  transform: translateX(-100%);
-  align-items: flex-end;
-}
-.compo-tick--start {
-  transform: translateX(0);
-  align-items: flex-start;
-}
-.compo-tick .mk {
-  width: 1.5px;
-  height: 7px;
-  background: var(--ink);
-  opacity: .55;
-}
-.compo-tick .tv {
-  font-size: 9px;
-  color: var(--faint);
-  margin-top: 1px;
-  font-variant-numeric: tabular-nums;
+/* 7a.BK.1: frase-resumo do topo — texto comum, por estado das categorias
+   (spec 7a.BK §3.2). Lida na ordem; sem cor de estado (a cor mora no cartão). */
+.aloca-frase {
+  margin: 0;
+  font-size: var(--num-sm);
+  line-height: 1.45;
+  color: var(--ink);
 }
 
-/* 7a.BG.1 — rodapé de reconciliação da cripto sob a faixa de composição.
-   --gray (não --faint): é um valor a ler, e --faint não fecha AA em 12px. */
-.compo-cripto {
-  margin: 8px 0 0;
-  font-size: 0.75rem;
+/* 7a.BG.1 / 7a.BK.1 — rodapé de reconciliação da cripto, logo depois da
+   lista de categorias. --gray (não --faint): é um valor a ler, e --faint não
+   fecha AA em 12px. */
+.aloca-cripto {
+  margin: 12px 0 0;
+  font-size: var(--num-xs);
   line-height: 1.4;
   color: var(--gray);
   font-variant-numeric: tabular-nums;
@@ -1672,34 +1595,31 @@ footer.rodape code {
 /* 7a.S.10 Task 4: grifo cross-screen (.grifo base = S.1) — callout "abaixo
    do alvo" que deep-linka pro simulador #aportar. */
 .aloca-grifo {
-  margin-top: 16px;
-  font-size: 0.8125rem;
+  margin-top: 12px;
+  margin-bottom: 16px;
+  font-size: var(--num-xs);
   color: var(--ink);
   line-height: 1.45;
   cursor: pointer;
 }
-.aloca-grifo b { color: var(--ink); }
 .aloca-grifo-cta { color: var(--accent); font-weight: 700; white-space: nowrap; }
 
 /* 7a.E.31: tela #alocação unificada — cabeçalho .breadcrumb padrão (igual às
    demais telas) + lista única de cards de categoria colapsáveis. O corpo
-   expandido reusa as cestas (.aloca-alvo__cesta/__ativo/__minibar) abaixo. */
+   expandido agrupa os ativos por estado (7a.BK.1, .aloca-grupo abaixo). */
 .aloca-lista {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-/* Card de categoria. --cat vem de catStyleVar(nome) no inline style.
-   scroll-margin-top: alvo do scrollIntoView do tap na faixa (7a.S.8) —
-   evita que o header fixo (se houver) cubra o topo do card. */
+/* Card de categoria. --cat vem de catStyleVar(nome) no inline style. */
 .aloca-cat {
   background: var(--surface);
   border: 1px solid var(--neutral-100);
   border-radius: 16px;
   padding: 14px 15px;
   box-shadow: 0 2px 6px var(--g-900-07);
-  scroll-margin-top: 12px;
 }
 @media (prefers-reduced-motion: no-preference) {
   .aloca-cat { transition: transform var(--d1) var(--ease), box-shadow var(--d2) ease, border-color var(--d2) ease; }
@@ -1709,14 +1629,6 @@ footer.rodape code {
 .aloca-cat:active {
   transform: scale(.988);
   box-shadow: var(--shadow-pressed);
-}
-/* 7a.S.8: pulso transiente quando o tap na faixa de composição aponta pra
-   este card (compoCardFlash === cat.nome) — ring + borda --accent, ~1400ms
-   (JS remove a classe). Base sem transição (reduced-motion default); a
-   suavização de border-color/box-shadow vem do bloco no-preference acima. */
-.aloca-cat.flash {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07);
 }
 
 .aloca-cat__head {
@@ -1780,33 +1692,195 @@ footer.rodape code {
   .aloca-cat__chevron { transition: none; }
 }
 
-/* A barra de categoria reusa .aloca-alvo__trilha-cat; o ajuste de margem
-   no card colapsável vive no selector composto .aloca-alvo__trilha-cat.aloca-cat__trilha. */
+/* 7a.BK.1: trilho da faixa (spec 7a.BK §3.3) — cápsula de altura fixa em
+   três zonas, sem escala nem marca de alvo: abaixo (--sem-up-tint), na faixa
+   (--faixa-ok-tint), acima (--sem-down-tint). As bordas da zona central vêm
+   por style (--na-ini/--na-fim, de alocTrilho). A etiqueta com o atual, na
+   cor da categoria, mora DENTRO da cápsula: alocTrilho já a prende entre 5% e
+   95% (--etq-x), e o clamp abaixo ainda segura a meia largura dela, para que
+   a 320 px a etiqueta de borda não vaze (Review Focus 5). Decorativo
+   (aria-hidden): estado e faixa estão no rodapé, em texto. */
+.aloca-trilho {
+  --etq-w: 3.5rem;
+  position: relative;
+  height: 22px;
+  margin: 14px 0 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    var(--sem-up-tint) 0 var(--na-ini, 0%),
+    transparent var(--na-ini, 0%) var(--na-fim, 100%),
+    var(--sem-down-tint) var(--na-fim, 100%) 100%
+  );
+}
+.aloca-trilho__na {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--na-ini, 0%);
+  width: calc(var(--na-fim, 100%) - var(--na-ini, 0%));
+  background: var(--faixa-ok-tint);
+}
+.aloca-trilho__etq {
+  position: absolute;
+  top: 50%;
+  left: clamp(calc(var(--etq-w) / 2), var(--etq-x, 50%), calc(100% - var(--etq-w) / 2));
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: var(--etq-w);
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(var(--etq-veu), var(--etq-veu)), var(--cat, var(--g-700));
+  color: var(--etq-texto);
+  font-family: var(--mono);
+  font-size: var(--num-xs);
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aloca-trilho__etq { transition: left var(--d2) var(--ease); }
+}
 
+/* Rodapé: estado em palavra à esquerda, na cor do estado; faixa por extenso
+   à direita. Quebra em duas linhas se não couber (320 px). */
 .aloca-cat__foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 0.82rem;
+  gap: 2px 12px;
+  font-size: var(--num-xs);
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+.aloca-cat__estado {
+  font-weight: 800;
+  color: var(--gray);
+}
+.aloca-cat__estado--abaixo   { color: var(--sem-up); }
+.aloca-cat__estado--acima    { color: var(--sem-down-texto); }
+.aloca-cat__estado--na_faixa { color: var(--faixa-ok); }
+
+.aloca-cat__body {
+  margin-top: 4px;
+}
+
+/* 7a.BK.1: acordeão agrupado por estado (spec 7a.BK §3.4, brief §3.7). O que
+   pede atenção primeiro (linhas tingidas), o que está bem depois e compacto
+   (etiquetas em fluxo). Estado sempre em palavra; a cor só reforça. Os
+   pares do tema escuro vêm pelos tokens (--faixa-ok*, --sem-*-tint). */
+.aloca-grupos {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 14px;
+  margin-top: 12px;
+  border-top: 1px solid var(--neutral-100);
+}
+.aloca-cestas {
+  margin: 0;
+  font-size: var(--num-xs);
+  line-height: 1.5;
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+.aloca-cestas__pct { white-space: nowrap; }
+.aloca-cestas__estado { font-weight: 700; color: var(--ink); }
+.aloca-cestas__estado--abaixo { color: var(--sem-up); }
+.aloca-cestas__estado--acima  { color: var(--sem-down-texto); }
+.aloca-cestas__estado--na_faixa { color: var(--faixa-ok); }
+
+.aloca-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aloca-grupo__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: var(--num-xs);
+  font-weight: 600;
+  color: var(--ink);
+}
+.aloca-grupo__meta {
+  font-weight: 500;
   color: var(--gray);
   font-variant-numeric: tabular-nums;
 }
 
-.aloca-cat__foot b {
+/* Linha de ativo (pedindo / acima): ticker, cesta, R$ à direita. Alvo de
+   toque de 44 px. A 320 px, ticker longo + cesta + "faltam R$ 3,0 mil" não
+   cabem numa linha: o R$ desce para uma segunda, ainda à direita. */
+.aloca-ativo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  text-decoration: none;
   color: var(--ink);
-  font-weight: 800;
 }
-
-.aloca-cat__drift {
-  font-weight: 800;
+.aloca-grupo--pedindo .aloca-ativo { background: var(--sem-up-tint); }
+.aloca-grupo--acima .aloca-ativo   { background: var(--sem-down-tint); }
+.aloca-ativo__ticker {
+  font-size: var(--num-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
+.aloca-ativo__cesta {
+  font-size: var(--num-xs);
+  color: var(--gray);
+}
+.aloca-ativo__rs {
+  margin-left: auto;
+  font-size: var(--num-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.aloca-grupo--pedindo .aloca-ativo__rs { color: var(--sem-up); }
+.aloca-grupo--acima .aloca-ativo__rs   { color: var(--sem-down-texto); }
 
-.aloca-cat__drift--under { color: var(--sem-up); }
-.aloca-cat__drift--over  { color: var(--sem-down); }
-.aloca-cat__drift--hold  { color: var(--gray); font-weight: 700; }
-
-.aloca-cat__body {
-  margin-top: 4px;
+/* Etiquetas (na faixa / sem alvo): só o ticker, em fluxo que quebra linha. */
+.aloca-etqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.aloca-etq {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--faixa-ok-tint);
+  color: var(--ink);
+  font-size: var(--num-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+/* Sem alvo: apagada (tracejado, opacidade menor), mas o texto segue AA. */
+.aloca-etq--apagada {
+  background: transparent;
+  border: 1px dashed var(--faint);
+  color: var(--gray);
+  font-weight: 600;
+  opacity: 0.9;
+}
+.aloca-etq__motivo { font-weight: 500; }
+.aloca-ativo:focus-visible,
+.aloca-etq:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── #ativo/:ticker ───────────────────────────────────────────────── */
@@ -2784,7 +2858,7 @@ button.ponte-degrau { cursor: pointer; }
 
 /* 7a.O.2 — selo "Aluguel" no drilldown mensal: distingue a renda de aluguel
    de ações (BTC) do dividendo do mesmo ticker no mês. Texto (não cor sozinha),
-   espelha o selo de quarentena (.aloca-alvo__selo-quar-tag) p/ coesão. */
+   texto, não cor sozinha. */
 .provento-tipo-tag {
   display: inline-block;
   margin-left: 8px;
@@ -3616,325 +3690,6 @@ body:has(.tab-bar) main {
 .r7d-movers .is-positive { color: var(--g-700); }
 .r7d-movers .is-negative { color: var(--red); }
 
-/* ============================================================
-   Aloca Alvo v2 (7a.E.23)
-   Vista "Alvo" de #alocacao reescrita com identidade --cat-*.
-   ============================================================ */
-
-.aloca-alvo__trilha-cat {
-  position: relative;
-  height: 14px;
-  border-radius: 999px;
-  background: var(--neutral-100);
-  overflow: visible;
-  margin-bottom: 6px;
-}
-/* 7a.E.31: no card colapsável a barra ganha respiro acima do header-botão.
-   Selector composto vence o margin-bottom acima independente da ordem. */
-.aloca-alvo__trilha-cat.aloca-cat__trilha {
-  margin: 11px 0 7px;
-}
-.aloca-alvo__trilha-cat .fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--cat, var(--g-700)) 0%,
-    color-mix(in srgb, var(--cat, var(--g-700)) 80%, white) 100%
-  );
-  width: 100%;
-  transform-origin: left;
-  transform: scaleX(var(--fill-pct, 1));
-}
-.aloca-alvo__trilha-cat .fill--over {
-  background: linear-gradient(
-    90deg,
-    var(--cat, var(--g-700)) 0%,
-    var(--cat, var(--g-700)) 60%,
-    rgba(0, 0, 0, 0.18) 100%
-  );
-}
-.aloca-alvo__trilha-cat .marker {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 1.5px;
-  background: var(--ink);
-  border-radius: 1px;
-}
-.aloca-alvo__trilha-cat .marker::before {
-  content: "";
-  position: absolute;
-  top: -3px;
-  left: -2.25px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink);
-}
-.aloca-alvo__cesta {
-  padding-top: 1.125rem;
-  margin-top: 1.125rem;
-  border-top: 1px solid var(--neutral-100);
-}
-.aloca-alvo__cesta-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  column-gap: 0.75rem;
-  align-items: baseline;
-  margin-bottom: 0.625rem;
-}
-.aloca-alvo__clabel {
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--ink);
-}
-.aloca-alvo__cmeta {
-  font-size: 0.625rem;  /* fora-da-escala: prosa, contagem incidental */
-  color: var(--gray);
-  font-weight: 500;
-  margin-top: 2px;
-  letter-spacing: 0.04em;
-}
-.aloca-alvo__cnum {
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-xs);
-  color: var(--ink);
-  font-weight: 700;
-  white-space: nowrap;
-}
-.aloca-alvo__cnum .of {
-  color: var(--gray);
-  font-weight: 500;
-}
-
-.aloca-alvo__cesta-trilha {
-  position: relative;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--neutral-100);
-  margin-bottom: 0.875rem;
-}
-.aloca-alvo__cesta-trilha .fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: 999px;
-  background: var(--cat, var(--g-700));
-  width: 100%;
-  transform-origin: left;
-  transform: scaleX(var(--fill-pct, 1));
-}
-.aloca-alvo__cesta-trilha .marker {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 1.5px;
-  background: var(--ink);
-  border-radius: 1px;
-}
-
-.aloca-alvo__ativos {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.aloca-alvo__ativo {
-  display: grid;
-  grid-template-columns: 18px 1fr auto;
-  column-gap: 0.625rem;
-  align-items: center;
-  text-decoration: none;
-  color: inherit;
-}
-/* 7a.E.31: coluna direita empilha R$ (topo) + delta/selo (base), espelhando
-   o mockup — evita que o R$ vire 4ª coluna e espreme o corpo do ativo. */
-.aloca-alvo__ativo-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  white-space: nowrap;
-}
-.aloca-alvo__ativo .flag {
-  font-size: 0.875rem;
-  line-height: 1;
-  width: 18px;
-  text-align: center;
-}
-.aloca-alvo__ativo-body {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-.aloca-alvo__ativo-row1 {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.aloca-alvo__ticker {
-  font-size: var(--num-xs);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-/* Voz secundária da sub-linha: mono, --num-2xs (10px), cinza. É leitura de
-   contexto — não compete com o drift nem com o R$ (que usam --num-xs).
-   (O sufixo DY inline que dividia esta voz foi removido na 7a.E.34.) */
-.aloca-alvo__ativo-sub {
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-2xs);
-  color: var(--gray);
-  letter-spacing: 0.02em;
-}
-
-.aloca-alvo__minibar {
-  position: relative;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--neutral-100);
-}
-.aloca-alvo__minibar .fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  border-radius: 999px;
-  background: var(--cat, var(--g-700));
-  width: 100%;
-  transform-origin: left;
-  transform: scaleX(var(--fill-pct, 1));
-}
-.aloca-alvo__minibar .fill--over {
-  background: var(--sem-down);
-}
-.aloca-alvo__minibar .marker {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 1.5px;
-  background: var(--ink);
-  border-radius: 1px;
-}
-
-.aloca-alvo__delta {
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-xs);
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 999px;
-  letter-spacing: 0.01em;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-.aloca-alvo__delta--under { background: var(--sem-up-tint);   color: var(--sem-up); }
-.aloca-alvo__delta--over  { background: var(--sem-down-tint); color: var(--sem-down); }
-.aloca-alvo__delta--hold  { background: rgba(110, 110, 115, 0.10); color: var(--gray); font-weight: 600; }
-.aloca-alvo__delta .arrow { font-weight: 800; }
-
-/* 7a.E.28 — pick em quarentena (investidor qualificado). De-ênfase
-   estrutural (sem opacity no texto, que quebraria AA): cesta atenuada via
-   tinta de fundo + supressão do minibar/delta; selo neutro no lugar do delta.
-   "Quarentena" ≠ "pausar" (drift>0): é "não posso aportar agora". */
-.aloca-alvo__ativo--quarentena {
-  background: rgba(26, 29, 28, 0.025);
-}
-.aloca-alvo__ativo--quarentena .aloca-alvo__ticker {
-  color: var(--gray);
-}
-.aloca-alvo__selo-quar {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  white-space: nowrap;
-}
-.aloca-alvo__selo-quar-tag {
-  background: rgba(26, 29, 28, 0.06);
-  color: var(--gray);
-  font-size: 0.625rem;  /* fora-da-escala: badge uppercase */
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-.aloca-alvo__selo-quar-sub {
-  color: var(--gray);
-  font-size: 0.625rem;  /* fora-da-escala: subtexto do selo */
-  letter-spacing: 0.01em;
-}
-
-/* 7a.E.31: R$ de mercado do ativo, à direita antes do delta/selo. */
-.aloca-alvo__valor-ativo {
-  font-family: var(--mono, ui-monospace, Menlo, Consolas, monospace);
-  font-feature-settings: "tnum" 1;
-  font-size: var(--num-xs);
-  font-weight: 600;
-  color: var(--g-700);
-  white-space: nowrap;
-  text-align: right;
-}
-
-/* 7a.E.31: held off-policy (posição fora da política). Misturado na cesta,
-   sem de-ênfase de fundo (≠ quarentena): a leitura é "a zerar", sinalizada
-   pelo selo âmbar e pelo subtexto, não por atenuação. */
-.aloca-alvo__ativo-sub--fora {
-  color: var(--sem-down);
-  font-weight: 600;
-}
-.aloca-alvo__selo-fora {
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-}
-.aloca-alvo__selo-fora-tag {
-  background: var(--sem-down-tint);
-  color: var(--sem-down);
-  font-size: 0.625rem;  /* fora-da-escala: badge uppercase */
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-
-/* Motion cascade — só quando o usuário não pediu redução */
-@media (prefers-reduced-motion: no-preference) {
-  .aloca-alvo__trilha-cat .fill,
-  .aloca-alvo__cesta-trilha .fill,
-  .aloca-alvo__minibar .fill {
-    transform: scaleX(0);
-    animation: alocaAlvoFillIn 700ms var(--ease) forwards;
-  }
-  .aloca-alvo__cesta:nth-of-type(1) .fill { animation-delay: 100ms; }
-  .aloca-alvo__cesta:nth-of-type(2) .fill { animation-delay: 220ms; }
-  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(1) .aloca-alvo__minibar .fill { animation-delay: 280ms; }
-  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(2) .aloca-alvo__minibar .fill { animation-delay: 340ms; }
-  .aloca-alvo__cesta:nth-of-type(1) .aloca-alvo__ativo:nth-child(3) .aloca-alvo__minibar .fill { animation-delay: 400ms; }
-  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(1) .aloca-alvo__minibar .fill { animation-delay: 400ms; }
-  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(2) .aloca-alvo__minibar .fill { animation-delay: 460ms; }
-  .aloca-alvo__cesta:nth-of-type(2) .aloca-alvo__ativo:nth-child(3) .aloca-alvo__minibar .fill { animation-delay: 520ms; }
-}
-
-@keyframes alocaAlvoFillIn {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(var(--fill-pct, 1)); }
-}
-
 /* 7a.Q.3 — Relatório Mensal. 7a.AV.2: o card da projeção compartilha o
    idioma por agrupamento de seletor, NÃO por reuso da classe raiz (reusar
    .rel-card-home faria os locators do Relatório resolverem a 2 nós). */
@@ -4506,6 +4261,12 @@ body:has(.tab-bar) main {
      via cascata automaticamente — só os tints literais precisam de override. */
   --sem-up-tint:   rgba(52, 211, 153, 0.14);
   --sem-down-tint: rgba(224, 162, 74, 0.16);
+  /* 7a.BK.1: pares escuros da faixa de tolerância da #alocacao. */
+  --sem-down-texto: var(--sem-down);
+  --faixa-ok:      #9db8a8;
+  --faixa-ok-tint: rgba(157, 184, 168, 0.16);
+  --etq-veu:       transparent;
+  --etq-texto:     var(--neutral-50);
 
   /* Erro (.erro-nao-encontrado) — 100% token-based, sem override adicional
      de componente necessário. */
@@ -4535,12 +4296,8 @@ body:has(.tab-bar) main {
 [data-theme="dark"] .moeda-toggle button.active,
 [data-theme="dark"] .lado-B,
 [data-theme="dark"] .lado-S,
-[data-theme="dark"] .update-snackbar,
-[data-theme="dark"] .compo-seg .sl {
+[data-theme="dark"] .update-snackbar {
   color: #04130c;
-}
-[data-theme="dark"] .compo-seg .sl {
-  text-shadow: none;
 }
 
 /* ── Track/groove — mockup `.champ-bar .bw { background: var(--bg); }`:
@@ -4567,9 +4324,6 @@ body:has(.tab-bar) main {
 }
 [data-theme="dark"] .aloca-cat {
   box-shadow: inset 0 1px 0 var(--card-topline), 0 2px 6px var(--g-900-07);
-}
-[data-theme="dark"] .aloca-cat.flash {
-  box-shadow: inset 0 1px 0 var(--card-topline), 0 0 0 3px var(--accent-soft), 0 2px 6px var(--g-900-07);
 }
 [data-theme="dark"] .kpi {
   box-shadow: inset 0 1px 0 var(--card-topline), 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -4625,11 +4379,6 @@ body:has(.tab-bar) main {
   background: rgba(248, 113, 113, 0.14);
 }
 [data-theme="dark"] .provento-tipo-tag {
-  background: rgba(255, 255, 255, 0.08);
-}
-[data-theme="dark"] .aloca-alvo__selo-quar-tag {
-  /* espelha .provento-tipo-tag (ambos rgba(26,29,28,.06) no light) — sem este
-     override o selo de quarentena somia no dark (dark-ink sobre dark). CRB 7a.S.12. */
   background: rgba(255, 255, 255, 0.08);
 }
 

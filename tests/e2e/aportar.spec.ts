@@ -803,11 +803,18 @@ test.describe("Tela #aportar · simulador vivo (7a.S.10)", () => {
 });
 
 test.describe("Cross-screen: grifo #alocação → #aportar (7a.S.10 Task 4)", () => {
-  test("grifo 'abaixo do alvo' navega para #aportar com preset do último aporte", async ({
+  test("grifo 'abaixo da faixa' navega para #aportar com preset do último aporte", async ({
     page,
   }) => {
+    // 7a.BK.1: na fixture principal nenhuma categoria fica abaixo da faixa
+    // (Ações BR 0,30/0,272 está dentro de 27%–33%), e o grifo não aparece. A
+    // variante sintética tem Ações BR e Renda Fixa BR abaixo da faixa.
+    const FAIXA = fs.readFileSync(
+      path.join(__dirname, "../fixtures/portfolio_alocacao_faixa.test.json.enc"),
+      "utf-8",
+    );
     await page.route("**/portfolio.json.enc", (route) =>
-      route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
+      route.fulfill({ status: 200, body: FAIXA, contentType: "text/plain" }),
     );
     await page.addInitScript(() => {
       localStorage.setItem("pin", "123456");
@@ -821,17 +828,15 @@ test.describe("Cross-screen: grifo #alocação → #aportar (7a.S.10 Task 4)", (
     await page.goto("/#alocacao");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
 
-    // Fixture default: "Ações BR" peso_alvo 0.30 vs peso_atual 0.272 (~3pp abaixo).
     const grifo = page.locator(".aloca-grifo");
     await expect(grifo).toBeVisible();
-    await expect(grifo).toContainText("Ações BR");
-    await expect(grifo).toContainText("pp abaixo");
+    await expect(grifo).toContainText("Próximo aporte vai para Ações BR");
     await expect(grifo).toContainText("Simular aporte");
 
     await grifo.click();
     await expect(page.locator(".tela-aportar")).toBeVisible();
     expect(page.url()).toContain("#aportar");
-    // Preset = json.ultimo_aporte.total_brl (5000 na fixture default).
+    // Preset = json.ultimo_aporte.total_brl (5000; a variante herda o do PAYLOAD).
     await expect(page.locator(".aporte-input")).toHaveValue("5000");
   });
 });

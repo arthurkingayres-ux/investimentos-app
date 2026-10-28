@@ -41,12 +41,14 @@ test.describe("Ordenação #alocacao unificada (7a.E.31)", () => {
     await autenticar(page);
     await page.goto("/#alocacao");
     await expect(page.locator(".tela-alocacao .aloca-cat").first()).toBeVisible();
-    // O "alvo Y%" de cada card (foot) é o número de ordenação.
+    // O "alvo Y%" de cada rodapé (7a.BK.1: "alvo Y% · faixa A% a B%") é o
+    // número de ordenação.
     const textos = await page.$$eval(
-      ".tela-alocacao .aloca-cat .aloca-cat__foot-alvo b",
-      (els) => els.map((e) => (e.textContent || "").trim()),
+      '.tela-alocacao .aloca-cat [data-testid="aloca-cat-faixa"]',
+      (els) => els.map((e) => ((e.textContent || "").match(/alvo\s+([\d.,]+\s?%)/) || [])[1] || ""),
     );
     expect(textos.length).toBeGreaterThan(1);
+    expect(textos.every((t) => t !== "")).toBe(true);
     assertNaoCrescente(textos.map(parsePct));
   });
 

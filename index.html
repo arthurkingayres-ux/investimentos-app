@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=81">
+  <link rel="stylesheet" href="css/app.css?v=82">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=83"></script>
+  <script src="js/app.js?v=84"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -657,63 +657,26 @@
           Política não publicada ainda.
         </p>
 
-        <div class="compo" x-show="composicaoSegmentos.length" x-cloak>
-          <div class="compo-cap">
-            <span>Atual</span>
-            <span>Alvo</span>
-          </div>
-          <div class="compo-band" role="group" aria-label="Composição atual da carteira por categoria"
-               x-effect="rota; composicaoSegmentos; $nextTick(() => ajustarLabelsFaixa($el))"
-               @resize.window.debounce.150ms="ajustarLabelsFaixa($el)">
-            <template x-for="seg in composicaoSegmentos" :key="seg.nome">
-              <button type="button" class="compo-seg"
-                      :class="{ dim: compoSegmentoAtivo && compoSegmentoAtivo !== seg.nome }"
-                      :style="`${catStyleVar(seg.nome)} width: ${seg.larguraPct}%;`"
-                      :aria-label="seg.ariaLabel"
-                      @click="tocarSegmentoComposicao(seg.nome)">
-                <span class="sl" x-text="seg.label"></span>
-              </button>
-            </template>
-          </div>
-          <div class="compo-ticks">
-            <template x-for="tick in composicaoTicks" :key="tick.nome">
-              <div class="compo-tick"
-                   :class="{ 'compo-tick--end': tick.edge === 'end', 'compo-tick--start': tick.edge === 'start' }"
-                   :style="`left: ${tick.leftPct}%;`">
-                <span class="mk" aria-hidden="true"></span>
-                <span class="tv" x-text="tick.label"></span>
-              </div>
-            </template>
-          </div>
-          <!-- 7a.BG.1: rodapé de reconciliação. A faixa e os cards somam 100%
-               da carteira (sem a cripto); esta linha devolve a cripto à vista.
-               Só com payload 2.31+ e cripto > 0 (rodapeCriptoTexto). -->
-          <template x-if="rodapeCriptoTexto()">
-            <p class="compo-cripto" data-testid="cripto-rodape" x-text="rodapeCriptoTexto()"></p>
-          </template>
-          <!-- 7a.S.8 CRB: confirmação não-visual do tap p/ leitor de tela.
-               O dim/flash/scroll é puramente visual; esta região aria-live
-               narra "{categoria} em destaque" quando um segmento é tocado
-               (dispara também sob reduced-motion — é a11y, não motion). -->
-          <div class="sr-only" aria-live="polite" x-text="compoAnuncio"></div>
-        </div>
+        <!-- 7a.BK.1: frase-resumo por estado das categorias (spec 7a.BK §3.2).
+             Texto comum, lido na ordem; "" (sem categoria classificável) some. -->
+        <p class="aloca-frase" data-testid="aloca-frase" x-show="alocFrase" x-cloak
+           x-text="alocFrase"></p>
 
-        <!-- 7a.S.10 Task 4: grifo cross-screen — deep-link p/ #aportar com o
-             preset do último aporte (Apêndice B "Alocação = callout 'abaixo
-             do alvo'"). -->
-        <div class="grifo aloca-grifo" x-show="alocGrifoHtml" x-cloak
+        <!-- 7a.S.10 Task 4 / 7a.BK.1: grifo cross-screen — deep-link p/ #aportar
+             com o preset do último aporte. Só aparece com categoria ABAIXO da
+             faixa; o nome vem do payload e entra por x-text, nunca como HTML. -->
+        <div class="grifo aloca-grifo" x-show="alocGrifoTexto" x-cloak
              role="button" tabindex="0"
              @click="irSimularAporteAlvo()"
              @keydown.enter.prevent="irSimularAporteAlvo()"
              @keydown.space.prevent="irSimularAporteAlvo()">
-          <div x-html="alocGrifoHtml"></div>
+          <span class="aloca-grifo__texto" x-text="alocGrifoTexto"></span> <span class="aloca-grifo-cta">Simular aporte ›</span>
         </div>
 
         <div class="aloca-lista">
           <template x-for="cat in categoriasAlocacaoOrdenadas" :key="cat.nome">
             <article class="aloca-cat"
                       :id="'aloca-cat-' + cat.nome.replace(/\s+/g, '-')"
-                      :class="{ flash: compoCardFlash === cat.nome }"
                       :style="catStyleVar(cat.nome)">
               <button type="button" class="aloca-cat__head"
                       :aria-expanded="!!catAberta[cat.nome]"
@@ -728,118 +691,104 @@
                 </span>
               </button>
 
-              <div class="aloca-alvo__trilha-cat aloca-cat__trilha">
-                <div class="fill"
-                     :class="catIsOver(cat) && 'fill--over'"
-                     :style="`--fill-pct: ${catFillPct(cat)};`"></div>
-                <div class="marker"
-                     :style="catIsOver(cat) ? `left: ${markerLeftOver(cat.peso_alvo, cat.peso_atual)};` : 'left: 100%;'"></div>
+              <!-- 7a.BK.1: trilho da faixa (spec 7a.BK §3.3). Três zonas por
+                   style (abaixo | na faixa | acima) e a etiqueta com o atual.
+                   Decorativo para leitor de tela: o estado e a faixa estão no
+                   rodapé, em texto. Sem alvo ou sem dado: sem trilho. -->
+              <div class="aloca-trilho" data-testid="aloca-trilho" aria-hidden="true"
+                   x-show="catTrilho(cat)"
+                   :style="catTrilho(cat) ? `--na-ini: ${catTrilho(cat).naIni}%; --na-fim: ${catTrilho(cat).naFim}%;` : ''">
+                <span class="aloca-trilho__na"></span>
+                <span class="aloca-trilho__etq"
+                      :style="catTrilho(cat) ? `--etq-x: ${catTrilho(cat).etiqueta}%;` : ''"
+                      x-text="formatPctSemSinal(cat.peso_atual, 1)"></span>
               </div>
               <div class="aloca-cat__foot">
-                <span class="aloca-cat__foot-atual">atual&nbsp;<b x-text="formatPctSemSinal(cat.peso_atual)"></b></span>
-                <span class="aloca-cat__foot-alvo">
-                  alvo&nbsp;<b x-text="formatPctSemSinal(cat.peso_alvo)"></b> ·
-                  <span class="aloca-cat__drift"
-                        :class="{
-                          'aloca-cat__drift--under': formatDelta(cat.drift).classe === 'under',
-                          'aloca-cat__drift--over':  formatDelta(cat.drift).classe === 'over',
-                          'aloca-cat__drift--hold':  formatDelta(cat.drift).classe === 'hold'
-                        }">
-                    <span x-text="formatDelta(cat.drift).arrow"></span>&nbsp;<span x-text="formatDelta(cat.drift).texto"></span>
-                  </span>
-                </span>
+                <span class="aloca-cat__estado" data-testid="aloca-cat-estado"
+                      :class="'aloca-cat__estado--' + catFaixa(cat).estado"
+                      x-text="rotuloEstado(catFaixa(cat).estado)"></span>
+                <span class="aloca-cat__faixa" data-testid="aloca-cat-faixa"
+                      x-show="catFaixaTexto(cat)"
+                      x-text="catFaixaTexto(cat)"></span>
               </div>
 
               <div class="aloca-cat__body" x-show="catAberta[cat.nome]" x-cloak
                    :id="'aloca-cat-body-' + cat.nome.replace(/\s+/g, '-')" role="region">
-                <template x-for="bucket in (cat.buckets || [])" :key="bucket.tipo">
-                  <section class="aloca-alvo__cesta">
-                    <div class="aloca-alvo__cesta-head">
-                      <div>
-                        <div class="aloca-alvo__clabel" x-text="labelCestaTipo(bucket.tipo)"></div>
-                        <div class="aloca-alvo__cmeta"
-                             x-text="bucket.tipo === 'passive'
-                                     ? 'peso fixo intra-categoria'
-                                     : (bucket.ativos.length + ' ativos · equal-weight')"></div>
-                      </div>
-                      <div class="aloca-alvo__cnum">
-                        <span x-text="formatPctSemSinal(bucket.peso_atual_bucket).replace(/\s*%$/, '')"></span>
-                        <span class="of">&nbsp;de&nbsp;</span>
-                        <span x-text="formatPctSemSinal(bucket.peso_bucket)"></span>
-                      </div>
-                    </div>
+                <!-- 7a.BK.1: ativos agrupados por estado (spec 7a.BK §3.4).
+                     De cima para baixo: linha das cestas (só com 2+), pedindo
+                     aporte, acima da faixa, na faixa (etiquetas sem número) e
+                     sem alvo. Grupo vazio não aparece; todo ativo é link. -->
+                <div class="aloca-grupos">
+                  <template x-if="gruposCategoria(cat).cestas.length">
+                    <p class="aloca-cestas"><template x-for="(c, i) in gruposCategoria(cat).cestas" :key="c.nome"><span class="aloca-cestas__item"><span class="aloca-cestas__sep" x-text="i > 0 ? ' · ' : ''"></span><span x-text="c.nome"></span> <span class="aloca-cestas__estado" :class="'aloca-cestas__estado--' + c.estado" x-text="rotuloEstadoCesta(c.estado)"></span> <span class="aloca-cestas__pct" x-text="cestaPctTexto(c)"></span></span></template></p>
+                  </template>
 
-                    <div class="aloca-alvo__cesta-trilha">
-                      <div class="fill"
-                           :class="cestaIsOver(bucket) && 'fill--over'"
-                           :style="`--fill-pct: ${cestaFillPct(bucket)};`"></div>
-                      <div class="marker"
-                           :style="cestaIsOver(bucket) ? `left: ${markerLeftOver(bucket.peso_bucket, bucket.peso_atual_bucket)};` : 'left: 100%;'"></div>
-                    </div>
+                  <template x-for="grupo in ['pedindo', 'acima']" :key="grupo">
+                    <template x-if="gruposCategoria(cat)[grupo].length">
+                      <section class="aloca-grupo" :class="'aloca-grupo--' + grupo" :data-grupo="grupo">
+                        <h2 class="aloca-grupo__head">
+                          <span class="aloca-grupo__titulo" x-text="grupo === 'pedindo' ? 'Pedindo aporte' : 'Acima da faixa'"></span>
+                          <span class="aloca-grupo__meta" x-text="grupo === 'pedindo' ? gruposCategoria(cat).pedindo.length : 'ficam sem aporte'"></span>
+                        </h2>
+                        <template x-for="linha in gruposCategoria(cat)[grupo]" :key="linha.ticker">
+                          <a class="aloca-ativo" :href="'#ativo/' + linha.ticker">
+                            <span class="aloca-ativo__ticker" x-text="linha.ticker"></span>
+                            <template x-if="linha.cesta">
+                              <span class="aloca-ativo__cesta" x-text="linha.cesta"></span>
+                            </template>
+                            <template x-if="linhaRsTexto(linha, grupo)">
+                              <span class="aloca-ativo__rs" x-text="linhaRsTexto(linha, grupo)"></span>
+                            </template>
+                          </a>
+                        </template>
+                      </section>
+                    </template>
+                  </template>
 
-                    <div class="aloca-alvo__ativos">
-                      <template x-for="ativo in bucket.ativos" :key="ativo.ticker">
-                        <a :href="'#ativo/' + ativo.ticker" class="aloca-alvo__ativo"
-                           :class="{
-                             'aloca-alvo__ativo--quarentena': ativo.quarentena,
-                             'aloca-alvo__ativo--fora': ativo.fora_do_alvo
-                           }">
-                          <span class="flag" aria-hidden="true" x-text="ativo.bandeira"></span>
-                          <div class="aloca-alvo__ativo-body">
-                            <div class="aloca-alvo__ativo-row1">
-                              <span class="aloca-alvo__ticker" x-text="ativo.ticker"></span>
-                              <span class="aloca-alvo__ativo-sub" x-show="!ativo.quarentena && !ativo.fora_do_alvo">
-                                <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
-                                <span>&nbsp;de&nbsp;</span>
-                                <span x-text="formatPctSemSinal(ativo.peso_intra)"></span>
-                                <span>&nbsp;na cesta</span>
-                              </span>
-                              <span class="aloca-alvo__ativo-sub" x-show="ativo.quarentena" x-cloak>
-                                <span x-text="formatPctSemSinal(ativo.peso_intra_atual)"></span>
-                                <span>&nbsp;na cesta · alvo 0%</span>
-                              </span>
-                              <span class="aloca-alvo__ativo-sub aloca-alvo__ativo-sub--fora" x-show="ativo.fora_do_alvo && !ativo.quarentena" x-cloak>
-                                a zerar · sem alvo
-                              </span>
-                            </div>
-                            <div class="aloca-alvo__minibar" x-show="!ativo.quarentena && !ativo.fora_do_alvo">
-                              <div class="fill"
-                                   :class="ativoIsOver(ativo) && 'fill--over'"
-                                   :style="`--fill-pct: ${ativoFillPct(ativo)};`"></div>
-                              <div class="marker"
-                                   :style="ativoIsOver(ativo) ? `left: ${markerLeftOver(ativo.peso_intra, ativo.peso_intra_atual)};` : 'left: 100%;'"></div>
-                            </div>
-                          </div>
-                          <div class="aloca-alvo__ativo-right">
-                            <span class="aloca-alvo__valor-ativo" x-text="formatBrl(valorBrlAtivo(ativo))"></span>
-                            <span class="aloca-alvo__delta" x-show="!ativo.quarentena && !ativo.fora_do_alvo"
-                                  :class="{
-                                    'aloca-alvo__delta--under': formatDelta(ativo.drift_intra).classe === 'under',
-                                    'aloca-alvo__delta--over':  formatDelta(ativo.drift_intra).classe === 'over',
-                                    'aloca-alvo__delta--hold':  formatDelta(ativo.drift_intra).classe === 'hold'
-                                  }">
-                              <span class="arrow" x-text="formatDelta(ativo.drift_intra).arrow"></span>
-                              <span x-text="formatDelta(ativo.drift_intra).texto"></span>
-                            </span>
-                            <span class="aloca-alvo__selo-quar" x-show="ativo.quarentena" x-cloak
-                                  aria-label="Em quarentena: restrito a investidor qualificado, fora do aporte">
-                              <span class="aloca-alvo__selo-quar-tag">Quarentena</span>
-                              <span class="aloca-alvo__selo-quar-sub">investidor qualificado</span>
-                            </span>
-                            <span class="aloca-alvo__selo-fora" x-show="ativo.fora_do_alvo && !ativo.quarentena" x-cloak
-                                  aria-label="Fora do alvo: posição a zerar, sem alvo na política">
-                              <span class="aloca-alvo__selo-fora-tag">fora do alvo</span>
-                            </span>
-                          </div>
-                        </a>
-                      </template>
-                    </div>
-                  </section>
-                </template>
+                  <template x-if="gruposCategoria(cat).naFaixa.length">
+                    <section class="aloca-grupo aloca-grupo--na_faixa" data-grupo="na_faixa">
+                      <h2 class="aloca-grupo__head">
+                        <span class="aloca-grupo__titulo">Na faixa</span>
+                        <span class="aloca-grupo__meta" x-text="gruposCategoria(cat).naFaixa.length"></span>
+                      </h2>
+                      <div class="aloca-etqs">
+                        <template x-for="tk in gruposCategoria(cat).naFaixa" :key="tk">
+                          <a class="aloca-etq" :href="'#ativo/' + tk"><span class="aloca-etq__ticker" x-text="tk"></span></a>
+                        </template>
+                      </div>
+                    </section>
+                  </template>
+
+                  <template x-if="gruposCategoria(cat).semAlvo.length">
+                    <section class="aloca-grupo aloca-grupo--sem_alvo" data-grupo="sem_alvo">
+                      <h2 class="aloca-grupo__head">
+                        <span class="aloca-grupo__titulo">Sem alvo</span>
+                        <span class="aloca-grupo__meta">não recebem aporte</span>
+                      </h2>
+                      <div class="aloca-etqs">
+                        <template x-for="s in gruposCategoria(cat).semAlvo" :key="s.ticker">
+                          <a class="aloca-etq aloca-etq--apagada" :href="'#ativo/' + s.ticker">
+                            <span class="aloca-etq__ticker" x-text="s.ticker"></span>
+                            <span class="aloca-etq__motivo" x-text="s.motivo"></span>
+                          </a>
+                        </template>
+                      </div>
+                    </section>
+                  </template>
+                </div>
               </div>
             </article>
           </template>
         </div>
+
+        <!-- 7a.BG.1 / 7a.BK.1: rodapé de reconciliação, logo depois da lista.
+             Os cartões somam 100% da carteira (sem a cripto); esta linha
+             devolve a cripto à vista. Só com payload 2.31+ e cripto > 0
+             (rodapeCriptoTexto), e só com política publicada: a mesma
+             condição da lista (spec 7a.BK §4(f)). -->
+        <template x-if="json?.politica?.categorias?.length > 0 && rodapeCriptoTexto()">
+          <p class="aloca-cripto" data-testid="cripto-rodape" x-text="rodapeCriptoTexto()"></p>
+        </template>
       </section>
 
       <section class="tela-detalhes tela-ativo" x-show="rota === 'ativo'"

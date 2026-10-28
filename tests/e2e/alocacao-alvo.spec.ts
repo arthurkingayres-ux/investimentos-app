@@ -40,7 +40,7 @@ async function abrirCategoria(page: Page, nome: string) {
   return card;
 }
 
-test.describe("#alocacao unificada — cestas + identidade (7a.E.31 / 7a.E.23)", () => {
+test.describe("#alocacao unificada — grupos por estado + identidade (7a.E.31 / 7a.BK.1)", () => {
   test("cada card de categoria seta --cat via inline style", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
@@ -65,112 +65,48 @@ test.describe("#alocacao unificada — cestas + identidade (7a.E.31 / 7a.E.23)",
     expect(color).toMatch(/^rgba?\(/);
   });
 
-  test("trilha categoria tem marker preto (ink) com cap-dot pseudo-elemento", async ({ page }) => {
-    await autenticar(page);
-    await page.goto("/#alocacao");
-    const marker = page.locator(".tela-alocacao .aloca-cat .aloca-alvo__trilha-cat .marker").first();
-    await expect(marker).toBeVisible();
-    const bg = await marker.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(bg).toMatch(/rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)/);
-  });
-
-  test("labels 'Cesta passiva' / 'Cesta de picks' presentes; jargão 'bucket' ausente", async ({ page }) => {
-    await abrirCategoria(page, "Ações BR");
-    const labels = await page
-      .locator(".tela-alocacao .aloca-alvo__clabel")
-      .allTextContents();
-    expect(labels.length).toBeGreaterThan(0);
-    const haveCesta = labels.some((t) => /Cesta\s+(passiva|de\s+picks)/i.test(t));
-    expect(haveCesta).toBe(true);
-    expect(labels.some((t) => /\bbucket\b/i.test(t))).toBe(false);
-  });
-
-  test("ativo expandido mostra R$ de mercado", async ({ page }) => {
+  // 7a.BK.1: a linha das cestas usa os nomes curtos ("Passivo"/"Picks", spec
+  // §3.4); o jargão "bucket" continua fora da tela.
+  test("linha das cestas usa Passivo / Picks; jargão 'bucket' ausente", async ({ page }) => {
     const card = await abrirCategoria(page, "Ações BR");
-    const valor = card.locator(".aloca-alvo__valor-ativo").first();
-    await expect(valor).toBeVisible();
-    expect((await valor.textContent())?.trim()).toMatch(/R\$\s?\d/);
+    const cestas = card.locator(".aloca-cestas");
+    await expect(cestas).toContainText("Passivo");
+    await expect(cestas).toContainText("Picks");
+    expect((await card.locator(".aloca-cat__body").innerText()).toLowerCase()).not.toMatch(/\bbucket\b/);
   });
 
-  test("drift da categoria multiplica fração por 100 (-0.10 → -10,00 pp)", async ({ page }) => {
-    await autenticar(page);
-    const nomeMutado = await page.evaluate(() => {
-      const $data = (window as any).Alpine?.$data?.(document.body);
-      if (!$data?.json?.politica?.categorias?.length) {
-        throw new Error("política ausente no fixture");
-      }
-      $data.json.politica.categorias[0].drift = -0.10;
-      return $data.json.politica.categorias[0].nome as string;
-    });
-    await page.goto("/#alocacao");
-    const drift = cardPorNome(page, nomeMutado).locator(".aloca-cat__drift");
-    await expect(drift).toBeVisible();
-    const txt = ((await drift.textContent()) ?? "").trim();
-    expect(txt).toMatch(/10,00\s+pp/);
-    expect(txt).not.toMatch(/0,10\s+pp/);
-  });
-
-  test("ativo acima do alvo recebe mini-bar amber (--sem-down)", async ({ page }) => {
-    await autenticar(page);
-    const nome = await page.evaluate(() => {
-      const $data = (window as any).Alpine?.$data?.(document.body);
-      if (!$data || !$data.json?.politica?.categorias?.length) {
-        throw new Error("política ausente no fixture");
-      }
-      const cat = $data.json.politica.categorias[0];
-      const cesta = cat.buckets?.[0];
-      if (!cesta?.ativos?.length) throw new Error("cesta vazia");
-      const a = cesta.ativos[0];
-      a.peso_intra = 0.05;
-      a.peso_intra_atual = 0.15;
-      a.drift_intra = 0.10;
-      return cat.nome as string;
-    });
-    await page.goto("/#alocacao");
-    await cardPorNome(page, nome).locator(".aloca-cat__head").click();
-    const overFill = page
-      .locator(".tela-alocacao .aloca-alvo__minibar .fill--over")
-      .first();
-    await expect(overFill).toBeVisible();
-    const bg = await overFill.evaluate((el) => getComputedStyle(el).backgroundColor);
-    // amber --cat-fii #b8731f → rgb(184, 115, 31)
-    expect(bg).toMatch(/rgb\(184,\s*115,\s*31\)/);
-  });
-
-  // 7a.E.28 — selo "Quarentena" no pick quarentenado (KNIP11 na fixture).
-  test("pick em quarentena mostra selo, alvo 0% e sem delta de drift", async ({ page }) => {
+  // 7a.BK.1: o minibar saiu (spec §4(e)); o tom âmbar de "acima" continua,
+  // agora no R$ da linha do grupo "Acima da faixa", como TEXTO: --sem-down-texto,
+  // o ocre escurecido que fecha AA na tinta da linha (7a.BK.1 Task 4).
+  test("ativo acima da faixa: linha no grupo 'acima' com R$ em âmbar (--sem-down-texto)", async ({ page }) => {
     const card = await abrirCategoria(page, "Ações BR");
-    const row = card
-      .locator(".aloca-alvo__ativo--quarentena")
-      .filter({ hasText: "KNIP11" });
-    await expect(row).toBeVisible();
-    const selo = row.locator(".aloca-alvo__selo-quar");
-    await expect(selo).toBeVisible();
-    await expect(selo).toContainText(/Quarentena/i);
-    await expect(selo).toContainText(/investidor qualificado/i);
-    await expect(row.locator(".aloca-alvo__delta")).toBeHidden();
-    await expect(row).toContainText(/alvo 0%/);
-    await expect(row.locator(".aloca-alvo__ticker")).toHaveText("KNIP11");
+    const linha = card.locator('.aloca-grupo[data-grupo="acima"] .aloca-ativo').first();
+    await expect(linha).toBeVisible();
+    await expect(linha.locator(".aloca-ativo__rs")).toHaveText(/^sobram R\$ /);
+    const cor = await linha.locator(".aloca-ativo__rs").evaluate((el) => getComputedStyle(el).color);
+    // --sem-down-texto #8f5b16 → rgb(143, 91, 22) (o --cat-fii puro, #b8731f, dá 3,3:1)
+    expect(cor).toMatch(/rgb\(143,\s*91,\s*22\)/);
   });
 
-  // 7a.E.31 — selo "fora do alvo" no held off-policy (LREN3 na fixture).
-  test("held off-policy mostra selo 'fora do alvo', subtexto 'a zerar' e sem minibar/delta", async ({ page }) => {
+  // 7a.E.28 / 7a.BK.1 — pick em quarentena (KNIP11 na fixture) vai para "Sem
+  // alvo" com o motivo em texto; nenhum R$ de aporte.
+  test("pick em quarentena aparece em 'Sem alvo' com motivo 'quarentena'", async ({ page }) => {
     const card = await abrirCategoria(page, "Ações BR");
-    const row = card
-      .locator(".aloca-alvo__ativo--fora")
-      .filter({ hasText: "LREN3" });
-    await expect(row).toBeVisible();
-    const selo = row.locator(".aloca-alvo__selo-fora");
-    await expect(selo).toBeVisible();
-    await expect(selo).toContainText(/fora do alvo/i);
-    await expect(row).toContainText(/a zerar/i);
-    await expect(row).toContainText(/sem alvo/i);
-    // off-policy não mostra minibar nem delta de drift
-    await expect(row.locator(".aloca-alvo__minibar")).toBeHidden();
-    await expect(row.locator(".aloca-alvo__delta")).toBeHidden();
-    // mas mostra o R$ de mercado
-    await expect(row.locator(".aloca-alvo__valor-ativo")).toBeVisible();
-    // ticker permanece legível
-    await expect(row.locator(".aloca-alvo__ticker")).toHaveText("LREN3");
+    const etq = card.locator('.aloca-grupo[data-grupo="sem_alvo"] .aloca-etq').filter({ hasText: "KNIP11" });
+    await expect(etq).toBeVisible();
+    await expect(etq.locator(".aloca-etq__ticker")).toHaveText("KNIP11");
+    await expect(etq.locator(".aloca-etq__motivo")).toHaveText("quarentena");
+    await expect(etq).toHaveAttribute("href", "#ativo/KNIP11");
+    await expect(card.locator(".aloca-ativo").filter({ hasText: "KNIP11" })).toHaveCount(0);
+  });
+
+  // 7a.E.31 / 7a.BK.1 — held off-policy (LREN3 na fixture): "a zerar" em "Sem alvo".
+  test("held off-policy aparece em 'Sem alvo' com motivo 'a zerar'", async ({ page }) => {
+    const card = await abrirCategoria(page, "Ações BR");
+    const etq = card.locator('.aloca-grupo[data-grupo="sem_alvo"] .aloca-etq').filter({ hasText: "LREN3" });
+    await expect(etq).toBeVisible();
+    await expect(etq.locator(".aloca-etq__motivo")).toHaveText("a zerar");
+    await expect(etq).toHaveAttribute("href", "#ativo/LREN3");
+    await expect(card.locator(".aloca-ativo").filter({ hasText: "LREN3" })).toHaveCount(0);
   });
 });

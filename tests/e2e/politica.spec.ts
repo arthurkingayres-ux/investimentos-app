@@ -33,7 +33,7 @@ async function abrirPolitica(page: Page) {
   const heads = page.locator(".tela-alocacao .aloca-cat__head");
   const n = await heads.count();
   for (let i = 0; i < n; i++) await heads.nth(i).click();
-  await expect(page.locator(".tela-alocacao .aloca-alvo__cesta").first()).toBeVisible();
+  await expect(page.locator(".tela-alocacao .aloca-grupo").first()).toBeVisible();
 }
 
 test.describe("Política (vista #alocacao unificada)", () => {
@@ -49,29 +49,19 @@ test.describe("Política (vista #alocacao unificada)", () => {
     expect(overflow).toBe(false);
   });
 
-  test("hierarquia v3: cada card expandido exibe cestas + ativos", async ({ page }) => {
+  // 7a.BK.1: o corpo expandido agrupa os ativos por estado (spec §3.4). Os
+  // rótulos "Cesta passiva"/"N ativos · equal-weight" e as pílulas "± pp"
+  // saíram com as cestas antigas (spec §3.4 e §4(d)/(e)).
+  test("cada card expandido exibe grupos por estado com ativos-link", async ({ page }) => {
     await abrirPolitica(page);
-    const firstCard = page.locator(".tela-alocacao .aloca-cat").first();
-    const cestas = firstCard.locator(".aloca-alvo__cesta");
-    await expect(cestas.first()).toBeVisible();
+    const cards = page.locator(".tela-alocacao .aloca-cat");
+    const n = await cards.count();
+    for (let i = 0; i < n; i++) {
+      await expect(cards.nth(i).locator(".aloca-grupo").first()).toBeVisible();
+      expect(await cards.nth(i).locator(".aloca-ativo, .aloca-etq").count()).toBeGreaterThan(0);
+    }
     const lista = page.locator(".tela-alocacao .aloca-lista");
-    const labels = await lista.locator(".aloca-alvo__clabel").allTextContents();
-    expect(labels.some((t) => /Cesta passiva|Cesta de picks/i.test(t))).toBe(true);
-    // Cesta de picks inclui "X ativos · equal-weight" no meta (em alguma categoria)
-    const metas = await lista.locator(".aloca-alvo__cmeta").allTextContents();
-    expect(metas.some((t) => /\d+\s+ativos\s+·\s+equal-weight/i.test(t))).toBe(true);
-    const ativos = lista.locator(".aloca-alvo__cesta .aloca-alvo__ativo");
-    expect(await ativos.count()).toBeGreaterThan(0);
-  });
-
-  test("delta pills usam mono ± pp + seta direcional (↑ aportar / ↓ acima)", async ({ page }) => {
-    await abrirPolitica(page);
-    const labels = await page.locator(".tela-alocacao .aloca-alvo__delta").allTextContents();
-    expect(labels.length).toBeGreaterThan(0);
-    const directionais = labels.filter((t) => /↑|↓/.test(t));
-    expect(directionais.length).toBeGreaterThan(0);
-    const ppPattern = labels.filter((t) => /[+−]?\d{1,3},\d{2}\s+pp/.test(t));
-    expect(ppPattern.length).toBeGreaterThan(0);
+    expect(await lista.innerText()).not.toMatch(/\d,\d{2}\s+pp/);
   });
 
   test("labels 'bucket' (jargão tech) não aparecem na UI", async ({ page }) => {

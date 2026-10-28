@@ -107,13 +107,15 @@ test.describe("Escala numérica (7a.E.27)", () => {
         return px;
       };
       return {
-        ativoSub: medir("aloca-alvo__ativo-sub"),
+        ativoRs: medir("aloca-ativo__rs"),
         qtySub: medir("aporte-compra-qty-sub"),
         ptVal: medir("pt-val", "prov-total"),
         yv: medir("yv", "dy-row"),
       };
     });
-    expect(medido.ativoSub, ".aloca-alvo__ativo-sub deve usar --num-2xs (10px)").toBe("10px");
+    // 7a.BK.1: a sub-linha "x% de y% na cesta" saiu; o número da linha do
+    // ativo agrupado é o R$ ("faltam R$ 3,0 mil"), em --num-xs (13px).
+    expect(medido.ativoRs, ".aloca-ativo__rs deve usar --num-xs (13px)").toBe("13px");
     expect(medido.qtySub, ".aporte-compra-qty-sub deve usar --num-2xs (10px)").toBe("10px");
     expect(medido.ptVal, ".prov-total .pt-val deve usar --num-sm (15px)").toBe("15px");
     expect(medido.yv, ".dy-row .yv deve usar --num-sm (15px)").toBe("15px");

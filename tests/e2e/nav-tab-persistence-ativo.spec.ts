@@ -33,7 +33,7 @@ async function abrirPrimeiroTicker(page: Page) {
   const total = await cards.count();
   for (let i = 0; i < total; i++) {
     await cards.nth(i).locator(".aloca-cat__head").click();
-    const ativo = cards.nth(i).locator(".aloca-alvo__ativo").first();
+    const ativo = cards.nth(i).locator(".aloca-ativo, .aloca-etq").first();
     try {
       await expect(ativo).toBeVisible({ timeout: 1_500 });
       await ativo.click();

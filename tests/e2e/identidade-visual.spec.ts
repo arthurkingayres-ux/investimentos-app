@@ -115,39 +115,12 @@ test.describe("7a.E.20.1 — Identidade visual (paleta de categorias)", () => {
     expect(rgbs.eua).toBe("rgb(30, 96, 145)");
   });
 
-  // Os 3 testes abaixo verificam estrutura — `.flag` renderiza, e quando o backend
+  // O teste abaixo verifica estrutura — `.flag` renderiza, e quando o backend
   // emite schema v2.12 (production) o emoji aparece. A fixture `portfolio.test.json.enc`
   // ainda é pré-v2.12 e não traz `bandeira` propagado em todos os shapes; conteúdo do
   // emoji em produção é verificado pelos integration tests Python (TestFase7aE20BandeiraPropagation
-  // em tests/test_json_pwa.py do main repo).
-
-  test(".flag estrutural em #alocacao — 1 .flag por ativo do card expandido", async ({ page }) => {
-    await autenticar(page);
-    await page.goto("/#alocacao");
-    // 7a.E.31: vista única — expandir o primeiro card mostra os ativos com flag.
-    await page.locator(".tela-alocacao .aloca-cat__head").first().click();
-    await page.locator(".aloca-alvo__ativo").first().waitFor({ state: "attached", timeout: 5000 });
-    const card = page.locator(".tela-alocacao .aloca-cat").first();
-    const ativosCount = await card.locator(".aloca-alvo__ativo").count();
-    const flagsCount = await card.locator(".aloca-alvo__ativo .flag").count();
-    expect(ativosCount).toBeGreaterThan(0);
-    expect(flagsCount).toBe(ativosCount);
-  });
-
-  test(".flag estrutural via #politica (shim) — 1 .flag por ativo do card expandido", async ({ page }) => {
-    // 7a.E.31: `#politica` redireciona para `#alocacao` (vista única). Ativos
-    // renderizam ao expandir um card.
-    await autenticar(page);
-    await page.goto("/#politica");
-    await expect(page).toHaveURL(/#alocacao$/);
-    await page.locator(".tela-alocacao .aloca-cat__head").first().click();
-    await page.locator(".aloca-alvo__ativo").first().waitFor({ state: "attached", timeout: 5000 });
-    const card = page.locator(".tela-alocacao .aloca-cat").first();
-    const ativosCount = await card.locator(".aloca-alvo__ativo").count();
-    const flagsCount = await card.locator(".aloca-alvo__ativo .flag").count();
-    expect(ativosCount).toBeGreaterThan(0);
-    expect(flagsCount).toBe(ativosCount);
-  });
+  // em tests/test_json_pwa.py do main repo). Os dois de #alocacao/#politica saíram na 7a.BK.1:
+  // a linha do ativo agrupado não tem bandeira (spec 7a.BK §3.4).
 
   test(".flag estrutural em #proventos drilldown por ativo — 1 .flag por linha", async ({ page }) => {
     await autenticar(page);
