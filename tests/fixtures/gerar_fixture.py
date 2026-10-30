@@ -2020,6 +2020,49 @@ def gerar_portfolio_cripto_zero() -> None:
     print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BL.2 (Task 6): hero split com 7 dígitos nas duas colunas (R$ 1.234.567,89
+# e R$ 7.654.321,09) — o e2e da folga a 320 e 375 px. Cripto mantida (rodapé
+# presente, como em produção); ``br_brl`` segue com a cripto, como o backend.
+def gerar_portfolio_hero_7digitos() -> None:
+    pat = dict(PAYLOAD["patrimonio"])
+    br, eua, cripto = 1234567.89, 7654321.09, pat["cripto_brl"]
+    carteira = round(br + eua, 2)
+    pat.update(carteira_br_brl=br, eua_brl=eua, carteira_brl=carteira,
+               br_brl=round(br + cripto, 2), total_brl=round(carteira + cripto, 2))
+    pat["evolucao"] = [*pat["evolucao"][:-1],
+                       {**pat["evolucao"][-1], "total_brl": pat["total_brl"]}]
+    payload = PAYLOAD | {"patrimonio": pat}
+    alvo = OUT.parent / "portfolio_hero_7digitos.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
+# 7a.BL.2 (Task 7): "quem pesou" com a etiqueta "saiu da carteira". Ponte da
+# linha longa; ``posicoes`` com TODO ticker da ponte, menos ``PESOU_SAIU`` (os
+# que saíram: o 1º e o 3º de "tiraram" e o 2º de "somaram" na 12m do Brasil —
+# um marcado no meio do grupo é o que pega reordenação por etiqueta) e o
+# ``AVNU_REBATE`` (pseudo-ticker, nunca posição nem etiqueta). Os
+# clones copiam a 1ª posição só trocando o ticker. Controle:
+# ``portfolio_pesou_sem_posicoes`` (lista vazia ⇒ ninguém é marcado).
+PESOU_SAIU = ("SINTE3", "SINTG3", "SINTB3")
+
+
+def gerar_portfolio_pesou_saiu() -> None:
+    ponte = _ponte_muitos()
+    base = PAYLOAD["posicoes"]
+    tem = {p["ticker"] for p in base}
+    clones = [{**base[0], "ticker": a["t"], "movimentos": []}
+              for a in ponte["ativos"]
+              if a["t"] not in tem and a["t"] not in (*PESOU_SAIU, "AVNU_REBATE")]
+    variantes = (("portfolio_pesou_saiu", [*base, *clones]),
+                 ("portfolio_pesou_sem_posicoes", []))
+    for nome, posicoes in variantes:
+        payload = PAYLOAD | {"ponte": ponte, "posicoes": posicoes}
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BD.2 (Task 6): payload antigo (sem ``ponte``, v2.29) — o estado que a tela
 # nova precisa distinguir ("Rentabilidade indisponível nesta versão dos dados").
 def gerar_portfolio_pre_v230() -> None:
@@ -2341,6 +2384,8 @@ def main() -> None:
     gerar_portfolio_ponte_muitos()         # 7a.BH.1 (Task 2)
     gerar_portfolio_renda_variantes()      # 7a.BJ.2 (Task 5)
     gerar_portfolio_alocacao_variantes()   # 7a.BK.1 (Task 2)
+    gerar_portfolio_hero_7digitos()        # 7a.BL.2 (Task 6)
+    gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
 
 
 if __name__ == "__main__":

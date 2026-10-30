@@ -768,7 +768,12 @@ function rent2EstiloBarra(b) {
 // com a linha exibida. Ordem dos grupos: o do sinal da linha primeiro; linha
 // neutra, maior |subtotal| (empate: tiraram); "junto" sempre por último; grupo
 // vazio não entra. Dentro do grupo: |valor| decrescente, empate pelo ticker.
-function rent2Pesou(r, lid, valorLinha, sufixo) {
+// 7a.BL.2: `emCarteira` (Set dos tickers de json.posicoes) marca `saiu` em quem
+// não está mais na carteira — só etiqueta, sem mudar grupo, ordem nem valor.
+// Sem o Set (posicoes ausente ou vazio, só por payload quebrado), ninguém é
+// marcado: falso "saiu" em ativo vivo é pior que etiqueta ausente. O rebate
+// nunca é marcado (pseudo-ticker, nunca posição).
+function rent2Pesou(r, lid, valorLinha, sufixo, emCarteira = null) {
   const rotulo = RENT2_ROTULO_LINHA[lid];
   const plural = RENT2_LINHA_PLURAL[lid];
   const linha = r.linhas.find((l) => l.id === lid);
@@ -779,7 +784,11 @@ function rent2Pesou(r, lid, valorLinha, sufixo) {
   const lista = ativos.map((a, i) => ({ t: a.t, v: exib[i] }));
   const porTamanho = (a, b) => (Math.abs(b.v) - Math.abs(a.v)) || (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
   const porTicker = (a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
-  const fmt = (a) => ({ t: a.t, ...rent2Pontos(a.v) });
+  const fmt = (a) => ({
+    t: a.t,
+    saiu: emCarteira instanceof Set && a.t !== PONTE_REBATE_ROTULO && !emCarteira.has(a.t),
+    ...rent2Pontos(a.v),
+  });
   const qtdAtivos = (n) => `${n} ${n === 1 ? "ativo" : "ativos"}`;
   const monta = (id, itens, titulos) => {
     if (!itens.length) return null;
@@ -837,7 +846,7 @@ function rent2AnuncioPesou(p) {
 // Vista completa da tela para a janela iIni..iFim (inclusivos). `r` é a saída
 // de ponteJanela; `ctx` = {bloco, escopo, moeda, chave, m0, linhaUsuario}.
 function rent2Vista(r, iIni, iFim, ctx) {
-  const { bloco, escopo, moeda, chave, m0, linhaUsuario } = ctx;
+  const { bloco, escopo, moeda, chave, m0, linhaUsuario, emCarteira = null } = ctx;
   const ancora = rent2MmmAa(bloco.meses[iIni - 1]);
   const fim = rent2MmmAa(bloco.meses[iFim]);
   const n = iFim - iIni + 1;
@@ -926,7 +935,7 @@ function rent2Vista(r, iIni, iFim, ctx) {
       linhas,
     },
     linhaSel: sel ? sel.id : null,
-    pesou: sel ? rent2Pesou(r, sel.id, sel.valor, sufixo) : null,
+    pesou: sel ? rent2Pesou(r, sel.id, sel.valor, sufixo, emCarteira) : null,
     reais: {
       titulo: moeda === "USD" ? "Em dólares, na janela" : "Em reais, na janela",
       entrou: rent2Dinheiro(r.entrou, moeda),
@@ -4313,6 +4322,9 @@ document.addEventListener("alpine:init", () => {
       const vista = rent2Vista(r, iIni, iFim, {
         bloco: ctx.bloco, escopo: ctx.escopo, moeda: ctx.moeda, chave, m0: ctx.m0,
         linhaUsuario: this.rent2.linhaUsuario,
+        emCarteira: Array.isArray(this.json?.posicoes) && this.json.posicoes.length > 0
+          ? new Set(this.json.posicoes.map((p) => p.ticker))
+          : null,
       });
       // 7a.BG.2: o aria do gráfico diz os dois números do fim das curvas, das
       // MESMAS curvas que _rent2Curvas desenha para esta janela (também na vista

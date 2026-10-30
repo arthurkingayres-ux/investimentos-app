@@ -610,12 +610,22 @@ h1 {
 
 /* Faceta "Divisão Brasil · EUA" — split-bar proporcional às cores de país
    (--cat-acoes-br teal / --cat-eua azul), mesmos tokens do dot de categoria. */
+/* 7a.BL.2: tamanho e gap saem da MEDIÇÃO com 7 dígitos nas duas colunas
+   (R$ 1.234.567,89, mono): a 375 px o split tem 291 px e o texto a --num-md
+   mede 136 px, que só cabe em coluna de 137,5 px com gap 1rem; --num-lg (170 px)
+   não cabe. A 320 px (split 236 px) só --num-xs (110 px) cabe, com gap 0,75rem.
+   nowrap: dinheiro nunca quebra, trunca nem reticencia (DESIGN.md). */
 .hero-split {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   margin-top: 0.125rem;
 }
-.hero-split .col { flex: 1; min-width: 0; }
+/* min-width: max-content — a coluna nunca fica menor que o número (nowrap):
+   numa mono ~0,60 em (DejaVu no CI, SF Mono no iPhone) o texto passa da
+   coluna igual por 1–2 px, e a folga entre os dois seguiria só o gap.
+   Limite: com 8 dígitos (R$ 10 mi) a 320 px as duas colunas passam do hero;
+   o patrimônio de hoje tem 6, e o e2e trava 7 (hero-split-320.spec.ts). */
+.hero-split .col { flex: 1; min-width: max-content; }
 .hero-split .cap {
   font-size: 0.6875rem;
   letter-spacing: 0.06em;
@@ -624,11 +634,16 @@ h1 {
 }
 .hero-split .num {
   font-family: var(--mono);
-  font-size: 1.375rem;
+  font-size: var(--num-md);
+  white-space: nowrap;
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: #fff;
+}
+@media (max-width: 360px) {
+  .hero-split { gap: 0.75rem; }
+  .hero-split .num { font-size: var(--num-xs); }
 }
 .hero-split .pct {
   font-size: 0.75rem;
@@ -2597,6 +2612,27 @@ button.ponte-degrau { cursor: pointer; }
   padding: 6px 0;
 }
 .ponte-pesou-ticker { min-width: 0; font-weight: 500; font-size: 0.875rem; color: var(--ink); }
+/* 7a.BL.2: "saiu da carteira" — a voz apagada da .aloca-etq--apagada
+   (tracejado, cinza), sem o alvo de toque de 44px dela: aqui não é botão, e a
+   linha não pode crescer. Fica no bloco do ticker, sem quebrar o space-between;
+   a 320 px ela desce para baixo do ticker, alinhada à esquerda (flex-wrap, sem
+   recuo de margem). */
+.ponte-pesou-ticker:has(.ponte-pesou-saiu) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 0.5rem;
+}
+.ponte-pesou-saiu {
+  padding: 0 6px;
+  border: 1px dashed var(--faint);
+  border-radius: 6px;
+  color: var(--gray);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
 .ponte-pesou-valor {
   font-family: var(--mono);
   font-size: var(--num-sm);
