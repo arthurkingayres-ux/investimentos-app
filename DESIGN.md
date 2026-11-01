@@ -97,7 +97,7 @@ Renderização nativa por OS:
 - Linux: variável
 
 ### Mono (números)
-**Tabular-nums universal.** Toda exibição de valor monetário, rentabilidade, data ou contagem usa `font-variant-numeric: tabular-nums` para alinhamento vertical em colunas. Mono (`--mono`) marca números de destaque e de identidade (o herói Monument, os pôsteres, os valores dos cards do Raio-X, selos e linhas de `#alocação`, o pódio de DY) e datas de linha do tempo. Número em prosa e em tabela de leitura fica na **fonte do texto**, com `tabular-nums`. Na tela da projeção a regra é estrita: mono só nos dois valores da frase-resposta (7a.AX). (A frase anterior, "nenhuma fonte mono separada", estava desatualizada desde o Monument.)
+**Tabular-nums universal.** Toda exibição de valor monetário, rentabilidade, data ou contagem usa `font-variant-numeric: tabular-nums` para alinhamento vertical em colunas. Mono (`--mono`) marca números de destaque e de identidade (o herói Monument, os pôsteres, os valores dos cards do Raio-X, selos e linhas de `#alocação`, o ranking de DY) e datas de linha do tempo. Número em prosa e em tabela de leitura fica na **fonte do texto**, com `tabular-nums`. Na tela da projeção a regra é estrita: mono só nos dois valores da frase-resposta (7a.AX). (A frase anterior, "nenhuma fonte mono separada", estava desatualizada desde o Monument.)
 
 ### Scale (rem-based, base 16px)
 
@@ -462,7 +462,7 @@ Alpine ao trocar de aba. Ordem dos cards por **alvo decrescente**
 `DY x%` como sufixo cinza do ticker na linha de ativo. Depois de conviver com
 ela, o número poluía a leitura de uma tela que é sobre **peso × drift × R$**, e
 foi removido. A linha volta a ser `ticker → sub-linha`. O DY continua onde a
-decisão é sobre o ativo em si: no card KPI de `#ativo` e no pódio de `#s-dy`.
+decisão é sobre o ativo em si: no card KPI de `#ativo` e no ranking de `#s-dy`.
 
 **DY do ativo — card KPI (`#ativo`, 7a.E.33):** o mesmo dado
 (`dividend_yield.por_ativo` via `dyAtivo`) ganha um 7º card na `.kpi-grid` da
@@ -626,7 +626,7 @@ conteúdo. Em viewports largos os 3 cards cabem inteiros e o overflow
 fica inerte (sem scroll visível). Container ganha `tabindex="0"` +
 `role="group"` para alcance via teclado.
 
-### Dividend Yield dedicado — `#s-dy` (7a.S.7b)
+### Dividend Yield dedicado — `#s-dy` (7a.S.7b, ranking 7a.BO.2)
 
 Tela push (`#/proventos/dy`, tab bar **persiste** em "Proventos" —
 mesmo mecanismo genérico de `#ativo`/`#/raiox/chart`; `voltar()` usa o
@@ -640,22 +640,47 @@ Yield" + botão voltar.
 - **3 linhas por classe** (`.dy-row`, ordem FII → Ação BR → EUA·USD):
   barra (`.barw i`) proporcional ao maior dy entre as 3, valor mono
   (`.yv`). Clique seleciona (`.dy-row.on`, borda + anel `--accent-soft`)
-  e troca qual categoria o pódio abaixo mostra — default é a de
-  **maior dy** entre as 3 (não hardcoded).
-- **Pódio de campeões** (`.dy-champs`, bandeja `--surface-2` — **não**
-  é o `.grifo`): consome `dividend_yield.campeoes.{acao_br,fii,eua}`
-  (schema v2.23, 7a.S.7a backend). Cada `.champ` = rank + bandeira +
-  ticker + dy (`--accent`) + barra + valor de mercado na moeda nativa
-  do item (BRL ou USD, sem conversão FX para EUA). **Empty-safe:**
-  categoria com 0 campeões (ou `campeoes` ausente — payload pré-
-  7a.S.7a) renderiza a voz "Ainda sem campeões suficientes nesta
-  classe" em vez de quebrar.
+  e troca qual classe o ranking abaixo mostra — default é a de
+  **maior dy** entre as 3 (não hardcoded). Legenda "toque para o
+  ranking"; `aria-label` da linha termina em "— ver o ranking".
+- **Ranking completo da classe** (7a.BO.2, schema v2.33 — substituiu o
+  pódio top-3 da 7a.S.7b). Bandeja `.dy-champs` (`--surface-2` —
+  **não** é o `.grifo`), cabeçalho "Ranking · <classe>" | "maior yield ·
+  12m" (sem `★`; em 320px a legenda desce inteira, nunca parte).
+  Consome `dividend_yield.ranking.{acao_br,fii,eua}`: **todos** os
+  ativos vivos da classe, na ordem do payload (DY desc, provento desc,
+  ticker). `<ol class="dy-rank">` com `.champ` compacto (filete 1px
+  `--neutral-200` entre itens) = posição + bandeira + ticker + dy
+  (`--accent`) + barra de 3px proporcional ao maior DY **da classe** +
+  valor de mercado na moeda nativa (BRL ou USD, sem FX). Posição em
+  `--accent` só no top-3 (`.champ.top .rk`); do 4º em diante, `--faint`.
+  Ticker de `por_ativo_parcial` ganha, abaixo dele, o selo
+  `posição < 12 meses` (`.kpi-nota-parcial`, o mesmo de `#ativo`).
+- **Sem dividend yield em 12 meses** — os itens de `dy: null` num
+  `<ul>` separado, com `<h3 id="dy-sem-h">` ligado por
+  `aria-labelledby`, por ticker, `—` no lugar do DY, sem barra e sem
+  posição; `valor: null` (sem cotação) rende `—`, nunca `R$ 0,00`.
+  Subgrupo vazio sai do DOM (`x-if`). Rodapé ganha "— = sem provento no
+  período ou sem número confiável".
+- **Estados vazios:** 0 com DY e ≥1 sem → "Nenhum ativo desta classe
+  pagou provento nos últimos 12 meses.", seguido do subgrupo; 0 itens →
+  "Nenhum ativo nesta classe."
+- **Leitura de tela:** o `aria-live` mora num `<p class="sr-only">` que
+  anuncia só o cabeçalho ("Ranking Ação BR, 12 ativos com dividend
+  yield, 3 sem."), nunca as linhas.
+- **Fallback:** payload < 2.33 (shell novo, payload antigo em cache) não
+  tem `ranking` — a bandeja lista os `campeoes`, sem subgrupo.
+  **Follow-up técnico:** remover `campeoes` (backend) e este fallback
+  numa fase futura, quando nenhum aparelho rodar shell anterior à BO.2.
 
 ```css
 .poster { font-family: var(--mono); font-weight: 800; font-size: var(--num-poster-xl); color: var(--accent); }
 .dy-row { border: 1px solid var(--neutral-200); border-radius: 14px; box-shadow: var(--card-shadow); }
 .dy-row.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--card-shadow); }
 .dy-champs { background: var(--surface-2); border-radius: 14px; }
+.champ + .champ { border-top: 1px solid var(--neutral-200); }
+.champ.top .rk { color: var(--accent); }
+.champ-bar .bw { height: 3px; }
 ```
 
 ### Aportar — simulador vivo (7a.S.10)

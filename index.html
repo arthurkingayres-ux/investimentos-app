@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=83">
+  <link rel="stylesheet" href="css/app.css?v=84">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=85"></script>
+  <script src="js/app.js?v=86"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -850,8 +850,8 @@
                 <span class="kpi-label">XIRR</span>
                 <span class="kpi-valor" x-text="formatPct(posicaoAtual.xirr_aa)"></span>
               </div>
-              <!-- 7a.E.33: DY trailing-12m como 7º card. Mesma fonte que
-                   o pódio #s-dy (dyAtivo → por_ativo). Rótulo por-extenso
+              <!-- 7a.E.33: DY trailing-12m como 7º card. Mesmo número que
+                   o ranking #s-dy (dyAtivo → por_ativo == dy do item). Rótulo por-extenso
                    (a .kpi-grid já rotula por célula, sem ambiguidade com peso).
                    null → formatPctSemSinal devolve "—" + aria-label acessível
                    (Alpine remove o atributo quando o binding é null). -->
@@ -1083,12 +1083,12 @@
         </div>
 
         <div class="dy-compare">
-          <div class="dy-cap"><span>Por classe · quem rende mais</span><span>toque para os campeões</span></div>
+          <div class="dy-cap"><span>Por classe · quem rende mais</span><span>toque para o ranking</span></div>
           <div>
             <template x-for="c in dyClassesLista()" :key="c.key">
               <button type="button" class="dy-row" :class="{ on: dySelecionado === c.key }"
                 @click="selecionarDY(c.key)"
-                :aria-label="'Dividend yield ' + c.nm + ' ' + formatPctSemSinal(c.dy, 1) + ' — ver os campeões'">
+                :aria-label="'Dividend yield ' + c.nm + ' ' + formatPctSemSinal(c.dy, 1) + ' — ver o ranking'">
                 <span class="cls" x-text="c.nm"></span>
                 <span class="barw"><i :style="{ width: c.barPct + '%' }"></i></span>
                 <span class="yv" x-text="formatPctSemSinal(c.dy, 1)"></span>
@@ -1098,31 +1098,65 @@
           </div>
         </div>
 
-        <div class="dy-champs" data-testid="dy-champs" aria-live="polite" x-show="dySelecionado">
+        <!-- 7a.BO.2: ranking completo da classe tocada (lista inteira, por DY);
+             os sem DY válido num subgrupo no fim. aria-live só no anúncio do
+             cabeçalho — anunciar 15 linhas a cada toque seria ruído. -->
+        <div class="dy-champs" data-testid="dy-champs" x-show="dySelecionado">
           <div class="dc-h">
-            <span class="t"><span class="st" aria-hidden="true">★</span> Campeões · <span x-text="dyCampeoesLabelAtual()"></span></span>
+            <span class="t">Ranking · <span x-text="dyRankingLabelAtual()"></span></span>
             <span class="c">maior yield · 12m</span>
           </div>
-          <template x-if="dyCampeoesAtuais().length === 0">
-            <p class="dy-champs-vazio">Ainda sem campeões suficientes nesta classe.</p>
+          <p class="sr-only" aria-live="polite" x-text="dyRankingAnuncio()"></p>
+          <template x-if="dyRankingAtual().com.length === 0">
+            <p class="dy-champs-vazio" x-text="dyRankingAtual().sem.length
+              ? 'Nenhum ativo desta classe pagou provento nos últimos 12 meses.'
+              : 'Nenhum ativo nesta classe.'"></p>
           </template>
-          <template x-for="(p, i) in dyCampeoesAtuais()" :key="p.ticker">
-            <div class="champ">
-              <div class="champ-top">
-                <span class="rk" x-text="i + 1"></span>
-                <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
-                <span class="tk" x-text="p.ticker"></span>
-                <span class="y" x-text="formatPctSemSinal(p.dy, 1)"></span>
-              </div>
-              <div class="champ-bar">
-                <span class="bw"><i :style="{ width: dyBarPctCampeao(p) + '%' }"></i></span>
-                <span class="rs" x-text="formatMoedaCampeao(p.valor, p.moeda)"></span>
-              </div>
+          <template x-if="dyRankingAtual().com.length > 0">
+            <ol class="dy-rank">
+              <template x-for="(p, i) in dyRankingAtual().com" :key="p.ticker">
+                <li class="champ" :class="{ top: i < 3 }">
+                  <div class="champ-top">
+                    <span class="rk" x-text="i + 1"></span>
+                    <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
+                    <span class="tkw">
+                      <span class="tk" x-text="p.ticker"></span>
+                      <template x-if="dyParcial(p.ticker)">
+                        <span class="kpi-nota-parcial">posição &lt; 12 meses</span>
+                      </template>
+                    </span>
+                    <span class="y" x-text="formatPctSemSinal(p.dy, 1)"></span>
+                  </div>
+                  <div class="champ-bar">
+                    <span class="bw"><i :style="{ width: dyBarPctRanking(p) + '%' }"></i></span>
+                    <span class="rs" x-text="formatMoedaCampeao(p.valor, p.moeda)"></span>
+                  </div>
+                </li>
+              </template>
+            </ol>
+          </template>
+          <template x-if="dyRankingAtual().sem.length > 0">
+            <div class="dy-sem">
+              <h3 id="dy-sem-h" class="dy-sem-h">Sem dividend yield em 12 meses</h3>
+              <ul class="dy-rank dy-rank--sem" aria-labelledby="dy-sem-h">
+                <template x-for="p in dyRankingAtual().sem" :key="p.ticker">
+                  <li class="champ sem">
+                    <div class="champ-top">
+                      <span class="flag" aria-hidden="true" x-text="p.bandeira"></span>
+                      <span class="tkw"><span class="tk" x-text="p.ticker"></span></span>
+                      <span class="y">—</span>
+                    </div>
+                    <div class="champ-bar">
+                      <span class="rs" x-text="formatMoedaCampeao(p.valor, p.moeda)"></span>
+                    </div>
+                  </li>
+                </template>
+              </ul>
             </div>
           </template>
         </div>
 
-        <p class="footnote-dy">DY trailing 12m ÷ valor de mercado · <code>investimentos.db</code></p>
+        <p class="footnote-dy">DY trailing 12m ÷ valor de mercado · <code>investimentos.db</code><br>— = sem provento no período ou sem número confiável</p>
       </section>
 
       <!-- ── Tela #patrimonio ─────────────────────────────────────────── -->

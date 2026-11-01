@@ -2098,7 +2098,7 @@ footer.rodape code {
   color: var(--accent);
 }
 
-/* Pódio de campeões — bandeja distinta (NÃO é o grifo). */
+/* Bandeja do ranking (7a.BO.2; era o pódio de campeões) — distinta (NÃO é o grifo). */
 .dy-champs {
   margin-top: 4px;
   background: var(--surface-2);
@@ -2111,17 +2111,19 @@ footer.rodape code {
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 8px;
+  /* 7a.BO.2: em 320px, a legenda desce inteira em vez de partir as duas. */
+  flex-wrap: wrap;
+  column-gap: 12px;
 }
 .dy-champs .dc-h .t {
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: var(--ink);
-}
-.dy-champs .dc-h .t .st {
-  color: var(--amber);
+  white-space: nowrap;
 }
 .dy-champs .dc-h .c {
+  white-space: nowrap;
   font-size: 0.65625rem;
   color: var(--faint);
   letter-spacing: 0.04em;
@@ -2132,16 +2134,46 @@ footer.rodape code {
   padding: 6px 0;
   margin: 0;
 }
+/* 7a.BO.2: o pódio virou o ranking completo da classe — itens compactos,
+   filete 1px entre eles, posição em --accent só no top-3. Zero token novo. */
+.dy-rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .champ {
-  padding: 8px 0 7px;
+  padding: 7px 0 6px;
 }
 .champ + .champ {
-  border-top: 1px solid var(--neutral-100);
+  border-top: 1px solid var(--neutral-200);
 }
 .champ-top {
   display: flex;
   align-items: baseline;
   gap: 7px;
+}
+/* Ticker e selo em coluna: o selo quebra abaixo do ticker, o DY nunca trunca. */
+.champ .tkw {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.champ.top .rk {
+  color: var(--accent);
+}
+.dy-sem-h {
+  margin: 14px 0 2px;
+  font-size: 0.65625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+.champ.sem .y {
+  color: var(--faint);
+}
+.champ.sem .champ-bar {
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 .champ .rk {
   font-family: var(--mono);
@@ -2175,7 +2207,7 @@ footer.rodape code {
 }
 .champ-bar .bw {
   flex: 1;
-  height: 5px;
+  height: 3px;
   border-radius: 999px;
   background: var(--surface);
   position: relative;

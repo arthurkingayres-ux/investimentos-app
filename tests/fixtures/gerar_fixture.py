@@ -7,6 +7,15 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.33 (Fase 7a.BO.2): ``dividend_yield.ranking.{acao_br,fii,eua}`` —
+todos os ativos vivos da classe, DY válido primeiro (DY desc, provento desc,
+ticker), depois os sem DY por ticker com ``dy: null`` (``valor: null`` sem
+cotação). ``campeoes`` fica, derivado do ranking (``_confere_ranking`` levanta
+se divergir). Ação BR é a classe longa (15 = 12 + 3, nunca a contagem real),
+com ``SINTE3`` em ``por_ativo_parcial``; FII ganha um sem-DY; EUA fica sem
+subgrupo. ``portfolio_pre_v233`` é o payload 2.32, sem a chave. Gerar só as
+fixtures que a fase muda (a cifra não é determinística), nunca o ``main()``.
+
 Schema v2.32 (Fase 7a.BJ.2): bloco top-level ``renda`` — quanto a carteira
 sustenta de renda hoje, no passado e na projeção até os 65, com guardrails e
 herança, consumido pela tela ``#/raiox/renda`` e pelo card da home. Variantes:
@@ -94,6 +103,50 @@ from src.output.crypto import encriptar_json
 # o sibling é público e o `.enc` de teste decifra com ele por design.
 PIN_TESTE = "123456"
 OUT = Path(__file__).resolve().parent / "portfolio.test.json.enc"
+
+
+# ── Fase 7a.BO.2: dividend_yield.ranking (schema v2.33) ──────────────────────
+# Valores 100% SINTÉTICOS (repo público). A classe longa (Ação BR, 15 itens =
+# 12 com DY + 3 sem) NÃO espelha a contagem real da carteira (G2 da 7a.BO).
+# Tickers novos com prefixo SINT (precedente da 7a.BH).
+def _item_dy(ticker: str, dy: float | None, proventos: float, valor: float | None,
+             moeda: str = "BRL") -> dict:
+    return {"ticker": ticker, "dy": dy, "proventos_12m": proventos, "valor": valor,
+            "moeda": moeda, "bandeira": "🇺🇸" if moeda == "USD" else "🇧🇷"}
+
+
+# 9 SINT*3 de DY decrescente, todos abaixo do 3º campeão (SMAL11, 0.034).
+_SINT_VALIDOS = [
+    ("SINTA3", 0.031, 4000.0), ("SINTB3", 0.028, 3500.0), ("SINTC3", 0.026, 3000.0),
+    ("SINTD3", 0.023, 2500.0), ("SINTE3", 0.020, 2000.0), ("SINTG3", 0.017, 2000.0),
+    ("SINTH3", 0.014, 1500.0), ("SINTJ3", 0.011, 1500.0), ("SINTK3", 0.008, 1000.0),
+]
+_SINT_PARCIAL = "SINTE3"   # posição < 12 meses → selo no ranking
+
+
+def _ranking_sintetico(campeoes: dict) -> dict:
+    validos_br = [_item_dy(t, dy, round(dy * v, 2), v) for t, dy, v in _SINT_VALIDOS]
+    sem_br = [
+        _item_dy("SINTX3", None, 120.0, None),     # sem cotação: valor null
+        _item_dy("SINTY3", None, 0.0, 1800.0),     # sem provento na janela
+        _item_dy("SINTZ3", None, 95.0, 50.0),      # DY > 100% (posição encolhida): fora de _dy_valido
+    ]
+    return {
+        "acao_br": copy.deepcopy(campeoes["acao_br"]) + validos_br + sem_br,
+        "fii": copy.deepcopy(campeoes["fii"]) + [_item_dy("SINTF11", None, 0.0, 3100.0)],
+        "eua": copy.deepcopy(campeoes["eua"]),
+    }
+
+
+def _confere_ranking(bloco: dict) -> None:
+    """Levanta se ``campeoes`` não é o derivado de ``ranking`` (invariante 2.33)."""
+    for cat, lista in bloco["ranking"].items():
+        derivado = [i for i in lista if i["dy"] is not None][:3]
+        if bloco["campeoes"][cat] != derivado:
+            raise AssertionError(f"campeoes[{cat}] != derivado(ranking[{cat}])")
+        for i in lista:
+            if i["dy"] is not None and bloco["por_ativo"].get(i["ticker"]) != i["dy"]:
+                raise AssertionError(f"por_ativo[{i['ticker']}] != ranking dy")
 
 
 def _serie_mensal(
@@ -939,7 +992,7 @@ def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
 
 
 PAYLOAD = {
-    "versao": "2.32",
+    "versao": "2.33",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1151,13 +1204,15 @@ PAYLOAD = {
             "VOO": 0.019,
             "KNIP11": 0.108,   # quarentena: a linha muda, o DY não some
             "LREN3": 0.021,    # fora do alvo: idem
+            # Schema v2.33 (7a.BO.2): os SINT*3 de DY válido do ranking.
+            **{t: dy for t, dy, _ in _SINT_VALIDOS},
         },
         # Schema v2.25 (Fase 7a.E.35): tickers de posição aberta < 12m (DY
         # trailing-12m subestimado) → selo "posição < 12 meses" no card DY de
         # #ativo. Lista 100% SINTÉTICA (repo público): HGLG11 marcado só para
         # exercitar o selo — nenhuma relação com o portfólio real do Dr. Arthur.
         # VOO fica DE FORA (é o ticker que exercita a ausência do selo).
-        "por_ativo_parcial": ["HGLG11"],
+        "por_ativo_parcial": ["HGLG11", _SINT_PARCIAL],
     },
     "proventos": {
         "ytd_brl": 3240.0,
@@ -1450,8 +1505,16 @@ PAYLOAD = {
     "renda": _renda_sintetica("normal"),
 }
 
+# Schema v2.33 (7a.BO.2): ranking completo por classe; ``campeoes`` é o derivado.
+PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"]["campeoes"])
+_confere_ranking(PAYLOAD["dividend_yield"])
+
+# Payloads de versão anterior à 2.33 não carregam ``dividend_yield.ranking``.
+_PRE_RANKING = PAYLOAD | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
+                                             if k != "ranking"}}
+
 # Payloads de versão anterior à 2.32 não carregam ``renda``.
-_PRE_RENDA = {k: v for k, v in PAYLOAD.items() if k != "renda"}
+_PRE_RENDA = {k: v for k, v in _PRE_RANKING.items() if k != "renda"}
 
 
 # ── Fase 7a.Q.3: fixtures do Relatório Mensal (índice + 2 meses) ─────────────
@@ -2072,6 +2135,15 @@ def gerar_portfolio_pre_v230() -> None:
     print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BO.2: o payload 2.32, de antes de ``dividend_yield.ranking`` — o shell novo
+# cai em ``campeoes`` (fallback para aparelho com payload antigo em cache).
+def gerar_portfolio_pre_v233() -> None:
+    payload = _PRE_RANKING | {"versao": "2.32"}
+    alvo = OUT.parent / "portfolio_pre_v233.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BJ.2 (Task 5): os estados da tela ``#/raiox/renda`` — ``renda: null``
 # (builder falhou ou sem projeção), as três variantes do bloco e o payload
 # 2.31, de antes da chave existir.
@@ -2386,6 +2458,7 @@ def main() -> None:
     gerar_portfolio_alocacao_variantes()   # 7a.BK.1 (Task 2)
     gerar_portfolio_hero_7digitos()        # 7a.BL.2 (Task 6)
     gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
+    gerar_portfolio_pre_v233()             # 7a.BO.2
 
 
 if __name__ == "__main__":

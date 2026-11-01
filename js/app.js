@@ -1380,7 +1380,7 @@ document.addEventListener("alpine:init", () => {
     // troca com o toggle Anual/Mensal). Ver renderProventosGrafico().
     proventosTotalLabel: "",
     proventosTotalValor: 0,
-    // 7a.S.7b: categoria (acao_br/fii/eua) do pódio de campeões em #s-dy.
+    // 7a.S.7b: categoria (acao_br/fii/eua) do ranking de #s-dy (7a.BO.2).
     dySelecionado: null,
     _escListenerProventos: null,
     // 7a.BD.2: estado da #rentabilidade como ponte — janela (chave fixa ou
@@ -2108,7 +2108,7 @@ document.addEventListener("alpine:init", () => {
     // carrega SÓ tickers com DY válido — a ausência da chave É o "não há número
     // aqui", e vira "—" no card. Nunca devolver 0: 0 é um DY legítimo impossível
     // (o backend já o barra), e confundir os dois esconderia um ativo sem provento
-    // atrás de um número. Consumido pelo card DY de #ativo e pelo pódio #s-dy
+    // atrás de um número. Consumido pelo card DY de #ativo (o ranking de #s-dy lê o `dy` do item)
     // (o sufixo inline de #alocacao foi removido na 7a.E.34). Empty-safe: payload
     // antigo (pré-v2.24) não tem o mapa -> o card mostra o traço.
     dyAtivo(ticker) {
@@ -2118,7 +2118,8 @@ document.addEventListener("alpine:init", () => {
 
     // 7a.E.35: posição aberta < 12m → DY trailing-12m subestima (numerador não
     // cobre a posição cheia por um ano). Empty-safe p/ payload pré-v2.25 (campo
-    // ausente → []). Consumido só pelo selo do card DY de #ativo. É propriedade
+    // ausente → []). Consumido pelo selo do card DY de #ativo e pelo do ranking
+    // de #s-dy (7a.BO.2). É propriedade
     // da POSIÇÃO (idade), não do DY: pode ser true mesmo com dyAtivo(t) === null
     // ("—").
     dyParcial(ticker) {
@@ -2994,7 +2995,7 @@ document.addEventListener("alpine:init", () => {
     // pedaço do payload está em foco" e por isso é LIMPO, não justificado na
     // allowlist (é derivado do conteúdo, não preferência/infra/ponteiro de
     // hash). `proventosMesSelecionado` é o índice do drilldown mensal
-    // (7a.E.18); `dySelecionado` é a categoria em foco no pódio de campeões
+    // (7a.E.18); `dySelecionado` é a categoria em foco no ranking
     // de #s-dy (7a.S.7b). Os dois voltam ao literal `null` da declaração —
     // `atualizarRota()`/`hidratarDY()` repopulam `dySelecionado` sozinhos se
     // a sessão destravar de volta em `#/proventos/dy` (mesmo padrão do
@@ -3647,7 +3648,7 @@ document.addEventListener("alpine:init", () => {
 
     // ── 7a.S.7b: #s-dy (Dividend Yield — tela dedicada) ───────────────
 
-    // Entrada na rota: escolhe a categoria default do pódio de campeões —
+    // Entrada na rota: escolhe a categoria default do ranking (7a.BO.2) —
     // a de MAIOR dy entre os 3 sub-escopos (empty-safe: fica null se os 3
     // vierem sem dado, ou se dividend_yield ainda não existir no payload).
     hidratarDY() {
@@ -3685,30 +3686,47 @@ document.addEventListener("alpine:init", () => {
       this.dySelecionado = key;
     },
 
-    // Campeões (0-3 itens) da categoria selecionada. Empty-safe: `campeoes`
-    // pode não existir ainda (payload antigo pré-7a.S.7a) ou a categoria
-    // pode vir com lista vazia — em ambos os casos retorna [].
-    dyCampeoesAtuais() {
-      if (!this.dySelecionado) return [];
-      const campeoes = this.json?.dividend_yield?.campeoes || {};
-      return campeoes[this.dySelecionado] || [];
+    // 7a.BO.2: ranking completo da categoria selecionada, partido em `com`
+    // (DY válido, na ordem do payload) e `sem` (dy null, por ticker). Payload
+    // < 2.33 não tem `ranking`: cai nos `campeoes` (tudo em `com`, sem
+    // subgrupo). Sem nenhum dos dois, listas vazias.
+    dyRankingAtual() {
+      const dy = this.json?.dividend_yield || {};
+      const ranking = dy.ranking?.[this.dySelecionado];
+      if (Array.isArray(ranking)) {
+        return {
+          com: ranking.filter((p) => p.dy != null),
+          sem: ranking.filter((p) => p.dy == null),
+        };
+      }
+      return { com: dy.campeoes?.[this.dySelecionado] || [], sem: [] };
     },
 
-    dyCampeoesLabelAtual() {
+    dyRankingLabelAtual() {
       const map = { fii: "FII", acao_br: "Ação BR", eua: "EUA · USD" };
       return map[this.dySelecionado] || "";
     },
 
-    // Largura da barra de cada campeão, proporcional ao maior dy da lista atual.
-    dyBarPctCampeao(item) {
-      const lista = this.dyCampeoesAtuais();
-      const max = Math.max(0.0001, ...lista.map((p) => p.dy || 0));
+    // Anúncio do aria-live: só o cabeçalho, nunca as linhas.
+    dyRankingAnuncio() {
+      if (!this.dySelecionado) return "";
+      const { com, sem } = this.dyRankingAtual();
+      const ativos = com.length === 1 ? "1 ativo" : `${com.length} ativos`;
+      return `Ranking ${this.dyRankingLabelAtual()}, ${ativos} com dividend yield, ${sem.length} sem.`;
+    },
+
+    // Largura da barra, proporcional ao maior dy da classe.
+    dyBarPctRanking(item) {
+      const { com } = this.dyRankingAtual();
+      const max = Math.max(0.0001, ...com.map((p) => p.dy || 0));
       return Math.max(0, ((item.dy || 0) / max) * 100);
     },
 
-    // Formata o valor de mercado do campeão na moeda nativa do item — BRL
-    // (Ação BR/FII) ou USD (EUA, USD-nativo, sem conversão FX).
+    // Formata o valor de mercado do item na moeda nativa — BRL (Ação BR/FII)
+    // ou USD (EUA, USD-nativo, sem conversão FX). Sem cotação (`valor` null,
+    // 7a.BO) rende "—": nunca R$ 0,00.
     formatMoedaCampeao(valor, moeda) {
+      if (valor == null) return "—";
       if (moeda === "USD") {
         return new Intl.NumberFormat("en-US", {
           style: "currency", currency: "USD",
@@ -4961,7 +4979,7 @@ document.addEventListener("alpine:init", () => {
         // 7a.S.7b: mesmo padrão de #/raiox/chart — cold-start em
         // `#/proventos/dy` (bookmark/share-link) chega aqui sem json ainda,
         // então hidratarDY() precisa rodar agora que o payload chegou; senão
-        // dySelecionado fica null e o pódio (x-show) nunca aparece por default.
+        // dySelecionado fica null e o ranking (x-show) nunca aparece por default.
         if (this.rota === "dy") this.hidratarDY();
         // 7a.BD.2: cold-start em `#rentabilidade` (o PWA reabre na última
         // hash) — a tela inteira sai de hidratarRentabilidade, que no 1º
