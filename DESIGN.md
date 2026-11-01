@@ -668,10 +668,9 @@ Yield" + botão voltar.
 - **Leitura de tela:** o `aria-live` mora num `<p class="sr-only">` que
   anuncia só o cabeçalho ("Ranking Ação BR, 12 ativos com dividend
   yield, 3 sem."), nunca as linhas.
-- **Fallback:** payload < 2.33 (shell novo, payload antigo em cache) não
-  tem `ranking` — a bandeja lista os `campeoes`, sem subgrupo.
-  **Follow-up técnico:** remover `campeoes` (backend) e este fallback
-  numa fase futura, quando nenhum aparelho rodar shell anterior à BO.2.
+- **Payload sem `ranking`** (< 2.33): "Nenhum ativo nesta classe.", sem
+  fallback. O `campeoes` da 2.23–2.33 e o fallback para ele saíram na
+  7a.BO.3/BO.4 (schema 2.34).
 
 ```css
 .poster { font-family: var(--mono); font-weight: 800; font-size: var(--num-poster-xl); color: var(--accent); }

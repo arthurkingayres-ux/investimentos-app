@@ -5,18 +5,16 @@ import path from "path";
 // Fase 7a.S.7b — tela dedicada #s-dy (Dividend Yield): poster da carteira +
 // linhas por classe (dy-row) + bandeja da classe tocada (dy-champs). Desde a
 // 7a.BO.2 (schema v2.33) a bandeja é o ranking completo da classe
-// (`dividend_yield.ranking`), com fallback para `campeoes` em payload antigo.
+// (`dividend_yield.ranking`); sem fallback para `campeoes` desde a 7a.BO.4.
 
 const FIXTURE = fs.readFileSync(
   path.join(__dirname, "../fixtures/portfolio.test.json.enc"), "utf-8");
-const FIXTURE_PRE_V233 = fs.readFileSync(
-  path.join(__dirname, "../fixtures/portfolio_pre_v233.test.json.enc"), "utf-8");
 
 const PIN_TESTE = "123456";
 
-async function autenticar(page: Page, fixture: string = FIXTURE) {
+async function autenticar(page: Page) {
   await page.route("**/portfolio.json.enc", (route) =>
-    route.fulfill({ status: 200, body: fixture, contentType: "text/plain" }));
+    route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }));
   await page.addInitScript(() => {
     localStorage.setItem("pin", "123456");
     localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
@@ -116,17 +114,15 @@ test.describe("#s-dy — tela dedicada Dividend Yield (Task 2)", () => {
     await expect(champs.locator(".champ").first()).toBeVisible();
   });
 
-  test("empty-safe: ranking e campeoes vazios não quebram a tela", async ({ page }) => {
+  test("empty-safe: ranking vazio não quebra a tela", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#/proventos/dy");
     await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
 
-    // 7a.BO.2 (G2): o render lê `ranking`; mutar só `campeoes` seria vácuo.
     const erros: string[] = [];
     page.on("pageerror", (err) => erros.push(String(err)));
     await mutarDY(page, (dy) => {
       dy.ranking = { acao_br: [], fii: [], eua: [] };
-      dy.campeoes = { acao_br: [], fii: [], eua: [] };
     });
     await page.locator(".tela-dy .dy-row").first().click();
     await expect(page.locator('[data-testid="dy-champs"]'))
@@ -289,15 +285,21 @@ test.describe("#s-dy — ranking completo da classe (7a.BO.2)", () => {
     await expect(bloco.locator("ul")).toHaveCount(0);
   });
 
-  test("fallback para campeoes", async ({ page }) => {
+  // 7a.BO.4: sem fallback. Payload sem `ranking` (< 2.33) mostra a classe
+  // vazia, mesmo com um `campeoes` antigo presente.
+  test("payload sem ranking: classe vazia, sem fallback", async ({ page }) => {
     const erros: string[] = [];
     page.on("pageerror", (err) => erros.push(String(err)));
-    await autenticar(page, FIXTURE_PRE_V233);
+    await autenticar(page);
     await abrirClasse(page, "Ação BR");
+    await mutarDY(page, (dy) => {
+      const r = dy.ranking as Record<string, Array<Record<string, unknown>>>;
+      dy.campeoes = { acao_br: r.acao_br.slice(0, 3), fii: [], eua: [] };
+      delete dy.ranking;
+    });
     const bloco = page.locator('[data-testid="dy-champs"]');
-    await expect(bloco.locator("ol .champ")).toHaveCount(3);
-    expect(await bloco.locator("ol .champ .tk").allTextContents()).toEqual(["ITSA4", "BBAS3", "SMAL11"]);
-    await expect(bloco.locator("ul")).toHaveCount(0);
+    await expect(bloco.locator(".dy-champs-vazio")).toHaveText("Nenhum ativo nesta classe.");
+    await expect(bloco.locator(".champ")).toHaveCount(0);
     expect(erros).toEqual([]);
   });
 
@@ -364,46 +366,24 @@ test.describe("#s-dy — ranking completo da classe (7a.BO.2)", () => {
   });
 });
 
-test.describe("Fixture — dividend_yield.ranking (7a.BO.2)", () => {
-  test("ranking com as 3 categorias e campeoes derivado dele", async () => {
+test.describe("Fixture — dividend_yield.ranking (7a.BO.2, 2.34 na 7a.BO.4)", () => {
+  test("ranking com as 3 categorias, sem campeoes", async () => {
     const json = JSON.parse(await decifrarFixture(FIXTURE, PIN_TESTE));
-    expect(json.versao).toBe("2.33");
-    const { ranking, campeoes } = json.dividend_yield;
+    expect(json.versao).toBe("2.34");
+    const { ranking } = json.dividend_yield;
+    expect(json.dividend_yield).not.toHaveProperty("campeoes");
     expect(Object.keys(ranking).sort()).toEqual(["acao_br", "eua", "fii"]);
     expect(ranking.acao_br).toHaveLength(15);
     for (const cat of ["acao_br", "fii", "eua"]) {
       expect(ranking[cat].length).toBeGreaterThan(0);
-      expect(campeoes[cat]).toEqual(
-        ranking[cat].filter((i: { dy: number | null }) => i.dy !== null).slice(0, 3));
-    }
-    const pre = JSON.parse(await decifrarFixture(FIXTURE_PRE_V233, PIN_TESTE));
-    expect(pre.versao).toBe("2.32");
-    expect(pre.dividend_yield.ranking).toBeUndefined();
-    expect(pre.dividend_yield.campeoes.acao_br).toHaveLength(3);
-  });
-});
-
-test.describe("Fixture — dividend_yield.campeoes (Task 0/1)", () => {
-  test("fixture decifrada expõe campeoes com as 3 categorias", async () => {
-    const json = JSON.parse(await decifrarFixture(FIXTURE, PIN_TESTE));
-    expect(json.dividend_yield).toBeTruthy();
-    expect(json.dividend_yield.campeoes).toBeTruthy();
-    expect(Object.keys(json.dividend_yield.campeoes).sort()).toEqual([
-      "acao_br", "eua", "fii",
-    ]);
-    // Cada categoria tem 1-3 campeões com o shape esperado.
-    for (const cat of ["acao_br", "fii", "eua"]) {
-      const lista = json.dividend_yield.campeoes[cat];
-      expect(Array.isArray(lista)).toBe(true);
-      expect(lista.length).toBeGreaterThan(0);
-      expect(lista.length).toBeLessThanOrEqual(3);
-      for (const item of lista) {
+      for (const item of ranking[cat]) {
+        expect(Object.keys(item).sort()).toEqual(
+          ["bandeira", "dy", "moeda", "proventos_12m", "ticker", "valor"]);
         expect(typeof item.ticker).toBe("string");
-        expect(typeof item.dy).toBe("number");
+        expect(item.dy === null || typeof item.dy === "number").toBe(true);
         expect(typeof item.proventos_12m).toBe("number");
-        expect(typeof item.valor).toBe("number");
+        expect(item.valor === null || typeof item.valor === "number").toBe(true);
         expect(["BRL", "USD"]).toContain(item.moeda);
-        expect(typeof item.bandeira).toBe("string");
       }
     }
   });

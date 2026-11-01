@@ -3688,18 +3688,15 @@ document.addEventListener("alpine:init", () => {
 
     // 7a.BO.2: ranking completo da categoria selecionada, partido em `com`
     // (DY válido, na ordem do payload) e `sem` (dy null, por ticker). Payload
-    // < 2.33 não tem `ranking`: cai nos `campeoes` (tudo em `com`, sem
-    // subgrupo). Sem nenhum dos dois, listas vazias.
+    // sem `ranking` (< 2.33) dá listas vazias: o fallback para `campeoes`
+    // saiu na 7a.BO.4.
     dyRankingAtual() {
-      const dy = this.json?.dividend_yield || {};
-      const ranking = dy.ranking?.[this.dySelecionado];
-      if (Array.isArray(ranking)) {
-        return {
-          com: ranking.filter((p) => p.dy != null),
-          sem: ranking.filter((p) => p.dy == null),
-        };
-      }
-      return { com: dy.campeoes?.[this.dySelecionado] || [], sem: [] };
+      const ranking = this.json?.dividend_yield?.ranking?.[this.dySelecionado];
+      if (!Array.isArray(ranking)) return { com: [], sem: [] };
+      return {
+        com: ranking.filter((p) => p.dy != null),
+        sem: ranking.filter((p) => p.dy == null),
+      };
     },
 
     dyRankingLabelAtual() {

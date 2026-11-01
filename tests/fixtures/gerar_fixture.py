@@ -7,14 +7,17 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.34 (Fase 7a.BO.4): ``dividend_yield.campeoes`` sai; o top-3 literal
+só abre o ``ranking`` de cada classe, e ``_confere_ranking`` levanta se a chave
+voltar. Sai também ``portfolio_pre_v233`` (o shell não tem mais fallback).
+
 Schema v2.33 (Fase 7a.BO.2): ``dividend_yield.ranking.{acao_br,fii,eua}`` —
 todos os ativos vivos da classe, DY válido primeiro (DY desc, provento desc,
 ticker), depois os sem DY por ticker com ``dy: null`` (``valor: null`` sem
-cotação). ``campeoes`` fica, derivado do ranking (``_confere_ranking`` levanta
-se divergir). Ação BR é a classe longa (15 = 12 + 3, nunca a contagem real),
-com ``SINTE3`` em ``por_ativo_parcial``; FII ganha um sem-DY; EUA fica sem
-subgrupo. ``portfolio_pre_v233`` é o payload 2.32, sem a chave. Gerar só as
-fixtures que a fase muda (a cifra não é determinística), nunca o ``main()``.
+cotação). ``campeoes`` ficou, derivado do ranking, até a 2.34. Ação BR é a
+classe longa (15 = 12 + 3, nunca a contagem real), com ``SINTE3`` em
+``por_ativo_parcial``; FII ganha um sem-DY; EUA fica sem subgrupo. Gerar só
+as fixtures que a fase muda (a cifra não é determinística), nunca o ``main()``.
 
 Schema v2.32 (Fase 7a.BJ.2): bloco top-level ``renda`` — quanto a carteira
 sustenta de renda hoje, no passado e na projeção até os 65, com guardrails e
@@ -124,7 +127,7 @@ _SINT_VALIDOS = [
 _SINT_PARCIAL = "SINTE3"   # posição < 12 meses → selo no ranking
 
 
-def _ranking_sintetico(campeoes: dict) -> dict:
+def _ranking_sintetico(top3: dict) -> dict:
     validos_br = [_item_dy(t, dy, round(dy * v, 2), v) for t, dy, v in _SINT_VALIDOS]
     sem_br = [
         _item_dy("SINTX3", None, 120.0, None),     # sem cotação: valor null
@@ -132,18 +135,18 @@ def _ranking_sintetico(campeoes: dict) -> dict:
         _item_dy("SINTZ3", None, 95.0, 50.0),      # DY > 100% (posição encolhida): fora de _dy_valido
     ]
     return {
-        "acao_br": copy.deepcopy(campeoes["acao_br"]) + validos_br + sem_br,
-        "fii": copy.deepcopy(campeoes["fii"]) + [_item_dy("SINTF11", None, 0.0, 3100.0)],
-        "eua": copy.deepcopy(campeoes["eua"]),
+        "acao_br": copy.deepcopy(top3["acao_br"]) + validos_br + sem_br,
+        "fii": copy.deepcopy(top3["fii"]) + [_item_dy("SINTF11", None, 0.0, 3100.0)],
+        "eua": copy.deepcopy(top3["eua"]),
     }
 
 
 def _confere_ranking(bloco: dict) -> None:
-    """Levanta se ``campeoes`` não é o derivado de ``ranking`` (invariante 2.33)."""
-    for cat, lista in bloco["ranking"].items():
-        derivado = [i for i in lista if i["dy"] is not None][:3]
-        if bloco["campeoes"][cat] != derivado:
-            raise AssertionError(f"campeoes[{cat}] != derivado(ranking[{cat}])")
+    """Levanta se ``por_ativo`` diverge do ``dy`` do ranking, ou se ``campeoes``
+    voltou ao bloco (saiu na 2.34)."""
+    if "campeoes" in bloco:
+        raise AssertionError("campeoes saiu do payload na 2.34")
+    for lista in bloco["ranking"].values():
         for i in lista:
             if i["dy"] is not None and bloco["por_ativo"].get(i["ticker"]) != i["dy"]:
                 raise AssertionError(f"por_ativo[{i['ticker']}] != ranking dy")
@@ -992,7 +995,7 @@ def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
 
 
 PAYLOAD = {
-    "versao": "2.33",
+    "versao": "2.34",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1156,8 +1159,9 @@ PAYLOAD = {
         "acao_br": {"dy": 0.0482, "proventos_12m": 1266.05, "valor": 26240.34, "moeda": "BRL"},
         "fii":     {"dy": 0.0780, "proventos_12m": 4798.97, "valor": 61556.69, "moeda": "BRL"},
         "eua":     {"dy": 0.0082, "proventos_12m": 248.17, "valor": 30199.95, "moeda": "USD"},
-        # Schema v2.23 (Fase 7a.S.7a backend / 7a.S.7b frontend Task 0/1):
-        # pódio top-3 yielders por categoria, consumido pela tela #s-dy.
+        # Top-3 de cada classe: abre o ``ranking`` montado logo depois do
+        # PAYLOAD e sai do bloco ali (``campeoes`` não existe desde a 2.34,
+        # 7a.BO.3/BO.4; era o pódio da 2.23 a 2.33).
         # Valores 100% SINTÉTICOS (repo público) — tickers reaproveitados do
         # universo já presente no fixture (politica/posicoes/relatorio) por
         # coerência narrativa, sem relação com o portfólio real do Dr. Arthur.
@@ -1188,9 +1192,9 @@ PAYLOAD = {
             ],
         },
         # Schema v2.24 (Fase 7a.E.32): DY por ticker, consumido pelo #alocacao.
-        # Valores 100% SINTÉTICOS (repo público). Os 9 campeões repetem o
-        # MESMO dy de `campeoes` — a invariante da fase é que pódio e linha
-        # nunca divergem. BOVA11 é omitido DE PROPÓSITO: é o ticker que
+        # Valores 100% SINTÉTICOS (repo público). Os 9 do top-3 repetem o
+        # MESMO dy do ``ranking`` — a invariante é que lista e linha nunca
+        # divergem. BOVA11 é omitido DE PROPÓSITO: é o ticker que
         # exercita o traço "—" nos testes.
         "por_ativo": {
             "ITSA4": 0.082,
@@ -1505,11 +1509,13 @@ PAYLOAD = {
     "renda": _renda_sintetica("normal"),
 }
 
-# Schema v2.33 (7a.BO.2): ranking completo por classe; ``campeoes`` é o derivado.
-PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"]["campeoes"])
+# Schema v2.33 (7a.BO.2): ranking completo por classe, aberto pelo top-3
+# literal; na 2.34 (7a.BO.4) o top-3 sai do payload como chave própria.
+PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"].pop("campeoes"))
 _confere_ranking(PAYLOAD["dividend_yield"])
 
-# Payloads de versão anterior à 2.33 não carregam ``dividend_yield.ranking``.
+# Passo intermediário de ``_PRE_RENDA``: os payloads de versão anterior à 2.33
+# não carregam ``dividend_yield.ranking`` (nenhuma fixture própria desde a 2.34).
 _PRE_RANKING = PAYLOAD | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
                                              if k != "ranking"}}
 
@@ -2135,15 +2141,6 @@ def gerar_portfolio_pre_v230() -> None:
     print(f"Fixture gerada: {alvo}")
 
 
-# 7a.BO.2: o payload 2.32, de antes de ``dividend_yield.ranking`` — o shell novo
-# cai em ``campeoes`` (fallback para aparelho com payload antigo em cache).
-def gerar_portfolio_pre_v233() -> None:
-    payload = _PRE_RANKING | {"versao": "2.32"}
-    alvo = OUT.parent / "portfolio_pre_v233.test.json.enc"
-    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
-    print(f"Fixture gerada: {alvo}")
-
-
 # 7a.BJ.2 (Task 5): os estados da tela ``#/raiox/renda`` — ``renda: null``
 # (builder falhou ou sem projeção), as três variantes do bloco e o payload
 # 2.31, de antes da chave existir.
@@ -2458,7 +2455,6 @@ def main() -> None:
     gerar_portfolio_alocacao_variantes()   # 7a.BK.1 (Task 2)
     gerar_portfolio_hero_7digitos()        # 7a.BL.2 (Task 6)
     gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
-    gerar_portfolio_pre_v233()             # 7a.BO.2
 
 
 if __name__ == "__main__":
