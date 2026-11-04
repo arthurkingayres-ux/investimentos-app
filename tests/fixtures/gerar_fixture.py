@@ -190,7 +190,8 @@ def _serie_periodo(start_nav: float, fim_nav: float, cashflow_total: float,
                     benchmarks_growth: dict[str, float] | None = None) -> list[dict]:
     """Schema v2.14 (Fase 7a.L.2.a): serie mensal {data, nav, cashflow, benchmark_growth}
     para card 'Período' do PWA. Mesmos 6 anchors do _serie_mensal — alinha
-    índices entre historico_twr e historico_periodo (frontend consome ambos).
+    índices entre historico_twr e historico_periodo (a fixture mantém os dois
+    campos alinhados no payload; o frontend não lê nenhum deles).
 
     Schema v2.18 (Fase 7a.E.26): quando ``benchmarks_growth`` é passado (mapa
     idx → fator de crescimento final), cada ponto ganha ``benchmarks_growth={idx:
