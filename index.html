@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=86">
+  <link rel="stylesheet" href="css/app.css?v=91">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=92"></script>
+  <script src="js/app.js?v=97"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -607,6 +607,9 @@
                 </template>
               </section>
 
+              <!-- 7a.BR.2: ponte para o capítulo 2 do Diagnóstico. Sem número. -->
+              <a class="rent-grifo-sel" data-testid="rent-grifo-selecao" href="#/raiox/diagnostico/selecao">Isso é habilidade ou sorte? Ver no Diagnóstico ›</a>
+
               <section class="rent2-reais" aria-labelledby="rent2-reais-titulo">
                 <h2 class="rent2-h2" id="rent2-reais-titulo" x-text="rent2.vista.reais.titulo"></h2>
                 <dl class="rent2-reais-lista">
@@ -652,6 +655,9 @@
                       </tr>
                     </tbody>
                   </table>
+                  <template x-if="rent2.vista.detalhes.aporFrase">
+                    <p class="rent-aporte-frase" data-testid="rent-aporte-frase" x-text="rent2.vista.detalhes.aporFrase"></p>
+                  </template>
                   <p class="rent2-aviso" data-testid="rent2-aviso">Rentabilidade passada não garante resultado futuro. Valores antes de impostos.</p>
                 </div>
               </details>
@@ -1618,11 +1624,11 @@
         </template>
       </section>
 
-      <!-- ── Tela #/raiox/diagnostico (7a.BQ.2) ── -->
-      <!-- Push child da tab Raio-X, irmã da renda e da mesma família "ensaio":
-           coluna única, sem cards. Abre direto no capítulo 1 (o índice entra
-           com a segunda pergunta). Mono só nos três números da frase-resposta. -->
-      <section class="tela-detalhes tela-diagnostico" x-show="rota === 'diagnostico'"
+      <!-- ── Tela #/raiox/diagnostico/risco (7a.BQ.2; rota própria desde a 7a.BR.2) ── -->
+      <!-- Capítulo 1 do Diagnóstico, push child da tab Raio-X, família "ensaio":
+           coluna única, sem cards. O "←" volta ao índice (#/raiox/diagnostico).
+           Mono só nos três números da frase-resposta. -->
+      <section class="tela-detalhes tela-diagnostico" x-show="rota === 'diag-risco'"
         x-transition:enter="push-enter"
         x-transition:enter-start="push-from-right"
         x-transition:enter-end="push-at-rest"
@@ -1753,6 +1759,251 @@
                   </div>
                 </details>
               </div>
+            </template>
+
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico: índice (7a.BR.2) ── -->
+      <!-- Três perguntas, uma linha cada, lista de bordas finas, sem cards
+           (família ensaio). Cada linha resume a janela desde o início; sem
+           dado, a linha fica com o motivo e continua tocável (spec §6.2). O
+           conteúdo das três telas novas só monta na própria rota (x-if com a
+           rota): a ponte do capítulo 3 não é calculada fora dele, e os
+           seletores globais do capítulo 1 não enxergam o markup delas. -->
+      <section class="tela-detalhes tela-diag-indice" x-show="rota === 'diagnostico'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="diag-indice-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="diag-indice-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="rota === 'diagnostico'">
+          <article class="diag-ensaio diag-indice" aria-labelledby="diag-indice-titulo">
+            <h2 class="diag-titulo diag-indice__titulo" id="diag-indice-titulo">A carteira está indo bem?</h2>
+            <p class="diag-indice__instrucao">Três perguntas, lidas nesta ordem. Toque em uma para ver a conta.</p>
+            <nav aria-label="Perguntas do diagnóstico">
+              <ol class="diag-indice__lista">
+                <template x-for="l in diagIndiceLinhas()" :key="l.n">
+                  <li>
+                    <a class="diag-indice__linha" :href="l.href" :data-testid="'diag-indice-' + l.n">
+                      <span class="diag-indice__ordinal" aria-hidden="true" x-text="l.n"></span>
+                      <span class="diag-indice__corpo">
+                        <span class="diag-indice__pergunta" x-text="l.pergunta"></span>
+                        <span class="diag-indice__estado" x-text="l.estado"></span>
+                      </span>
+                      <span class="diag-indice__chevron" aria-hidden="true">›</span>
+                    </a>
+                  </li>
+                </template>
+              </ol>
+            </nav>
+            <p class="diag-indice__nota">Cada linha resume a janela desde o início. A conta, as outras janelas e os escopos ficam dentro de cada pergunta.</p>
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico/selecao: capítulo 2 (7a.BR.2) ── -->
+      <!-- Picks de cada classe contra o índice da classe. Sem escopo: as três
+           classes juntas, na ordem fixa. Ousadia num lugar só: a régua da
+           confiança (SVG inline, t de −3 a +3, sem cor de ganho ou perda). -->
+      <section class="tela-detalhes tela-diag-selecao" x-show="rota === 'diag-selecao'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="sel-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="sel-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="rota === 'diag-selecao' && !sel">
+          <p class="placeholder">Confiança da seleção indisponível hoje.</p>
+        </template>
+
+        <template x-if="rota === 'diag-selecao' && sel">
+          <article class="diag-ensaio sel-ensaio" aria-labelledby="sel-titulo">
+            <p class="diag-ordinal" aria-hidden="true">2</p>
+            <h2 class="diag-titulo" id="sel-titulo">Seus picks batem o índice?</h2>
+            <p class="sel-pergunta">Por habilidade ou por sorte: quanto maior e mais regular a diferença mês a mês, menos ela se explica por sorte.</p>
+
+            <div class="diag-janelas" role="group" aria-label="Janela">
+              <button type="button" class="diag-janela diag-janela--herda" data-testid="sel-janela-3a"
+                      :aria-pressed="selJanela === '3a' ? 'true' : 'false'" @click="selEscolherJanela('3a')">3 anos</button>
+              <button type="button" class="diag-janela diag-janela--herda" data-testid="sel-janela-5a"
+                      :aria-pressed="selJanela === '5a' ? 'true' : 'false'" @click="selEscolherJanela('5a')">5 anos</button>
+              <button type="button" class="diag-janela diag-janela--herda" data-testid="sel-janela-desde"
+                      :aria-pressed="selJanela === 'desde' ? 'true' : 'false'" @click="selEscolherJanela('desde')">Desde o início</button>
+            </div>
+
+            <template x-for="c in sel.classes" :key="c.classe">
+              <section class="sel-classe" :data-classe="c.classe" :aria-labelledby="'sel-cab-' + c.classe">
+                <h3 class="sel-classe__cab" :id="'sel-cab-' + c.classe"><span class="sel-ponto" :class="'sel-ponto--' + c.classe" aria-hidden="true"></span><span class="sel-classe__nome" x-text="c.nome"></span><span class="sel-classe__indice" x-text="c.indice"></span></h3>
+
+                <template x-if="c.motivo">
+                  <p class="sel-motivo" data-testid="sel-motivo" x-text="c.motivo"></p>
+                </template>
+
+                <template x-if="!c.motivo">
+                  <div class="sel-classe__corpo">
+                    <p class="sel-frase" data-testid="sel-frase"><template x-for="(s, i) in c.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+                    <template x-if="c.regua">
+                      <figure class="sel-regua">
+                        <svg viewBox="0 0 300 36" role="img" :aria-label="c.regua.aria">
+                          <rect class="sel-regua__faixa" x="104" y="11" width="92" height="14" rx="3"></rect>
+                          <line class="sel-regua__eixo" x1="12" y1="18" x2="288" y2="18"></line>
+                          <line class="sel-regua__traco" x1="58" y1="12" x2="58" y2="24"></line>
+                          <line class="sel-regua__traco" x1="104" y1="9" x2="104" y2="27"></line>
+                          <line class="sel-regua__zero" x1="150" y1="5" x2="150" y2="31"></line>
+                          <line class="sel-regua__traco" x1="196" y1="9" x2="196" y2="27"></line>
+                          <line class="sel-regua__traco" x1="242" y1="12" x2="242" y2="24"></line>
+                          <circle class="sel-regua__ponto" :cx="c.regua.x" cy="18" r="6"></circle>
+                        </svg>
+                        <p class="sel-regua__rotulos" aria-hidden="true"><span>atrás do índice</span><span>à frente</span></p>
+                      </figure>
+                    </template>
+                    <p class="sel-grau" data-testid="sel-grau"><strong x-text="c.grau.rotulo"></strong> <span x-text="c.grau.texto"></span></p>
+                    <p class="sel-linha"><template x-if="c.anos"><span data-testid="sel-anos" x-text="c.anos"></span></template><span data-testid="sel-meses" x-text="c.meses"></span><template x-if="c.divergem"><span data-testid="sel-divergem" x-text="c.divergem"></span></template></p>
+                  </div>
+                </template>
+
+                <template x-if="c.fundos">
+                  <p class="sel-linha sel-fundos" data-testid="sel-fundos" x-text="c.fundos"></p>
+                </template>
+              </section>
+            </template>
+
+            <p class="diag-nota sel-nota">A régua mede a diferença média mês a mês contra o quanto ela oscila. A faixa cinza é onde a sorte explica o resultado; o primeiro traço depois dela é o indício, o segundo, o consistente. Os picks incluem os papéis que já saíram da carteira; ETFs de índice ficam fora. Fala do passado e não garante o futuro.</p>
+
+            <details class="diag-conta">
+              <summary>Ver a conta</summary>
+              <div class="diag-conta__corpo">
+                <template x-for="tb in sel.tabelas" :key="tb.chave">
+                  <table class="diag-tabela sel-tabela" :data-janela="tb.chave">
+                    <caption class="sel-tabela__titulo" x-text="tb.rotulo"></caption>
+                    <thead><tr><td></td><template x-for="cn in sel.colunas" :key="cn"><th scope="col" x-text="cn"></th></template></tr></thead>
+                    <tbody>
+                      <template x-for="l in tb.linhas" :key="l.id">
+                        <tr :data-linha="l.id"><th scope="row" x-text="l.rotulo"></th><template x-for="(v, i) in l.v" :key="i"><td x-text="v"></td></template></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </template>
+                <p class="diag-conta__nota">Diferença média ao ano: a média mês a mês de quanto os picks renderam acima do índice, vezes 12. Oscilação da diferença (tracking error): o desvio-padrão dessa diferença mês a mês, vezes √12. Razão (Information Ratio): a diferença média ao ano dividida pela oscilação da diferença. Estatística t: a razão vezes a raiz do número de anos da janela; de 1 em diante é indício, de 2 em diante, consistente. A frase de cada classe usa a diferença composta: o retorno acumulado dos picks contra o do índice, ao ano.</p>
+                <p class="diag-conta__nota">Diferente da Rentabilidade: a ponte mostra quanto cada classe somou à carteira; a régua mede os picks contra o próprio índice.</p>
+              </div>
+            </details>
+
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico/aportes: capítulo 3 (7a.BR.2) ── -->
+      <!-- XIRR − TWR das janelas fixas da ponte (spec §5.2), no escopo e na
+           moeda escolhidos. Os mesmos controles do capítulo 1, com estado
+           próprio; a seção fica depois da Rentabilidade no DOM (locators
+           `.escopo-toggle button` com `.first()` de outras specs). -->
+      <section class="tela-detalhes tela-diag-aportes" x-show="rota === 'diag-aportes'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="apor-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="apor-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="rota === 'diag-aportes' && !apor">
+          <p class="placeholder">O momento dos aportes indisponível hoje.</p>
+        </template>
+
+        <template x-if="rota === 'diag-aportes' && apor">
+          <article class="diag-ensaio apor-ensaio" aria-labelledby="apor-titulo">
+            <p class="diag-ordinal" aria-hidden="true">3</p>
+            <h2 class="diag-titulo" id="apor-titulo">O momento dos seus aportes</h2>
+
+            <div class="escopo-toggle diag-escopos apor-escopos" role="group" aria-label="Escopo">
+              <button type="button" data-apor-escopo="Total" @click="aporEscolherEscopo('Total')"
+                      :class="{ active: aporEscopo === 'Total' }" :aria-pressed="aporEscopo === 'Total' ? 'true' : 'false'">Total</button>
+              <button type="button" data-apor-escopo="Brasil" aria-label="Brasil" @click="aporEscolherEscopo('Brasil')"
+                      :class="{ active: aporEscopo === 'Brasil' }" :aria-pressed="aporEscopo === 'Brasil' ? 'true' : 'false'"><span aria-hidden="true">🇧🇷</span> Brasil</button>
+              <button type="button" data-apor-escopo="EUA" aria-label="EUA" @click="aporEscolherEscopo('EUA')"
+                      :class="{ active: aporEscopo === 'EUA' }" :aria-pressed="aporEscopo === 'EUA' ? 'true' : 'false'"><span aria-hidden="true">🇺🇸</span> EUA</button>
+            </div>
+            <div class="moeda-toggle diag-moedas apor-moedas" role="group" aria-label="Moeda" x-show="aporEscopo === 'EUA'">
+              <button type="button" data-apor-moeda="BRL" @click="aporEscolherMoeda('BRL')"
+                      :class="{ active: aporMoeda === 'BRL' }" :aria-pressed="aporMoeda === 'BRL' ? 'true' : 'false'"
+                      aria-label="Mostrar a parte americana em reais">BRL</button>
+              <button type="button" data-apor-moeda="USD" @click="aporEscolherMoeda('USD')"
+                      :class="{ active: aporMoeda === 'USD' }" :aria-pressed="aporMoeda === 'USD' ? 'true' : 'false'"
+                      aria-label="Mostrar a parte americana em dólares">USD</button>
+            </div>
+
+            <div class="diag-janelas" role="group" aria-label="Janela">
+              <template x-for="j in apor.janelas" :key="j.chave">
+                <button type="button" class="diag-janela diag-janela--herda"
+                        :data-testid="'apor-janela-' + j.chave"
+                        :aria-pressed="apor.chave === j.chave ? 'true' : 'false'"
+                        :aria-disabled="j.disponivel ? null : 'true'"
+                        :aria-describedby="j.disponivel ? null : 'apor-motivo'"
+                        @click="aporEscolherJanela(j.chave)"
+                        x-text="j.rotulo"></button>
+              </template>
+            </div>
+            <p class="diag-motivo" id="apor-motivo" data-testid="apor-motivo" aria-live="polite"
+               x-show="apor.motivo" x-text="apor.motivo"></p>
+
+            <template x-if="apor.semJanela">
+              <p class="diag-sem-janela" data-testid="apor-sem-janela" x-text="apor.semJanela"></p>
+            </template>
+
+            <template x-if="!apor.semJanela">
+              <div class="diag-corpo">
+                <p class="diag-frase apor-frase" data-testid="apor-frase"><template x-for="(s, i) in apor.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+                <p class="diag-ate" data-testid="apor-ate" x-text="apor.linhaAte"></p>
+
+                <dl class="diag-pares">
+                  <div class="diag-par">
+                    <dt>A carteira</dt>
+                    <dd data-testid="apor-carteira" x-text="apor.carteira"></dd>
+                    <dd class="diag-par__linha" data-testid="apor-carteira-linha">Como se o dinheiro tivesse ficado parado do começo ao fim.</dd>
+                  </div>
+                  <template x-if="!apor.semXirr">
+                    <div class="diag-par">
+                      <dt>O seu dinheiro</dt>
+                      <dd data-testid="apor-dinheiro" x-text="apor.dinheiro"></dd>
+                      <dd class="diag-par__linha" data-testid="apor-dinheiro-linha">Considera quando e quanto entrou e saiu.</dd>
+                    </div>
+                  </template>
+                </dl>
+              </div>
+            </template>
+
+            <p class="diag-texto apor-explica">Dinheiro que entra antes de meses bons puxa o seu retorno para cima do da carteira; antes de meses ruins, para baixo.</p>
+            <p class="diag-nota apor-nota">Não mede acerto de escolha: quem aporta todo mês pelo salário ganha essa diferença, para um lado ou para o outro, sem ter escolhido o momento. Proventos que saíram da carteira contam como dinheiro que saiu.</p>
+
+            <template x-if="!apor.semJanela">
+              <details class="diag-conta">
+                <summary>Ver a conta</summary>
+                <div class="diag-conta__corpo">
+                  <table class="diag-tabela">
+                    <caption class="sr-only">Os dois retornos da janela escolhida, com o nome técnico</caption>
+                    <tbody>
+                      <tr><th scope="row">A carteira (TWR)</th><td x-text="apor.conta.twr"></td></tr>
+                      <tr><th scope="row">O seu dinheiro (XIRR)</th><td x-text="apor.conta.xirr"></td></tr>
+                    </tbody>
+                  </table>
+                  <p class="diag-conta__nota" x-text="apor.conta.periodo"></p>
+                  <p class="diag-conta__nota">TWR, a régua da carteira: o retorno de cada mês encadeado, como se o dinheiro tivesse ficado parado; não depende de quando você aportou. XIRR, a régua do seu dinheiro: a taxa que iguala o valor de hoje a tudo o que entrou e saiu, cada fluxo na sua data. A diferença, XIRR menos TWR, é o que o calendário dos aportes somou ou tirou; a diferença muda de sinal conforme a janela.</p>
+                </div>
+              </details>
             </template>
 
             <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>

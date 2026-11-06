@@ -2,8 +2,9 @@ import { test, expect, Page } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 
-// Fase 7a.BQ.2 — Diagnóstico (#/raiox/diagnostico), capítulo 1 "Quanto risco
-// a carteira correu", e o card da home. Fixtures 100% sintéticas: o bloco
+// Fase 7a.BQ.2 — Diagnóstico, capítulo 1 "Quanto risco
+// a carteira correu" (desde a 7a.BR.2 em #/raiox/diagnostico/risco; o
+// #/raiox/diagnostico virou o índice), e o card da home. Fixtures 100% sintéticas: o bloco
 // `risco` sai de construir_bloco_risco sobre gerar_fixture.py::_ponte_risco.
 // Os valores esperados são lidos do payload decifrado e formatados pelos
 // formatadores da casa (diagPct1, diagAbs1, diagNum2, rent2MmmAa), salvo onde
@@ -34,7 +35,7 @@ async function autenticar(page: Page, corpo = PRINCIPAL) {
 
 // Gate de DADO (x-if `.diag-ensaio`) + fim do push-enter (lição 7a.AW.2).
 async function abrir(page: Page) {
-  await page.goto("/#/raiox/diagnostico");
+  await page.goto("/#/raiox/diagnostico/risco");
   await expect(page.locator(`${TELA} .diag-ensaio`)).toBeVisible();
   await page
     .waitForFunction(() => {
@@ -110,7 +111,7 @@ test.describe("7a.BQ.2 — card na home", () => {
     expect(vizinho).toContain("diag-card-home");
     await card.click();
     await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
-    await expect(page.locator(`${TELA} .diag-ensaio`)).toBeVisible();
+    await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
   });
 
   test("ainda não recuperou: o card diz que a carteira ainda não voltou ao pico", async ({ page }) => {
@@ -137,7 +138,7 @@ test.describe("7a.BQ.2 — card na home", () => {
     await expect(card).not.toContainText("pior queda");
     await card.click();
     await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
-    await expect(page.locator(`${TELA} .diag-ensaio`)).toBeVisible();
+    await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
   });
 
   for (const [nome, corpo] of [["risco null", NULO], ["pré-v2.35", PRE235]] as const) {
@@ -145,7 +146,7 @@ test.describe("7a.BQ.2 — card na home", () => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
       await expect(page.locator(".diag-card-home")).toBeHidden();
-      await page.goto("/#/raiox/diagnostico");
+      await page.goto("/#/raiox/diagnostico/risco");
       await expect(page.locator(TELA)).toContainText("Diagnóstico indisponível hoje.");
       await expect(page.locator(`${TELA} .diag-ensaio`)).toHaveCount(0);
       // Só o "voltar" do breadcrumb: nada de "Recarregar".
@@ -156,7 +157,7 @@ test.describe("7a.BQ.2 — card na home", () => {
 });
 
 test.describe("7a.BQ.2 — a tela", () => {
-  test("capítulo 1, título, voltar ao Raio-X e janela padrão Desde", async ({ page }) => {
+  test("capítulo 1, título, voltar ao índice e janela padrão Desde", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page);
     await abrir(page);
@@ -166,7 +167,8 @@ test.describe("7a.BQ.2 — a tela", () => {
     await expect(page.locator(`${TELA} [data-testid="diag-janela-desde"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`${TELA} [data-testid="diag-janela-3a"]`)).toHaveAttribute("aria-pressed", "false");
     await page.locator(`${TELA} .breadcrumb button`).click();
-    await expect(page.locator(".raiox")).toBeVisible();
+    await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
+    await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
     expect(erros).toEqual([]);
   });
 
@@ -399,7 +401,7 @@ test.describe("7a.BQ.2 — estados (spec §6.3)", () => {
         d.json = { ...d.json, risco: r };
       }, mutacao);
       await expect(page.locator(".diag-card-home")).toBeHidden();
-      await page.goto("/#/raiox/diagnostico");
+      await page.goto("/#/raiox/diagnostico/risco");
       await expect(page.locator(TELA)).toContainText("Diagnóstico indisponível hoje.");
       await expect(page.locator(`${TELA} .diag-ensaio`)).toHaveCount(0);
       expect(erros).toEqual([]);

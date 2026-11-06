@@ -369,7 +369,7 @@ test.describe("#s-dy — ranking completo da classe (7a.BO.2)", () => {
 test.describe("Fixture — dividend_yield.ranking (7a.BO.2, 2.34 na 7a.BO.4)", () => {
   test("ranking com as 3 categorias, sem campeoes", async () => {
     const json = JSON.parse(await decifrarFixture(FIXTURE, PIN_TESTE));
-    expect(json.versao).toBe("2.35");
+    expect(json.versao).toBe("2.36");
     const { ranking } = json.dividend_yield;
     expect(json.dividend_yield).not.toHaveProperty("campeoes");
     expect(Object.keys(ranking).sort()).toEqual(["acao_br", "eua", "fii"]);

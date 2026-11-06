@@ -2737,6 +2737,22 @@ button.ponte-degrau { cursor: pointer; }
   color: var(--gray);
   line-height: 1.3;
 }
+/* 7a.BR.2: a frase do momento dos aportes, sob as duas réguas. */
+.rent-aporte-frase { margin: 0 0 16px; font-size: 0.875rem; line-height: 1.45; color: var(--ink); }
+/* 7a.BR.2: link para o capítulo 2 do Diagnóstico, logo abaixo do "quem pesou".
+   Só texto, alvo de toque de 44 px; o "›" fica colado na última palavra. */
+.rent-grifo-sel {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -12px 0 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--accent);
+  text-decoration: none;
+}
+.rent-grifo-sel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .rent2-aviso { margin: 0; font-size: 0.75rem; color: var(--gray); }
 
 /* Verificação visual a 320 px: com o rótulo a 116 px o trilho ficava com
@@ -4740,3 +4756,78 @@ body:has(.tab-bar) main {
 .diag-conta__nota { margin: 12px 0 0; font-size: 0.8125rem; line-height: 1.5; color: var(--gray); max-width: 68ch; }
 
 .diag-aviso { margin: 1.75rem 0 0; font-size: 0.8125rem; color: var(--gray); }
+
+/* ── Fase 7a.BR.2: índice do Diagnóstico e capítulos 2 e 3 ─────────────────
+   Mesma família ensaio do capítulo 1 (.diag-ensaio): coluna única, lista de
+   bordas finas, sem cards. Só tokens (flipam no Modo Plantão sozinhos), zero
+   motion nova além do :active dos toggles que já existem. Os controles novos
+   herdam a fonte do texto (font: inherit). */
+.diag-indice__titulo { margin: 1.25rem 0 0; }
+.diag-indice__instrucao { margin: 8px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--gray); max-width: 60ch; }
+.diag-indice__lista { list-style: none; margin: 1.375rem 0 0; padding: 0; border-top: 1px solid var(--neutral-200); }
+.diag-indice__linha {
+  display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) 1rem; column-gap: 10px; align-items: start;
+  min-height: 44px; padding: 16px 0; border-bottom: 1px solid var(--neutral-200);
+  color: var(--ink); text-decoration: none; touch-action: manipulation;
+}
+.diag-indice__linha:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.diag-indice__ordinal { padding-top: 2px; font-size: 0.8125rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.diag-indice__corpo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.diag-indice__pergunta { font-size: 1rem; line-height: 1.3; font-weight: 700; color: var(--g-900); }
+.diag-indice__estado { font-size: 0.875rem; line-height: 1.45; color: var(--ink); font-variant-numeric: tabular-nums; }
+.diag-indice__chevron { padding-top: 2px; font-size: 1.125rem; line-height: 1; color: var(--gray); }
+.diag-indice__nota { margin: 1.125rem 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 68ch; }
+
+/* Janelas dos capítulos 2 e 3: o mesmo botão do capítulo 1, herdando a
+   fonte do texto (o font: inherit zera tamanho e peso, que voltam aqui). */
+.diag-janela.diag-janela--herda { font: inherit; font-size: 0.8125rem; font-weight: 600; }
+.diag-janela.diag-janela--herda[aria-pressed="true"] { font-weight: 700; }
+@media (max-width: 359px) {
+  .diag-janela.diag-janela--herda { font-size: 0.75rem; }
+}
+.apor-escopos button { font: inherit; font-size: 0.875rem; font-weight: 600; }
+.apor-escopos button.active { font-weight: 700; }
+.apor-moedas button { font: inherit; font-size: 0.8125rem; font-weight: 500; }
+
+/* Capítulo 2. */
+.sel-pergunta { margin: 0 0 1rem; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 60ch; }
+.sel-classe { margin-top: 1.375rem; padding-top: 1.125rem; border-top: 1px solid var(--neutral-200); }
+.sel-classe__cab { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; margin: 0; font-size: 1.125rem; line-height: 1.3; font-weight: 700; color: var(--ink); }
+.sel-ponto { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
+.sel-ponto--acoes_br { background: var(--cat-acoes-br); }
+.sel-ponto--fiis { background: var(--cat-fii); }
+.sel-ponto--eua { background: var(--cat-eua); }
+.sel-classe__indice { font-weight: 500; color: var(--gray); }
+.sel-frase { margin: 8px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 60ch; font-variant-numeric: tabular-nums; }
+/* Critique 7a.BR.2: destaque em tinta, não em --g-900 (menta no Plantão):
+   "atrás" não pode sair na cor do ganho; o peso basta. */
+.sel-frase strong, .apor-frase strong { font-weight: 700; color: var(--ink); }
+.sel-motivo { margin: 8px 0 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); }
+
+/* A régua da confiança: o elemento memorável da tela. Sem cor de ganho ou
+   perda (o grau não é mérito): faixa da sorte chapada, traços e zero em
+   tinta, ponto em tinta com aro da cor do fundo. */
+.sel-regua { margin: 14px 0 0; }
+.sel-regua svg { display: block; width: 100%; height: auto; overflow: visible; }
+.sel-regua__faixa { fill: var(--neutral-200); }
+.sel-regua__eixo { stroke: var(--gray); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sel-regua__traco { stroke: var(--gray); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sel-regua__zero { stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+/* Aro de 3 px da cor do fundo: com t perto de zero o ponto se fundia ao traço do zero. */
+.sel-regua__ponto { fill: var(--ink); stroke: var(--neutral-50); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.sel-regua__rotulos { display: flex; justify-content: space-between; gap: 8px; margin: 4px 4% 0; font-size: 0.75rem; color: var(--gray); }
+
+.sel-grau { margin: 12px 0 0; font-size: 0.9375rem; line-height: 1.45; color: var(--ink); max-width: 60ch; }
+.sel-grau strong { font-weight: 700; }
+.sel-linha { margin: 4px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 68ch; font-variant-numeric: tabular-nums; }
+.sel-linha > span ~ span::before { content: " "; }
+.sel-fundos { margin-top: 8px; }
+.sel-nota { margin-top: 1.5rem; }
+
+.sel-tabela { margin-top: 12px; }
+.sel-tabela__titulo { caption-side: top; text-align: left; padding: 4px 0 2px; font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+.sel-tabela tbody th { padding-right: 6px; font-size: 0.8125rem; line-height: 1.35; }
+.sel-tabela tbody td, .sel-tabela thead th { padding-left: 10px; }
+
+/* Capítulo 3. */
+.apor-explica { margin-top: 1.375rem; }

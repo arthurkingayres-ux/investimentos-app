@@ -7,6 +7,13 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.36 (Fase 7a.BR.2): bloco top-level ``selecao`` -- confiança da
+seleção por classe (Ações BR, FIIs, EUA) e janela (3a, 5a, desde), consumido
+pelos capítulos ``#/raiox/diagnostico/selecao`` e ``/aportes``. Sempre gerado
+por ``construir_bloco_selecao`` sobre uma ponte sintética própria
+(``_ponte_selecao``); o fundo fora da política é sintético (``XFND``, troca
+temporária de ``_FUNDOS_FORA_DA_POLITICA`` no gerador), ver a seção da fase.
+
 Schema v2.35 (Fase 7a.BQ.2): bloco top-level ``risco`` -- oscilação, pior
 queda e Sharpe contra o CDI por escopo e janela, consumido pela tela
 ``#/raiox/diagnostico`` e pelo card da home. Sempre gerado por
@@ -1155,8 +1162,219 @@ def _risco_sintetico(variante: str = "normal") -> dict:
     return bloco
 
 
+# ── Fase 7a.BR.2: ponte sintética só para o bloco ``selecao`` (schema v2.36) ─
+# CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
+# público): nenhum retorno, grau, diferença, ticker excluído ou data sai do DB
+# real. O ``selecao`` da fixture é SEMPRE ``construir_bloco_selecao`` (referência
+# Python da BR.1) sobre a ponte abaixo, nunca escrito à mão.
+#
+# Fundo fora da política SINTÉTICO. A lista fechada real de ``selecao.py`` nomeia
+# tickers reais, e nenhum deles pode ser gravado neste repo público. O gerador
+# (que roda do principal) troca ``selecao._FUNDOS_FORA_DA_POLITICA`` por
+# ``frozenset({"XFND"})`` dentro de ``try/finally``; ``XFND`` é um ativo ``eua``
+# não passivo da ponte sintética, e o builder produz ``excluidos == ["XFND"]``
+# DE VERDADE (sem edição depois do builder). ``_confere_selecao`` afirma que a
+# janela de ``eua`` ignora ``XFND`` (igual à da mesma ponte sem ele).
+#
+# Ponte do capítulo 3 (momento dos aportes). O capítulo usa a ponte PUBLICADA
+# (``PAYLOAD["ponte"]``, via ``ponteJanelasFixas``). A ``_ponte_curta`` tem 30
+# meses e um buraco em Total: 3a, 5a e desde ficam indisponíveis, sem XIRR. Por
+# isso o e2e do capítulo 3 abre ``portfolio_selecao_aportes`` (ponte longa de 72
+# meses, sem anomalias, 3a/5a/desde com valor; ``_confere_aportes`` afirma XIRR
+# não nulo nos quatro escopos). O ``PAYLOAD`` principal segue com a ponte curta
+# (nada que dependa dela muda).
+_SEL_N = 72
+# ticker, classe, passivo, mês de início, valor inicial
+_SEL_ATIVOS = [
+    ("AAAA3", "acoes_br", False, 0, 10000.0),
+    ("FFFF11", "fiis", False, 0, 8000.0),
+    ("ZZZ", "eua", False, 8, 3000.0),
+    ("PPPP", "eua", True, 2, 2500.0),
+]
+# (beta, alfa até o mês 35, alfa do mês 36 em diante, amplitude, frequência, fase)
+_SEL_PARAMS: dict[str, dict[str, tuple]] = {
+    "normal": {
+        "AAAA3": (1.0, -0.003, 0.003, 0.02, 0.9, 0.3),
+        "FFFF11": (1.0, 0.0, 0.0, 0.02, 1.3, 0.8),
+        "ZZZ": (1.0, 0.0, 0.0, 0.02, 1.7, 1.4),
+        "PPPP": (1.0, 0.0001, 0.0001, 0.001, 0.5, 0.0),
+        "XFND": (1.0, 0.03, 0.03, 0.02, 1.1, 2.0),
+        "AVNU_REBATE": (0, 0, 0, 0, 0, 0),
+    },
+    # Ações BR com picks de muita oscilação (beta 0, amplitude 0,5): o composto
+    # perde para o índice enquanto o excesso médio é positivo (sinais que discordam).
+    "divergem": {"AAAA3": (0.0, 0.06, 0.06, 0.5, 0.9, 0.3)},
+    "indicio": {
+        "FFFF11": (1.0, 0.0042, 0.0042, 0.02, 1.3, 0.8),
+        "ZZZ": (1.0, 0.0027, 0.0027, 0.02, 1.7, 1.4),
+    },
+}
+_SEL_ALFA_MES = 36
+
+
+def _sel_params(variante: str, ticker: str) -> tuple:
+    return (_SEL_PARAMS.get(variante) or _SEL_PARAMS["normal"]).get(
+        ticker, _SEL_PARAMS["normal"][ticker])
+
+
+def _ponte_selecao(variante: str = "normal", xfnd: bool | None = None) -> dict:
+    """Ponte sintética das variantes do ``selecao``: ``normal`` (72 meses, EUA
+    começa no mês 14, XFND presente), ``curto`` (EUA a 20 meses do fim),
+    ``indisponivel`` (buraco em Brasil no mês 50: Ações BR e FIIs caem nas três
+    janelas, EUA segue), ``divergem`` e ``indicio`` (AVNU_REBATE presente, sem
+    XFND). ``xfnd=False`` devolve a mesma ponte sem o ativo XFND (para a
+    comparação do ``_confere_selecao``); os ids dos demais não se deslocam."""
+    n = _SEL_N
+    if xfnd is None:
+        xfnd = variante != "indicio"
+    meses = _ponte_meses(n, _risco_inicio(n))
+    ind_brl, ind_usd = _ponte_indices(n, anomalias=False)
+    base = {"acoes_br": ind_brl["IBOV"], "fiis": ind_brl["IFIX"], "eua": ind_usd["SP500TR"]}
+    lista = list(_SEL_ATIVOS)
+    if variante == "curto":
+        lista[2] = ("ZZZ", "eua", False, n - 20, 3000.0)
+    if variante == "indicio":
+        lista.append(("AVNU_REBATE", "eua", False, 0, 0.0))
+    if xfnd:
+        lista.append(("XFND", "eua", False, 1, 1500.0))
+    ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": None}
+              for (tk, c, p, _ini, _v0) in lista]
+    brl: list[list] = [[] for _ in range(n)]
+    usd: list[list] = [[] for _ in range(n)]
+    chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
+    fluxos = {k: {"v": [0.0] * n, "entrou": [0.0] * n, "prov": [0.0] * n} for k in chaves}
+
+    def _soma(chave: str, campo: str, t: int, x: float) -> None:
+        fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
+
+    for i, (tk, classe, _passivo, ini, v0) in enumerate(lista):
+        eua = classe == "eua"
+        beta, a0, a1, amp, freq, fase = _sel_params(variante, tk)
+        if tk == "AVNU_REBATE":
+            # pseudoativo sem posição (D = 0, ganho pequeno): fora dos picks
+            for t in range(n):
+                if t % 2 == 0:
+                    g = round(0.6 + 0.3 * math.sin(t), 2)
+                    usd[t].append([i, 0.0, g])
+                    brl[t].append([i, 0.0, round(g * _ponte_fx(t), 2)])
+            continue
+        v_nat = v_brl = 0.0
+        for t in range(ini, n):
+            f_nat = v0 if t == ini else 0.0
+            d_nat = round(v_nat + 0.5 * f_nat, 2)
+            if t > ini:
+                alfa = a1 if t >= _SEL_ALFA_MES else a0
+                r = beta * (base[classe][t] or 0.0) + alfa + amp * math.sin(freq * t + fase)
+            else:
+                r = 0.0
+            g_nat = round(r * d_nat, 2)
+            v_novo = round(v_nat + f_nat + g_nat, 2)
+            if eua:
+                fx = _ponte_fx(t)
+                f_brl, vb_novo = round(f_nat * fx, 2), round(v_novo * fx, 2)
+                g_brl = round(vb_novo - v_brl - f_brl, 2)
+                d_brl = round(v_brl + 0.5 * f_brl, 2)
+                usd[t].append([i, d_nat, g_nat])
+                for campo, x in (("v", v_novo), ("entrou", f_nat)):
+                    _soma("EUA_USD", campo, t, x)
+            else:
+                f_brl, vb_novo, g_brl, d_brl = f_nat, v_novo, g_nat, d_nat
+            brl[t].append([i, d_brl, g_brl])
+            for k in ("Total", "EUA_BRL" if eua else "Brasil"):
+                for campo, x in (("v", vb_novo), ("entrou", f_brl)):
+                    _soma(k, campo, t, x)
+            v_nat, v_brl = v_novo, vb_novo
+    buraco = [50, 51] if variante == "indisponivel" else []
+    return {
+        "ate": meses[-1], "meses": meses,
+        "indices": {"BRL": ind_brl, "USD": ind_usd},
+        "ativos": ativos, "brl": brl, "usd": usd, "fluxos": fluxos,
+        "buracos": {"Total": buraco, "Brasil": list(buraco), "EUA_BRL": [], "EUA_USD": []},
+    }
+
+
+def _sel_disp(j: dict) -> bool:
+    return j["indisponivel"] is None
+
+
+def _confere_selecao(bloco: dict, variante: str) -> None:
+    """Afirma o estado que cada variante promete ao e2e; levanta se não vale.
+    Roda com ``_FUNDOS_FORA_DA_POLITICA`` já trocado (ver ``_selecao_sintetica``)."""
+    from src.calculadora.selecao import construir_bloco_selecao
+
+    c = bloco["classes"]
+    assert bloco["ate"] == "2026-09", bloco["ate"]
+    assert set(c) == {"acoes_br", "fiis", "eua"}, set(c)
+
+    def graus(cl: str) -> dict:
+        return {k: c[cl]["janelas"][k]["grau"] for k in ("3a", "5a", "desde")}
+
+    if variante == "normal":
+        assert graus("acoes_br") == {"3a": "indicio", "5a": "inconclusivo", "desde": "inconclusivo"}, graus("acoes_br")
+        assert set(graus("fiis").values()) == {"inconclusivo"}, graus("fiis")
+        assert set(graus("eua").values()) == {"inconclusivo"}, graus("eua")
+        assert c["eua"]["excluidos"] == ["XFND"] and c["acoes_br"]["excluidos"] == [] and c["fiis"]["excluidos"] == []
+        # uma classe só com indício/consistente em 3a ou 5a
+        fortes = [cl for cl in c if any(c[cl]["janelas"][k]["grau"] in ("indicio", "consistente") for k in ("3a", "5a"))]
+        assert fortes == ["acoes_br"], fortes
+        assert c["eua"]["janelas"]["desde"]["de"] > c["acoes_br"]["janelas"]["desde"]["de"]
+        assert all(c[cl]["janelas"][k]["n_meses"] >= 36 for cl in c for k in ("3a", "5a", "desde"))
+        # a janela de eua ignora XFND: igual à da mesma ponte sem ele
+        sem = construir_bloco_selecao(_ponte_selecao(variante, xfnd=False))["classes"]["eua"]
+        assert sem["excluidos"] == [] and sem["janelas"] == c["eua"]["janelas"], (sem, c["eua"])
+    elif variante == "curto":
+        for k in ("3a", "5a", "desde"):
+            j = c["eua"]["janelas"][k]
+            assert _sel_disp(j) and j["grau"] == "curto" and j["n_meses"] < 36, (k, j)
+        assert c["acoes_br"]["janelas"]["desde"]["grau"] != "curto"
+    elif variante == "indisponivel":
+        for cl in ("acoes_br", "fiis"):
+            for k in ("3a", "5a", "desde"):
+                j = c[cl]["janelas"][k]
+                assert not _sel_disp(j) and j["indisponivel"].startswith("cotação ausente em"), (cl, k, j)
+        assert all(_sel_disp(c["eua"]["janelas"][k]) for k in ("3a", "5a", "desde"))
+    elif variante == "divergem":
+        j = c["acoes_br"]["janelas"]["desde"]
+        assert j["sinais_divergem"] and j["grau"] == "inconclusivo", j
+        assert j["diferenca_aa"] * j["t"] < 0, j
+        for cl in ("fiis", "eua"):
+            assert not c[cl]["janelas"]["desde"]["sinais_divergem"], cl
+    elif variante == "indicio":
+        assert c["eua"]["janelas"]["desde"]["grau"] == "indicio", graus("eua")
+        assert c["eua"]["excluidos"] == ["AVNU_REBATE"], c["eua"]["excluidos"]
+        assert c["fiis"]["janelas"]["desde"]["grau"] == "consistente", graus("fiis")
+        assert c["fiis"]["janelas"]["desde"]["anos_para_afirmar"] is None
+    else:
+        raise ValueError(variante)
+
+
+def _selecao_sintetica(variante: str = "normal") -> dict:
+    from src.calculadora import selecao
+
+    original = selecao._FUNDOS_FORA_DA_POLITICA
+    selecao._FUNDOS_FORA_DA_POLITICA = frozenset({"XFND"})
+    try:
+        bloco = selecao.construir_bloco_selecao(_ponte_selecao(variante))
+        _confere_selecao(bloco, variante)
+    finally:
+        selecao._FUNDOS_FORA_DA_POLITICA = original
+    return bloco
+
+
+def _confere_aportes(ponte: dict) -> None:
+    """A ponte do capítulo 3: XIRR não nulo em 3a, 5a e desde, nos quatro escopos."""
+    from src.calculadora.ponte import janelas_fixas
+
+    for escopo, moeda in _PONTE_ESCOPOS:
+        fixas = janelas_fixas(ponte, escopo, moeda)
+        for k in ("3a", "5a", "desde"):
+            j = fixas[k]
+            assert j["indisponivel"] is None and j["xirr"] is not None, (escopo, moeda, k, j.get("indisponivel"), j.get("xirr"))
+    assert ponte["ate"] == "2026-09"
+
+
 PAYLOAD = {
-    "versao": "2.35",
+    "versao": "2.36",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1675,6 +1893,11 @@ PAYLOAD = {
 PAYLOAD["risco"] = _risco_sintetico("normal")
 assert PAYLOAD["risco"]["ate"] == PAYLOAD["ponte"]["ate"]
 
+# Schema v2.36 (Fase 7a.BR.2): confiança da seleção, da ponte sintética própria
+# (``_ponte_selecao``), com o mesmo ``ate`` da ponte publicada.
+PAYLOAD["selecao"] = _selecao_sintetica("normal")
+assert PAYLOAD["selecao"]["ate"] == PAYLOAD["ponte"]["ate"]
+
 # Schema v2.33 (7a.BO.2): ranking completo por classe, aberto pelo top-3
 # literal; na 2.34 (7a.BO.4) o top-3 sai do payload como chave própria.
 PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"].pop("campeoes"))
@@ -1682,7 +1905,7 @@ _confere_ranking(PAYLOAD["dividend_yield"])
 
 # Passo intermediário de ``_PRE_RENDA``: os payloads de versão anterior à 2.33
 # não carregam ``dividend_yield.ranking`` (nenhuma fixture própria desde a 2.34).
-_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k != "risco"} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
+_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k not in ("risco", "selecao")} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
                                              if k != "ranking"}}
 
 # Payloads de versão anterior à 2.32 não carregam ``renda``.
@@ -2336,6 +2559,26 @@ def gerar_portfolio_risco_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BR.2 (Task 4): os estados das telas ``#/raiox/diagnostico/selecao`` e
+# ``/aportes`` -- ``selecao: null`` (builder falhou), as variantes do bloco, o
+# payload 2.35 (sem a chave) e ``portfolio_selecao_aportes`` (ponte publicada
+# longa, para o capítulo 3 ter XIRR em 3a, 5a e desde). Gerar só estas (a cifra
+# não é determinística), nunca o main().
+def gerar_portfolio_selecao_variantes() -> None:
+    longa = _ponte_longa()
+    _confere_aportes(longa)
+    alvos = [("portfolio_selecao_null", PAYLOAD | {"selecao": None}),
+             ("portfolio_pre_v236", {k: v for k, v in PAYLOAD.items() if k != "selecao"}
+              | {"versao": "2.35"}),
+             ("portfolio_selecao_aportes", PAYLOAD | {"ponte": longa})]
+    alvos += [(f"portfolio_selecao_{v}", PAYLOAD | {"selecao": _selecao_sintetica(v)})
+              for v in ("curto", "indisponivel", "divergem", "indicio")]
+    for nome, payload in alvos:
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BK.1 (Task 2): a #alocacao por faixa de tolerância. Duas variantes do
 # PAYLOAD com a ``politica`` trocada por pesos SINTÉTICOS redondos (repo
 # público). Regra da faixa: tol = max(0,02; 0,10 × alvo), bordas inclusivas.
@@ -2637,6 +2880,7 @@ def main() -> None:
     gerar_portfolio_hero_7digitos()        # 7a.BL.2 (Task 6)
     gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
     gerar_portfolio_risco_variantes()      # 7a.BQ.2 (Task 5)
+    gerar_portfolio_selecao_variantes()    # 7a.BR.2 (Task 4)
 
 
 if __name__ == "__main__":

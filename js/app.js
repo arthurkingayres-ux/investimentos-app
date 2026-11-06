@@ -834,6 +834,190 @@ function diagGrafico(j, ancora, ate) {
   };
 }
 
+// ── Fase 7a.BR.2: índice do Diagnóstico e capítulos 2 e 3 ──────────────
+// Capítulo 2 lê o bloco `selecao` (schema 2.36, src/calculadora/selecao.py):
+// só formata e desenha, sem gêmea JS (spec, emenda c). Capítulo 3 não muda o
+// payload: XIRR − TWR das janelas fixas da ponte (ponteJanelasFixas, spec
+// §5.2). Funções puras de topo de propósito: o e2e as chama com valores
+// sintéticos (ponto preso às pontas, "Ficaram empatados.", "quase não mudou").
+const SEL_CLASSES = ["acoes_br", "fiis", "eua"];
+// Nome do índice na tela do capítulo 2 (mockup aprovado: "× IBOV").
+const SEL_NOME_INDICE = { IBOV: "IBOV", IFIX: "IFIX", SP500TR: "S&P 500" };
+const SEL_GRAUS = ["curto", "inconclusivo", "indicio", "consistente"];
+// Item 2 da §8 da spec, verbatim: [rótulo em negrito, resto da frase].
+const SEL_GRAU = {
+  inconclusivo: ["Inconclusivo.", "Ainda não dá para separar habilidade de sorte."],
+  indicio: ["Indício.", "A diferença começa a ir além da sorte, mas ainda não é prova."],
+  consistente: ["Consistente.", "Difícil explicar só por sorte."],
+  curto: ["Histórico curto:", "menos de 3 anos com picks nesta janela."],
+};
+const SEL_JANELAS = [["3a", "3 anos"], ["5a", "5 anos"], ["desde", "Desde o início"]];
+const SEL_REBATE = "AVNU_REBATE";
+const SEL_DIVERGEM = "A diferença composta e a média mês a mês apontam para lados opostos.";
+// Régua da confiança: viewBox 0..300 × 0..36, margem de 12 de cada lado,
+// t de −3 a +3 (spec §6.3). O HTML desenha faixa, traços e zero nas mesmas
+// coordenadas (104/196 = ±1, 58/242 = ±2, 150 = 0).
+const SEL_REGUA = { largura: 300, margem: 12 };
+// Capítulo 3: abaixo de 0,5 ponto exibido, "quase não mudou" (item 8 da §8).
+const APOR_LIMIAR = 0.5;
+const APOR_SUJEITO = { Total: "", Brasil: " da parte brasileira", EUA: " da parte americana" };
+
+// x do ponto na régua; |t| > 3 fica preso à ponta.
+function selReguaX(t) {
+  const c = Math.max(-3, Math.min(3, t));
+  return SEL_REGUA.margem + ((c + 3) / 6) * (SEL_REGUA.largura - 2 * SEL_REGUA.margem);
+}
+
+// Janela do bloco com a forma que a tela lê (indisponível só precisa do motivo
+// não vazio e dos campos fixos). Parcial derruba o bloco inteiro (getter
+// `selecao`), como no `risco`.
+function selJanelaValida(j) {
+  if (!j || typeof j !== "object") return false;
+  const num = Number.isFinite, nulo = (v) => v === null || num(v);
+  if (!(j.indisponivel === null || (typeof j.indisponivel === "string" && j.indisponivel))) return false;
+  if (typeof j.ate !== "string" || typeof j.anualizado !== "boolean" || typeof j.sinais_divergem !== "boolean") return false;
+  if (j.indisponivel !== null) return true;
+  if (!num(j.n_meses) || !num(j.meses_sem_base) || typeof j.de !== "string" || !SEL_GRAUS.includes(j.grau)) return false;
+  if (!["picks_aa", "indice_aa", "diferenca_aa", "excesso_medio_aa"].every((k) => num(j[k]))) return false;
+  return ["desvio_aa", "razao", "t", "anos_para_afirmar"].every((k) => k in j && nulo(j[k]));
+}
+
+// O motivo novo do bloco mais os da ponte (os textos são os mesmos).
+function selMotivoTexto(motivo) {
+  if (motivo === "sem picks na janela") return "Sem picks nesta janela.";
+  return rent2MotivoTexto(motivo);
+}
+
+// "Seus picks renderam P% ao ano; o IBOV, I%. Ficaram D ponto(s) ao ano à
+// frente." Segmentos; `b` = negrito. Com menos de 12 meses, "no período".
+function selFrase(classe, indice, j) {
+  const unid = j.anualizado ? "ao ano" : "no período";
+  const moeda = classe === "eua" ? " em dólar" : "";
+  const r = ponteRoundPy(j.diferenca_aa * 100, 1);
+  const segs = [
+    { t: `${classe === "fiis" ? "Seus fundos" : "Seus picks"} renderam ` }, { t: diagPct1(j.picks_aa), b: true },
+    { t: ` ${unid}${moeda}; o ${indice}, ` }, { t: diagPct1(j.indice_aa), b: true }, { t: ". " },
+  ];
+  if (Math.abs(r) < RENT2_NEUTRO) segs.push({ t: "Ficaram empatados." });
+  else segs.push({ t: "Ficaram " }, { t: `${rent2Abs1(r)} ${rent2PontoPontos(r)}`, b: true }, { t: ` ${unid} ${r > 0 ? "à frente" : "atrás"}.` });
+  return segs;
+}
+
+// [rótulo, frase] do grau da janela.
+function selGrau(j) {
+  return SEL_GRAU[j.grau];
+}
+
+// "uns N anos" / "mais de 100 anos"; some quando consistente, curto (o grau já
+// diz que o histórico é curto) ou sem número. "cerca de 1 ano" é o piso.
+function selAnosTexto(j) {
+  const a = j.anos_para_afirmar;
+  if (j.grau === "consistente" || j.grau === "curto" || a === null) return "";
+  if (a > 100) return "Nesse ritmo, seriam precisos mais de 100 anos de histórico para afirmar.";
+  const n = Math.round(a);
+  return n <= 1 ? "Nesse ritmo, seria preciso cerca de 1 ano de histórico para afirmar."
+    : `Nesse ritmo, seriam precisos uns ${n} anos de histórico para afirmar.`;
+}
+
+// "atrás do IBOV" / "à frente do IBOV", pelo sinal de t (o da régua).
+function selLado(t, indice) {
+  if (t < 0) return `atrás do ${indice}`;
+  if (t > 0) return `à frente do ${indice}`;
+  return `empatado com o ${indice}`;
+}
+
+// Oração de uma classe com grau forte, para a linha 2 do índice.
+function selOracao(nome, indice, j) {
+  return j.grau === "indicio" ? `${nome} com indício de ficar ${selLado(j.t, indice)}`
+    : `${nome} de forma consistente ${selLado(j.t, indice)}`;
+}
+
+// Linha 2 do índice (spec §6.2, item 7 da §8): o estado do desde e, para
+// cada classe com indício ou consistente em 3 ou 5 anos (e não no desde),
+// uma oração com a janela de maior |t| dela, unidas por "; " na ordem fixa.
+// Classe com o desde indisponível é nomeada ("{classe} sem dado hoje"), nunca
+// contada em "nenhuma classe se separa da sorte": falta de dado não é
+// veredito. Curto conta como classe com dado (o grau diz que é cedo).
+function selIndiceFrase(s) {
+  const forte = (j) => j.indisponivel === null && (j.grau === "indicio" || j.grau === "consistente");
+  const presentes = SEL_CLASSES.filter((cl) => s.classes[cl]);
+  const ind = (cl) => SEL_NOME_INDICE[s.classes[cl].indice];
+  const nome = (cl) => RENT2_ROTULO_LINHA[cl];
+  const lista = (xs) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs[xs.length - 1]}`);
+  const semDado = presentes.filter((cl) => s.classes[cl].janelas.desde.indisponivel !== null);
+  const fortes = presentes.filter((cl) => forte(s.classes[cl].janelas.desde));
+  const semDadoTxt = semDado.length ? `${lista(semDado.map(nome))} sem dado hoje` : "";
+  let txt;
+  if (semDado.length && semDado.length === presentes.length) txt = `Desde o início, ${semDadoTxt}.`;
+  else if (!fortes.length) {
+    txt = semDado.length ? `Desde o início, nenhuma classe com dado se separa da sorte; ${semDadoTxt}.`
+      : "Desde o início, nenhuma classe se separa da sorte.";
+  } else {
+    const resto = presentes.filter((cl) => !fortes.includes(cl) && !semDado.includes(cl));
+    let cauda = "";
+    if (resto.length && resto.every((cl) => s.classes[cl].janelas.desde.grau === "inconclusivo")) {
+      cauda = resto.length === 1 ? "; a outra, inconclusiva" : "; as outras, inconclusivas";
+    }
+    if (semDadoTxt) cauda += `; ${semDadoTxt}`;
+    txt = "Desde o início, " + fortes.map((cl) => selOracao(nome(cl), ind(cl), s.classes[cl].janelas.desde)).join("; ") + cauda + ".";
+  }
+  const extras = [];
+  for (const cl of presentes) {
+    if (fortes.includes(cl)) continue;
+    let melhor = null;
+    for (const k of ["3a", "5a"]) {
+      const j = s.classes[cl].janelas[k];
+      if (forte(j) && (!melhor || Math.abs(j.t) > Math.abs(melhor[1].t))) melhor = [k, j];
+    }
+    if (melhor) extras.push(`em ${melhor[0] === "3a" ? 3 : 5} anos, ${selOracao(nome(cl), ind(cl), melhor[1])}`);
+  }
+  if (!extras.length) return txt;
+  const e = extras.join("; ");
+  return `${txt} ${e[0].toUpperCase()}${e.slice(1)}.`;
+}
+
+// Frase-resposta do capítulo 3 (e da linha 3 do índice). O número é
+// XIRR − TWR: o seu dinheiro menos a carteira, nunca o contrário.
+// XIRR − TWR em pontos, a 1 casa (o número que a tela mostra), ou null sem
+// XIRR. O limiar de "quase não mudou" (APOR_LIMIAR) é aplicado sobre ele, aqui
+// e na Rentabilidade (rentAporFrase), uma regra só.
+function aporPontos(j) {
+  if (j.xirr == null || j.sua == null) return null;
+  return ponteRoundPy((j.xirr - j.sua) * 100, 1);
+}
+
+// Frase da Rentabilidade (Detalhes, sob as duas réguas), sobre a janela
+// escolhida, inclusive a arrastada: "" sem XIRR (a frase some).
+function rentAporFrase(j) {
+  const r = aporPontos(j);
+  if (r === null) return "";
+  const pre = "Nesta janela, o momento dos aportes";
+  if (Math.abs(r) < APOR_LIMIAR) return `${pre} quase não mudou o resultado.`;
+  return `${pre} ${r > 0 ? "somou" : "tirou"} ${rent2Abs1(r)} ${rent2PontoPontos(r)} ${j.anualizado ? "ao ano" : "no período"}.`;
+}
+
+function aporFrase(j, desde, sujeito) {
+  const r = aporPontos(j);
+  if (r === null) return [{ t: "Não deu para calcular o retorno do seu dinheiro nesta janela." }];
+  const base = `${desde}, o calendário dos aportes${sujeito}`;
+  if (Math.abs(r) < APOR_LIMIAR) return [{ t: `${base} quase não mudou o seu retorno.` }];
+  return [
+    { t: `${base} ` }, { t: `${r > 0 ? "somou" : "tirou"} ${rent2Abs1(r)} ${rent2PontoPontos(r)}`, b: true },
+    { t: ` ${j.anualizado ? "ao ano" : "no período"} ${r > 0 ? "ao" : "do"} seu retorno.` },
+  ];
+}
+
+// Janelas fixas da ponte por escopo e moeda, memorizadas por bloco (cada
+// ponteJanela roda um XIRR; o template lê a janela várias vezes por render).
+const _aporCache = new WeakMap();
+function aporFixas(bloco, escopo, moeda) {
+  let m = _aporCache.get(bloco);
+  if (!m) { m = new Map(); _aporCache.set(bloco, m); }
+  const chave = `${escopo}|${moeda}`;
+  if (!m.has(chave)) m.set(chave, ponteJanelasFixas(bloco, escopo, moeda));
+  return m.get(chave);
+}
+
 // [iIni, iFim] de uma janela fixa (convenção de ponteJanelasFixas).
 function rent2IndicesFixa(chave, nTotal, m0) {
   if (chave === "desde") return [m0, nTotal];
@@ -1073,6 +1257,7 @@ function rent2Vista(r, iIni, iFim, ctx) {
         texto: r.indices[id] === null || r.indices[id] === undefined ? "—" : rent2PctPts(r.indices[id] * 100),
       })),
       xirr: r.xirr === null || r.xirr === undefined ? "—" : rent2PctPts(r.xirr * 100),
+      aporFrase: rentAporFrase(r),
     },
   };
 }
@@ -1496,6 +1681,13 @@ document.addEventListener("alpine:init", () => {
     diagMoeda: "BRL",
     diagJanela: "desde",
     diagMotivoClique: "",
+    // 7a.BR.2: capítulo 2 (janela própria, sem escopo) e capítulo 3 (escopo,
+    // moeda e janela próprios, abrindo em Total e Desde).
+    selJanela: "desde",
+    aporEscopo: "Total",
+    aporMoeda: "BRL",
+    aporJanela: "desde",
+    aporMotivoClique: "",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     // 7a.E.31: tela #alocação unificada — uma lista de cards de categoria
     // colapsáveis. catAberta mapeia nome→bool; todas começam fechadas (map
@@ -1743,8 +1935,16 @@ document.addEventListener("alpine:init", () => {
       }
       if (path === "/raiox/diagnostico") {
         // 7a.BQ.2: Diagnóstico, push child da tab Raio-X, irmã da renda.
-        // voltar() cai em home["raiox"] = "" (mapa genérico).
+        // 7a.BR.2: virou o índice das três perguntas. voltar() cai em
+        // home["raiox"] = "" (mapa genérico).
         this.rota = "diagnostico";
+        this.tab = "raiox";
+        return;
+      }
+      const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|selecao|aportes)$/);
+      if (mdiag) {
+        // 7a.BR.2: capítulos do Diagnóstico; o "←" volta ao índice (voltar()).
+        this.rota = "diag-" + mdiag[1];
         this.tab = "raiox";
         return;
       }
@@ -2262,6 +2462,13 @@ document.addEventListener("alpine:init", () => {
     },
 
     voltar() {
+      // 7a.BR.2: o "←" de um capítulo do Diagnóstico volta ao índice, não ao
+      // Raio-X (o do índice segue o mapa genérico abaixo).
+      if (typeof this.rota === "string" && this.rota.startsWith("diag-")) {
+        history.replaceState(null, "", "#/raiox/diagnostico");
+        this.atualizarRota();
+        return;
+      }
       // history.length é heurística frágil — em link compartilhado aberto
       // numa aba com histórico prévio, history.back() saída do PWA.
       // Sempre reescrevemos o hash via replaceState; mais previsível e mantém
@@ -2983,6 +3190,175 @@ document.addEventListener("alpine:init", () => {
       this.diagMotivoClique = "";
     },
 
+    // 7a.BR.2: índice do Diagnóstico (spec §6.2). Linha sem dado fica, com o
+    // motivo no lugar da frase, e continua tocável.
+    diagIndiceLinhas() {
+      const fim = (t) => (t.endsWith(".") ? t : t + ".");
+      const card = this.risco ? this.diagCardTexto() : "";
+      const s = this.selecao;
+      return [
+        { n: 1, href: "#/raiox/diagnostico/risco", pergunta: "Quanto risco a carteira correu", estado: card ? fim(card) : "Indisponível hoje." },
+        { n: 2, href: "#/raiox/diagnostico/selecao", pergunta: "Seus picks batem o índice?", estado: s ? selIndiceFrase(s) : "Indisponível hoje." },
+        { n: 3, href: "#/raiox/diagnostico/aportes", pergunta: "O momento dos seus aportes", estado: this.aporIndiceTexto() },
+      ];
+    },
+
+    // Bloco `selecao` v2.36 (spec §5.1): só vale com a forma completa.
+    // Ausente, null, parcial ou payload < 2.36 ⇒ null (linha 2 do índice
+    // "Indisponível hoje.", capítulo 2 "Confiança da seleção indisponível
+    // hoje."), nunca TypeError no template. Classe desconhecida é ignorada.
+    get selecao() {
+      const j = this.json, s = j && j.selecao;
+      if (!s || !rent2VersaoAoMenos(j.versao, [2, 36])) return null;
+      if (typeof s.ate !== "string" || !s.classes || typeof s.classes !== "object") return null;
+      for (const cl of SEL_CLASSES) {
+        const c = s.classes[cl];
+        if (c === undefined) continue;
+        if (!c || !(c.indice in SEL_NOME_INDICE) || typeof c.moeda !== "string") return null;
+        if (!Array.isArray(c.excluidos) || !c.excluidos.every((x) => typeof x === "string")) return null;
+        if (!c.janelas || !SEL_JANELAS.every(([k]) => selJanelaValida(c.janelas[k]))) return null;
+      }
+      // Nenhuma classe conhecida: nada a desenhar nem a resumir (board 7a.BR.2).
+      if (!SEL_CLASSES.some((cl) => s.classes[cl] !== undefined)) return null;
+      return s;
+    },
+    // Tudo o que uma classe desenha na janela escolhida (null se a classe
+    // não tem picks no bloco: a seção não existe).
+    selClasse(cl) {
+      const s = this.selecao;
+      const c = s && s.classes[cl];
+      if (!c) return null;
+      const j = c.janelas[this.selJanela];
+      const indice = SEL_NOME_INDICE[c.indice];
+      const k = cl === "eua" ? c.excluidos.filter((x) => x !== SEL_REBATE).length : 0;
+      const base = {
+        classe: cl, nome: RENT2_ROTULO_LINHA[cl], indice: cl === "eua" ? `× ${indice}, em dólar` : `× ${indice}`,
+        fundos: k ? `Fundos que você teve fora da política (${k}) ficam fora da conta: são fundos, não escolha de empresa.` : "",
+        motivo: "", frase: [], regua: null, grau: null, anos: "", meses: "", divergem: "",
+      };
+      if (j.indisponivel !== null) return { ...base, motivo: selMotivoTexto(j.indisponivel) };
+      const [rotulo, texto] = selGrau(j);
+      // Curto: a frase dos números fica e a régua some (spec §6.5).
+      const regua = j.grau === "curto" || j.t === null ? null : {
+        x: selReguaX(j.t),
+        aria: `Régua da confiança: ${rotulo.replace(/[.:]$/, "").toLowerCase()}, ${selLado(j.t, indice)}.`,
+      };
+      return {
+        ...base,
+        frase: selFrase(cl, indice, j),
+        regua,
+        grau: { rotulo, texto },
+        anos: selAnosTexto(j),
+        meses: `${j.n_meses === 1 ? "1 mês" : `${j.n_meses} meses`} com picks, de ${rent2MmmAa(j.de)} a ${rent2MmmAa(j.ate)}.`,
+        divergem: j.sinais_divergem ? SEL_DIVERGEM : "",
+      };
+    },
+    get sel() {
+      const s = this.selecao;
+      if (!s) return null;
+      const classes = SEL_CLASSES.map((cl) => this.selClasse(cl)).filter(Boolean);
+      const presentes = SEL_CLASSES.filter((cl) => s.classes[cl]);
+      const pct = (v) => (v === null ? "—" : diagPct1(v));
+      const tabelas = SEL_JANELAS.map(([k, rotulo]) => {
+        const col = presentes.map((cl) => s.classes[cl].janelas[k]);
+        const cel = (f) => col.map((j) => (j.indisponivel !== null ? "—" : f(j)));
+        return {
+          chave: k, rotulo,
+          linhas: [
+            { id: "meses", rotulo: "Meses com picks", v: cel((j) => String(j.n_meses)) },
+            { id: "media", rotulo: "Diferença média ao ano", v: cel((j) => pct(j.excesso_medio_aa)) },
+            { id: "te", rotulo: "Oscilação da diferença (tracking error)", v: cel((j) => (j.desvio_aa === null ? "—" : diagAbs1(j.desvio_aa) + "%")) },
+            { id: "ir", rotulo: "Razão (Information Ratio)", v: cel((j) => (j.razao === null ? "—" : diagNum2(j.razao))) },
+            { id: "t", rotulo: "Estatística t", v: cel((j) => (j.t === null ? "—" : diagNum2(j.t))) },
+          ],
+        };
+      });
+      return { classes, colunas: presentes.map((cl) => RENT2_ROTULO_LINHA[cl]), tabelas };
+    },
+    selEscolherJanela(k) { this.selJanela = k; },
+
+    // Ponte do capítulo 3 (a mesma da Rentabilidade, v2.31+), crua: a conta
+    // não passa pelo proxy reativo.
+    get aporPonte() {
+      const j = this.json, b = j && j.ponte;
+      if (!b || !rent2VersaoAoMenos(j.versao, [2, 31]) || !Array.isArray(b.meses) || b.meses.length < 2) return null;
+      return window.Alpine && Alpine.raw ? Alpine.raw(b) : b;
+    },
+    _aporFixas(escopo, moeda) {
+      const b = this.aporPonte;
+      if (!b) return null;
+      try {
+        return aporFixas(b, escopo, moeda);
+      } catch (err) {
+        console.error("diagnóstico: falha ao montar a ponte do capítulo 3", err);
+        return null;
+      }
+    },
+    // Linha 3 do índice: Total, desde.
+    aporIndiceTexto() {
+      const b = this.aporPonte, fx = this._aporFixas("Total", "BRL");
+      if (!b || !fx) return "Indisponível hoje.";
+      const w = fx.desde;
+      if (w.indisponivel !== null) return rent2MotivoTexto(w.indisponivel);
+      const m0 = Math.max(ponteInicioEscopo(b, "Total", "BRL"), 1);
+      return aporFrase(w, `Desde ${b.meses[m0 - 1].slice(0, 4)}`, "").map((x) => x.t).join("");
+    },
+    // Tudo o que o capítulo 3 desenha, para o escopo, a moeda e a janela
+    // escolhidos. Janela indisponível volta à anterior válida (regra do
+    // capítulo 1) e diz o motivo.
+    aporJanelaDados() {
+      const b = this.aporPonte;
+      const escopo = this.aporEscopo;
+      const moeda = escopo === "EUA" && this.aporMoeda === "USD" ? "USD" : "BRL";
+      const fx = this._aporFixas(escopo, moeda);
+      if (!b || !fx) return null;
+      const nTotal = b.meses.length - 1;
+      const m0 = Math.max(ponteInicioEscopo(b, escopo, moeda), 1);
+      const janelas = DIAG_JANELAS.map(([k, rot]) => {
+        const w = fx[k], disponivel = w.indisponivel === null;
+        const rotulo = rot || (m0 > nTotal ? "Desde o início" : rent2RotuloDesde(b, m0));
+        return { chave: k, rotulo, disponivel, motivo: disponivel ? "" : rent2MotivoTexto(w.indisponivel) };
+      });
+      const pedida = this.aporJanela;
+      const i0 = DIAG_ORDEM_VOLTA.indexOf(pedida);
+      const ordem = [...DIAG_ORDEM_VOLTA.slice(i0), ...DIAG_ORDEM_VOLTA.slice(0, i0)];
+      const chave = ordem.find((k) => fx[k].indisponivel === null) || null;
+      const motivoPedida = rent2MotivoTexto(fx[pedida].indisponivel);
+      const base = { janelas, chave, semJanela: "", motivo: this.aporMotivoClique || "" };
+      if (!chave) return { ...base, semJanela: motivoPedida };
+      if (!base.motivo && chave !== pedida) base.motivo = motivoPedida;
+      const w = fx[chave];
+      const iIni = chave === "desde" ? m0 : nTotal - RENT2_TAMANHO_FIXA[chave] + 1;
+      const ancora = rent2MmmAa(b.meses[iIni - 1]);
+      const ate = rent2MmmAa(b.meses[nTotal]);
+      const unid = w.anualizado ? "ao ano" : "no período";
+      const semXirr = w.xirr === null;
+      return {
+        ...base,
+        frase: aporFrase(w, `Desde ${ancora}`, APOR_SUJEITO[escopo]),
+        semXirr,
+        linhaAte: `até ${ate} · ${w.n_meses} meses`,
+        carteira: `${diagPct1(w.sua)} ${unid}`,
+        dinheiro: semXirr ? "" : `${diagPct1(w.xirr)} ${unid}`,
+        conta: {
+          twr: `${diagPct1(w.sua)} ${unid}`,
+          xirr: semXirr ? "sem convergência" : `${diagPct1(w.xirr)} ${unid}`,
+          periodo: `${w.n_meses} meses, de ${ancora} a ${ate}.`,
+        },
+      };
+    },
+    get apor() { return this.aporJanelaDados(); },
+    aporEscolherEscopo(e) { this.aporEscopo = e; this.aporMotivoClique = ""; },
+    aporEscolherMoeda(m) { this.aporMoeda = m; this.aporMotivoClique = ""; },
+    aporEscolherJanela(k) {
+      const d = this.apor;
+      const j = d && d.janelas.find((x) => x.chave === k);
+      if (!j) return;
+      if (!j.disponivel) { this.aporMotivoClique = j.motivo; return; }
+      this.aporJanela = k;
+      this.aporMotivoClique = "";
+    },
+
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;
       return meses && meses.length ? meses[0] : null; // índice é mês DESC
@@ -3455,6 +3831,7 @@ document.addEventListener("alpine:init", () => {
     _limparEstadoAppShell() {
       this.escopoAtivo = "Total";
       Object.assign(this, { diagEscopo: "Total", diagMoeda: "BRL", diagJanela: "desde", diagMotivoClique: "" });
+      Object.assign(this, { selJanela: "desde", aporEscopo: "Total", aporMoeda: "BRL", aporJanela: "desde", aporMotivoClique: "" });
       if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
       this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
     },
