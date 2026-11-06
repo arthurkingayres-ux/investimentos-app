@@ -712,6 +712,128 @@ function rent2RotuloDesde(bloco, m0) {
   return ancora <= "2019-01" ? "Desde 2019" : `Desde ${rent2MmmAa(ancora)}`;
 }
 
+// ── Fase 7a.BQ.2: Diagnóstico, capítulo 1 "Quanto risco a carteira correu" ──
+// O bloco `risco` (schema 2.35) chega pronto do backend
+// (src/calculadora/risco.py, spec §5.2): o PWA só formata e desenha, sem
+// gêmea JS. Os formatadores abaixo são globais (script clássico) de
+// propósito: o e2e formata o esperado com eles, como faz com formatBrl.
+
+// Fração → "10,4" (módulo, 1 casa, meio-para-par como a referência Python).
+function diagAbs1(x) {
+  return rent2Abs1(ponteRoundPy(x * 100, 1));
+}
+
+// Fração → "10,4%" / "−3,2%".
+function diagPct1(x) {
+  return rent2PctPts(x * 100);
+}
+
+// Número → "0,12" / "−0,12" (Sharpe, Sortino).
+function diagNum2(x) {
+  const r = ponteRoundPy(x, 2);
+  return (r < 0 ? "−" : "") + Math.abs(r).toFixed(2).replace(".", ",");
+}
+
+// "AAAA-MM" do mês anterior: a âncora da janela (W = 1 no fim dela).
+function diagMesAnterior(ym) {
+  if (!ym) return null;
+  let [a, m] = String(ym).split("-").map(Number);
+  m -= 1;
+  if (m === 0) { a -= 1; m = 12; }
+  return `${a}-${String(m).padStart(2, "0")}`;
+}
+
+// Meses de `a` até `b` ("AAAA-MM"), b ≥ a.
+function diagMesesEntre(a, b) {
+  const [y1, m1] = String(a).split("-").map(Number);
+  const [y2, m2] = String(b).split("-").map(Number);
+  return (y2 - y1) * 12 + (m2 - m1);
+}
+
+function diagMeses(n) {
+  return n === 1 ? "1 mês" : `${n} meses`;
+}
+
+// O motivo novo do risco (n < 12) mais os da ponte, na voz da tela.
+function diagMotivoTexto(motivo) {
+  if (motivo === "histórico curto: menos de 12 meses") return "Histórico curto: menos de 12 meses.";
+  return rent2MotivoTexto(motivo);
+}
+
+const DIAG_JANELAS = [["3a", "3 anos"], ["5a", "5 anos"], ["desde", null]];
+// Janela indisponível volta à anterior válida (spec §6.3): a primeira
+// disponível seguindo Desde → 5 anos → 3 anos A PARTIR da pedida, dando a
+// volta no fim (pedida 5a ⇒ 5a, 3a, desde; pedida 3a ⇒ 3a, desde, 5a).
+const DIAG_ORDEM_VOLTA = ["desde", "5a", "3a"];
+const DIAG_SUJEITO = { Total: "a carteira", Brasil: "a parte brasileira", EUA: "a parte americana" };
+const DIAG_CURTO = "Histórico curto para medir a oscilação";
+const DIAG_SEM_USD = "Em dólar não há comparação: o CDI é uma taxa em reais, e não temos uma taxa americana com fonte.";
+const DIAG_SEM_CDI = "Sem o CDI de algum mês da janela, não há comparação.";
+
+// Rótulo do botão "Desde": o ano quando o escopo nasce no começo do
+// histórico, senão o mês da âncora (a mesma regra da Rentabilidade).
+function diagRotuloDesde(j) {
+  if (!j || j.indisponivel !== null) return "Desde o início";
+  const ancora = diagMesAnterior(j.de);
+  return ancora <= "2019-01" ? "Desde 2019" : `Desde ${rent2MmmAa(ancora)}`;
+}
+
+// Janela disponível com a forma que o template lê; parcial vira "fora".
+function diagJanelaValida(j) {
+  const num = Number.isFinite, nulo = (v) => v === null || num(v);
+  if (!num(j.n_meses) || typeof j.de !== "string" || typeof j.ate !== "string") return false;
+  if (typeof j.historico_curto !== "boolean" || !num(j.retorno_aa)) return false;
+  if (!["cdi_aa", "excesso_aa", "volatilidade_aa", "sharpe", "sortino"].every((k) => nulo(j[k]))) return false;
+  const q = j.queda;
+  if (!q || !num(q.maxima) || !nulo(q.hoje)) return false;
+  const mes = (v) => typeof v === "string";
+  if (q.maxima < 0) {
+    // Tudo o que a frase da queda e o gráfico leem (board 7a.BQ.2): sem isto,
+    // um bloco truncado escreveria "undefined meses" em vez de cair em null.
+    if (!(mes(q.pico) && mes(q.fundo) && num(q.meses_queda))) return false;
+    if (!(q.recuperacao === null || (mes(q.recuperacao) && num(q.meses_recuperacao)))) return false;
+    if (!(q.pico_de_hoje === null || mes(q.pico_de_hoje))) return false;
+  }
+  // Um ponto por mês da janela: curva vazia dividiria por zero no gráfico.
+  if (!Array.isArray(j.curva) || j.curva.length !== j.n_meses || !j.curva.every(num)) return false;
+  const i = j.indices;
+  return !!i && num(i.retorno_aa) && num(i.queda_maxima)
+    && ["volatilidade_aa", "sharpe", "sortino"].every((k) => nulo(i[k]));
+}
+
+// Gráfico "Quanto abaixo do pico": viewBox 0..100 nos dois eixos (zero no
+// topo, a pior queda perto da base), traço não-escalável. Fundo, tiques e
+// rótulos são HTML posicionados em %, para não se deformarem.
+function diagGrafico(j, ancora, ate) {
+  const q = j.queda;
+  const pts = [0, ...j.curva];
+  const n = pts.length - 1;
+  const mesAncora = diagMesAnterior(j.de);
+  const qa = -q.maxima;
+  const escala = qa * 1.08;
+  const X = (k) => +((k / n) * 100).toFixed(2);
+  const Y = (v) => +(Math.min(100, (-v / escala) * 100)).toFixed(2);
+  const linha = pts.map((v, k) => (k ? "L" : "M") + X(k) + " " + Y(v)).join(" ");
+  const passo = qa >= 0.1 ? 0.05 : qa >= 0.02 ? 0.01 : 0.005;
+  const guia = Math.floor(qa / passo + 1e-9) * passo;
+  const kFundo = diagMesesEntre(mesAncora, q.fundo);
+  const tiques = [q.pico, q.recuperacao].filter(Boolean).map((m) => X(diagMesesEntre(mesAncora, m)));
+  const fundo = rent2MmmAa(q.fundo);
+  const Q = diagAbs1(q.maxima);
+  const xf = X(kFundo);
+  return {
+    linha,
+    area: linha + " L100 0 L0 0 Z",
+    guia: guia > 0,
+    guiaY: guia > 0 ? Y(-guia) : 0,
+    guiaRotulo: guia > 0 ? "−" + diagAbs1(guia).replace(",0", "") + "%" : "",
+    tiques,
+    fundo: { x: xf, y: Y(q.maxima) },
+    fundoRotulo: `−${Q}% em ${fundo}`,
+    aria: `Distância até o pico, mês a mês, de ${ancora} a ${ate}. Pior ponto: menos ${Q}% em ${fundo}.`,
+  };
+}
+
 // [iIni, iFim] de uma janela fixa (convenção de ponteJanelasFixas).
 function rent2IndicesFixa(chave, nTotal, m0) {
   if (chave === "desde") return [m0, nTotal];
@@ -1368,6 +1490,12 @@ document.addEventListener("alpine:init", () => {
     atualizacaoDisponivel: false,
     agoraTimer: null,
     escopoAtivo: "Total",
+    // 7a.BQ.2: Diagnóstico. Escopo, moeda e janela próprios (não mexem na
+    // Rentabilidade); motivo da janela indisponível tocada.
+    diagEscopo: "Total",
+    diagMoeda: "BRL",
+    diagJanela: "desde",
+    diagMotivoClique: "",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     // 7a.E.31: tela #alocação unificada — uma lista de cards de categoria
     // colapsáveis. catAberta mapeia nome→bool; todas começam fechadas (map
@@ -1610,6 +1738,13 @@ document.addEventListener("alpine:init", () => {
         // 7a.BJ.2: renda da carteira, push child da tab Raio-X, irmã da
         // projeção. voltar() cai em home["raiox"] = "" (mapa genérico).
         this.rota = "renda";
+        this.tab = "raiox";
+        return;
+      }
+      if (path === "/raiox/diagnostico") {
+        // 7a.BQ.2: Diagnóstico, push child da tab Raio-X, irmã da renda.
+        // voltar() cai em home["raiox"] = "" (mapa genérico).
+        this.rota = "diagnostico";
         this.tab = "raiox";
         return;
       }
@@ -2702,6 +2837,152 @@ document.addEventListener("alpine:init", () => {
       return f.nome + (f.edicao ? " (edição " + f.edicao + ")" : "") + ", em retorno acima da inflação, as mesmas da projeção até os 65.";
     },
 
+    // 7a.BQ.2: bloco `risco` v2.35 (spec §5.1). Só é "disponível" com a forma
+    // completa: payload < 2.35, `risco: null` ou bloco parcial caem em null
+    // (card some, rota diz "Diagnóstico indisponível hoje."), nunca em
+    // TypeError no template.
+    get risco() {
+      const j = this.json, r = j && j.risco;
+      if (!r || !rent2VersaoAoMenos(j.versao, [2, 35])) return null;
+      if (typeof r.ate !== "string" || !r.escopos) return null;
+      for (const e of ["Total", "Brasil", "EUA_BRL", "EUA_USD"]) {
+        const es = r.escopos[e];
+        if (!es) return null;
+        for (const [k] of DIAG_JANELAS) {
+          const w = es[k];
+          // Motivo vazio deixaria o card visível sem texto (board 7a.BQ.2, rodada 2).
+          if (!w || !(w.indisponivel === null || (typeof w.indisponivel === "string" && w.indisponivel))) return null;
+          if (w.indisponivel === null && !diagJanelaValida(w)) return null;
+        }
+      }
+      return r;
+    },
+    // Tudo o que a tela desenha, de uma vez, para o escopo, a moeda e a
+    // janela escolhidos.
+    get diag() {
+      const r = this.risco;
+      if (!r) return null;
+      const escopo = this.diagEscopo;
+      const usd = escopo === "EUA" && this.diagMoeda === "USD";
+      const es = r.escopos[escopo === "EUA" ? (usd ? "EUA_USD" : "EUA_BRL") : escopo];
+      const janelas = DIAG_JANELAS.map(([k, rot]) => {
+        const w = es[k], disponivel = w.indisponivel === null;
+        return { chave: k, rotulo: rot || diagRotuloDesde(w), disponivel, motivo: disponivel ? "" : diagMotivoTexto(w.indisponivel) };
+      });
+      const pedida = this.diagJanela;
+      const i0 = DIAG_ORDEM_VOLTA.indexOf(pedida);
+      const ordem = [...DIAG_ORDEM_VOLTA.slice(i0), ...DIAG_ORDEM_VOLTA.slice(0, i0)];
+      const chave = ordem.find((k) => es[k].indisponivel === null) || null;
+      const motivoPedida = diagMotivoTexto(es[pedida].indisponivel);
+      const base = { janelas, chave, semJanela: "", motivo: this.diagMotivoClique || "" };
+      if (!chave) return { ...base, semJanela: motivoPedida };
+      if (!base.motivo && chave !== pedida) base.motivo = motivoPedida;
+      const j = es[chave];
+      const q = j.queda;
+      const ancora = rent2MmmAa(diagMesAnterior(j.de));
+      const ate = rent2MmmAa(j.ate);
+      const sujeito = DIAG_SUJEITO[escopo];
+      const Sujeito = sujeito[0].toUpperCase() + sujeito.slice(1);
+      const curto = j.historico_curto;
+      const vol = j.volatilidade_aa;
+
+      // Frase-resposta: os três números em destaque são o único mono da tela;
+      // a unidade fica na fonte do texto, ao lado (regra da projeção e da renda).
+      const frase = [{ t: `Desde ${ancora} ${sujeito} rendeu ` }, { t: diagPct1(j.retorno_aa), mono: true }, { t: " ao ano" }];
+      if (usd) frase.push({ t: " em dólar" });
+      else if (j.excesso_aa !== null) {
+        const e = ponteRoundPy(j.excesso_aa * 100, 1);
+        if (Math.abs(e) < RENT2_NEUTRO) frase.push({ t: ", igual ao CDI" });
+        else frase.push({ t: ", " }, { t: diagAbs1(j.excesso_aa), mono: true },
+          { t: ` ${rent2PontoPontos(e)}` + (e > 0 ? " acima do CDI" : " abaixo do CDI") });
+      }
+      if (!curto && vol !== null) frase.push({ t: ", oscilando " }, { t: `${diagAbs1(vol)}%`, mono: true }, { t: " ao ano." });
+      else frase.push({ t: "." });
+
+      let sharpe, sharpeLinha = "", sharpeTexto = false;
+      if (curto) { sharpe = DIAG_CURTO; sharpeTexto = true; }
+      else if (usd) { sharpe = "—"; sharpeLinha = DIAG_SEM_USD; }
+      else if (j.cdi_aa === null) { sharpe = "—"; sharpeLinha = DIAG_SEM_CDI; }
+      else if (j.sharpe === null) sharpe = "—";
+      else {
+        const s = ponteRoundPy(j.sharpe, 2);
+        sharpe = diagNum2(j.sharpe);
+        sharpeLinha = `Cada ponto de oscilação rendeu ${diagNum2(Math.abs(j.sharpe))} ${rent2PontoPontos(s)} ${s < 0 ? "abaixo" : "acima"} do CDI.`;
+      }
+
+      // Frase da queda (§6.2.7) e a de hoje, que some quando H arredonda a 0,0.
+      let fraseQueda = "", fraseHoje = "";
+      const semQueda = !(q.maxima < 0);
+      if (!semQueda) {
+        fraseQueda = `A pior queda começou no pico de ${rent2MmmAa(q.pico)} e chegou ao fundo em ${rent2MmmAa(q.fundo)}, ${diagMeses(q.meses_queda)} depois. `;
+        const hoje = q.hoje === null ? 0 : ponteRoundPy(q.hoje * 100, 1);
+        if (q.recuperacao) {
+          fraseQueda += `${Sujeito} voltou ao pico em ${rent2MmmAa(q.recuperacao)}, ${diagMeses(q.meses_recuperacao)} depois do fundo.`;
+          if (hoje < 0 && q.pico_de_hoje) fraseHoje = `Hoje ela está ${diagAbs1(q.hoje)}% abaixo do pico de ${rent2MmmAa(q.pico_de_hoje)}.`;
+        } else {
+          fraseQueda += `${Sujeito} ainda não voltou ao pico de ${rent2MmmAa(q.pico)}: hoje está ${diagAbs1(q.hoje || 0)}% abaixo dele, ${diagMeses(diagMesesEntre(q.fundo, j.ate))} depois.`;
+        }
+      }
+
+      const i = j.indices;
+      const pct = (v) => (v === null ? "—" : diagAbs1(v) + "%");
+      const num2 = (v) => (v === null ? "—" : diagNum2(v));
+      const queda = (v) => (v < 0 ? "−" + diagAbs1(v) + "%" : "0,0%");
+      const periodo = `${j.n_meses} meses, de ${ancora} a ${ate}.`;
+      return {
+        ...base,
+        ancora, ate,
+        frase,
+        linhaAte: `até ${ate} · ${j.n_meses} meses`,
+        osc: curto || vol === null ? DIAG_CURTO : `${diagAbs1(vol)}% ao ano`,
+        oscTexto: curto || vol === null,
+        quedaTexto: semQueda ? "0,0%" : `▼ −${diagAbs1(q.maxima)}%`,
+        quedaNeg: !semQueda,
+        sharpe, sharpeLinha, sharpeTexto,
+        grafico: semQueda ? null : diagGrafico(j, ancora, ate),
+        semQueda, fraseQueda, fraseHoje,
+        conta: {
+          linhas: [
+            { rotulo: "Retorno ao ano", sua: diagPct1(j.retorno_aa), ind: diagPct1(i.retorno_aa) },
+            { rotulo: "Oscilação ao ano", sua: pct(j.volatilidade_aa), ind: pct(i.volatilidade_aa) },
+            { rotulo: "Pior queda", sua: queda(q.maxima), ind: queda(i.queda_maxima) },
+            { rotulo: "Sharpe", sua: num2(j.sharpe), ind: num2(i.sharpe) },
+            { rotulo: "Sortino", sua: num2(j.sortino), ind: num2(i.sortino) },
+          ],
+          cdi: j.cdi_aa !== null ? `CDI no período: ${diagPct1(j.cdi_aa)} ao ano. ${periodo}`
+            : `${periodo} ${usd ? "Em dólar, sem CDI." : DIAG_SEM_CDI}`,
+        },
+      };
+    },
+    // Card da home (§8, item 5): a pior queda desde o início no Total e
+    // quanto ela levou para voltar, do fundo à recuperação. Sem a janela
+    // Desde do Total, o card FICA, sem número, com o motivo traduzido: ele é
+    // o único caminho até a tela, que segue funcionando em outra janela
+    // (decisão do Dr. Arthur, 06/11/2026, G3 com o Alfred). Some só quando a
+    // tela inteira está indisponível (`risco` ausente, nulo ou parcial).
+    diagCardTexto() {
+      const r = this.risco;
+      const j = r && r.escopos.Total.desde;
+      if (!j) return "";
+      if (j.indisponivel !== null) return diagMotivoTexto(j.indisponivel);
+      const q = j.queda, ano = diagMesAnterior(j.de).slice(0, 4);
+      if (!(q.maxima < 0)) return `Desde ${ano}, a carteira não ficou abaixo do pico em nenhum fechamento de mês`;
+      const base = `Desde ${ano}, a pior queda foi de ${diagAbs1(q.maxima)}%, e a carteira `;
+      return q.recuperacao ? base + `voltou ao pico ${diagMeses(q.meses_recuperacao)} depois do fundo`
+        : base + "ainda não voltou ao pico";
+    },
+    diagEscolherEscopo(e) { this.diagEscopo = e; this.diagMotivoClique = ""; },
+    diagEscolherMoeda(m) { this.diagMoeda = m; this.diagMotivoClique = ""; },
+    // Botão de janela. Indisponível: diz o motivo e não muda a janela.
+    diagEscolherJanela(k) {
+      const d = this.diag;
+      const j = d && d.janelas.find((x) => x.chave === k);
+      if (!j) return;
+      if (!j.disponivel) { this.diagMotivoClique = j.motivo; return; }
+      this.diagJanela = k;
+      this.diagMotivoClique = "";
+    },
+
     get relUltimoMes() {
       const meses = this.relIndice && this.relIndice.meses;
       return meses && meses.length ? meses[0] : null; // índice é mês DESC
@@ -3173,6 +3454,7 @@ document.addEventListener("alpine:init", () => {
     // duração normal de 3s expirar.
     _limparEstadoAppShell() {
       this.escopoAtivo = "Total";
+      Object.assign(this, { diagEscopo: "Total", diagMoeda: "BRL", diagJanela: "desde", diagMotivoClique: "" });
       if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
       this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
     },

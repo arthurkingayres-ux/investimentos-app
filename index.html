@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=84">
+  <link rel="stylesheet" href="css/app.css?v=86">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=87"></script>
+  <script src="js/app.js?v=92"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=1"></script>
 </head>
@@ -389,6 +389,18 @@
           <div class="rel-card-home__meta">
             <span class="rel-card-home__label">Renda da carteira</span>
             <span class="rel-card-home__mes" x-text="rendaCardTexto()"></span>
+          </div>
+          <span class="rel-card-home__chevron" aria-hidden="true">›</span>
+        </a>
+
+        <!-- 7a.BQ.2: Diagnóstico, logo abaixo da renda, no mesmo idioma e
+             empty-safe (payload pré-v2.35, risco null ou parcial: some). Sem
+             a janela Desde do Total, fica com o motivo no lugar do número. -->
+        <a class="diag-card-home" x-show="risco" href="#/raiox/diagnostico"
+           aria-label="Abrir diagnóstico da carteira" x-cloak>
+          <div class="rel-card-home__meta">
+            <span class="rel-card-home__label">Diagnóstico da carteira</span>
+            <span class="diag-card-home__texto" x-text="diagCardTexto()"></span>
           </div>
           <span class="rel-card-home__chevron" aria-hidden="true">›</span>
         </a>
@@ -1602,6 +1614,148 @@
             </ul>
 
             <a class="renda-link" href="#/raiox/projecao" x-show="projecao" x-cloak>Como o patrimônio chega aos 65 <span aria-hidden="true">›</span></a>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico (7a.BQ.2) ── -->
+      <!-- Push child da tab Raio-X, irmã da renda e da mesma família "ensaio":
+           coluna única, sem cards. Abre direto no capítulo 1 (o índice entra
+           com a segunda pergunta). Mono só nos três números da frase-resposta. -->
+      <section class="tela-detalhes tela-diagnostico" x-show="rota === 'diagnostico'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="diag-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="diag-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="!diag">
+          <p class="placeholder">Diagnóstico indisponível hoje.</p>
+        </template>
+
+        <template x-if="diag">
+          <article class="diag-ensaio" aria-labelledby="diag-titulo">
+            <p class="diag-ordinal" aria-hidden="true">1</p>
+            <h2 class="diag-titulo" id="diag-titulo">Quanto risco a carteira correu</h2>
+
+            <!-- Os mesmos controles da Rentabilidade, com estado próprio. -->
+            <div class="escopo-toggle diag-escopos" role="group" aria-label="Escopo">
+              <button type="button" data-diag-escopo="Total" @click="diagEscolherEscopo('Total')"
+                      :class="{ active: diagEscopo === 'Total' }" :aria-pressed="diagEscopo === 'Total' ? 'true' : 'false'">Total</button>
+              <button type="button" data-diag-escopo="Brasil" aria-label="Brasil" @click="diagEscolherEscopo('Brasil')"
+                      :class="{ active: diagEscopo === 'Brasil' }" :aria-pressed="diagEscopo === 'Brasil' ? 'true' : 'false'"><span aria-hidden="true">🇧🇷</span> Brasil</button>
+              <button type="button" data-diag-escopo="EUA" aria-label="EUA" @click="diagEscolherEscopo('EUA')"
+                      :class="{ active: diagEscopo === 'EUA' }" :aria-pressed="diagEscopo === 'EUA' ? 'true' : 'false'"><span aria-hidden="true">🇺🇸</span> EUA</button>
+            </div>
+            <div class="moeda-toggle diag-moedas" role="group" aria-label="Moeda" x-show="diagEscopo === 'EUA'">
+              <button type="button" data-diag-moeda="BRL" @click="diagEscolherMoeda('BRL')"
+                      :class="{ active: diagMoeda === 'BRL' }" :aria-pressed="diagMoeda === 'BRL' ? 'true' : 'false'"
+                      aria-label="Mostrar a parte americana em reais">BRL</button>
+              <button type="button" data-diag-moeda="USD" @click="diagEscolherMoeda('USD')"
+                      :class="{ active: diagMoeda === 'USD' }" :aria-pressed="diagMoeda === 'USD' ? 'true' : 'false'"
+                      aria-label="Mostrar a parte americana em dólares">USD</button>
+            </div>
+
+            <div class="diag-janelas" role="group" aria-label="Janela">
+              <template x-for="j in diag.janelas" :key="j.chave">
+                <button type="button" class="diag-janela"
+                        :data-testid="'diag-janela-' + j.chave"
+                        :aria-pressed="diag.chave === j.chave ? 'true' : 'false'"
+                        :aria-disabled="j.disponivel ? null : 'true'"
+                        :aria-describedby="j.disponivel ? null : 'diag-motivo'"
+                        @click="diagEscolherJanela(j.chave)"
+                        x-text="j.rotulo"></button>
+              </template>
+            </div>
+            <p class="diag-motivo" id="diag-motivo" data-testid="diag-motivo" aria-live="polite"
+               x-show="diag.motivo" x-text="diag.motivo"></p>
+
+            <template x-if="diag.semJanela">
+              <p class="diag-sem-janela" data-testid="diag-sem-janela" x-text="diag.semJanela"></p>
+            </template>
+
+            <template x-if="!diag.semJanela">
+              <div class="diag-corpo">
+                <p class="diag-frase" data-testid="diag-frase"><template x-for="(s, i) in diag.frase" :key="i"><span :class="s.mono ? 'diag-mono' : null" x-text="s.t"></span></template></p>
+                <p class="diag-ate" data-testid="diag-ate" x-text="diag.linhaAte"></p>
+
+                <dl class="diag-pares">
+                  <div class="diag-par" :class="diag.oscTexto ? 'diag-par--texto' : ''">
+                    <dt>Oscilação <span class="diag-dt-nome">(volatilidade)</span></dt>
+                    <dd data-testid="diag-osc" x-text="diag.osc"></dd>
+                  </div>
+                  <div class="diag-par">
+                    <dt>Pior queda</dt>
+                    <dd data-testid="diag-queda" :class="diag.quedaNeg ? 'diag-neg' : ''" x-text="diag.quedaTexto"></dd>
+                  </div>
+                  <div class="diag-par" :class="diag.sharpeTexto ? 'diag-par--texto' : ''">
+                    <dt>Retorno pelo risco <span class="diag-dt-nome">(Sharpe)</span></dt>
+                    <dd data-testid="diag-sharpe" :class="diag.sharpe === '—' ? 'diag-ausente' : ''" x-text="diag.sharpe"></dd>
+                    <dd class="diag-par__linha" data-testid="diag-sharpe-linha" x-show="diag.sharpeLinha" x-text="diag.sharpeLinha"></dd>
+                  </div>
+                </dl>
+
+                <h3 class="diag-subtitulo">Quanto abaixo do pico</h3>
+                <template x-if="diag.grafico">
+                  <figure class="diag-grafico">
+                    <p class="diag-grafico__sub">Em cada mês, a distância até o maior valor que a carteira já tinha alcançado na janela.</p>
+                    <div class="diag-grafico__area-wrap">
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" :aria-label="diag.grafico.aria">
+                        <path class="diag-grafico__area" :d="diag.grafico.area"></path>
+                        <line class="diag-grafico__guia" x1="0" x2="100" :y1="diag.grafico.guiaY" :y2="diag.grafico.guiaY" x-show="diag.grafico.guia"></line>
+                        <line class="diag-grafico__zero" x1="0" y1="0" x2="100" y2="0"></line>
+                        <path class="diag-grafico__linha" :d="diag.grafico.linha"></path>
+                      </svg>
+                      <span class="diag-grafico__guia-rotulo diag-grafico__zero-rotulo" aria-hidden="true">0%</span>
+                      <template x-for="t in diag.grafico.tiques" :key="t">
+                        <span class="diag-grafico__tique" aria-hidden="true" :style="'left:' + t + '%'"></span>
+                      </template>
+                      <span class="diag-grafico__guia-rotulo" aria-hidden="true" x-show="diag.grafico.guia"
+                            :style="'top:' + diag.grafico.guiaY + '%'" x-text="diag.grafico.guiaRotulo"></span>
+                      <span class="diag-grafico__fundo" aria-hidden="true"
+                            :style="'left:' + diag.grafico.fundo.x + '%;top:' + diag.grafico.fundo.y + '%'"></span>
+                      <span class="diag-grafico__fundo-rotulo" data-testid="diag-fundo-rotulo" aria-hidden="true"
+                            :style="'left:' + diag.grafico.fundo.x + '%;top:' + diag.grafico.fundo.y + '%;transform:translateX(-' + diag.grafico.fundo.x + '%)'"
+                            x-text="diag.grafico.fundoRotulo"></span>
+                    </div>
+                    <p class="diag-grafico__eixo" aria-hidden="true"><span x-text="diag.ancora"></span><span x-text="diag.ate"></span></p>
+                  </figure>
+                </template>
+                <template x-if="diag.semQueda">
+                  <p class="diag-texto" data-testid="diag-sem-queda">Na janela, a carteira não ficou abaixo do pico em nenhum fechamento de mês.</p>
+                </template>
+                <template x-if="diag.fraseQueda">
+                  <p class="diag-texto" data-testid="diag-frase-queda" x-text="diag.fraseQueda"></p>
+                </template>
+                <template x-if="diag.fraseHoje">
+                  <p class="diag-texto" data-testid="diag-frase-hoje" x-text="diag.fraseHoje"></p>
+                </template>
+
+                <p class="diag-nota">Medido no fechamento de cada mês. Uma queda que começa e termina dentro do mesmo mês não aparece, então a pior queda real pode ter sido maior.</p>
+
+                <details class="diag-conta">
+                  <summary>Ver a conta</summary>
+                  <div class="diag-conta__corpo">
+                    <table class="diag-tabela">
+                      <caption class="sr-only">A carteira e a mesma carteira feita só de índices, na janela escolhida</caption>
+                      <thead><tr><td></td><th scope="col">Sua carteira</th><th scope="col">Só com índices</th></tr></thead>
+                      <tbody>
+                        <template x-for="l in diag.conta.linhas" :key="l.rotulo">
+                          <tr><th scope="row" x-text="l.rotulo"></th><td x-text="l.sua"></td><td x-text="l.ind"></td></tr>
+                        </template>
+                      </tbody>
+                    </table>
+                    <p class="diag-conta__nota" x-text="diag.conta.cdi"></p>
+                    <p class="diag-conta__nota">Oscilação: desvio-padrão dos retornos mensais, vezes √12. Pior queda: a maior distância, num fechamento de mês, até o maior valor anterior da janela. Sharpe: retorno ao ano menos o CDI ao ano, dividido pela oscilação. Sortino: o mesmo, contando só os meses em que a carteira rendeu menos que o CDI. "Só com índices" é a mesma régua da Rentabilidade.</p>
+                  </div>
+                </details>
+              </div>
+            </template>
+
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
           </article>
         </template>
       </section>

@@ -3763,7 +3763,8 @@ body:has(.tab-bar) main {
    .rel-card-home faria os locators do Relatório resolverem a 2 nós). */
 .rel-card-home,
 .proj-card-home,
-.renda-card-home {
+.renda-card-home,
+.diag-card-home {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3778,12 +3779,13 @@ body:has(.tab-bar) main {
   min-height: 44px;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .rel-card-home, .proj-card-home, .renda-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
+  .rel-card-home, .proj-card-home, .renda-card-home, .diag-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
 }
 /* 7a.S.2: mapeia .relcard do mockup. */
 .rel-card-home:active,
 .proj-card-home:active,
-.renda-card-home:active {
+.renda-card-home:active,
+.diag-card-home:active {
   transform: scale(.98);
   box-shadow: var(--shadow-pressed);
 }
@@ -4615,3 +4617,126 @@ body:has(.tab-bar) main {
 }
 .rel-radar-card__ticker--link:hover,
 .rel-prestacao__ticker--link:hover { text-decoration: underline; }
+
+/* 7a.BQ.2 — Diagnóstico (#/raiox/diagnostico), capítulo 1 "Quanto risco a
+   carteira correu". Família ensaio da projeção e da renda: coluna única, sem
+   cards, separação tipográfica. Ousadia num lugar só: o gráfico "Quanto
+   abaixo do pico". Mono só nos três números da frase-resposta; o resto é a
+   fonte do texto com tabular-nums. Cores só por token (flipam no Modo
+   Plantão sozinhas), zero motion nova além dos toggles que já existem. */
+.diag-card-home__texto { font-size: 0.9375rem; line-height: 1.4; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.diag-ensaio { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.diag-ordinal { font-size: 0.8125rem; letter-spacing: 0.12em; color: var(--accent); margin: 1.25rem 0 0.25rem; }
+.diag-titulo { font-size: 1.375rem; line-height: 1.2; font-weight: 700; color: var(--g-900); margin: 0 0 1rem; }
+.diag-escopos, .diag-moedas { margin-bottom: 8px; }
+
+/* Cada botão cresce a partir da largura do próprio rótulo (nunca menor que
+   ele): "Desde mmm/aa" vazava da borda a 320 px com flex-basis 0. Sem
+   espaço para os três, o último desce e ocupa a linha inteira. */
+.diag-janelas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.diag-janela {
+  flex: 1 1 auto;
+  min-width: max-content;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.diag-janela[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink), 0 0 0 2px var(--accent-soft);
+  font-weight: 700;
+}
+.diag-janela[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.diag-janela:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .diag-janela { transition: transform var(--d1) var(--ease); }
+  .diag-janela:active { transform: scale(.97); }
+  .diag-janela[aria-disabled="true"]:active { transform: none; }
+}
+/* Abaixo de 360 px os três rótulos só cabem numa linha mais compactos. */
+@media (max-width: 359px) {
+  .diag-janela { padding: 0 6px; font-size: 0.75rem; }
+}
+.diag-motivo { margin: 0 0 4px; font-size: var(--num-xs); color: var(--gray); }
+.diag-sem-janela { margin: 1.25rem 0 0; font-size: 1rem; line-height: 1.45; color: var(--ink); }
+
+.diag-frase { margin: 1.25rem 0 0; font-size: 1.0625rem; line-height: 1.45; font-weight: 500; color: var(--ink); max-width: 40ch; }
+.diag-mono { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--g-900); }
+.diag-ate { margin: 6px 0 0; font-size: 0.8125rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+
+.diag-pares { margin: 1.375rem 0 0; padding: 0; }
+.diag-par {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline;
+  column-gap: 12px; row-gap: 4px; padding: 12px 0; border-top: 1px solid var(--neutral-200);
+}
+.diag-par:last-child { border-bottom: 1px solid var(--neutral-200); }
+.diag-par dt { font-size: 0.9375rem; color: var(--ink); }
+.diag-dt-nome { font-size: 0.8125rem; color: var(--gray); }
+.diag-par dd { margin: 0; font-size: 1rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diag-par dd.diag-neg { color: var(--red); }
+.diag-par dd.diag-ausente { color: var(--gray); }
+.diag-par dd.diag-par__linha { flex: 1 0 100%; white-space: normal; font-size: 0.8125rem; font-weight: 400; line-height: 1.4; color: var(--gray); }
+/* Valor que é frase (histórico curto): vai para a linha de baixo, em cinza. */
+.diag-par--texto { flex-direction: column; align-items: flex-start; }
+.diag-par--texto dd:first-of-type { white-space: normal; font-size: 0.875rem; font-weight: 400; color: var(--gray); }
+
+.diag-subtitulo { font-size: 1rem; line-height: 1.3; font-weight: 700; color: var(--ink); margin: 2rem 0 0; }
+.diag-grafico { margin: 4px 0 0; }
+.diag-grafico__sub { margin: 0 0 14px; font-size: 0.8125rem; line-height: 1.4; color: var(--gray); max-width: 60ch; }
+/* Reserva embaixo para o rótulo do fundo, que mora sob o círculo. */
+.diag-grafico__area-wrap { position: relative; height: 150px; margin-bottom: 26px; }
+.diag-grafico__area-wrap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.diag-grafico__area { fill: var(--neutral-200); stroke: none; }
+.diag-grafico__zero { stroke: var(--gray); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.diag-grafico__guia { stroke: var(--gray); stroke-width: 1; stroke-dasharray: 3 3; stroke-opacity: 0.6; vector-effect: non-scaling-stroke; }
+.diag-grafico__linha { fill: none; stroke: var(--ink); stroke-width: 1.75; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.diag-grafico__tique { position: absolute; top: -4px; width: 1.5px; height: 8px; margin-left: -0.75px; background: var(--ink); }
+.diag-grafico__fundo {
+  position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
+  border: 2px solid var(--red); background: var(--neutral-50); box-sizing: border-box;
+}
+.diag-grafico__fundo-rotulo {
+  position: absolute; margin-top: 8px; font-size: 0.75rem; font-weight: 600; color: var(--red);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* Ancoragem proporcional (left: x% + translateX(-x%)): no começo o rótulo
+   sai do fundo para a direita, no fim para a esquerda, e nunca passa da coluna. */
+.diag-grafico__guia-rotulo {
+  position: absolute; right: 0; transform: translateY(-115%); font-size: 0.6875rem; color: var(--gray);
+  font-variant-numeric: tabular-nums;
+}
+.diag-grafico__zero-rotulo { top: 0; }
+.diag-grafico__eixo { display: flex; justify-content: space-between; margin: 0; font-size: 0.6875rem; color: var(--gray); font-variant-numeric: tabular-nums; }
+
+.diag-texto { margin: 1.125rem 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 68ch; font-variant-numeric: tabular-nums; }
+.diag-texto + .diag-texto { margin-top: 0.625rem; }
+.diag-nota { margin: 1.125rem 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 68ch; }
+
+.diag-conta { margin-top: 1.375rem; padding-top: 4px; border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200); }
+.diag-conta summary {
+  min-height: 44px; display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 600;
+  color: var(--ink); cursor: pointer; list-style: none;
+}
+.diag-conta summary::-webkit-details-marker { display: none; }
+.diag-conta summary::after { content: "›"; color: var(--gray); }
+.diag-conta[open] summary::after { transform: rotate(90deg); }
+.diag-conta summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.diag-conta__corpo { padding: 0 0 4px; }
+.diag-tabela { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.diag-tabela thead th { font-size: 0.75rem; font-weight: 600; color: var(--gray); text-align: right; padding: 6px 0 6px 10px; }
+.diag-tabela tbody th { text-align: left; font-weight: 400; color: var(--ink); padding: 10px 0; }
+.diag-tabela tbody td { text-align: right; color: var(--ink); padding: 10px 0 10px 10px; white-space: nowrap; }
+.diag-tabela tbody tr { border-top: 1px solid var(--neutral-200); }
+.diag-tabela tbody tr:last-child { border-bottom: 1px solid var(--neutral-200); }
+.diag-conta__nota { margin: 12px 0 0; font-size: 0.8125rem; line-height: 1.5; color: var(--gray); max-width: 68ch; }
+
+.diag-aviso { margin: 1.75rem 0 0; font-size: 0.8125rem; color: var(--gray); }

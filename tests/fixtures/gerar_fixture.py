@@ -7,6 +7,14 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.35 (Fase 7a.BQ.2): bloco top-level ``risco`` -- oscilação, pior
+queda e Sharpe contra o CDI por escopo e janela, consumido pela tela
+``#/raiox/diagnostico`` e pelo card da home. Sempre gerado por
+``construir_bloco_risco`` sobre uma ponte sintética própria (``_ponte_risco``,
+72 meses, mesmo ``ate``), nunca escrito à mão; a ``ponte`` publicada segue a
+curta. Variantes: ``portfolio_risco_{null,curto,sem_queda,nao_recuperou,
+indisponivel,eua_recente}`` e ``portfolio_pre_v235`` (2.34, sem a chave).
+
 Schema v2.34 (Fase 7a.BO.4): ``dividend_yield.campeoes`` sai; o top-3 literal
 só abre o ``ranking`` de cada classe, e ``_confere_ranking`` levanta se a chave
 voltar. Sai também ``portfolio_pre_v233`` (o shell não tem mais fallback).
@@ -995,8 +1003,160 @@ def _confere_ponte(bloco: dict, primeiro: str = "2024-04") -> None:
     assert all(s[0] is None for m in bloco["indices"].values() for s in m.values())
 
 
+# ── Fase 7a.BQ.2: ponte sintética só para o bloco ``risco`` (schema v2.35) ───
+# CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
+# público): nenhum retorno, queda, data de queda ou peso sai do DB real. O
+# ``risco`` da fixture é SEMPRE ``construir_bloco_risco`` (referência Python
+# da BQ.1) sobre a ponte abaixo, nunca escrito à mão. A ``ponte`` publicada no
+# payload continua a curta (``_ponte_curta``): esta só alimenta o ``risco``,
+# com o mesmo ``ate``. Dois ativos rótulo: SINTB3 (Brasil, rende abaixo do
+# CDI: Sharpe negativo) e SINTUS (EUA, maior e acima do CDI: Total acima).
+_RISCO_ATE = (2026, 9)
+_RISCO_ATIVOS = [
+    {"t": "SINTB3", "classe": "acoes_br", "passivo": False, "cesta_eua": None},
+    {"t": "SINTUS", "classe": "eua", "passivo": False, "cesta_eua": "picks"},
+]
+
+
+def _risco_inicio(n: int) -> tuple[int, int]:
+    ano, mes = _RISCO_ATE
+    total = ano * 12 + (mes - 1) - (n - 1)
+    return total // 12, total % 12 + 1
+
+
+def _risco_retornos(variante: str, n: int) -> tuple[list[float], list[float]]:
+    """Retorno mensal (BR em BRL, EUA em USD) por variante; índice 0 = 0."""
+    br, us = [0.0] * n, [0.0] * n
+    for t in range(1, n):
+        if variante == "sem_queda":
+            br[t] = 0.004 + 0.002 * math.sin(t)
+            us[t] = 0.030 + 0.004 * math.sin(0.7 * t)
+            continue
+        br[t] = 0.004 + 0.012 * math.sin(0.45 * t)
+        us[t] = 0.016 + 0.010 * math.sin(0.5 * t + 1.0)
+        if variante == "nao_recuperou":
+            choque = n - 14   # queda perto do fim, sem volta ao pico
+            if choque <= t < choque + 6:
+                br[t], us[t] = -0.045, -0.050
+            elif t >= choque + 6:
+                br[t], us[t] = 0.002, 0.003
+        else:
+            choque = n // 3   # queda e volta dentro de ``desde``
+            if choque <= t < choque + 5:
+                br[t], us[t] = -0.040, -0.045
+            elif choque + 5 <= t < choque + 13:
+                br[t], us[t] = 0.020, 0.035
+            if t >= n - 2:   # pico novo antes do último mês, e hoje abaixo dele
+                br[t], us[t] = -0.012, -0.015
+    return br, us
+
+
+def _ponte_risco(variante: str = "normal") -> dict:
+    """Ponte sintética das variantes do ``risco``: ``normal`` (72 meses, uma
+    queda com volta, hoje abaixo de um pico recente), ``nao_recuperou``,
+    ``sem_queda`` (só altas), ``curto`` (24 meses), ``indisponivel`` (buraco
+    em Total no mês 20: 5a e desde caem, 3a fica) e ``eua_recente`` (EUA a
+    8 meses do fim: nenhuma janela de EUA)."""
+    n = 24 if variante == "curto" else 72
+    meses = _ponte_meses(n, _risco_inicio(n))
+    ind_brl, ind_usd = _ponte_indices(n, anomalias=False)
+    r_br, r_us = _risco_retornos(variante, n)
+    ini_eua = n - 8 if variante == "eua_recente" else 6
+    brl: list[list] = [[] for _ in range(n)]
+    usd: list[list] = [[] for _ in range(n)]
+    chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
+    fluxos = {k: {"v": [0.0] * n, "entrou": [0.0] * n, "prov": [0.0] * n} for k in chaves}
+
+    def _soma(chave: str, campo: str, t: int, x: float) -> None:
+        fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
+
+    for i, (ini, v0, serie) in enumerate(((0, 10000.0, r_br), (ini_eua, 3000.0, r_us))):
+        eua = i == 1
+        v_nat = v_brl = 0.0
+        for t in range(ini, n):
+            f_nat = v0 if t == ini else 0.0
+            d_nat = round(v_nat + 0.5 * f_nat, 2)
+            g_nat = round((serie[t] if t > ini else 0.0) * d_nat, 2)
+            v_novo = round(v_nat + f_nat + g_nat, 2)
+            if eua:
+                fx = _ponte_fx(t)
+                f_brl, vb_novo = round(f_nat * fx, 2), round(v_novo * fx, 2)
+                g_brl = round(vb_novo - v_brl - f_brl, 2)
+                d_brl = round(v_brl + 0.5 * f_brl, 2)
+                usd[t].append([i, d_nat, g_nat])
+                for campo, x in (("v", v_novo), ("entrou", f_nat)):
+                    _soma("EUA_USD", campo, t, x)
+            else:
+                f_brl, vb_novo, g_brl, d_brl = f_nat, v_novo, g_nat, d_nat
+            brl[t].append([i, d_brl, g_brl])
+            for k in ("Total", "EUA_BRL" if eua else "Brasil"):
+                for campo, x in (("v", vb_novo), ("entrou", f_brl)):
+                    _soma(k, campo, t, x)
+            v_nat, v_brl = v_novo, vb_novo
+    buraco = [20, 21] if variante == "indisponivel" else []
+    return {
+        "ate": meses[-1], "meses": meses,
+        "indices": {"BRL": ind_brl, "USD": ind_usd},
+        "ativos": [dict(a) for a in _RISCO_ATIVOS],
+        "brl": brl, "usd": usd, "fluxos": fluxos,
+        "buracos": {"Total": buraco, "Brasil": [], "EUA_BRL": [], "EUA_USD": []},
+    }
+
+
+def _risco_disponivel(j: dict) -> bool:
+    return j["indisponivel"] is None
+
+
+def _confere_risco(bloco: dict, variante: str) -> None:
+    """Afirma o estado que cada variante promete ao e2e; levanta se não vale."""
+    e = bloco["escopos"]
+    disp = _risco_disponivel
+    assert bloco["ate"] == "2026-09", bloco["ate"]
+    if variante == "normal":
+        for esc in e.values():
+            assert all(disp(esc[k]) for k in ("3a", "5a", "desde")), esc
+        d = e["Total"]["desde"]
+        assert d["queda"]["recuperacao"] is not None and d["queda"]["hoje"] < 0, d["queda"]
+        assert d["queda"]["pico_de_hoje"] != d["queda"]["pico"], d["queda"]
+        assert d["excesso_aa"] > 0 and d["sharpe"] > 0, d
+        b = e["Brasil"]["desde"]
+        assert b["excesso_aa"] < 0 and b["sharpe"] < 0, b
+        assert e["EUA_USD"]["desde"]["sharpe"] is None
+        assert e["EUA_USD"]["desde"]["de"] != d["de"]
+    elif variante == "nao_recuperou":
+        q = e["Total"]["desde"]["queda"]
+        assert q["recuperacao"] is None and q["hoje"] < 0 and q["pico_de_hoje"] == q["pico"], q
+    elif variante == "sem_queda":
+        for esc in e.values():
+            for k in ("3a", "5a", "desde"):
+                q = esc[k]["queda"]
+                assert q["maxima"] == 0.0 and q["hoje"] is None, (k, q)
+    elif variante == "curto":
+        d = e["Total"]["desde"]
+        assert d["historico_curto"] and d["volatilidade_aa"] is None and d["cdi_aa"] is not None, d
+        assert not disp(e["Total"]["3a"]) and not disp(e["Total"]["5a"])
+    elif variante == "indisponivel":
+        t = e["Total"]
+        assert disp(t["3a"]) and not disp(t["5a"]) and not disp(t["desde"]), t
+        assert t["desde"]["indisponivel"].startswith("cotação ausente em"), t["desde"]
+    elif variante == "eua_recente":
+        for k in ("EUA_BRL", "EUA_USD"):
+            assert not any(disp(e[k][j]) for j in ("3a", "5a", "desde")), e[k]
+            assert e[k]["desde"]["indisponivel"] == "histórico curto: menos de 12 meses", e[k]["desde"]
+    else:
+        raise ValueError(variante)
+
+
+def _risco_sintetico(variante: str = "normal") -> dict:
+    from src.calculadora.risco import construir_bloco_risco
+
+    bloco = construir_bloco_risco(_ponte_risco(variante))
+    _confere_risco(bloco, variante)
+    return bloco
+
+
 PAYLOAD = {
-    "versao": "2.34",
+    "versao": "2.35",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1510,6 +1670,11 @@ PAYLOAD = {
     "renda": _renda_sintetica("normal"),
 }
 
+# Schema v2.35 (Fase 7a.BQ.2): risco realizado, da ponte sintética própria
+# (``_ponte_risco``), com o mesmo ``ate`` da ponte publicada.
+PAYLOAD["risco"] = _risco_sintetico("normal")
+assert PAYLOAD["risco"]["ate"] == PAYLOAD["ponte"]["ate"]
+
 # Schema v2.33 (7a.BO.2): ranking completo por classe, aberto pelo top-3
 # literal; na 2.34 (7a.BO.4) o top-3 sai do payload como chave própria.
 PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"].pop("campeoes"))
@@ -1517,7 +1682,7 @@ _confere_ranking(PAYLOAD["dividend_yield"])
 
 # Passo intermediário de ``_PRE_RENDA``: os payloads de versão anterior à 2.33
 # não carregam ``dividend_yield.ranking`` (nenhuma fixture própria desde a 2.34).
-_PRE_RANKING = PAYLOAD | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
+_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k != "risco"} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
                                              if k != "ranking"}}
 
 # Payloads de versão anterior à 2.32 não carregam ``renda``.
@@ -2156,6 +2321,21 @@ def gerar_portfolio_renda_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BQ.2 (Task 5): os estados da tela ``#/raiox/diagnostico`` -- ``risco:
+# null`` (builder falhou), as variantes do bloco e o payload 2.34, de antes da
+# chave existir. Gerar só estas (a cifra não é determinística), nunca o main().
+def gerar_portfolio_risco_variantes() -> None:
+    alvos = [("portfolio_risco_null", PAYLOAD | {"risco": None}),
+             ("portfolio_pre_v235", {k: v for k, v in PAYLOAD.items() if k != "risco"}
+              | {"versao": "2.34"})]
+    alvos += [(f"portfolio_risco_{v}", PAYLOAD | {"risco": _risco_sintetico(v)})
+              for v in ("curto", "sem_queda", "nao_recuperou", "indisponivel", "eua_recente")]
+    for nome, payload in alvos:
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BK.1 (Task 2): a #alocacao por faixa de tolerância. Duas variantes do
 # PAYLOAD com a ``politica`` trocada por pesos SINTÉTICOS redondos (repo
 # público). Regra da faixa: tol = max(0,02; 0,10 × alvo), bordas inclusivas.
@@ -2456,6 +2636,7 @@ def main() -> None:
     gerar_portfolio_alocacao_variantes()   # 7a.BK.1 (Task 2)
     gerar_portfolio_hero_7digitos()        # 7a.BL.2 (Task 6)
     gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
+    gerar_portfolio_risco_variantes()      # 7a.BQ.2 (Task 5)
 
 
 if __name__ == "__main__":
