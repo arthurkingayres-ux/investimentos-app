@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, escalarValorFinal } from "./diag-comum";
+import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, escalarValorFinal, medirLer, corDoToken, CONTA_ABRE, COMO_LER } from "./diag-comum";
 
 // Fase 7a.BR.2 — capítulo 3 "O momento dos seus aportes"
 // (#/raiox/diagnostico/aportes, spec §6.4 e §5.2). O número é XIRR − TWR da
@@ -138,24 +138,32 @@ test.describe("7a.BR.2 — capítulo 3", () => {
     expect(r.nulo).toBe("Não deu para calcular o retorno do seu dinheiro nesta janela.");
   });
 
-  test("linhas cinzas, as duas frases e a nota sempre visíveis; 'Ver a conta' fechado com TWR e XIRR; o aviso", async ({ page }) => {
+  test("linhas cinzas e 'Como ler esta conta' sempre visíveis, as notas absorvidas; 'Ver a conta' fechado com TWR e XIRR; o aviso", async ({ page }) => {
     await autenticar(page, APORTES);
     await abrir(page);
     await expect(page.locator(`${TELA} [data-testid="apor-carteira-linha"]`)).toHaveText("Como se o dinheiro tivesse ficado parado do começo ao fim.");
     await expect(page.locator(`${TELA} [data-testid="apor-dinheiro-linha"]`)).toHaveText("Considera quando e quanto entrou e saiu.");
     const dts = await page.locator(`${TELA} .diag-pares dt`).allTextContents();
     expect(dts.map(norm)).toEqual(["A carteira", "O seu dinheiro"]);
-    await expect(page.locator(`${TELA} .apor-explica`)).toHaveText(
-      "Dinheiro que entra antes de meses bons puxa o seu retorno para cima do da carteira; antes de meses ruins, para baixo.");
-    await expect(page.locator(`${TELA} .apor-nota`)).toHaveText(
-      "Não mede acerto de escolha: quem aporta todo mês pelo salário ganha essa diferença, para um lado ou para o outro, sem ter escolhido o momento. Proventos que saíram da carteira contam como dinheiro que saiu.");
+    await expect(page.locator(`${TELA} .apor-explica`)).toHaveCount(0);
+    await expect(page.locator(`${TELA} .apor-nota`)).toHaveCount(0);
+    const ler = await medirLer(page, TELA, "apor");
+    expect(ler).toMatchObject({ visivel: true, foraDeDetails: true, rotulada: true, h3: COMO_LER, antesDaConta: true });
+    expect(ler!.h4s).toEqual(["Dois retornos, duas perguntas", "Um exemplo", "Como ler o seu resultado", "O que este número não diz"]);
+    expect(ler!.itens).toEqual([2]);
     const det = page.locator(`${TELA} details.diag-conta`);
+    const abre = det.locator(".diag-conta__corpo > p").first();
+    await expect(abre).toHaveText(CONTA_ABRE);
+    await expect(abre).toHaveClass(/\bdiag-conta__abre\b/);
     await expect(det).not.toHaveAttribute("open", "");
     await det.locator("summary").click();
     const txt = norm(await det.textContent());
     expect(txt).toContain("TWR");
     expect(txt).toContain("XIRR");
-    expect(txt).toContain("a diferença muda de sinal conforme a janela");
+    // A fórmula fica; a glosa narrativa ("muda de sinal conforme a janela")
+    // passou à seção (7a.BU §3.7, edição cirúrgica do G2).
+    expect(txt).toContain("XIRR menos TWR");
+    expect(txt).not.toContain("muda de sinal");
     await expect(page.locator(`${TELA} .diag-aviso`)).toHaveText("Rentabilidade passada não garante rentabilidade futura.");
   });
 
@@ -168,6 +176,8 @@ test.describe("7a.BR.2 — capítulo 3", () => {
     await expect(page.locator(`${TELA} [data-testid="apor-sem-janela"]`)).toHaveText(e.motivo);
     await expect(page.locator(`${TELA} [data-testid="apor-frase"]`)).toHaveCount(0);
     await expect(page.locator(`${TELA} .diag-pares`)).toHaveCount(0);
+    // 7a.BU: a seção fica fora do corpo e sobrevive sem janela.
+    expect((await medirLer(page, TELA, "apor"))!.visivel).toBe(true);
     expect(erros).toEqual([]);
   });
 
@@ -259,4 +269,17 @@ test.describe("7a.BR.2 — capítulo 3: regras de forma (spec §6.6)", () => {
     expect(r.dd).toBe(r.ink);
     expect(r.linha).toBe(r.gray);
   });
+});
+
+test.describe("7a.BU — capítulo 4: Como ler esta conta", () => {
+  for (const tema of ["claro", "Plantão"] as const) {
+    test(`${tema}: a seção toda em --ink, termos em dfn peso 600`, async ({ page }) => {
+      if (tema === "Plantão") await page.addInitScript(() => localStorage.setItem("tema", "dark"));
+      await autenticar(page, APORTES);
+      await abrir(page);
+      const ler = await medirLer(page, TELA, "apor");
+      expect(ler!.cores).toEqual([await corDoToken(page, "--ink")]);
+      expect(ler!.dfnPeso).toEqual(["600"]);
+    });
+  }
 });

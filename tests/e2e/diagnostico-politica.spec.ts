@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, corDoToken } from "./diag-comum";
+import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, corDoToken, medirLer, CONTA_ABRE, COMO_LER } from "./diag-comum";
 
 // Fase 7a.BS.2 — capítulo 2 "De onde veio o resultado"
 // (#/raiox/diagnostico/politica, spec §6.3 a §6.5). O bloco `atribuicao`
@@ -87,7 +87,8 @@ async function cascata(page: Page) {
     const nrm = (s: string | null) => (s || "").replace(/\s+/g, " ").trim();
     return Array.from(document.querySelectorAll(`${sel} .pol-cascata [data-testid="pol-linha"]`)).map((el) => ({
       tipo: el.getAttribute("data-tipo"), id: el.getAttribute("data-id"), grupo: el.getAttribute("data-grupo"),
-      nome: nrm(el.querySelector(".pol-nome")!.textContent), sub: nrm(el.querySelector(".pol-sub")?.textContent || ""),
+      nome: nrm(el.querySelector(".pol-nome")!.textContent), sub: nrm(el.querySelector(":scope > .pol-sub")?.textContent || ""),
+      subNoRotulo: !!el.querySelector(".pol-rotulo .pol-sub"),
       valor: nrm(el.querySelector(".pol-valor")!.textContent),
     }));
   }, TELA);
@@ -101,7 +102,7 @@ test.describe("7a.BS.2 — capítulo 2: abertura e frase", () => {
     await expect(page.locator(`${TELA} .breadcrumb h1`)).toHaveText("Diagnóstico");
     await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("2");
     await expect(page.locator(`${TELA} .diag-titulo`)).toHaveText("De onde veio o resultado");
-    await expect(page.locator(`${TELA} .pol-pergunta`)).toHaveText("Sua carteira contra a carteira-modelo da sua política, rebalanceada todo mês.");
+    await expect(page.locator(`${TELA} .pol-pergunta`)).toHaveText("Sua carteira comparada com o plano que você definiu, para saber quanto do resultado veio do plano, de ter fugido dele e dos ativos que você escolheu.");
     await expect(page.locator(`${TELA} [data-testid="pol-janela-desde"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`${TELA} [data-testid="pol-janela-3a"]`)).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator(`${TELA} [data-testid="pol-janela-3a"]`)).toHaveText("3 anos");
@@ -157,18 +158,33 @@ test.describe("7a.BS.2 — capítulo 2: abertura e frase", () => {
     }
   });
 
-  test("nota de honestidade verbatim e o aviso de rentabilidade passada, sempre visíveis", async ({ page }) => {
+  test("'Como ler esta conta' aberta e sem toque, depois da ressalva e antes de 'Ver a conta'; a nota cinza absorvida; o aviso", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
     await abrir(page);
-    await expect(page.locator(`${TELA} [data-testid="pol-nota"]`)).toHaveText(
-      "A política é a carteira-modelo: os fundos da política rendem o próprio retorno, e a parte de picks rende o índice da classe. Antes de existirem, os fundos de renda fixa rendem o índice que replicam. Rebalanceada todo mês, sem custo nem imposto. A cripto fica fora, como na Rentabilidade.");
-    await expect(page.locator(`${TELA} [data-testid="pol-nota"]`)).toBeVisible();
+    await expect(page.locator(`${TELA} [data-testid="pol-nota"]`)).toHaveCount(0);
+    const ler = await medirLer(page, TELA, "pol");
+    expect(ler).toMatchObject({ visivel: true, foraDeDetails: true, rotulada: true, h3: COMO_LER, antesDaConta: true });
+    expect(ler!.h4s).toEqual(["Três carteiras", "As duas diferenças", "A unidade", "O dólar", "A ressalva", "O que fica de fora"]);
+    expect(ler!.itens).toEqual([3, 2]);
+    // A ressalva do número fica junto da frase, acima da seção.
+    const ordem = await page.evaluate((sel) => {
+      const r = document.querySelector(sel)!;
+      const ler = r.querySelector('[data-testid="pol-ler"]')!;
+      return ["pol-contrafactual", "pol-registrada"].map((t) => {
+        const el = r.querySelector(`[data-testid="${t}"]`);
+        return !el || !!(el.compareDocumentPosition(ler) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+    }, TELA);
+    expect(ordem).toEqual([true, true]);
+    const abre = page.locator(`${TELA} details.diag-conta .diag-conta__corpo > p`).first();
+    await expect(abre).toHaveText(CONTA_ABRE);
+    await expect(abre).toHaveClass(/\bdiag-conta__abre\b/);
     await expect(page.locator(`${TELA} .diag-aviso`)).toHaveText("Rentabilidade passada não garante rentabilidade futura.");
   });
 });
 
 test.describe("7a.BS.2 — capítulo 2: a cascata", () => {
-  test("ordem da spec §6.3 item 5, os três totais e o sub 'o número da Rentabilidade', nas três janelas", async ({ page }) => {
+  test("ordem da spec §6.3 item 5, os três totais e as legendas da 7a.BU, nas três janelas", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
@@ -186,7 +202,20 @@ test.describe("7a.BS.2 — capítulo 2: a cascata", () => {
       expect(por("politica", "total").valor).toBe(e.Ptxt);
       expect(por("desvio", "grupo").nome).toBe("Desvio do alvo");
       expect(por("so_indices", "total").nome).toBe("Mesma carteira, só com índices");
-      expect(por("so_indices", "total").sub).toBe("o número da Rentabilidade");
+      // 7a.BU §3.4: legenda de uma linha nos totais e nos cabeçalhos de grupo,
+      // na segunda linha do grid (filho direto da linha, fora do rótulo).
+      const LEG: Record<string, string> = {
+        "total:politica": "o plano seguido à risca",
+        "grupo:desvio": "o efeito de os seus pesos terem sido outros",
+        "total:so_indices": "os seus pesos, rendendo os índices",
+        "grupo:escolhas": "o efeito dos ativos que você escolheu",
+        "total:carteira": "o que você ganhou de verdade",
+      };
+      for (const l of ls) {
+        expect(l.sub, `${l.tipo}:${l.id}`).toBe(LEG[`${l.tipo}:${l.id}`] ?? "");
+        expect(l.sub.length).toBeLessThanOrEqual(45);
+        expect(l.subNoRotulo).toBe(false);
+      }
       expect(por("so_indices", "total").valor).toBe(e.Ntxt);
       expect(por("escolhas", "grupo").nome).toBe("Suas escolhas");
       expect(por("carteira", "total").nome).toBe("Sua carteira");
@@ -319,6 +348,8 @@ test.describe("7a.BS.2 — capítulo 2: a cascata", () => {
     const e = await esperado(page, "desde");
     ls.forEach((l, i) => {
       expect(linhas[i].th).toContain(l.nome);
+      // A cascata é aria-hidden: a legenda chega ao leitor de tela pela tabela.
+      if (l.sub) expect(linhas[i].th).toContain(l.sub);
       if (l.tipo === "total") expect(linhas[i].td).toBe(`${l.valor} ao ano`);
       else {
         const v = lerPontos(l.valor);
@@ -478,6 +509,8 @@ test.describe("7a.BS.2 — capítulo 2: estados (spec §6.4)", () => {
     await expect(page.locator(`${TELA} [data-testid="pol-motivo"]`)).toHaveClass(/diag-motivo/);
     const e = await esperado(page, "5a");
     await expect(page.locator(`${TELA} [data-testid="pol-frase"]`)).toHaveText(fraseEsperada(e));
+    // 7a.BU: a seção é estática e não depende da janela.
+    expect((await medirLer(page, TELA, "pol"))!.visivel).toBe(true);
     // aria-disabled: o Playwright não clica sem force (o botão segue focável e tocável).
     await desde.click({ force: true });
     await expect(page.locator(`${TELA} [data-testid="pol-janela-5a"]`)).toHaveAttribute("aria-pressed", "true");
@@ -712,7 +745,6 @@ test.describe("7a.BS.2 — capítulo 2: regras de forma (spec §6.5)", () => {
           fonteFrase: getComputedStyle(q('[data-testid="pol-frase"]')).fontFamily,
           fontesFortes: Array.from(document.querySelectorAll(`${sel} [data-testid="pol-frase"] strong`)).map((s) => getComputedStyle(s).fontFamily),
           ate: getComputedStyle(q('[data-testid="pol-ate"]')).color,
-          nota: getComputedStyle(q('[data-testid="pol-nota"]')).color,
           dolarLinha: getComputedStyle(q('[data-testid="pol-dolar-linha"]')).color,
           ponto: getComputedStyle(q('[data-testid="pol-linha"][data-id="renda_fixa"] .pol-ponto')).backgroundColor,
           sua: getComputedStyle(q('[data-testid="pol-linha"][data-id="carteira"] .pol-barra')).backgroundColor,
@@ -725,7 +757,9 @@ test.describe("7a.BS.2 — capítulo 2: regras de forma (spec §6.5)", () => {
       for (const c of r.fortes) expect(c).toBe(r.ink);
       for (const f of r.fontesFortes) expect(f).toBe(r.fonteFrase);
       expect(r.ate).toBe(r.gray);
-      expect(r.nota).toBe(r.gray);
+      const ler = await medirLer(page, TELA, "pol");
+      expect(ler!.cores).toEqual([r.ink]);
+      expect(ler!.dfnPeso).toEqual(["600"]);
       expect(r.dolarLinha).toBe(r.gray);
       expect(r.ponto).toBe(r.rf);
       expect(r.sua).toBe(r.inkBg);

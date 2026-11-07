@@ -1129,10 +1129,10 @@ function polCascata(j) {
     barra, estiloBarra: cheia, estiloGuia: "", estiloPonto: "",
     tabelaValor: `${rent2PctPts(v)} ${unid}`, tabelaAcum: rent2PctPts(v),
   });
-  const grupo = (id, rotulo, v, acum) => {
+  const grupo = (id, rotulo, v, acum, sub) => {
     const p = rent2Pontos(v);
     return {
-      tipo: "grupo", id, grupo: null, rotulo, sub: "", texto: p.texto, sinal: p.sinal,
+      tipo: "grupo", id, grupo: null, rotulo, sub, texto: p.texto, sinal: p.sinal,
       barra: "", estiloBarra: "", estiloGuia: "", estiloPonto: "",
       tabelaValor: `${polFalado(p)} ${unid}`, tabelaAcum: rent2PctPts(acum),
     };
@@ -1148,14 +1148,16 @@ function polCascata(j) {
       tabelaValor: `${polFalado(p)} ${unid}`, tabelaAcum: rent2PctPts(geo.acum[i + 1]),
     };
   };
+  // Legenda de uma linha nos totais e nos cabeçalhos de grupo (7a.BU §3.4),
+  // até ~45 caracteres: vai na segunda linha do grid, e os degraus ficam sem.
   const linhas = [
-    total("politica", "A política", e.P, "", "neutra"),
-    grupo("desvio", "Desvio do alvo", e.A, e.N),
+    total("politica", "A política", e.P, "o plano seguido à risca", "neutra"),
+    grupo("desvio", "Desvio do alvo", e.A, e.N, "o efeito de os seus pesos terem sido outros"),
     ...cats.map((c, i) => degrau("desvio", c, dv[i], i)),
-    total("so_indices", "Mesma carteira, só com índices", e.N, "o número da Rentabilidade", "neutra"),
-    grupo("escolhas", "Suas escolhas", e.S, e.C),
+    total("so_indices", "Mesma carteira, só com índices", e.N, "os seus pesos, rendendo os índices", "neutra"),
+    grupo("escolhas", "Suas escolhas", e.S, e.C, "o efeito dos ativos que você escolheu"),
     ...cls.map((c, i) => degrau("escolhas", c, ev[i], cats.length + i)),
-    total("carteira", "Sua carteira", e.C, "", "sua"),
+    total("carteira", "Sua carteira", e.C, "o que você ganhou de verdade", "sua"),
   ];
   return {
     linhas,

@@ -366,3 +366,40 @@ test.describe("7a.BR.2 — índice: regras de forma (spec §6.6)", () => {
     expect(r.borda).toBe(n200);
   });
 });
+
+// 7a.BU §3.2 (emendada em 07/11/2026, opção B do Dr. Arthur): o parágrafo do
+// caminho vem logo depois da lista, antes da nota do rodapé, com no máximo 50
+// palavras no corpo; as quatro linhas ficam inteiras na primeira tela a 375 px.
+test.describe("7a.BU — o caminho no índice", () => {
+  test("o parágrafo fica entre a lista e a nota do rodapé, com até 50 palavras", async ({ page }) => {
+    await autenticar(page, PRINCIPAL);
+    await abrir(page);
+    const c = page.locator(`${TELA} [data-testid="diag-indice-caminho"]`);
+    await expect(c).toBeVisible();
+    await expect(c.locator("strong")).toHaveText("O caminho.");
+    const r = await page.evaluate((sel) => {
+      const raiz = document.querySelector(sel)!;
+      const p = raiz.querySelector('[data-testid="diag-indice-caminho"]')!;
+      const nav = raiz.querySelector("nav")!;
+      const nota = raiz.querySelector(".diag-indice__nota")!;
+      return {
+        depoisDaLista: !!(nav.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING),
+        antesDaNota: !!(p.compareDocumentPosition(nota) & Node.DOCUMENT_POSITION_FOLLOWING),
+        // O corpo, sem o "O caminho." de abertura: a copy aprovada da §3.2 tem
+        // 50 palavras nele (52 com a abertura).
+        palavras: (p.textContent || "").replace("O caminho.", "").trim().split(/\s+/).length,
+      };
+    }, TELA);
+    expect(r.depoisDaLista).toBe(true);
+    expect(r.antesDaNota).toBe(true);
+    expect(r.palavras).toBeLessThanOrEqual(50);
+  });
+
+  test("a 375 × 812, as quatro linhas seguem na primeira tela", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await autenticar(page, PRINCIPAL);
+    await abrir(page);
+    const fundo = await linha(page, 4).evaluate((el) => el.getBoundingClientRect().bottom);
+    expect(fundo).toBeLessThanOrEqual(812);
+  });
+});

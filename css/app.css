@@ -4735,7 +4735,21 @@ body:has(.tab-bar) main {
 
 .diag-texto { margin: 1.125rem 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 68ch; font-variant-numeric: tabular-nums; }
 .diag-texto + .diag-texto { margin-top: 0.625rem; }
-.diag-nota { margin: 1.125rem 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 68ch; }
+
+/* 7a.BU: "Como ler esta conta", aberta por padrão, em prosa corrente. Tudo
+   em --ink (a ressalva também); termos-chave em <dfn> peso 600, sem cor nem
+   mono (mono é dos três números do cap. 1). Sem card, fundo ou borda. */
+.diag-ler { margin-top: 2.25rem; }
+.diag-ler__sub { margin: 1.5rem 0 0; font-size: 0.9375rem; line-height: 1.35; font-weight: 700; color: var(--ink); text-transform: none; letter-spacing: normal; }
+.diag-ler__sub + .diag-texto, .diag-ler__sub + .diag-ler__lista, .diag-ler__sub + .diag-ler__nums { margin-top: 0.375rem; }
+.diag-ler__lista { margin: 0.625rem 0 0; padding-left: 1.25rem; max-width: 68ch; }
+.diag-ler__lista li { font-size: 0.9375rem; line-height: 1.5; color: var(--ink); }
+.diag-ler__lista li + li { margin-top: 0.5rem; }
+.diag-ler__nums { margin: 0.625rem 0 0; max-width: 68ch; }
+.diag-ler__nums dt { font-size: 0.9375rem; line-height: 1.4; font-weight: 600; color: var(--ink); }
+.diag-ler__nums dd { margin: 0.25rem 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); }
+.diag-ler__nums dd + dt { margin-top: 0.875rem; }
+.diag-ler dfn { font-style: normal; font-weight: 600; color: inherit; font-family: inherit; }
 
 .diag-conta { margin-top: 1.375rem; padding-top: 4px; border-top: 1px solid var(--neutral-200); border-bottom: 1px solid var(--neutral-200); }
 .diag-conta summary {
@@ -4764,6 +4778,9 @@ body:has(.tab-bar) main {
    herdam a fonte do texto (font: inherit). */
 .diag-indice__titulo { margin: 1.25rem 0 0; }
 .diag-indice__instrucao { margin: 8px 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--gray); max-width: 60ch; }
+/* 7a.BU §3.2: o caminho entre as quatro perguntas, antes da lista. */
+.diag-indice__caminho { margin: 1.375rem 0 0; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 60ch; }
+.diag-indice__caminho strong { font-weight: 600; }
 .diag-indice__lista { list-style: none; margin: 1.375rem 0 0; padding: 0; border-top: 1px solid var(--neutral-200); }
 .diag-indice__linha {
   display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) 1rem; column-gap: 10px; align-items: start;
@@ -4790,7 +4807,6 @@ body:has(.tab-bar) main {
 .apor-moedas button { font: inherit; font-size: 0.8125rem; font-weight: 500; }
 
 /* Capítulo 2. */
-.sel-pergunta { margin: 0 0 1rem; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 60ch; }
 .sel-classe { margin-top: 1.375rem; padding-top: 1.125rem; border-top: 1px solid var(--neutral-200); }
 .sel-classe__cab { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; margin: 0; font-size: 1.125rem; line-height: 1.3; font-weight: 700; color: var(--ink); }
 .sel-ponto { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; }
@@ -4822,15 +4838,11 @@ body:has(.tab-bar) main {
 .sel-linha { margin: 4px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 68ch; font-variant-numeric: tabular-nums; }
 .sel-linha > span ~ span::before { content: " "; }
 .sel-fundos { margin-top: 8px; }
-.sel-nota { margin-top: 1.5rem; }
 
 .sel-tabela { margin-top: 12px; }
 .sel-tabela__titulo { caption-side: top; text-align: left; padding: 4px 0 2px; font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
 .sel-tabela tbody th { padding-right: 6px; font-size: 0.8125rem; line-height: 1.35; }
 .sel-tabela tbody td, .sel-tabela thead th { padding-left: 10px; }
-
-/* Capítulo 3. */
-.apor-explica { margin-top: 1.375rem; }
 
 /* ── Fase 7a.BS.2: capítulo 2 "De onde veio o resultado" ──────────────────
    Família ensaio (.diag-ensaio). A cascata segue o idioma do waterfall da
@@ -4868,6 +4880,8 @@ body:has(.tab-bar) main {
 }
 .pol-ponto { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
 .pol-sub { font-size: var(--num-xs); color: var(--gray); line-height: 1.25; }
+/* 7a.BU: a legenda é filha direta da linha e ocupa a segunda linha do grid. */
+.pol-linha > .pol-sub { grid-column: 1 / -1; margin-top: -6px; }
 /* Totais: o nome em 700, como na ponte. */
 .pol-linha--total .pol-nome { font-weight: 700; }
 /* Cabeçalho de grupo: o rótulo ocupa rótulo e trilho, o subtotal fica na
@@ -4919,7 +4933,6 @@ body:has(.tab-bar) main {
 .pol-valor.is-neutro { color: var(--gray); }
 
 .pol-dolar__frase { font-variant-numeric: tabular-nums; }
-.pol-nota { margin-top: 1.5rem; }
 
 .pol-conta-janela + .pol-conta-janela { margin-top: 4px; }
 .pol-conta-tabela { margin-top: 12px; }

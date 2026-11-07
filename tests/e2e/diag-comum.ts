@@ -97,6 +97,38 @@ export async function medirForma(page: Page, tela: string, coluna: string) {
   }, [tela, coluna] as const);
 }
 
+// Fase 7a.BU — a seção "Como ler esta conta" de um capítulo, por estrutura
+// (headings e testid, nunca substring longa): visível sem toque, fora de
+// <details>, antes de "Ver a conta", as cores distintas do texto e o peso
+// dos <dfn>.
+export async function medirLer(page: Page, tela: string, pfx: string) {
+  return page.evaluate(([sel, p]) => {
+    const raiz = document.querySelector(sel)!;
+    const s = raiz.querySelector(`[data-testid="${p}-ler"]`) as HTMLElement | null;
+    if (!s) return null;
+    const nrm = (t: string | null) => (t || "").replace(/\s+/g, " ").trim();
+    const conta = raiz.querySelector("details.diag-conta");
+    const titulo = s.querySelector("h3");
+    const uniq = (xs: string[]) => Array.from(new Set(xs));
+    return {
+      visivel: !!s.offsetParent && s.getBoundingClientRect().height > 0,
+      foraDeDetails: !s.closest("details"),
+      rotulada: !!titulo && s.getAttribute("aria-labelledby") === titulo.id,
+      h3: nrm(titulo?.textContent ?? ""),
+      h4s: Array.from(s.querySelectorAll("h4")).map((h) => nrm(h.textContent)),
+      antesDaConta: !conta || !!(s.compareDocumentPosition(conta) & Node.DOCUMENT_POSITION_FOLLOWING),
+      cores: uniq(Array.from(s.querySelectorAll("p, li, dt, dd, h4")).map((e) => getComputedStyle(e).color)),
+      dfnPeso: uniq(Array.from(s.querySelectorAll("dfn")).map((e) => getComputedStyle(e).fontWeight)),
+      dts: Array.from(s.querySelectorAll("dl.diag-ler__nums dt")).map((e) => nrm(e.textContent)),
+      itens: Array.from(s.querySelectorAll(".diag-ler__lista")).map((l) => l.querySelectorAll(":scope > li").length),
+    };
+  }, [tela, pfx] as const);
+}
+
+// "Ver a conta" abre com a linha que o apresenta como apêndice (7a.BU §3.7).
+export const CONTA_ABRE = "Os nomes técnicos e as fórmulas, para conferir.";
+export const COMO_LER = "Como ler esta conta";
+
 // Cor resolvida de um token, para comparar com getComputedStyle.
 export async function corDoToken(page: Page, token: string) {
   return page.evaluate((v) => {

@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, corDoToken } from "./diag-comum";
+import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, corDoToken, medirLer, CONTA_ABRE, COMO_LER } from "./diag-comum";
 
 // Fase 7a.BR.2 — capítulo 2 "Seus picks batem o índice?"
 // (#/raiox/diagnostico/selecao, spec §6.3 e §6.5). O bloco `selecao` chega
@@ -67,14 +67,13 @@ function fraseEsperada(cl: string, w: Awaited<ReturnType<typeof janela>>) {
 }
 
 test.describe("7a.BR.2 — capítulo 2", () => {
-  test("abre em Desde, com ordinal, título e a linha que explica a pergunta", async ({ page }) => {
+  test("abre em Desde, com ordinal e título; a linha de cima saiu, absorvida pela seção (7a.BU)", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
     await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("3");
     await expect(page.locator(`${TELA} .diag-titulo`)).toHaveText("Seus picks batem o índice?");
-    await expect(page.locator(`${TELA} .sel-pergunta`)).toHaveText(
-      "Por habilidade ou por sorte: quanto maior e mais regular a diferença mês a mês, menos ela se explica por sorte.");
+    await expect(page.locator(`${TELA} .sel-pergunta`)).toHaveCount(0);
     await expect(page.locator(`${TELA} [data-testid="sel-janela-desde"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`${TELA} [data-testid="sel-janela-desde"]`)).toHaveText("Desde o início");
     await expect(page.locator(`${TELA} [data-testid="sel-janela-3a"]`)).toHaveText("3 anos");
@@ -236,12 +235,19 @@ test.describe("7a.BR.2 — capítulo 2", () => {
     await expect(classe(page, "eua").locator('[data-testid="sel-fundos"]')).toHaveCount(0);
   });
 
-  test("nota de honestidade sempre visível, 'Ver a conta' fechado com uma tabela por janela e a linha da ponte, e o aviso", async ({ page }) => {
+  test("'Como ler esta conta' aberta e sem toque, a nota cinza absorvida, 'Ver a conta' fechado com uma tabela por janela e a linha da ponte, e o aviso", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
     await abrir(page);
-    await expect(page.locator(`${TELA} .sel-nota`)).toHaveText(
-      "A régua mede a diferença média mês a mês contra o quanto ela oscila. A faixa cinza é onde a sorte explica o resultado; o primeiro traço depois dela é o indício, o segundo, o consistente. Os picks incluem os papéis que já saíram da carteira; ETFs de índice ficam fora. Fala do passado e não garante o futuro.");
+    await expect(page.locator(`${TELA} .sel-nota`)).toHaveCount(0);
+    const ler = await medirLer(page, TELA, "sel");
+    expect(ler).toMatchObject({ visivel: true, foraDeDetails: true, rotulada: true, h3: COMO_LER, antesDaConta: true });
+    expect(ler!.h4s).toEqual(["O que esta pergunta mede", "A lógica é a de um ensaio clínico", "A régua", "Por que as janelas discordam",
+      "Duas medidas que às vezes discordam", "Sem viés de sobrevivência", "A diferença para o capítulo 2", "O que a régua não diz"]);
+    expect(ler!.itens).toEqual([5]);
     const det = page.locator(`${TELA} details.diag-conta`);
+    const abre = det.locator(".diag-conta__corpo > p").first();
+    await expect(abre).toHaveText(CONTA_ABRE);
+    await expect(abre).toHaveClass(/\bdiag-conta__abre\b/);
     await expect(det).not.toHaveAttribute("open", "");
     await expect(det.locator(".sel-tabela").first()).toBeHidden();
     await det.locator("summary").click();
@@ -471,5 +477,24 @@ test.describe("7a.BR.2 — capítulo 2: regras de forma (spec §6.6)", () => {
     expect(r.faixa).toBe(n200);
     expect(r.zero).toBe(ink);
     expect(r.rotulo).toBe(gray);
+  });
+});
+
+test.describe("7a.BU — capítulo 3: Como ler esta conta", () => {
+  for (const tema of ["claro", "Plantão"] as const) {
+    test(`${tema}: a seção toda em --ink, termos em dfn peso 600`, async ({ page }) => {
+      if (tema === "Plantão") await page.addInitScript(() => localStorage.setItem("tema", "dark"));
+      await autenticar(page, PRINCIPAL);
+      await abrir(page);
+      const ler = await medirLer(page, TELA, "sel");
+      expect(ler!.cores).toEqual([await corDoToken(page, "--ink")]);
+      expect(ler!.dfnPeso).toEqual(["600"]);
+    });
+  }
+
+  test("histórico curto: a seção continua, porque não depende da janela", async ({ page }) => {
+    await autenticar(page, CURTO);
+    await abrir(page);
+    expect((await medirLer(page, TELA, "sel"))!.visivel).toBe(true);
   });
 });

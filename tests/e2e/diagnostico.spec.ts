@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import path from "path";
 import fs from "fs";
+import { medirLer, corDoToken, CONTA_ABRE, COMO_LER } from "./diag-comum";
 
 // Fase 7a.BQ.2 — Diagnóstico, capítulo 1 "Quanto risco
 // a carteira correu" (desde a 7a.BR.2 em #/raiox/diagnostico/risco; o
@@ -237,7 +238,7 @@ test.describe("7a.BQ.2 — a tela", () => {
     await autenticar(page);
     await abrir(page);
     const w = await janela(page, "Total", "desde");
-    await expect(page.locator(`${TELA} .diag-subtitulo`)).toHaveText("Quanto abaixo do pico");
+    await expect(page.locator(`${TELA} .diag-subtitulo:not(#diag-ler-titulo)`)).toHaveText("Quanto abaixo do pico");
     const svg = page.locator(`${TELA} .diag-grafico svg[role="img"]`);
     await expect(svg).toBeVisible();
     await expect(svg).toHaveAttribute("aria-label",
@@ -285,13 +286,21 @@ test.describe("7a.BQ.2 — a tela", () => {
     await expect(page.locator(`${TELA} [data-testid="diag-queda"]`)).toHaveText("0,0%");
   });
 
-  test("nota de honestidade sempre visível, 'Ver a conta' fechado com a tabela e o aviso de rentabilidade passada", async ({ page }) => {
+  test("'Como ler esta conta' aberta e sem toque, a nota cinza absorvida, 'Ver a conta' fechado com a tabela e o aviso de rentabilidade passada", async ({ page }) => {
     await autenticar(page);
     await abrir(page);
     const w = await janela(page, "Total", "desde");
-    await expect(page.locator(`${TELA} .diag-nota`)).toHaveText(
-      "Medido no fechamento de cada mês. Uma queda que começa e termina dentro do mesmo mês não aparece, então a pior queda real pode ter sido maior.");
+    // 7a.BU: a nota cinza saiu, absorvida pela seção (spec §3.1).
+    await expect(page.locator(`${TELA} .diag-nota`)).toHaveCount(0);
+    const ler = await medirLer(page, TELA, "diag");
+    expect(ler).not.toBeNull();
+    expect(ler).toMatchObject({ visivel: true, foraDeDetails: true, rotulada: true, h3: COMO_LER, antesDaConta: true });
+    expect(ler!.h4s).toEqual(["O que esta pergunta mede", "Os três números", "Como ler o seu resultado", "Os botões", "O que estes números não dizem"]);
+    expect(ler!.dts).toEqual(["Oscilação (volatilidade)", "Pior queda", "Retorno pelo risco (Sharpe)"]);
     const det = page.locator(`${TELA} details.diag-conta`);
+    const abre = det.locator(".diag-conta__corpo > p").first();
+    await expect(abre).toHaveText(CONTA_ABRE);
+    await expect(abre).toHaveClass(/\bdiag-conta__abre\b/);
     await expect(det).not.toHaveAttribute("open", "");
     await expect(det.locator("table")).toBeHidden();
     await det.locator("summary").click();
@@ -531,4 +540,15 @@ test.describe("7a.BQ.2 — regras de forma (spec §6.4)", () => {
     expect(r.fundo).toBe(r.red);
     expect(r.queda).toBe(r.red);
   });
+
+  for (const tema of ["claro", "Plantão"] as const) {
+    test(`${tema}: 'Como ler esta conta' toda em --ink, termos em dfn peso 600`, async ({ page }) => {
+      if (tema === "Plantão") await page.addInitScript(() => localStorage.setItem("tema", "dark"));
+      await autenticar(page);
+      await abrir(page);
+      const ler = await medirLer(page, TELA, "diag");
+      expect(ler!.cores).toEqual([await corDoToken(page, "--ink")]);
+      expect(ler!.dfnPeso).toEqual(["600"]);
+    });
+  }
 });

@@ -1740,11 +1740,31 @@
                   <p class="diag-texto" data-testid="diag-frase-hoje" x-text="diag.fraseHoje"></p>
                 </template>
 
-                <p class="diag-nota">Medido no fechamento de cada mês. Uma queda que começa e termina dentro do mesmo mês não aparece, então a pior queda real pode ter sido maior.</p>
+                <section class="diag-ler" data-testid="diag-ler" aria-labelledby="diag-ler-titulo">
+                  <h3 class="diag-subtitulo" id="diag-ler-titulo">Como ler esta conta</h3>
+                  <h4 class="diag-ler__sub">O que esta pergunta mede</h4>
+                  <p class="diag-texto">O retorno sozinho não diz como foi o caminho. Duas carteiras podem chegar ao mesmo lugar, uma subindo devagar e outra caindo pela metade no meio do caminho. Aqui ficam três medidas desse caminho.</p>
+                  <h4 class="diag-ler__sub">Os três números</h4>
+                  <dl class="diag-ler__nums">
+                    <dt>Oscilação (volatilidade)</dt>
+                    <dd>O tamanho típico do solavanco: quanto o resultado costuma se afastar da média. Com <dfn>oscilação</dfn> de 12% ao ano, por exemplo (número inventado), num ano comum a carteira fica até uns 12 pontos acima ou abaixo do que costuma render, e, como regra de bolso, mais ou menos um ano em cada três sai dessa faixa. Quanto maior, mais acidentado.</dd>
+                    <dt>Pior queda</dt>
+                    <dd>A maior distância entre um pico e o fundo que veio depois. É a pergunta prática: qual foi o pior momento que você teria de atravessar sem vender? O gráfico "Quanto abaixo do pico" mostra isso mês a mês: a linha no zero é a carteira no maior valor que já tinha alcançado; cada vale é uma queda, e a volta ao zero é a recuperação.</dd>
+                    <dt>Retorno pelo risco (Sharpe)</dt>
+                    <dd>Quanto a carteira rendeu acima do CDI para cada ponto de oscilação. O CDI entra porque é o que você ganharia sem correr risco nenhum. Acima de zero, o risco foi pago; abaixo de zero, a carteira balançou e mesmo assim rendeu menos que o CDI.</dd>
+                  </dl>
+                  <h4 class="diag-ler__sub">Como ler o seu resultado</h4>
+                  <p class="diag-texto">Olhe os três juntos: a oscilação diz o tamanho do solavanco, a <dfn>pior queda</dfn> diz o pior momento, e o <dfn>retorno pelo risco</dfn> diz se o solavanco valeu a pena. Para ter com o que comparar, "Ver a conta" mostra os mesmos números para a mesma carteira feita só de índices: se a sua oscilou mais que ela, o risco a mais veio das suas escolhas.</p>
+                  <h4 class="diag-ler__sub">Os botões</h4>
+                  <p class="diag-texto">Total, Brasil e EUA mostram a carteira inteira ou só uma parte. Na parte americana, BRL mostra o resultado em reais, com o efeito do dólar dentro; USD mostra em dólar, sem ele. Em dólar não há retorno pelo risco, porque o CDI é uma taxa em reais.</p>
+                  <h4 class="diag-ler__sub">O que estes números não dizem</h4>
+                  <p class="diag-texto">São medidos no fechamento de cada mês: uma queda que começa e termina dentro do mesmo mês não aparece, então a pior queda real pode ter sido maior. E o tamanho das quedas passadas não promete o tamanho da próxima.</p>
+                </section>
 
                 <details class="diag-conta">
                   <summary>Ver a conta</summary>
                   <div class="diag-conta__corpo">
+                    <p class="diag-conta__nota diag-conta__abre">Os nomes técnicos e as fórmulas, para conferir.</p>
                     <table class="diag-tabela">
                       <caption class="sr-only">A carteira e a mesma carteira feita só de índices, na janela escolhida</caption>
                       <thead><tr><td></td><th scope="col">Sua carteira</th><th scope="col">Só com índices</th></tr></thead>
@@ -1803,6 +1823,7 @@
                 </template>
               </ol>
             </nav>
+            <p class="diag-indice__caminho" data-testid="diag-indice-caminho"><strong>O caminho.</strong> A primeira pergunta olha quanto a carteira balançou. A segunda separa o resultado: o plano, o desvio do plano e os ativos escolhidos. A terceira pergunta se essas escolhas são habilidade ou sorte. A quarta olha o momento dos seus aportes. Cada uma explica, por dentro, como ler a conta.</p>
             <p class="diag-indice__nota">Cada linha resume a janela desde o início. A conta, as outras janelas e os escopos ficam dentro de cada pergunta.</p>
             <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
           </article>
@@ -1834,7 +1855,7 @@
           <article class="diag-ensaio pol-ensaio" aria-labelledby="pol-titulo">
             <p class="diag-ordinal" aria-hidden="true">2</p>
             <h2 class="diag-titulo" id="pol-titulo">De onde veio o resultado</h2>
-            <p class="pol-pergunta">Sua carteira contra a carteira-modelo da sua política, rebalanceada todo mês.</p>
+            <p class="pol-pergunta">Sua carteira comparada com o plano que você definiu, para saber quanto do resultado veio do plano, de ter fugido dele e dos ativos que você escolheu.</p>
 
             <div class="diag-janelas" role="group" aria-label="Janela">
               <template x-for="j in pol.janelas" :key="j.chave">
@@ -1875,7 +1896,6 @@
                          :data-tipo="l.tipo" :data-id="l.id" :data-grupo="l.grupo">
                       <span class="pol-rotulo">
                         <span class="pol-nome"><template x-if="l.estiloPonto"><span class="pol-ponto" :style="l.estiloPonto"></span></template><span x-text="l.rotulo"></span></span>
-                        <template x-if="l.sub"><span class="pol-sub" x-text="l.sub"></span></template>
                       </span>
                       <template x-if="l.tipo !== 'grupo'">
                         <span class="pol-trilho">
@@ -1884,6 +1904,8 @@
                         </span>
                       </template>
                       <span class="pol-valor" :class="'is-' + l.sinal" x-text="l.texto"></span>
+                      <!-- 7a.BU: a legenda na segunda linha do grid, fora do rótulo. -->
+                      <template x-if="l.sub"><span class="pol-sub" x-text="l.sub"></span></template>
                     </div>
                   </template>
                 </div>
@@ -1895,7 +1917,7 @@
                     <thead><tr><th scope="col">Linha</th><th scope="col">Valor</th><th scope="col">Acumulado</th></tr></thead>
                     <tbody>
                       <template x-for="l in pol.cascata.linhas" :key="'t-' + l.tipo + '-' + (l.grupo || '') + '-' + l.id">
-                        <tr><th scope="row" x-text="l.tipo === 'degrau' ? l.rotulo + ', em ' + (l.grupo === 'desvio' ? 'desvio do alvo' : 'suas escolhas') + ':' : l.rotulo + ':'"></th><td x-text="l.tabelaValor"></td><td x-text="l.tabelaAcum"></td></tr>
+                        <tr><th scope="row" x-text="l.tipo === 'degrau' ? l.rotulo + ', em ' + (l.grupo === 'desvio' ? 'desvio do alvo' : 'suas escolhas') + ':' : l.rotulo + (l.sub ? ', ' + l.sub : '') + ':'"></th><td x-text="l.tabelaValor"></td><td x-text="l.tabelaAcum"></td></tr>
                       </template>
                     </tbody>
                   </table>
@@ -1911,11 +1933,35 @@
               </section>
             </template>
 
-            <p class="diag-nota pol-nota" data-testid="pol-nota">A política é a carteira-modelo: os fundos da política rendem o próprio retorno, e a parte de picks rende o índice da classe. Antes de existirem, os fundos de renda fixa rendem o índice que replicam. Rebalanceada todo mês, sem custo nem imposto. A cripto fica fora, como na Rentabilidade.</p>
+            <section class="diag-ler" data-testid="pol-ler" aria-labelledby="pol-ler-titulo">
+              <h3 class="diag-subtitulo" id="pol-ler-titulo">Como ler esta conta</h3>
+              <h4 class="diag-ler__sub">Três carteiras</h4>
+              <p class="diag-texto">A conta compara a sua carteira com duas carteiras imaginárias, e vai de uma para a outra.</p>
+              <ol class="diag-ler__lista">
+                <li><dfn>A política.</dfn> É o plano seguido à risca. Os pesos são os alvos de hoje do seu plano, os mesmos em todos os meses, e todo início de mês ela volta ao alvo, sem custo nem imposto. Dentro de cada categoria, os fundos do plano (por exemplo, um fundo que segue o Ibovespa, outro que segue o S&amp;P 500) rendem o retorno de cada um, e a parte que o plano reserva para ações e FIIs escolhidos um a um rende o índice da classe (IBOV, IFIX, S&amp;P 500). Antes de existirem, os fundos de renda fixa do plano rendem o índice que seguem. É o que você teria ganho seguindo o plano sem escolher nenhum ativo.</li>
+                <li><dfn>Mesma carteira, só com índices.</dfn> Usa os pesos que você teve de verdade em cada mês, com o que sobrou ou faltou em cada categoria, mas faz o dinheiro de cada classe render o índice, ou o fundo do plano, e não os seus ativos. É o mesmo número que a Rentabilidade mostra.</li>
+                <li><dfn>Sua carteira.</dfn> O que você ganhou de verdade.</li>
+              </ol>
+              <h4 class="diag-ler__sub">As duas diferenças</h4>
+              <ul class="diag-ler__lista">
+                <li><strong>Da política para "só com índices": o <dfn>desvio do alvo</dfn>.</strong> Nenhuma das duas tem os seus ativos escolhidos; o que muda é quanto dinheiro havia em cada categoria, e como ele se repartia dentro dela. Então essa diferença mede só o efeito dos pesos, nunca das escolhas de ativo. Por exemplo: ter ficado acima do alvo numa categoria que foi mal aparece aqui como ponto negativo; acima do alvo numa que foi bem, como ponto positivo. Na conta detalhada, o desvio de cada categoria se divide em duas partes: o peso da categoria, mais ou menos que o alvo, e a mistura dentro dela, como ter mais ações escolhidas que o plano prevê.</li>
+                <li><strong>De "só com índices" para a sua carteira: <dfn>suas escolhas</dfn>.</strong> Agora os pesos são os mesmos; o que muda é quais ativos você teve dentro de cada classe: as suas ações contra o IBOV, os seus FIIs contra o IFIX, as suas ações americanas contra o S&amp;P 500.</li>
+              </ul>
+              <p class="diag-texto">A conta fecha sempre: a política, mais o desvio do alvo, mais as suas escolhas, dá a sua carteira.</p>
+              <h4 class="diag-ler__sub">A unidade</h4>
+              <p class="diag-texto">Os números da cascata são em pontos percentuais ao ano. Exemplo inventado: se a política rendeu 9% ao ano e a carteira 10%, a diferença é de 1 ponto.</p>
+              <h4 class="diag-ler__sub">O dólar</h4>
+              <p class="diag-texto">Parte do que a parte americana rendeu, em reais, veio só da subida ou da queda do dólar. A linha do dólar, quando aparece, separa esse pedaço: diz quanto do retorno da carteira veio do câmbio e quanto ela teria rendido com o dólar parado. Ela fica fora da cascata porque o dólar mexe nas três carteiras ao mesmo tempo.</p>
+              <h4 class="diag-ler__sub">A ressalva</h4>
+              <p class="diag-texto">A linha cinza logo abaixo da frase diz que a conta aplica o plano de hoje desde o início, inclusive em anos em que ele ainda não existia. Nos períodos em que a carteira estava longe do plano de hoje, o desvio do alvo sai grande: ele mostra o quanto você estava longe do plano atual, e não que você descumpriu um plano que tinha na época. E o plano foi definido já conhecendo esse período, então ele tende a parecer bom.</p>
+              <h4 class="diag-ler__sub">O que fica de fora</h4>
+              <p class="diag-texto">A cripto, como na Rentabilidade.</p>
+            </section>
 
             <details class="diag-conta">
               <summary>Ver a conta</summary>
               <div class="diag-conta__corpo">
+                <p class="diag-conta__nota diag-conta__abre">Os nomes técnicos e as fórmulas, para conferir.</p>
                 <template x-for="tb in pol.conta.tabelas" :key="tb.chave">
                   <div class="pol-conta-janela">
                     <template x-if="tb.motivo">
@@ -1935,7 +1981,7 @@
                   </div>
                 </template>
                 <p class="diag-conta__nota">Alvo: o peso de hoje da categoria na política. Peso real médio: a média, mês a mês, do peso que a categoria teve na sua carteira. Peso da categoria, mistura e desvio em pontos, com duas casas; o peso mais a mistura dá o desvio.</p>
-                <p class="diag-conta__nota">A política: a carteira-modelo, com os pesos de hoje em todos os meses. Desvio do alvo: a mesma carteira, só com índices, menos a política; é o efeito de os seus pesos reais terem sido outros. Peso da categoria: a parte do desvio que vem de a categoria ter pesado mais ou menos que o alvo. Mistura dentro dela: a parte que vem da composição dentro da categoria, como mais picks que o alvo ou um fundo acima do outro. Suas escolhas: a sua carteira menos a mesma carteira, só com índices, as mesmas linhas da Rentabilidade.</p>
+                <p class="diag-conta__nota">A política: a carteira-modelo, com os pesos de hoje em todos os meses. Desvio do alvo: a mesma carteira, só com índices, menos a política. Peso da categoria: a parte do desvio que vem de a categoria ter pesado mais ou menos que o alvo. Mistura dentro dela: a parte que vem da composição dentro da categoria, como mais picks que o alvo ou um fundo acima do outro. Suas escolhas: a sua carteira menos a mesma carteira, só com índices, as mesmas linhas da Rentabilidade.</p>
                 <p class="diag-conta__nota">É a atribuição de Brinson-Fachler (o termo de alocação, com a mistura dentro da categoria), ligada mês a mês pelo mesmo encadeamento da Rentabilidade (GRAP); a interação entre peso e escolha fica em suas escolhas, como na Rentabilidade.</p>
                 <p class="diag-conta__nota">Os fundos da política rendem o retorno de mercado em todos os meses: a cotação com os proventos reinvestidos. Na mesma carteira, só com índices, o fundo que você teve rende pelo método de Dietz, que leva em conta o dinheiro que entrou no meio do mês; a pequena diferença entre os dois fica no desvio do alvo da categoria.</p>
                 <p class="diag-conta__nota">Fontes dos fundos da política:</p>
@@ -1977,7 +2023,6 @@
           <article class="diag-ensaio sel-ensaio" aria-labelledby="sel-titulo">
             <p class="diag-ordinal" aria-hidden="true">3</p>
             <h2 class="diag-titulo" id="sel-titulo">Seus picks batem o índice?</h2>
-            <p class="sel-pergunta">Por habilidade ou por sorte: quanto maior e mais regular a diferença mês a mês, menos ela se explica por sorte.</p>
 
             <div class="diag-janelas" role="group" aria-label="Janela">
               <button type="button" class="diag-janela diag-janela--herda" data-testid="sel-janela-3a"
@@ -2025,11 +2070,36 @@
               </section>
             </template>
 
-            <p class="diag-nota sel-nota">A régua mede a diferença média mês a mês contra o quanto ela oscila. A faixa cinza é onde a sorte explica o resultado; o primeiro traço depois dela é o indício, o segundo, o consistente. Os picks incluem os papéis que já saíram da carteira; ETFs de índice ficam fora. Fala do passado e não garante o futuro.</p>
+            <section class="diag-ler" data-testid="sel-ler" aria-labelledby="sel-ler-titulo">
+              <h3 class="diag-subtitulo" id="sel-ler-titulo">Como ler esta conta</h3>
+              <h4 class="diag-ler__sub">O que esta pergunta mede</h4>
+              <p class="diag-texto">"Picks" são as ações e os FIIs que você escolheu um a um, em vez de comprar o índice. Cada classe é comparada com o próprio índice: ações brasileiras com o IBOV, FIIs com o IFIX, ações americanas com o S&amp;P 500, em dólar, para a alta ou a queda do dólar não entrar na nota das escolhas. A pergunta não é só se os picks ganharam do índice, é se ganharam (ou perderam) por habilidade ou por sorte. Até ativos escolhidos no cara ou coroa batem o índice em alguns anos.</p>
+              <h4 class="diag-ler__sub">A lógica é a de um ensaio clínico</h4>
+              <p class="diag-texto">Uma diferença entre dois grupos só convence quando é grande perto da variabilidade e quando há observações suficientes. Aqui, cada mês é uma observação: a régua junta o tamanho da diferença média mês a mês, o quanto ela varia de um mês para o outro e o número de meses, e devolve um único número. O nome técnico dele está em "Ver a conta".</p>
+              <h4 class="diag-ler__sub">A régua</h4>
+              <ul class="diag-ler__lista">
+                <li>O ponto à direita do zero quer dizer picks à frente do índice; à esquerda, atrás.</li>
+                <li>A faixa cinza, entre −1 e +1, é onde a sorte explica o resultado: <dfn>inconclusivo</dfn>.</li>
+                <li>Do primeiro traço em diante, <dfn>indício</dfn>: a diferença começa a ir além da sorte, mas ainda não é prova.</li>
+                <li>Do segundo traço em diante, <dfn>consistente</dfn>: difícil explicar só por sorte. Esse traço corresponde, grosso modo, ao "p &lt; 0,05" dos estudos.</li>
+                <li>Com menos de 3 anos de picks na janela, a régua não aparece: é cedo para dizer.</li>
+              </ul>
+              <h4 class="diag-ler__sub">Por que as janelas discordam</h4>
+              <p class="diag-texto">Janela mais curta tem menos meses, e menos meses pedem uma diferença maior para convencer. Um indício em 3 anos que some no "Desde o início" diz que a vantagem é recente.</p>
+              <h4 class="diag-ler__sub">Duas medidas que às vezes discordam</h4>
+              <p class="diag-texto">A frase de cada classe usa o retorno acumulado dos picks contra o do índice. A régua usa a média mês a mês. Quando poucos meses muito bons ou muito ruins pesam no acumulado, as duas podem apontar para lados opostos, e a tela avisa.</p>
+              <h4 class="diag-ler__sub">Sem viés de sobrevivência</h4>
+              <p class="diag-texto">Os picks incluem os ativos que você já vendeu. Contar só os que ficaram seria como analisar só os pacientes que terminaram o estudo. ETFs de índice ficam fora, porque não são escolha de ativo.</p>
+              <h4 class="diag-ler__sub">A diferença para o capítulo 2</h4>
+              <p class="diag-texto">Lá, "suas escolhas" diz quanto as escolhas somaram ou tiraram da carteira, em pontos. Aqui, a pergunta é se dá para confiar que essa diferença vem de habilidade.</p>
+              <h4 class="diag-ler__sub">O que a régua não diz</h4>
+              <p class="diag-texto">Ela fala do passado. Uma diferença consistente até hoje não garante que continue.</p>
+            </section>
 
             <details class="diag-conta">
               <summary>Ver a conta</summary>
               <div class="diag-conta__corpo">
+                <p class="diag-conta__nota diag-conta__abre">Os nomes técnicos e as fórmulas, para conferir.</p>
                 <template x-for="tb in sel.tabelas" :key="tb.chave">
                   <table class="diag-tabela sel-tabela" :data-janela="tb.chave">
                     <caption class="sel-tabela__titulo" x-text="tb.rotulo"></caption>
@@ -2132,13 +2202,27 @@
               </div>
             </template>
 
-            <p class="diag-texto apor-explica">Dinheiro que entra antes de meses bons puxa o seu retorno para cima do da carteira; antes de meses ruins, para baixo.</p>
-            <p class="diag-nota apor-nota">Não mede acerto de escolha: quem aporta todo mês pelo salário ganha essa diferença, para um lado ou para o outro, sem ter escolhido o momento. Proventos que saíram da carteira contam como dinheiro que saiu.</p>
+            <section class="diag-ler" data-testid="apor-ler" aria-labelledby="apor-ler-titulo">
+              <h3 class="diag-subtitulo" id="apor-ler-titulo">Como ler esta conta</h3>
+              <h4 class="diag-ler__sub">Dois retornos, duas perguntas</h4>
+              <p class="diag-texto">A carteira e o seu dinheiro podem render diferente, e os dois números estão certos.</p>
+              <ul class="diag-ler__lista">
+                <li><dfn>A carteira</dfn> mede como os ativos se saíram, como se o dinheiro tivesse ficado parado do começo ao fim. É como a cota de um fundo: não depende de quando você colocou dinheiro. É o número para comparar com índices e com outros investidores.</li>
+                <li><dfn>O seu dinheiro</dfn> mede quanto o seu dinheiro cresceu de fato, levando em conta quando e quanto entrou e saiu. É a taxa de um investimento com vários depósitos, como a de um financiamento lida ao contrário.</li>
+              </ul>
+              <h4 class="diag-ler__sub">Um exemplo</h4>
+              <p class="diag-texto">Duas pessoas têm a mesma carteira. Uma faz o aporte grande logo antes de um mês de alta; a outra, logo antes de uma queda. A carteira rendeu igual para as duas. O dinheiro da primeira rendeu mais, e o da segunda, menos. A diferença entre os dois números é exatamente isso: o efeito do calendário dos aportes.</p>
+              <h4 class="diag-ler__sub">Como ler o seu resultado</h4>
+              <p class="diag-texto">Se o seu dinheiro rendeu mais que a carteira, os aportes caíram, em média, antes de meses bons; se rendeu menos, antes de meses ruins. A diferença muda de sinal conforme a janela, porque cada janela pega um conjunto diferente de aportes.</p>
+              <h4 class="diag-ler__sub">O que este número não diz</h4>
+              <p class="diag-texto">Não mede acerto: quem aporta todo mês pelo salário ganha ou perde essa diferença sem ter escolhido o momento. Proventos que saíram da carteira contam como dinheiro que saiu. Os botões Total, Brasil, EUA e BRL/USD funcionam como no capítulo 1.</p>
+            </section>
 
             <template x-if="!apor.semJanela">
               <details class="diag-conta">
                 <summary>Ver a conta</summary>
                 <div class="diag-conta__corpo">
+                  <p class="diag-conta__nota diag-conta__abre">Os nomes técnicos e as fórmulas, para conferir.</p>
                   <table class="diag-tabela">
                     <caption class="sr-only">Os dois retornos da janela escolhida, com o nome técnico</caption>
                     <tbody>
@@ -2147,7 +2231,7 @@
                     </tbody>
                   </table>
                   <p class="diag-conta__nota" x-text="apor.conta.periodo"></p>
-                  <p class="diag-conta__nota">TWR, a régua da carteira: o retorno de cada mês encadeado, como se o dinheiro tivesse ficado parado; não depende de quando você aportou. XIRR, a régua do seu dinheiro: a taxa que iguala o valor de hoje a tudo o que entrou e saiu, cada fluxo na sua data. A diferença, XIRR menos TWR, é o que o calendário dos aportes somou ou tirou; a diferença muda de sinal conforme a janela.</p>
+                  <p class="diag-conta__nota">TWR, a régua da carteira: o retorno de cada mês encadeado. XIRR, a régua do seu dinheiro: a taxa que iguala o valor de hoje a tudo o que entrou e saiu, cada fluxo na sua data. A diferença, XIRR menos TWR, é o que o calendário dos aportes somou ou tirou.</p>
                 </div>
               </details>
             </template>
