@@ -33,6 +33,32 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      # A pilha sans do app e so de fontes do sistema (-apple-system, "SF Pro Text",
+      # "Segoe UI", system-ui, sans-serif). No Ubuntu nenhuma existe e o Chromium cai
+      # na DejaVu Sans, bem mais larga: os testes de forma a 320/375 px (7a.BR.2,
+      # BS.2, BU) ficavam vermelhos so aqui, verdes no Windows. Selawik e a substituta
+      # metrica open-source da Segoe UI (Microsoft); com ela o runner mede o que se
+      # mede localmente. A mono nao precisa: DejaVu Sans Mono ja passa.
+      - name: Install Selawik (Segoe UI metrics) as default sans
+        run: |
+          curl -fsSL -o /tmp/selawik.zip https://github.com/microsoft/Selawik/releases/download/1.01/Selawik_Release.zip
+          echo "3f62c51e05e3b5a1e6241cf92a371f0be2ea1183aa87b30718bbd40832a8d423  /tmp/selawik.zip" | sha256sum -c -
+          mkdir -p ~/.local/share/fonts ~/.config/fontconfig
+          unzip -o -j /tmp/selawik.zip '*.ttf' -d ~/.local/share/fonts/
+          cat > ~/.config/fontconfig/fonts.conf <<'EOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+          <fontconfig>
+            <alias binding="strong"><family>sans-serif</family><prefer><family>Selawik</family></prefer></alias>
+            <alias binding="strong"><family>system-ui</family><prefer><family>Selawik</family></prefer></alias>
+            <alias binding="strong"><family>Segoe UI</family><prefer><family>Selawik</family></prefer></alias>
+          </fontconfig>
+          EOF
+          fc-cache -f
+          fc-match sans-serif
+          fc-match system-ui
+          test "$(fc-match -f '%{family[0]}' sans-serif)" = "Selawik"
+
       - name: Run Playwright tests
         run: npx playwright test
 
