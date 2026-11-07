@@ -1007,6 +1007,268 @@ function aporFrase(j, desde, sujeito) {
   ];
 }
 
+// ── Fase 7a.BS.2: capítulo 2 "De onde veio o resultado" ─────────────────
+// Lê o bloco `atribuicao` (schema 2.37, src/calculadora/politica_atribuicao.py):
+// só formata e desenha, sem gêmea JS (spec 7a.BS §5.2). Funções puras de topo
+// de propósito: o e2e as chama com valores sintéticos (as três formas do
+// dólar, os verbos da linha 2 do índice, o motivo de fundo).
+const POL_CATS = ["acoes_br", "fiis", "eua", "renda_fixa"];
+const POL_CLASSES = ["acoes_br", "fiis", "eua"];
+const POL_ROTULO = { acoes_br: "Ações BR", fiis: "FIIs", eua: "EUA", renda_fixa: "Renda Fixa BR" };
+const POL_COR = {
+  acoes_br: "var(--cat-acoes-br)", fiis: "var(--cat-fii)", eua: "var(--cat-eua)", renda_fixa: "var(--cat-renda-fixa-br)",
+};
+const POL_JANELAS = [["3a", "3 anos"], ["5a", "5 anos"], ["desde", "Desde o início"]];
+const POL_FONTES = ["yfinance-tr", "bcb"];
+
+function polData(s) {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+// "2026-03-17" → "17/03/2026".
+function polDataBr(s) {
+  return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+}
+
+function polFonteValida(f) {
+  return !!f && typeof f === "object" && typeof f.fundo === "string" && !!f.fundo && POL_FONTES.includes(f.fonte)
+    && (f.indice === null || (typeof f.indice === "string" && !!f.indice))
+    && typeof f.de === "string" && typeof f.ate === "string";
+}
+
+// Janela com a forma que a tela lê. `cats` são as categorias do alvo: o
+// desvio publica todas elas, sempre (spec §6.3 item 5), e só elas. Escolha de
+// classe fora das três, ou o dólar pela metade, derruba o bloco inteiro.
+function polJanelaValida(j, cats) {
+  if (!j || typeof j !== "object") return false;
+  if (!(j.indisponivel === null || (typeof j.indisponivel === "string" && j.indisponivel))) return false;
+  if (j.indisponivel !== null) return true;
+  const num = Number.isFinite;
+  if (!num(j.n_meses) || typeof j.anualizado !== "boolean" || typeof j.de !== "string" || typeof j.ate !== "string") return false;
+  if (!["politica", "so_indices", "carteira", "desvio", "escolhas"].every((k) => num(j[k]))) return false;
+  const dc = j.desvio_categorias;
+  if (!dc || typeof dc !== "object" || Object.keys(dc).length !== cats.length) return false;
+  const campos = ["total", "peso", "mistura", "alvo", "peso_real_medio"];
+  if (!cats.every((c) => dc[c] && typeof dc[c] === "object" && campos.every((k) => num(dc[c][k])))) return false;
+  const ec = j.escolhas_classes;
+  if (!ec || typeof ec !== "object" || !Object.keys(ec).every((c) => POL_CLASSES.includes(c) && num(ec[c]))) return false;
+  if (j.dolar === null && j.carteira_sem_dolar === null) return true;
+  return num(j.dolar) && num(j.carteira_sem_dolar);
+}
+
+// Os três totais pelo arredondamento simples, em pontos a 1 casa; os dois
+// subtotais são a diferença deles, para a soma exibida fechar (spec §6.3).
+function polExibidos(j) {
+  const P = ponteRoundPy(j.politica * 100, 1);
+  const N = ponteRoundPy(j.so_indices * 100, 1);
+  const C = ponteRoundPy(j.carteira * 100, 1);
+  return { P, N, C, A: ponteRoundPy(N - P, 1), S: ponteRoundPy(C - N, 1) };
+}
+
+// Verbo do desvio (singular) e das escolhas (plural) pelo valor exibido.
+function polVerbo(v, plural) {
+  if (Math.abs(v) < RENT2_NEUTRO) return plural ? "ficaram em" : "ficou em";
+  if (v > 0) return plural ? "somaram" : "somou";
+  return plural ? "tiraram" : "tirou";
+}
+
+// O motivo novo do bloco (fundo sem retorno) mais os da ponte.
+function polMotivoTexto(motivo) {
+  const m = /^retorno do (\S+) sem dado em (\d{2}\/\d{2})$/.exec(motivo || "");
+  if (m) return `Falta o retorno do ${m[1]} em ${rent2MmAaParaMmm(m[2])}.`;
+  return rent2MotivoTexto(motivo);
+}
+
+// Linha 2 do índice (spec §6.2, item 12 da §8): a política atual, desde.
+function polIndiceFrase(a) {
+  const j = a.janelas.desde;
+  if (j.indisponivel !== null) return polMotivoTexto(j.indisponivel);
+  const e = polExibidos(j);
+  const unid = j.anualizado ? "ao ano" : "no período";
+  return `Desde ${diagMesAnterior(j.de).slice(0, 4)}, a política rendeu ${rent2PctPts(e.P)} ${unid}; `
+    + `o desvio do alvo ${polVerbo(e.A, false)} ${rent2Abs1(e.A)} e suas escolhas ${polVerbo(e.S, true)} `
+    + `${rent2Abs1(e.S)} ${rent2PontoPontos(e.S)}.`;
+}
+
+// Frase-resposta (spec §6.3 item 3). Segmentos; `b` = número em negrito.
+function polFrase(j) {
+  const e = polExibidos(j);
+  const unid = j.anualizado ? "ao ano" : "no período";
+  return [
+    { t: `Desde ${rent2MmmAa(diagMesAnterior(j.de))}, a política rendeu ` }, { t: rent2PctPts(e.P), b: true },
+    { t: ` ${unid}. O desvio do alvo ${polVerbo(e.A, false)} ` }, { t: `${rent2Abs1(e.A)} ${rent2PontoPontos(e.A)}`, b: true },
+    { t: `, e suas escolhas ${polVerbo(e.S, true)} ` }, { t: rent2Abs1(e.S), b: true },
+    { t: ": a carteira rendeu " }, { t: rent2PctPts(e.C), b: true }, { t: "." },
+  ];
+}
+
+// "mais 0,4 ponto" / "menos 1,2 ponto" / "0,0 ponto", para a tabela sr-only.
+function polFalado(p) {
+  const u = rent2PontoPontos(p.valor);
+  return p.sinal === "neutro" ? `0,0 ${u}` : `${p.sinal === "pos" ? "mais" : "menos"} ${rent2Abs1(p.valor)} ${u}`;
+}
+
+// A cascata (spec §6.3 item 5), no idioma do waterfall da Rentabilidade: os
+// três totais em barra cheia, os degraus flutuando num eixo comum
+// (rent2Geometria). Os degraus de cada grupo absorvem o ajuste
+// (arredondarFechando) e fecham no subtotal exibido. No desvio, TODA categoria
+// do alvo aparece, inclusive a sem peso real: o efeito dela não é zero, e
+// escondê-la quebraria o fecho exibido. Nas escolhas, classe sem peso na
+// janela não vem no bloco e não aparece.
+function polCascata(j) {
+  const e = polExibidos(j);
+  const unid = j.anualizado ? "ao ano" : "no período";
+  const cats = POL_CATS.filter((c) => c in j.desvio_categorias);
+  const cls = POL_CLASSES.filter((c) => c in j.escolhas_classes);
+  const dv = arredondarFechando(cats.map((c) => j.desvio_categorias[c].total * 100), e.A);
+  const ev = arredondarFechando(cls.map((c) => j.escolhas_classes[c] * 100), e.S);
+  const geo = rent2Geometria(e.P, dv.concat(ev), e.C);
+  const cheia = rent2EstiloBarra({ L: 0, W: 1 });
+  const total = (id, rotulo, v, sub, barra) => ({
+    tipo: "total", id, grupo: null, rotulo, sub, texto: rent2PctPts(v), sinal: "total",
+    barra, estiloBarra: cheia, estiloGuia: "", estiloPonto: "",
+    tabelaValor: `${rent2PctPts(v)} ${unid}`, tabelaAcum: rent2PctPts(v),
+  });
+  const grupo = (id, rotulo, v, acum) => {
+    const p = rent2Pontos(v);
+    return {
+      tipo: "grupo", id, grupo: null, rotulo, sub: "", texto: p.texto, sinal: p.sinal,
+      barra: "", estiloBarra: "", estiloGuia: "", estiloPonto: "",
+      tabelaValor: `${polFalado(p)} ${unid}`, tabelaAcum: rent2PctPts(acum),
+    };
+  };
+  const degrau = (g, id, v, i) => {
+    const p = rent2Pontos(v);
+    const b = geo.linhas[i];
+    return {
+      tipo: "degrau", id, grupo: g, rotulo: POL_ROTULO[id], sub: "", texto: p.texto, sinal: p.sinal,
+      barra: p.sinal, estiloBarra: rent2EstiloBarra(b),
+      estiloGuia: `transform: translateX(${(b.guia * 100).toFixed(3)}%)`,
+      estiloPonto: `background: ${POL_COR[id]}`,
+      tabelaValor: `${polFalado(p)} ${unid}`, tabelaAcum: rent2PctPts(geo.acum[i + 1]),
+    };
+  };
+  const linhas = [
+    total("politica", "A política", e.P, "", "neutra"),
+    grupo("desvio", "Desvio do alvo", e.A, e.N),
+    ...cats.map((c, i) => degrau("desvio", c, dv[i], i)),
+    total("so_indices", "Mesma carteira, só com índices", e.N, "o número da Rentabilidade", "neutra"),
+    grupo("escolhas", "Suas escolhas", e.S, e.C),
+    ...cls.map((c, i) => degrau("escolhas", c, ev[i], cats.length + i)),
+    total("carteira", "Sua carteira", e.C, "", "sua"),
+  ];
+  return {
+    linhas,
+    unidade: `Em pontos ${unid}.`,
+    caption: `Da política à sua carteira, em pontos ${unid}`,
+  };
+}
+
+// O dólar (spec §6.3 item 6). "" quando o bloco não tem o dólar da janela (a
+// seção some). F é a diferença dos dois números EXIBIDOS (C − C0 é o dólar por
+// construção), para a frase fechar na tela; a 0,0, "quase não mudou".
+function polDolarFrase(j) {
+  if (j.dolar === null || j.carteira_sem_dolar === null) return "";
+  const unid = j.anualizado ? "ao ano" : "no período";
+  const C = ponteRoundPy(j.carteira * 100, 1);
+  const C0 = ponteRoundPy(j.carteira_sem_dolar * 100, 1);
+  const F = ponteRoundPy(C - C0, 1);
+  const ini = `Dos ${rent2PctPts(C)} ${unid} da sua carteira, `;
+  const fim = ` Com o dólar parado, ela teria rendido ${rent2PctPts(C0)}.`;
+  const qtd = `${rent2Abs1(F)} ${rent2PontoPontos(F)}`;
+  if (Math.abs(F) < RENT2_NEUTRO) return `${ini}o dólar quase não mudou o resultado.${fim}`;
+  if (F > 0) return `${ini}${qtd} ${Math.abs(F) < 2 ? "veio" : "vieram"} da alta do dólar.${fim}`;
+  return `${ini}a queda do dólar tirou ${qtd}.${fim}`;
+}
+
+// A política registrada (spec §6.3 item 7); "" sem `registrada_desde`.
+function polRegistrada(a) {
+  if (!a.registrada_desde || !a.registros_desde) return "";
+  return `Esta política está registrada desde ${polDataBr(a.registrada_desde)}, sem mudança de peso. `
+    + `Os registros dos seus alvos começam em ${polDataBr(a.registros_desde)}; antes disso, não há alvo datado.`;
+}
+
+// Tudo o que o capítulo 2 desenha, memorizado por bloco e (janela, motivo do
+// toque): o template lê `pol` dezenas de vezes por render (board BS.2,
+// mesmo motivo do _aporCache).
+const _polCache = new WeakMap();
+function polMemo(a, pedida, clique) {
+  let m = _polCache.get(a);
+  if (!m) { m = new Map(); _polCache.set(a, m); }
+  const chave = `${pedida}|${clique}`;
+  if (!m.has(chave)) m.set(chave, polMontar(a, pedida, clique));
+  return m.get(chave);
+}
+
+function polMontar(a, pedida, clique) {
+  const js = a.janelas;
+  const janelas = POL_JANELAS.map(([k, rotulo]) => {
+    const disponivel = js[k].indisponivel === null;
+    return { chave: k, rotulo, disponivel, motivo: disponivel ? "" : polMotivoTexto(js[k].indisponivel) };
+  });
+  const i0 = DIAG_ORDEM_VOLTA.indexOf(pedida);
+  const ordem = [...DIAG_ORDEM_VOLTA.slice(i0), ...DIAG_ORDEM_VOLTA.slice(0, i0)];
+  const chave = ordem.find((k) => js[k].indisponivel === null) || null;
+  const base = {
+    janelas, chave, semJanela: "", motivo: clique,
+    registrada: polRegistrada(a),
+    conta: { ...polContaTabelas(a), fontes: polFontes(a.fontes) },
+    frase: [], linhaAte: "", cascata: null, dolar: "",
+  };
+  const motivoPedida = polMotivoTexto(js[pedida].indisponivel);
+  if (!chave) return { ...base, semJanela: motivoPedida };
+  if (!base.motivo && chave !== pedida) base.motivo = motivoPedida;
+  const j = js[chave];
+  return {
+    ...base,
+    frase: polFrase(j),
+    linhaAte: `até ${rent2MmmAa(j.ate)} · ${diagMeses(j.n_meses)}`,
+    cascata: polCascata(j),
+    dolar: polDolarFrase(j),
+  };
+}
+
+// As fontes dos fundos da política, uma frase por fundo, na ordem do bloco.
+function polFontes(fontes) {
+  const por = new Map();
+  for (const f of fontes) {
+    if (!por.has(f.fundo)) por.set(f.fundo, []);
+    por.get(f.fundo).push(f);
+  }
+  return Array.from(por, ([fundo, fs]) => `${fundo}: ` + fs.map((f) => {
+    const periodo = `de ${rent2MmmAa(f.de)} a ${rent2MmmAa(f.ate)}`;
+    if (f.fonte === "bcb") {
+      const aprox = f.indice === "IMA-B 5" ? ", como aproximação do índice que o fundo replica," : "";
+      return `o ${f.indice} do Banco Central${aprox} ${periodo}`;
+    }
+    return `o retorno com proventos do Yahoo Finance ${periodo}`;
+  }).join("; ") + ".");
+}
+
+// "Ver a conta": por janela, uma tabela com uma coluna por categoria.
+function polContaTabelas(a) {
+  const cats = POL_CATS.filter((c) => c in a.alvo_atual);
+  const pts = (x) => diagNum2(x * 100);
+  return {
+    colunas: cats.map((c) => POL_ROTULO[c]),
+    tabelas: POL_JANELAS.map(([k, rotulo]) => {
+      const j = a.janelas[k];
+      if (j.indisponivel !== null) return { chave: k, rotulo, motivo: polMotivoTexto(j.indisponivel), linhas: [] };
+      const col = (f) => cats.map((c) => f(j.desvio_categorias[c]));
+      return {
+        chave: k, rotulo, motivo: "",
+        linhas: [
+          { id: "alvo", rotulo: "Alvo", v: col((d) => diagPct1(d.alvo)) },
+          { id: "real", rotulo: "Peso real médio", v: col((d) => diagPct1(d.peso_real_medio)) },
+          { id: "peso", rotulo: "Peso da categoria", v: col((d) => pts(d.peso)) },
+          { id: "mistura", rotulo: "Mistura dentro dela", v: col((d) => pts(d.mistura)) },
+          { id: "desvio", rotulo: "Desvio", v: col((d) => pts(d.total)) },
+        ],
+      };
+    }),
+  };
+}
+
 // Janelas fixas da ponte por escopo e moeda, memorizadas por bloco (cada
 // ponteJanela roda um XIRR; o template lê a janela várias vezes por render).
 const _aporCache = new WeakMap();
@@ -1688,6 +1950,10 @@ document.addEventListener("alpine:init", () => {
     aporMoeda: "BRL",
     aporJanela: "desde",
     aporMotivoClique: "",
+    // 7a.BS.2: capítulo 2 "De onde veio o resultado" (janela própria, sem
+    // escopo, abrindo em Desde; motivo da janela indisponível tocada).
+    polJanela: "desde",
+    polMotivoClique: "",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     // 7a.E.31: tela #alocação unificada — uma lista de cards de categoria
     // colapsáveis. catAberta mapeia nome→bool; todas começam fechadas (map
@@ -1935,13 +2201,13 @@ document.addEventListener("alpine:init", () => {
       }
       if (path === "/raiox/diagnostico") {
         // 7a.BQ.2: Diagnóstico, push child da tab Raio-X, irmã da renda.
-        // 7a.BR.2: virou o índice das três perguntas. voltar() cai em
+        // 7a.BR.2: virou o índice das perguntas (quatro desde a 7a.BS.2). voltar() cai em
         // home["raiox"] = "" (mapa genérico).
         this.rota = "diagnostico";
         this.tab = "raiox";
         return;
       }
-      const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|selecao|aportes)$/);
+      const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|politica|selecao|aportes)$/);
       if (mdiag) {
         // 7a.BR.2: capítulos do Diagnóstico; o "←" volta ao índice (voltar()).
         this.rota = "diag-" + mdiag[1];
@@ -3196,10 +3462,14 @@ document.addEventListener("alpine:init", () => {
       const fim = (t) => (t.endsWith(".") ? t : t + ".");
       const card = this.risco ? this.diagCardTexto() : "";
       const s = this.selecao;
+      const a = this.atribuicao;
+      // 7a.BS.2 (item 11 da §8): 1 risco, 2 de onde veio o resultado, 3 picks,
+      // 4 aportes. As rotas não mudam; muda só o ordinal mostrado.
       return [
         { n: 1, href: "#/raiox/diagnostico/risco", pergunta: "Quanto risco a carteira correu", estado: card ? fim(card) : "Indisponível hoje." },
-        { n: 2, href: "#/raiox/diagnostico/selecao", pergunta: "Seus picks batem o índice?", estado: s ? selIndiceFrase(s) : "Indisponível hoje." },
-        { n: 3, href: "#/raiox/diagnostico/aportes", pergunta: "O momento dos seus aportes", estado: this.aporIndiceTexto() },
+        { n: 2, href: "#/raiox/diagnostico/politica", pergunta: "De onde veio o resultado", estado: a ? polIndiceFrase(a) : "Indisponível hoje." },
+        { n: 3, href: "#/raiox/diagnostico/selecao", pergunta: "Seus picks batem o índice?", estado: s ? selIndiceFrase(s) : "Indisponível hoje." },
+        { n: 4, href: "#/raiox/diagnostico/aportes", pergunta: "O momento dos seus aportes", estado: this.aporIndiceTexto() },
       ];
     },
 
@@ -3276,6 +3546,41 @@ document.addEventListener("alpine:init", () => {
       return { classes, colunas: presentes.map((cl) => RENT2_ROTULO_LINHA[cl]), tabelas };
     },
     selEscolherJanela(k) { this.selJanela = k; },
+
+    // Bloco `atribuicao` v2.37 (spec 7a.BS §5.1): só vale com a forma completa.
+    // Ausente, null, parcial ou payload < 2.37 ⇒ null (linha 2 do índice
+    // "Indisponível hoje.", capítulo "De onde veio o resultado: indisponível
+    // hoje."), nunca TypeError no template.
+    get atribuicao() {
+      const j = this.json, a = j && j.atribuicao;
+      if (!a || !rent2VersaoAoMenos(j.versao, [2, 37])) return null;
+      if (typeof a.ate !== "string" || !a.alvo_atual || typeof a.alvo_atual !== "object") return null;
+      const cats = Object.keys(a.alvo_atual);
+      if (!cats.length || !cats.every((c) => POL_CATS.includes(c) && Number.isFinite(a.alvo_atual[c]))) return null;
+      // Vigências ausentes no pipeline publicam as duas datas nulas e o resto
+      // do bloco (board BS.2); a linha registrada exige as duas.
+      if (!(a.registrada_desde === null || polData(a.registrada_desde))) return null;
+      if (!(a.registros_desde === null || polData(a.registros_desde))) return null;
+      if (a.registrada_desde !== null && a.registros_desde === null) return null;
+      if (!Array.isArray(a.fontes) || !a.fontes.every(polFonteValida)) return null;
+      if (!a.janelas || !POL_JANELAS.every(([k]) => polJanelaValida(a.janelas[k], cats))) return null;
+      return a;
+    },
+    // Tudo o que o capítulo desenha, para a janela escolhida. Janela
+    // indisponível volta à anterior válida (regra do capítulo 1) e diz o motivo.
+    get pol() {
+      const a = this.atribuicao;
+      if (!a) return null;
+      return polMemo(a, this.polJanela, this.polMotivoClique || "");
+    },
+    polEscolherJanela(k) {
+      const d = this.pol;
+      const j = d && d.janelas.find((x) => x.chave === k);
+      if (!j) return;
+      if (!j.disponivel) { this.polMotivoClique = j.motivo; return; }
+      this.polJanela = k;
+      this.polMotivoClique = "";
+    },
 
     // Ponte do capítulo 3 (a mesma da Rentabilidade, v2.31+), crua: a conta
     // não passa pelo proxy reativo.
@@ -3832,6 +4137,7 @@ document.addEventListener("alpine:init", () => {
       this.escopoAtivo = "Total";
       Object.assign(this, { diagEscopo: "Total", diagMoeda: "BRL", diagJanela: "desde", diagMotivoClique: "" });
       Object.assign(this, { selJanela: "desde", aporEscopo: "Total", aporMoeda: "BRL", aporJanela: "desde", aporMotivoClique: "" });
+      Object.assign(this, { polJanela: "desde", polMotivoClique: "" });
       if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
       this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
     },

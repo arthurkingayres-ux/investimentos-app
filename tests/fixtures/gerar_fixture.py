@@ -7,6 +7,18 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.37 (Fase 7a.BS.2): bloco top-level ``atribuicao`` -- de onde veio o
+resultado (a política como carteira-modelo em cestas, o desvio do alvo por
+categoria, a mesma carteira só com índices, suas escolhas e o dólar) por janela
+(3a, 5a, desde), consumido pelo capítulo ``#/raiox/diagnostico/politica`` e pela
+linha 2 do índice. Sempre gerado por ``construir_bloco_atribuicao`` sobre uma
+ponte sintética própria (``_ponte_atribuicao``, 72 meses, mesmo ``ate`` da
+publicada, que é curta e não tem 3a/5a/desde); a emenda do índice é sintética
+(``RFIX11`` rende ``IMAB`` antes de existir, troca temporária de
+``_INDICE_ANTES_DO_FUNDO``). Variantes: ``portfolio_atribuicao_{null,parcial,
+desde_indisponivel,sem_registro,sem_dolar}`` e ``portfolio_pre_v237`` (2.36, sem
+a chave). Ver a seção da fase.
+
 Schema v2.36 (Fase 7a.BR.2): bloco top-level ``selecao`` -- confiança da
 seleção por classe (Ações BR, FIIs, EUA) e janela (3a, 5a, desde), consumido
 pelos capítulos ``#/raiox/diagnostico/selecao`` e ``/aportes``. Sempre gerado
@@ -1373,8 +1385,252 @@ def _confere_aportes(ponte: dict) -> None:
     assert ponte["ate"] == "2026-09"
 
 
+
+# ── Fase 7a.BS.2: ponte sintética só para o bloco ``atribuicao`` (schema v2.37) ─
+# CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
+# público): nenhum peso, retorno, desvio, câmbio, vigência, data ou ticker sai
+# do DB ou do YAML reais. O ``atribuicao`` da fixture é SEMPRE
+# ``construir_bloco_atribuicao`` (referência Python da BS.1) sobre a ponte, o
+# alvo, os retornos e o câmbio abaixo, nunca escrito à mão (só a variante
+# ``parcial`` apaga uma chave DEPOIS do builder, de propósito).
+#
+# Emenda do índice SINTÉTICA. ``politica_atribuicao._INDICE_ANTES_DO_FUNDO``
+# nomeia tickers reais, que não podem ser gravados neste repo público. O gerador
+# (que roda do principal) a troca por ``{"RFIX11": ("IMAB", "IMA-B")}`` dentro de
+# ``try/finally``; ``RFIX11`` não tem retorno até o mês 40 e rende a série ``IMAB``
+# sintética antes disso, então ``fontes`` sai com os dois trechos DE VERDADE.
+#
+# Ponte própria. A ponte publicada (``PAYLOAD["ponte"]``, a ``_ponte_curta``) tem
+# 30 meses e um buraco em Total: 3a, 5a e desde ficariam indisponíveis. Como na
+# BR.2 (``_ponte_selecao``), o bloco sai de uma ponte sintética própria de 72
+# meses com o MESMO ``ate`` da publicada (afirmado no ``PAYLOAD``); a ponte
+# publicada segue a curta. O capítulo não refaz conta (sem gêmea JS), então os
+# números da cascata não precisam casar com os da Rentabilidade da fixture.
+_ATR_N = 72
+_ATR_RF_PRIMEIRO = 41       # primeiro mês com retorno do RFIX11 (nulo até o 40)
+_ATR_MES_SEM_PUSA = 5       # desde_indisponivel: PUSA sem retorno neste mês
+_ATR_MES_SEM_DOLAR = 70     # sem_dolar: buraco em EUA_USD neste mês
+_ATR_REGISTRADA = "2026-03-17"
+_ATR_REGISTROS = "2025-12-02"
+# ticker, classe, passivo, cesta EUA, mês de início, valor inicial (nativo), aporte
+_ATR_ATIVOS = [
+    ("AAAA3", "acoes_br", False, None, 0, 14000.0, 600.0),
+    ("PASS11", "acoes_br", True, None, 0, 5000.0, 300.0),
+    ("FFFF11", "fiis", False, None, 0, 9000.0, 400.0),
+    ("ZZZ", "eua", False, "picks", 0, 1800.0, 90.0),
+    ("PUSA", "eua", True, "passive", 0, 2600.0, 120.0),
+    ("RFIX11", "renda_fixa", True, None, 60, 9000.0, 500.0),
+]
+# alfa mensal e fase do ruído dos não passivos
+_ATR_ALFA = {"AAAA3": (0.0011, 0.4), "FFFF11": (-0.0008, 1.2), "ZZZ": (0.0034, 2.1)}
+
+
+def _alvo_sintetico() -> dict:
+    """Alvo redondo (0,20 / 0,20 / 0,50 / 0,10) que NÃO reproduz o alvo real."""
+    return {
+        "acoes_br": {"peso": 0.20, "passive": 0.5, "fundos": {"PASS11": 1.0}, "picks": 0.5},
+        "fiis": {"peso": 0.20, "passive": 0.0, "fundos": {}, "picks": 1.0},
+        "eua": {"peso": 0.50, "passive": 0.7, "fundos": {"PUSA": 1.0}, "picks": 0.3},
+        "renda_fixa": {"peso": 0.10, "passive": 1.0, "fundos": {"RFIX11": 1.0}, "picks": 0.0},
+    }
+
+
+def _atr_pusa_usd(t: int, sp_usd: list) -> float:
+    return sp_usd[t] + 0.0003
+
+
+def _retornos_sinteticos(variante: str = "normal") -> dict:
+    """Retornos mensais (em reais) dos fundos da política e da série ``IMAB``,
+    alinhados aos meses da ponte; índice 0 sempre nulo."""
+    n = _ATR_N
+    ind_brl, ind_usd = _ponte_indices(n, anomalias=False)
+    pass11, pusa, rfix, imab = ([None] * n for _ in range(4))
+    for t in range(1, n):
+        pass11[t] = round(ind_brl["IBOV"][t] + 0.0004 + 0.0015 * math.sin(0.8 * t), 6)
+        fx = _ponte_fx(t) / _ponte_fx(t - 1)
+        pusa[t] = round((1.0 + _atr_pusa_usd(t, ind_usd["SP500TR"])) * fx - 1.0, 6)
+        imab[t] = round(0.0078 + 0.0055 * math.sin(0.35 * t + 0.6), 6)
+        if t >= _ATR_RF_PRIMEIRO:
+            rfix[t] = round(0.0071 + 0.0042 * math.sin(0.4 * t + 0.2), 6)
+    if variante == "desde_indisponivel":
+        pusa[_ATR_MES_SEM_PUSA] = None
+    return {"PASS11": pass11, "PUSA": pusa, "RFIX11": rfix, "IMAB": imab}
+
+
+def _atr_fx_fim_mes() -> list[float]:
+    return [_ponte_fx(t) for t in range(_ATR_N)]
+
+
+def _ponte_atribuicao(variante: str = "normal") -> dict:
+    """Ponte sintética do ``atribuicao`` (72 meses, ``ate`` = o da ponte
+    publicada). Os passivos rendem o retorno do próprio fundo (``_retornos_sinteticos``,
+    em moeda nativa para o PUSA); os picks, o índice da classe + alfa + ruído.
+    ``sem_dolar`` põe o mês 70 em ``buracos["EUA_USD"]`` (só a visão em dólar)."""
+    n = _ATR_N
+    meses = _ponte_meses(n, _risco_inicio(n))
+    ind_brl, ind_usd = _ponte_indices(n, anomalias=False)
+    fundos = _retornos_sinteticos("normal")
+    base = {"acoes_br": ind_brl["IBOV"], "fiis": ind_brl["IFIX"], "eua": ind_usd["SP500TR"]}
+    ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": cesta}
+              for (tk, c, p, cesta, _ini, _v0, _ap) in _ATR_ATIVOS]
+    brl: list[list] = [[] for _ in range(n)]
+    usd: list[list] = [[] for _ in range(n)]
+    chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
+    fluxos = {k: {"v": [0.0] * n, "entrou": [0.0] * n, "prov": [0.0] * n} for k in chaves}
+
+    def _soma(chave: str, campo: str, t: int, x: float) -> None:
+        fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
+
+    for i, (tk, classe, passivo, _cesta, ini, v0, aporte) in enumerate(_ATR_ATIVOS):
+        eua = classe == "eua"
+        v_nat = v_brl = 0.0
+        for t in range(ini, n):
+            f_nat = v0 if t == ini else (aporte if (t + i) % 4 == 0 else 0.0)
+            d_nat = round(v_nat + 0.5 * f_nat, 2)
+            if t == ini:
+                r = 0.0
+            elif tk == "PUSA":
+                r = _atr_pusa_usd(t, ind_usd["SP500TR"])
+            elif passivo:
+                r = fundos[tk][t]
+            else:
+                alfa, fase = _ATR_ALFA[tk]
+                r = base[classe][t] + alfa + 0.006 * math.sin(1.1 * t + fase)
+            g_nat = round(r * d_nat, 2)
+            v_novo = round(v_nat + f_nat + g_nat, 2)
+            if eua:
+                fx = _ponte_fx(t)
+                f_brl, vb_novo = round(f_nat * fx, 2), round(v_novo * fx, 2)
+                g_brl = round(vb_novo - v_brl - f_brl, 2)
+                d_brl = round(v_brl + 0.5 * f_brl, 2)
+                usd[t].append([i, d_nat, g_nat])
+                for campo, x in (("v", v_novo), ("entrou", f_nat)):
+                    _soma("EUA_USD", campo, t, x)
+            else:
+                f_brl, vb_novo, g_brl, d_brl = f_nat, v_novo, g_nat, d_nat
+            brl[t].append([i, d_brl, g_brl])
+            for k in ("Total", "EUA_BRL" if eua else "Brasil"):
+                for campo, x in (("v", vb_novo), ("entrou", f_brl)):
+                    _soma(k, campo, t, x)
+            v_nat, v_brl = v_novo, vb_novo
+    bur_usd = [_ATR_MES_SEM_DOLAR] if variante == "sem_dolar" else []
+    return {
+        "ate": meses[-1], "meses": meses,
+        "indices": {"BRL": ind_brl, "USD": ind_usd},
+        "ativos": ativos, "brl": brl, "usd": usd, "fluxos": fluxos,
+        "buracos": {"Total": [], "Brasil": [], "EUA_BRL": [], "EUA_USD": bur_usd},
+    }
+
+
+_ATR_ORDEM_CATS = ("acoes_br", "fiis", "eua", "renda_fixa")
+_ATR_ORDEM_CLASSES = ("acoes_br", "fiis", "eua")
+
+
+def _atr_absorcoes(j: dict) -> list[str]:
+    """Grupos da janela em que os degraus arredondados ingenuamente a 1 casa (em
+    pontos percentuais) NÃO somam o subtotal exibido -- os grupos em que o fecho
+    exibido exige ``arredondarFechando``. O subtotal exibido é a diferença dos
+    totais arredondados (a convenção da ponte: "os três totais pelo
+    arredondamento simples, as linhas absorvem"); conta só quando o ingênuo
+    também difere do subtotal arredondado direto, para valer nas duas leituras."""
+    def r1(x: float) -> float:
+        return round(x * 100, 1)
+
+    p, n_, c = r1(j["politica"]), r1(j["so_indices"]), r1(j["carteira"])
+    grupos = {
+        "desvio": ([j["desvio_categorias"][k]["total"] for k in _ATR_ORDEM_CATS],
+                   round(n_ - p, 1), r1(j["desvio"])),
+        "escolhas": ([j["escolhas_classes"][k] for k in _ATR_ORDEM_CLASSES
+                      if k in j["escolhas_classes"]], round(c - n_, 1), r1(j["escolhas"])),
+    }
+    out = []
+    for nome, (degraus, sub_totais, sub_direto) in grupos.items():
+        ingenuo = round(sum(r1(x) for x in degraus), 1)
+        if ingenuo != sub_totais and ingenuo != sub_direto:
+            out.append(nome)
+    return out
+
+
+def _confere_atribuicao(bloco: dict, variante: str) -> None:
+    """Afirma o estado que cada variante promete ao e2e e o fecho; levanta se não
+    vale. Roda com ``_INDICE_ANTES_DO_FUNDO`` já trocado (ver ``_atribuicao_sintetica``).
+
+    Fecho: a 1e-12 sobre a janela SEM arredondar (``politica_atribuicao.janela``
+    com as mesmas entradas, o número que o builder arredonda) e a 1e-7 sobre o
+    bloco publicado, que tem 8 casas: cada número carrega até 5e-9 de
+    arredondamento, e a soma de 4 termos até 2e-8, então 1e-12 ali seria falso
+    vermelho; 1e-7 ainda pega qualquer erro de conta visível (a tela mostra
+    décimos de ponto, 1e-3)."""
+    from src.calculadora import politica_atribuicao as pa
+
+    assert bloco["ate"] == "2026-09", bloco["ate"]
+    assert bloco["alvo_atual"] == {c: a["peso"] for c, a in _alvo_sintetico().items()}
+    assert bloco["registros_desde"] == _ATR_REGISTROS
+    esperada = None if variante == "sem_registro" else _ATR_REGISTRADA
+    assert bloco["registrada_desde"] == esperada, bloco["registrada_desde"]
+    rf = [f for f in bloco["fontes"] if f["fundo"] == "RFIX11"]
+    assert [(f["fonte"], f["indice"]) for f in rf] == [("bcb", "IMA-B"), ("yfinance-tr", None)], rf
+    assert rf[0]["ate"] < rf[1]["de"], rf
+    js = bloco["janelas"]
+    assert set(js) == {"3a", "5a", "desde"}, set(js)
+
+    ponte_b = _ponte_atribuicao(variante)
+    retornos = _retornos_sinteticos(variante)
+    disp = [k for k in ("3a", "5a", "desde") if js[k]["indisponivel"] is None]
+    if variante == "desde_indisponivel":
+        mm = ponte_b["meses"][_ATR_MES_SEM_PUSA]
+        motivo = f"retorno do PUSA sem dado em {mm[5:7]}/{mm[2:4]}"
+        assert js["desde"]["indisponivel"] == motivo, js["desde"]["indisponivel"]
+        assert disp == ["3a", "5a"], disp
+    else:
+        assert disp == ["3a", "5a", "desde"], disp
+    for k in disp:
+        j = js[k]
+        if variante == "sem_dolar":
+            assert j["dolar"] is None and j["carteira_sem_dolar"] is None, (k, j["dolar"])
+        else:
+            assert j["dolar"] is not None and j["carteira_sem_dolar"] is not None, k
+        assert list(j["desvio_categorias"]) == list(_ATR_ORDEM_CATS), k
+        assert set(j["escolhas_classes"]) == set(_ATR_ORDEM_CLASSES), (k, j["escolhas_classes"])
+        bruta = pa.janela(ponte_b, _alvo_sintetico(), retornos, _atr_fx_fim_mes(), k)
+        for jj, tol in ((bruta, 1e-12), (j, 1e-7)):
+            cats = jj["desvio_categorias"]
+            assert abs(jj["politica"] + jj["desvio"] + jj["escolhas"] - jj["carteira"]) <= tol, (k, tol)
+            assert abs(sum(c["total"] for c in cats.values()) - jj["desvio"]) <= tol, (k, tol)
+            assert abs(sum(jj["escolhas_classes"].values()) - jj["escolhas"]) <= tol, (k, tol)
+            for c in cats.values():
+                assert abs(c["peso"] + c["mistura"] - c["total"]) <= tol, (k, tol)
+    # a mutação (b) da Task 7 (degraus sem ``arredondarFechando``) só fica
+    # vermelha se algum grupo exigir absorção no fecho exibido
+    absorve = {k: _atr_absorcoes(js[k]) for k in disp}
+    assert any(absorve.values()), f"nenhuma janela exige absorção: {absorve}"
+    if variante == "normal":
+        print("atribuicao absorção no fecho exibido:", absorve)
+
+
+def _atribuicao_sintetica(variante: str = "normal") -> dict:
+    from src.calculadora import politica_atribuicao as pa
+
+    base = "normal" if variante == "parcial" else variante
+    original = pa._INDICE_ANTES_DO_FUNDO
+    pa._INDICE_ANTES_DO_FUNDO = {"RFIX11": ("IMAB", "IMA-B")}
+    try:
+        bloco = pa.construir_bloco_atribuicao(
+            _ponte_atribuicao(base), _alvo_sintetico(), _retornos_sinteticos(base),
+            _atr_fx_fim_mes(), None if base == "sem_registro" else _ATR_REGISTRADA,
+            _ATR_REGISTROS)
+        _confere_atribuicao(bloco, base)
+    finally:
+        pa._INDICE_ANTES_DO_FUNDO = original
+    if variante == "parcial":
+        # forma incompleta de propósito: o PWA trata como bloco ausente
+        del bloco["janelas"]["desde"]["desvio_categorias"]
+        assert "desvio_categorias" not in bloco["janelas"]["desde"]
+    return bloco
+
+
 PAYLOAD = {
-    "versao": "2.36",
+    "versao": "2.37",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -1898,6 +2154,11 @@ assert PAYLOAD["risco"]["ate"] == PAYLOAD["ponte"]["ate"]
 PAYLOAD["selecao"] = _selecao_sintetica("normal")
 assert PAYLOAD["selecao"]["ate"] == PAYLOAD["ponte"]["ate"]
 
+# Schema v2.37 (Fase 7a.BS.2): de onde veio o resultado, da ponte sintética
+# própria (``_ponte_atribuicao``), com o mesmo ``ate`` da ponte publicada.
+PAYLOAD["atribuicao"] = _atribuicao_sintetica("normal")
+assert PAYLOAD["atribuicao"]["ate"] == PAYLOAD["ponte"]["ate"]
+
 # Schema v2.33 (7a.BO.2): ranking completo por classe, aberto pelo top-3
 # literal; na 2.34 (7a.BO.4) o top-3 sai do payload como chave própria.
 PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"].pop("campeoes"))
@@ -1905,7 +2166,7 @@ _confere_ranking(PAYLOAD["dividend_yield"])
 
 # Passo intermediário de ``_PRE_RENDA``: os payloads de versão anterior à 2.33
 # não carregam ``dividend_yield.ranking`` (nenhuma fixture própria desde a 2.34).
-_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k not in ("risco", "selecao")} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
+_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k not in ("risco", "selecao", "atribuicao")} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
                                              if k != "ranking"}}
 
 # Payloads de versão anterior à 2.32 não carregam ``renda``.
@@ -2579,6 +2840,22 @@ def gerar_portfolio_selecao_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BS.2 (Task 6): os estados do capítulo ``#/raiox/diagnostico/politica`` e da
+# linha 2 do índice -- ``atribuicao: null`` (builder falhou), ``parcial`` (forma
+# incompleta), as variantes do bloco e o payload 2.36 (sem a chave). Gerar só
+# estas e o ``OUT`` (a cifra não é determinística), nunca o main().
+def gerar_portfolio_atribuicao_variantes() -> None:
+    alvos = [("portfolio_atribuicao_null", PAYLOAD | {"atribuicao": None}),
+             ("portfolio_pre_v237", {k: v for k, v in PAYLOAD.items() if k != "atribuicao"}
+              | {"versao": "2.36"})]
+    alvos += [(f"portfolio_atribuicao_{v}", PAYLOAD | {"atribuicao": _atribuicao_sintetica(v)})
+              for v in ("parcial", "desde_indisponivel", "sem_registro", "sem_dolar")]
+    for nome, payload in alvos:
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BK.1 (Task 2): a #alocacao por faixa de tolerância. Duas variantes do
 # PAYLOAD com a ``politica`` trocada por pesos SINTÉTICOS redondos (repo
 # público). Regra da faixa: tol = max(0,02; 0,10 × alvo), bordas inclusivas.
@@ -2881,6 +3158,7 @@ def main() -> None:
     gerar_portfolio_pesou_saiu()           # 7a.BL.2 (Task 7)
     gerar_portfolio_risco_variantes()      # 7a.BQ.2 (Task 5)
     gerar_portfolio_selecao_variantes()    # 7a.BR.2 (Task 4)
+    gerar_portfolio_atribuicao_variantes() # 7a.BS.2 (Task 6)
 
 
 if __name__ == "__main__":

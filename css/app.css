@@ -4831,3 +4831,108 @@ body:has(.tab-bar) main {
 
 /* Capítulo 3. */
 .apor-explica { margin-top: 1.375rem; }
+
+/* ── Fase 7a.BS.2: capítulo 2 "De onde veio o resultado" ──────────────────
+   Família ensaio (.diag-ensaio). A cascata segue o idioma do waterfall da
+   Rentabilidade (.ponte-*): rótulo · trilho · valor, totais em barra cheia
+   (neutra; "Sua carteira" em --ink), degraus flutuando num eixo comum, ▲/▼
+   com sinal e cor. Diferente da ponte, as linhas não são botões e nada se
+   move: sem transição nem animação (nenhuma motion nova). Só tokens. */
+.pol-pergunta { margin: 0 0 1rem; font-size: 0.9375rem; line-height: 1.5; color: var(--ink); max-width: 60ch; }
+.pol-frase { font-variant-numeric: tabular-nums; }
+.pol-frase strong { font-weight: 700; color: var(--ink); }
+.pol-cinza { margin: 10px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); max-width: 60ch; }
+.pol-contrafactual { margin-top: 14px; }
+.pol-registrada { margin-top: 6px; }
+
+.pol-cascata-secao { margin: 1.5rem 0 0; }
+.pol-unidade { margin: 0 0 8px; font-size: var(--num-xs); color: var(--gray); }
+.pol-cascata { display: flex; flex-direction: column; gap: 2px; }
+.pol-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 116px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 8px;
+  color: var(--ink);
+}
+.pol-rotulo { display: flex; flex-direction: column; min-width: 0; }
+.pol-nome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.pol-ponto { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
+.pol-sub { font-size: var(--num-xs); color: var(--gray); line-height: 1.25; }
+/* Totais: o nome em 700, como na ponte. */
+.pol-linha--total .pol-nome { font-weight: 700; }
+/* Cabeçalho de grupo: o rótulo ocupa rótulo e trilho, o subtotal fica na
+   coluna dos valores; um filete acima separa o grupo do total anterior. */
+.pol-linha--grupo { margin-top: 4px; border-top: 1px solid var(--neutral-200); min-height: 36px; }
+.pol-linha--grupo .pol-rotulo { grid-column: 1 / 3; }
+.pol-linha--grupo .pol-nome { font-weight: 700; color: var(--ink); }
+/* Degraus recuados sob o cabeçalho do grupo. */
+.pol-linha--degrau .pol-rotulo { padding-left: 10px; }
+.pol-linha--degrau .pol-nome { font-weight: 500; }
+/* "Sua carteira" é a soma: um filete acima dela, como linha de total. */
+.pol-linha--degrau + .pol-linha--total { margin-top: 4px; border-top: 1px solid var(--neutral-200); }
+/* overflow:hidden prende a guia e a barra escalada dentro do trilho. */
+.pol-trilho { position: relative; display: block; height: 28px; overflow: hidden; }
+.pol-barra {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+}
+.pol-barra--neutra { background: var(--gray); }
+.pol-barra--sua { background: var(--ink); }
+.pol-barra--pos { background: var(--g-700); }
+.pol-barra--neg { background: var(--red); }
+.pol-barra--neutro { background: var(--gray); top: 13px; bottom: 13px; }
+.pol-guia {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-left: 1px dashed var(--neutral-200);
+}
+.pol-valor {
+  font-family: var(--mono);
+  font-size: var(--num-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--ink);
+}
+.pol-linha--grupo .pol-valor, .pol-linha--total .pol-valor { font-weight: 700; }
+.pol-valor.is-pos { color: var(--g-700); }
+.pol-valor.is-neg { color: var(--red); }
+.pol-valor.is-neutro { color: var(--gray); }
+
+.pol-dolar__frase { font-variant-numeric: tabular-nums; }
+.pol-nota { margin-top: 1.5rem; }
+
+.pol-conta-janela + .pol-conta-janela { margin-top: 4px; }
+.pol-conta-tabela { margin-top: 12px; }
+.pol-conta-tabela__titulo { caption-side: top; text-align: left; padding: 4px 0 2px; font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+.pol-conta-tabela thead th { padding-left: 6px; line-height: 1.25; vertical-align: bottom; }
+.pol-conta-tabela tbody th { padding-right: 4px; font-size: 0.8125rem; line-height: 1.35; }
+.pol-conta-tabela tbody td { padding-left: 6px; font-size: 0.8125rem; }
+.pol-conta-rotulo { font-weight: 700; color: var(--ink); }
+.pol-fontes { margin: 6px 0 0; padding: 0 0 0 1.1em; font-size: 0.8125rem; line-height: 1.5; color: var(--gray); max-width: 68ch; font-variant-numeric: tabular-nums; }
+.pol-fontes li + li { margin-top: 4px; }
+
+/* A 320 px o rótulo cede, como na ponte (verificação visual da 7a.BD.2). */
+@media (max-width: 360px) {
+  .pol-linha { grid-template-columns: minmax(0, 108px) minmax(0, 1fr) auto; gap: 8px; padding: 4px 6px; }
+  .pol-linha--degrau .pol-rotulo { padding-left: 6px; }
+}

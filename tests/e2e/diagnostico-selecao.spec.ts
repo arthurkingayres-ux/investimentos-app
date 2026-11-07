@@ -71,7 +71,7 @@ test.describe("7a.BR.2 — capítulo 2", () => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
-    await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("2");
+    await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("3");
     await expect(page.locator(`${TELA} .diag-titulo`)).toHaveText("Seus picks batem o índice?");
     await expect(page.locator(`${TELA} .sel-pergunta`)).toHaveText(
       "Por habilidade ou por sorte: quanto maior e mais regular a diferença mês a mês, menos ela se explica por sorte.");
@@ -345,7 +345,7 @@ test.describe("7a.BR.2 — capítulo 2: estados (spec §6.5)", () => {
       await page.goto("/#/raiox/diagnostico/selecao");
       await expect(page.locator(TELA)).toContainText("Confiança da seleção indisponível hoje.");
       await page.goto("/#/raiox/diagnostico");
-      await expect(page.locator('.tela-diag-indice [data-testid="diag-indice-2"] .diag-indice__estado')).toHaveText("Indisponível hoje.");
+      await expect(page.locator('.tela-diag-indice [data-testid="diag-indice-3"] .diag-indice__estado')).toHaveText("Indisponível hoje.");
       expect(erros).toEqual([]);
     });
   }

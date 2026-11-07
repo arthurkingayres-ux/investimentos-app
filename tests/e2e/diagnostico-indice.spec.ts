@@ -2,7 +2,8 @@ import { test, expect, Page } from "@playwright/test";
 import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, corDoToken, escalarValorFinal } from "./diag-comum";
 
 // Fase 7a.BR.2 — o índice do Diagnóstico (#/raiox/diagnostico, spec §6.2):
-// três perguntas, uma linha cada, com a frase de estado da janela desde o
+// quatro perguntas desde a 7a.BS.2 (a 2 é a da política, em
+// diagnostico-politica.spec.ts; a seleção virou a 3 e os aportes a 4), uma linha cada, com a frase de estado da janela desde o
 // início. Os valores esperados são lidos do payload decifrado e montados aqui,
 // por uma implementação própria da regra do item 7 da §8 (nunca pelos helpers
 // da tela, senão o teste concordaria com qualquer erro deles), formatados pelos
@@ -15,6 +16,9 @@ const DIVERGEM = fx("portfolio_selecao_divergem.test.json.enc");
 const CURTO = fx("portfolio_selecao_curto.test.json.enc");
 const INDISPONIVEL = fx("portfolio_selecao_indisponivel.test.json.enc");
 const APORTES = fx("portfolio_selecao_aportes.test.json.enc");
+const ATR_NULO = fx("portfolio_atribuicao_null.test.json.enc");
+const ATR_PARCIAL = fx("portfolio_atribuicao_parcial.test.json.enc");
+const PRE237 = fx("portfolio_pre_v237.test.json.enc");
 
 const TELA = ".tela-diag-indice";
 const linha = (page: Page, n: number) => page.locator(`${TELA} [data-testid="diag-indice-${n}"]`);
@@ -25,7 +29,8 @@ async function abrir(page: Page) {
   await abrirTela(page, "#/raiox/diagnostico", TELA, ".diag-indice");
 }
 
-// A linha 2 esperada (spec §6.2 e item 7 da §8), montada do payload.
+// A linha da seleção esperada (spec 7a.BR §6.2 e item 7 da §8; linha 3 desde a
+// 7a.BS.2), montada do payload.
 async function linha2Esperada(page: Page) {
   return page.evaluate(() => {
     const s = (window as any).Alpine.$data(document.body).json.selecao;
@@ -74,17 +79,17 @@ async function linha2Esperada(page: Page) {
 }
 
 test.describe("7a.BR.2 — índice do Diagnóstico", () => {
-  test("título, instrução, três perguntas tocáveis de 44 px, nota e aviso; o ← volta ao Raio-X", async ({ page }) => {
+  test("título, instrução, quatro perguntas tocáveis de 44 px, nota e aviso; o ← volta ao Raio-X", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
     await expect(page.locator(`${TELA} .breadcrumb h1`)).toHaveText("Diagnóstico");
     await expect(page.locator(`${TELA} .diag-indice__titulo`)).toHaveText("A carteira está indo bem?");
-    await expect(page.locator(`${TELA} .diag-indice__instrucao`)).toHaveText("Três perguntas, lidas nesta ordem. Toque em uma para ver a conta.");
-    const titulos = ["Quanto risco a carteira correu", "Seus picks batem o índice?", "O momento dos seus aportes"];
-    const rotas = ["#/raiox/diagnostico/risco", "#/raiox/diagnostico/selecao", "#/raiox/diagnostico/aportes"];
-    await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
+    await expect(page.locator(`${TELA} .diag-indice__instrucao`)).toHaveText("Quatro perguntas, lidas nesta ordem. Toque em uma para ver a conta.");
+    const titulos = ["Quanto risco a carteira correu", "De onde veio o resultado", "Seus picks batem o índice?", "O momento dos seus aportes"];
+    const rotas = ["#/raiox/diagnostico/risco", "#/raiox/diagnostico/politica", "#/raiox/diagnostico/selecao", "#/raiox/diagnostico/aportes"];
+    await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(4);
+    for (let i = 0; i < 4; i++) {
       const a = linha(page, i + 1);
       await expect(a).toHaveAttribute("href", rotas[i]);
       await expect(a.locator(".diag-indice__ordinal")).toHaveText(String(i + 1));
@@ -121,27 +126,27 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
   });
 
   for (const [nome, corpo] of [["normal", PRINCIPAL], ["indicio", INDICIO], ["divergem", DIVERGEM], ["curto", CURTO], ["indisponivel", INDISPONIVEL]] as const) {
-    test(`linha 2 (${nome}): o desde e, para cada classe com indício ou consistente em 3 ou 5 anos, a oração da janela de maior |t|`, async ({ page }) => {
+    test(`linha 3 (${nome}): o desde e, para cada classe com indício ou consistente em 3 ou 5 anos, a oração da janela de maior |t|`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
       await abrir(page);
       const esperada = await linha2Esperada(page);
-      await expect(linha(page, 2).locator(".diag-indice__estado")).toHaveText(esperada);
+      await expect(linha(page, 3).locator(".diag-indice__estado")).toHaveText(esperada);
       expect(erros).toEqual([]);
     });
   }
 
-  test("linha 2 (normal) trava a copy: nenhuma classe no desde, Ações BR com indício em 3 anos", async ({ page }) => {
+  test("linha 3 (normal) trava a copy: nenhuma classe no desde, Ações BR com indício em 3 anos", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
     await abrir(page);
     const t3 = await page.evaluate(() => (window as any).Alpine.$data(document.body).json.selecao.classes.acoes_br.janelas["3a"].t);
-    await expect(linha(page, 2).locator(".diag-indice__estado")).toHaveText(
+    await expect(linha(page, 3).locator(".diag-indice__estado")).toHaveText(
       `Desde o início, nenhuma classe se separa da sorte. Em 3 anos, Ações BR com indício de ficar ${t3 < 0 ? "atrás do" : "à frente do"} IBOV.`);
   });
 
   // Ajuste pós-Alfred (06/11): falta de dado não vira veredito. Na variante
   // indisponivel, Ações BR e FIIs ficam sem o desde e EUA fica inconclusivo.
-  test("linha 2 (indisponivel) trava a copy: as classes sem dado são nomeadas, fora de 'nenhuma classe se separa da sorte'", async ({ page }) => {
+  test("linha 3 (indisponivel) trava a copy: as classes sem dado são nomeadas, fora de 'nenhuma classe se separa da sorte'", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, INDISPONIVEL);
     await abrir(page);
@@ -150,13 +155,13 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
       return [c.acoes_br.janelas.desde.indisponivel !== null, c.fiis.janelas.desde.indisponivel !== null, c.eua.janelas.desde.grau];
     });
     expect(g).toEqual([true, true, "inconclusivo"]);
-    const estado = linha(page, 2).locator(".diag-indice__estado");
+    const estado = linha(page, 3).locator(".diag-indice__estado");
     await expect(estado).toHaveText("Desde o início, nenhuma classe com dado se separa da sorte; Ações BR e FIIs sem dado hoje.");
     await expect(estado).not.toHaveText(/^Desde o início, nenhuma classe se separa da sorte\./);
     expect(erros).toEqual([]);
   });
 
-  test("linha 2, helper puro: todas sem dado ⇒ só a lista; uma forte com uma sem dado ⇒ a cauda nomeia as duas coisas", async ({ page }) => {
+  test("linha 3, helper puro: todas sem dado ⇒ só a lista; uma forte com uma sem dado ⇒ a cauda nomeia as duas coisas", async ({ page }) => {
     await autenticar(page, INDISPONIVEL);
     const r = await page.evaluate(() => {
       const w = window as any;
@@ -174,22 +179,48 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
   });
 
   for (const [nome, corpo] of [["selecao null", NULO], ["pré-v2.36", PRE236]] as const) {
-    test(`payload ${nome}: a linha 2 diz 'Indisponível hoje.' e continua tocável; as outras seguem`, async ({ page }) => {
+    test(`payload ${nome}: a linha 3 diz 'Indisponível hoje.' e continua tocável; as outras seguem`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
       await abrir(page);
-      await expect(linha(page, 2).locator(".diag-indice__estado")).toHaveText("Indisponível hoje.");
+      await expect(linha(page, 3).locator(".diag-indice__estado")).toHaveText("Indisponível hoje.");
       await expect(linha(page, 1).locator(".diag-indice__estado")).not.toHaveText("Indisponível hoje.");
-      await expect(linha(page, 3)).toBeVisible();
-      await linha(page, 2).click();
+      await expect(linha(page, 4)).toBeVisible();
+      await linha(page, 3).click();
       await expect(page).toHaveURL(/#\/raiox\/diagnostico\/selecao$/);
       await expect(page.locator(".tela-diag-selecao")).toContainText("Confiança da seleção indisponível hoje.");
       expect(erros).toEqual([]);
     });
   }
 
+  // 7a.BS.2 (spec §6.4): sem o bloco `atribuicao` válido, a linha 2 diz
+  // "Indisponível hoje." e continua tocável; as linhas 1, 3 e 4 seguem com o
+  // texto delas (o resto do payload é o da fixture principal).
+  for (const [nome, corpo] of [["atribuicao null", ATR_NULO], ["atribuicao parcial", ATR_PARCIAL], ["pré-v2.37", PRE237]] as const) {
+    test(`payload ${nome}: a linha 2 diz 'Indisponível hoje.' e continua tocável; as linhas 1, 3 e 4 seguem`, async ({ page }) => {
+      const erros = coletarErros(page);
+      await autenticar(page, corpo);
+      const card = norm(await page.locator(".diag-card-home__texto").textContent());
+      await abrir(page);
+      await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(4);
+      await expect(linha(page, 2).locator(".diag-indice__pergunta")).toHaveText("De onde veio o resultado");
+      await expect(linha(page, 2).locator(".diag-indice__estado")).toHaveText("Indisponível hoje.");
+      await expect(linha(page, 1).locator(".diag-indice__estado")).toHaveText(card.endsWith(".") ? card : card + ".");
+      await expect(linha(page, 3).locator(".diag-indice__estado")).toHaveText(await linha2Esperada(page));
+      const l4 = norm(await linha(page, 4).locator(".diag-indice__estado").textContent());
+      expect(l4.length).toBeGreaterThan(0);
+      expect(l4).not.toBe("Indisponível hoje.");
+      const caixa = await linha(page, 2).boundingBox();
+      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+      await linha(page, 2).click();
+      await expect(page).toHaveURL(/#\/raiox\/diagnostico\/politica$/);
+      await expect(page.locator(".tela-diag-politica")).toContainText("De onde veio o resultado: indisponível hoje.");
+      expect(erros).toEqual([]);
+    });
+  }
+
   for (const fator of [1, 1.1, 0.9] as const)
-  test(`linha 3 (ponte longa, valor final × ${fator}): 'Desde {ano}, o calendário dos aportes {somou|tirou} X ponto(s) ao ano {ao|do} seu retorno.' com X = XIRR − TWR do Total desde`, async ({ page }) => {
+  test(`linha 4 (ponte longa, valor final × ${fator}): 'Desde {ano}, o calendário dos aportes {somou|tirou} X ponto(s) ao ano {ao|do} seu retorno.' com X = XIRR − TWR do Total desde`, async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, APORTES);
     await escalarValorFinal(page, fator);
@@ -202,7 +233,7 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
       const r = w.ponteRoundPy((j.xirr - j.sua) * 100, 1);
       return { ano: b.meses[m0 - 1].slice(0, 4), r, x: w.rent2Abs1(r) };
     });
-    const estado = linha(page, 3).locator(".diag-indice__estado");
+    const estado = linha(page, 4).locator(".diag-indice__estado");
     if (fator === 1) {
       // A ponte da fixture fica abaixo do limiar de 0,5 ponto (item 8 da §8).
       expect(Math.abs(e.r)).toBeLessThan(0.5);
@@ -217,7 +248,7 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
     expect(erros).toEqual([]);
   });
 
-  test("linha 3 (ponte curta, desde indisponível): o motivo traduzido no lugar da frase, e a linha continua tocável", async ({ page }) => {
+  test("linha 4 (ponte curta, desde indisponível): o motivo traduzido no lugar da frase, e a linha continua tocável", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
@@ -227,8 +258,8 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
       return w.rent2MotivoTexto(w.ponteJanelasFixas(b, "Total", "BRL").desde.indisponivel);
     });
     expect(motivo.length).toBeGreaterThan(0);
-    await expect(linha(page, 3).locator(".diag-indice__estado")).toHaveText(motivo);
-    await linha(page, 3).click();
+    await expect(linha(page, 4).locator(".diag-indice__estado")).toHaveText(motivo);
+    await linha(page, 4).click();
     await expect(page).toHaveURL(/#\/raiox\/diagnostico\/aportes$/);
     await expect(page.locator(".tela-diag-aportes .diag-ensaio")).toBeVisible();
     expect(erros).toEqual([]);
@@ -236,8 +267,10 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
 
   test("cada linha abre o seu capítulo, e o ← do capítulo volta ao índice", async ({ page }) => {
     const erros = coletarErros(page);
-    await autenticar(page, APORTES);
-    for (const [n, tela] of [[1, ".tela-diagnostico"], [2, ".tela-diag-selecao"], [3, ".tela-diag-aportes"]] as const) {
+    // A fixture principal (v2.37) tem os quatro capítulos montados; a
+    // portfolio_selecao_aportes é anterior ao bloco `atribuicao`.
+    await autenticar(page, PRINCIPAL);
+    for (const [n, tela] of [[1, ".tela-diagnostico"], [2, ".tela-diag-politica"], [3, ".tela-diag-selecao"], [4, ".tela-diag-aportes"]] as const) {
       await abrir(page);
       await linha(page, n).click();
       await expect(page.locator(`${tela} .diag-ensaio`)).toBeVisible();
@@ -251,10 +284,10 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
 });
 
 // Board 7a.BR.2: o oráculo linha2Esperada espelha a regra; estes casos
-// travam a linha 2 com a string exata, escrita à mão, sobre blocos sintéticos
+// travam a linha 3 (a da seleção desde a 7a.BS.2) com a string exata, escrita à mão, sobre blocos sintéticos
 // derivados do fixture principal (Ações BR: indício em 3 anos com t > 0, desde
 // inconclusivo; FIIs e EUA inconclusivos em tudo).
-test.describe("7a.BR.2 — índice: linha 2 por casos literais", () => {
+test.describe("7a.BR.2 — índice: linha 3 (seleção) por casos literais", () => {
   async function frase(page: Page, mut: string) {
     return page.evaluate((m) => {
       const w = window as any;

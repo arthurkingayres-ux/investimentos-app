@@ -1767,10 +1767,10 @@
       </section>
 
       <!-- ── Tela #/raiox/diagnostico: índice (7a.BR.2) ── -->
-      <!-- Três perguntas, uma linha cada, lista de bordas finas, sem cards
+      <!-- Quatro perguntas (7a.BS.2), uma linha cada, lista de bordas finas, sem cards
            (família ensaio). Cada linha resume a janela desde o início; sem
            dado, a linha fica com o motivo e continua tocável (spec §6.2). O
-           conteúdo das três telas novas só monta na própria rota (x-if com a
+           conteúdo das telas dos capítulos só monta na própria rota (x-if com a
            rota): a ponte do capítulo 3 não é calculada fora dele, e os
            seletores globais do capítulo 1 não enxergam o markup delas. -->
       <section class="tela-detalhes tela-diag-indice" x-show="rota === 'diagnostico'"
@@ -1786,7 +1786,7 @@
         <template x-if="rota === 'diagnostico'">
           <article class="diag-ensaio diag-indice" aria-labelledby="diag-indice-titulo">
             <h2 class="diag-titulo diag-indice__titulo" id="diag-indice-titulo">A carteira está indo bem?</h2>
-            <p class="diag-indice__instrucao">Três perguntas, lidas nesta ordem. Toque em uma para ver a conta.</p>
+            <p class="diag-indice__instrucao">Quatro perguntas, lidas nesta ordem. Toque em uma para ver a conta.</p>
             <nav aria-label="Perguntas do diagnóstico">
               <ol class="diag-indice__lista">
                 <template x-for="l in diagIndiceLinhas()" :key="l.n">
@@ -1809,7 +1809,153 @@
         </template>
       </section>
 
-      <!-- ── Tela #/raiox/diagnostico/selecao: capítulo 2 (7a.BR.2) ── -->
+      <!-- ── Tela #/raiox/diagnostico/politica: capítulo 2 (7a.BS.2) ── -->
+      <!-- Sua carteira contra a carteira-modelo da política (bloco `atribuicao`,
+           schema 2.37). Família ensaio, coluna única, sem escopo. Ousadia num
+           lugar só: a cascata, no idioma do waterfall da Rentabilidade (totais
+           em barra cheia, degraus num eixo comum, ▲/▼ com sinal e cor), sempre
+           aberta e sem toque (as linhas não são botões). O conteúdo só monta na
+           própria rota (x-if). -->
+      <section class="tela-detalhes tela-diag-politica" x-show="rota === 'diag-politica'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="pol-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="pol-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="rota === 'diag-politica' && !pol">
+          <p class="placeholder">De onde veio o resultado: indisponível hoje.</p>
+        </template>
+
+        <template x-if="rota === 'diag-politica' && pol">
+          <article class="diag-ensaio pol-ensaio" aria-labelledby="pol-titulo">
+            <p class="diag-ordinal" aria-hidden="true">2</p>
+            <h2 class="diag-titulo" id="pol-titulo">De onde veio o resultado</h2>
+            <p class="pol-pergunta">Sua carteira contra a carteira-modelo da sua política, rebalanceada todo mês.</p>
+
+            <div class="diag-janelas" role="group" aria-label="Janela">
+              <template x-for="j in pol.janelas" :key="j.chave">
+                <button type="button" class="diag-janela diag-janela--herda"
+                        :data-testid="'pol-janela-' + j.chave"
+                        :aria-pressed="pol.chave === j.chave ? 'true' : 'false'"
+                        :aria-disabled="j.disponivel ? null : 'true'"
+                        :aria-describedby="j.disponivel ? null : 'pol-motivo'"
+                        @click="polEscolherJanela(j.chave)"
+                        x-text="j.rotulo"></button>
+              </template>
+            </div>
+            <p class="diag-motivo" id="pol-motivo" data-testid="pol-motivo" aria-live="polite"
+               x-show="pol.motivo" x-text="pol.motivo"></p>
+
+            <template x-if="pol.semJanela">
+              <p class="diag-sem-janela" data-testid="pol-sem-janela" x-text="pol.semJanela"></p>
+            </template>
+
+            <template x-if="!pol.semJanela">
+              <div class="pol-corpo">
+                <p class="diag-frase pol-frase" data-testid="pol-frase"><template x-for="(s, i) in pol.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+                <p class="diag-ate" data-testid="pol-ate" x-text="pol.linhaAte"></p>
+              </div>
+            </template>
+
+            <p class="pol-cinza pol-contrafactual" data-testid="pol-contrafactual">Como se a política de hoje tivesse sido seguida desde o início. Ela foi definida conhecendo este período, e por isso tende a parecer boa.</p>
+            <template x-if="pol.registrada">
+              <p class="pol-cinza pol-registrada" data-testid="pol-registrada" x-text="pol.registrada"></p>
+            </template>
+
+            <template x-if="pol.cascata">
+              <section class="pol-cascata-secao" aria-label="Da política à sua carteira">
+                <p class="pol-unidade" x-text="pol.cascata.unidade"></p>
+                <div class="pol-cascata" aria-hidden="true">
+                  <template x-for="l in pol.cascata.linhas" :key="l.tipo + '-' + (l.grupo || '') + '-' + l.id">
+                    <div class="pol-linha" :class="'pol-linha--' + l.tipo" data-testid="pol-linha"
+                         :data-tipo="l.tipo" :data-id="l.id" :data-grupo="l.grupo">
+                      <span class="pol-rotulo">
+                        <span class="pol-nome"><template x-if="l.estiloPonto"><span class="pol-ponto" :style="l.estiloPonto"></span></template><span x-text="l.rotulo"></span></span>
+                        <template x-if="l.sub"><span class="pol-sub" x-text="l.sub"></span></template>
+                      </span>
+                      <template x-if="l.tipo !== 'grupo'">
+                        <span class="pol-trilho">
+                          <template x-if="l.estiloGuia"><span class="pol-guia" :style="l.estiloGuia"></span></template>
+                          <span class="pol-barra" :class="'pol-barra--' + l.barra" :style="l.estiloBarra"></span>
+                        </span>
+                      </template>
+                      <span class="pol-valor" :class="'is-' + l.sinal" x-text="l.texto"></span>
+                    </div>
+                  </template>
+                </div>
+                <!-- Tabela equivalente para leitor de tela (o .sr-only no
+                     wrapper, como na ponte: tabela não encolhe a 1 px). -->
+                <div class="sr-only">
+                  <table data-testid="pol-tabela">
+                    <caption x-text="pol.cascata.caption"></caption>
+                    <thead><tr><th scope="col">Linha</th><th scope="col">Valor</th><th scope="col">Acumulado</th></tr></thead>
+                    <tbody>
+                      <template x-for="l in pol.cascata.linhas" :key="'t-' + l.tipo + '-' + (l.grupo || '') + '-' + l.id">
+                        <tr><th scope="row" x-text="l.tipo === 'degrau' ? l.rotulo + ', em ' + (l.grupo === 'desvio' ? 'desvio do alvo' : 'suas escolhas') + ':' : l.rotulo + ':'"></th><td x-text="l.tabelaValor"></td><td x-text="l.tabelaAcum"></td></tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </template>
+
+            <template x-if="pol.dolar">
+              <section class="pol-dolar" data-testid="pol-dolar" aria-labelledby="pol-dolar-titulo">
+                <h3 class="diag-subtitulo" id="pol-dolar-titulo">O dólar</h3>
+                <p class="diag-texto pol-dolar__frase" data-testid="pol-dolar-frase" x-text="pol.dolar"></p>
+                <p class="pol-cinza" data-testid="pol-dolar-linha">É o que a parte americana ganhou ou perdeu só pela troca de moeda.</p>
+              </section>
+            </template>
+
+            <p class="diag-nota pol-nota" data-testid="pol-nota">A política é a carteira-modelo: os fundos da política rendem o próprio retorno, e a parte de picks rende o índice da classe. Antes de existirem, os fundos de renda fixa rendem o índice que replicam. Rebalanceada todo mês, sem custo nem imposto. A cripto fica fora, como na Rentabilidade.</p>
+
+            <details class="diag-conta">
+              <summary>Ver a conta</summary>
+              <div class="diag-conta__corpo">
+                <template x-for="tb in pol.conta.tabelas" :key="tb.chave">
+                  <div class="pol-conta-janela">
+                    <template x-if="tb.motivo">
+                      <p class="diag-conta__nota" :data-janela="tb.chave"><strong class="pol-conta-rotulo" x-text="tb.rotulo + ':'"></strong> <span x-text="tb.motivo"></span></p>
+                    </template>
+                    <template x-if="!tb.motivo">
+                      <table class="diag-tabela pol-conta-tabela" :data-janela="tb.chave">
+                        <caption class="pol-conta-tabela__titulo" x-text="tb.rotulo"></caption>
+                        <thead><tr><td></td><template x-for="cn in pol.conta.colunas" :key="cn"><th scope="col" x-text="cn"></th></template></tr></thead>
+                        <tbody>
+                          <template x-for="l in tb.linhas" :key="l.id">
+                            <tr :data-linha="l.id"><th scope="row" x-text="l.rotulo"></th><template x-for="(v, i) in l.v" :key="i"><td x-text="v"></td></template></tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </template>
+                  </div>
+                </template>
+                <p class="diag-conta__nota">Alvo: o peso de hoje da categoria na política. Peso real médio: a média, mês a mês, do peso que a categoria teve na sua carteira. Peso da categoria, mistura e desvio em pontos, com duas casas; o peso mais a mistura dá o desvio.</p>
+                <p class="diag-conta__nota">A política: a carteira-modelo, com os pesos de hoje em todos os meses. Desvio do alvo: a mesma carteira, só com índices, menos a política; é o efeito de os seus pesos reais terem sido outros. Peso da categoria: a parte do desvio que vem de a categoria ter pesado mais ou menos que o alvo. Mistura dentro dela: a parte que vem da composição dentro da categoria, como mais picks que o alvo ou um fundo acima do outro. Suas escolhas: a sua carteira menos a mesma carteira, só com índices, as mesmas linhas da Rentabilidade.</p>
+                <p class="diag-conta__nota">É a atribuição de Brinson-Fachler (o termo de alocação, com a mistura dentro da categoria), ligada mês a mês pelo mesmo encadeamento da Rentabilidade (GRAP); a interação entre peso e escolha fica em suas escolhas, como na Rentabilidade.</p>
+                <p class="diag-conta__nota">Os fundos da política rendem o retorno de mercado em todos os meses: a cotação com os proventos reinvestidos. Na mesma carteira, só com índices, o fundo que você teve rende pelo método de Dietz, que leva em conta o dinheiro que entrou no meio do mês; a pequena diferença entre os dois fica no desvio do alvo da categoria.</p>
+                <p class="diag-conta__nota">Fontes dos fundos da política:</p>
+                <ul class="pol-fontes">
+                  <template x-for="(f, i) in pol.conta.fontes" :key="i">
+                    <li data-testid="pol-fonte" x-text="f"></li>
+                  </template>
+                </ul>
+                <template x-if="pol.dolar">
+                  <p class="diag-conta__nota" data-testid="pol-conta-dolar">No dólar, as ações brasileiras negociadas em dólar ficam fora da conta, e os fluxos em dólar usam o câmbio da corretora; por isso o número carrega também a diferença entre esse câmbio e o de mercado.</p>
+                </template>
+              </div>
+            </details>
+
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico/selecao: capítulo 3 (7a.BR.2; o 2 até a 7a.BS.2) ── -->
       <!-- Picks de cada classe contra o índice da classe. Sem escopo: as três
            classes juntas, na ordem fixa. Ousadia num lugar só: a régua da
            confiança (SVG inline, t de −3 a +3, sem cor de ganho ou perda). -->
@@ -1829,7 +1975,7 @@
 
         <template x-if="rota === 'diag-selecao' && sel">
           <article class="diag-ensaio sel-ensaio" aria-labelledby="sel-titulo">
-            <p class="diag-ordinal" aria-hidden="true">2</p>
+            <p class="diag-ordinal" aria-hidden="true">3</p>
             <h2 class="diag-titulo" id="sel-titulo">Seus picks batem o índice?</h2>
             <p class="sel-pergunta">Por habilidade ou por sorte: quanto maior e mais regular a diferença mês a mês, menos ela se explica por sorte.</p>
 
@@ -1905,7 +2051,7 @@
         </template>
       </section>
 
-      <!-- ── Tela #/raiox/diagnostico/aportes: capítulo 3 (7a.BR.2) ── -->
+      <!-- ── Tela #/raiox/diagnostico/aportes: capítulo 4 (7a.BR.2; o 3 até a 7a.BS.2) ── -->
       <!-- XIRR − TWR das janelas fixas da ponte (spec §5.2), no escopo e na
            moeda escolhidos. Os mesmos controles do capítulo 1, com estado
            próprio; a seção fica depois da Rentabilidade no DOM (locators
@@ -1926,7 +2072,7 @@
 
         <template x-if="rota === 'diag-aportes' && apor">
           <article class="diag-ensaio apor-ensaio" aria-labelledby="apor-titulo">
-            <p class="diag-ordinal" aria-hidden="true">3</p>
+            <p class="diag-ordinal" aria-hidden="true">4</p>
             <h2 class="diag-titulo" id="apor-titulo">O momento dos seus aportes</h2>
 
             <div class="escopo-toggle diag-escopos apor-escopos" role="group" aria-label="Escopo">

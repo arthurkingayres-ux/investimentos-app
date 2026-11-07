@@ -65,7 +65,7 @@ test.describe("7a.BR.2 — capítulo 3", () => {
     const erros = coletarErros(page);
     await autenticar(page, APORTES);
     await abrir(page);
-    await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("3");
+    await expect(page.locator(`${TELA} .diag-ordinal`)).toHaveText("4");
     await expect(page.locator(`${TELA} .diag-titulo`)).toHaveText("O momento dos seus aportes");
     await expect(page.locator(`${TELA} [data-apor-escopo="Total"]`)).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(`${TELA} [data-testid="apor-janela-desde"]`)).toHaveAttribute("aria-pressed", "true");
@@ -189,7 +189,7 @@ test.describe("7a.BR.2 — capítulo 3", () => {
     await page.goto("/#/raiox/diagnostico/aportes");
     await expect(page.locator(TELA)).toContainText("O momento dos aportes indisponível hoje.");
     await page.goto("/#/raiox/diagnostico");
-    await expect(page.locator('.tela-diag-indice [data-testid="diag-indice-3"] .diag-indice__estado')).toHaveText("Indisponível hoje.");
+    await expect(page.locator('.tela-diag-indice [data-testid="diag-indice-4"] .diag-indice__estado')).toHaveText("Indisponível hoje.");
     expect(erros).toEqual([]);
   });
 });
