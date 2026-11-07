@@ -1787,7 +1787,7 @@
       </section>
 
       <!-- ── Tela #/raiox/diagnostico: índice (7a.BR.2) ── -->
-      <!-- Quatro perguntas (7a.BS.2), uma linha cada, lista de bordas finas, sem cards
+      <!-- Cinco perguntas (7a.BT.2), uma linha cada, lista de bordas finas, sem cards
            (família ensaio). Cada linha resume a janela desde o início; sem
            dado, a linha fica com o motivo e continua tocável (spec §6.2). O
            conteúdo das telas dos capítulos só monta na própria rota (x-if com a
@@ -1806,7 +1806,7 @@
         <template x-if="rota === 'diagnostico'">
           <article class="diag-ensaio diag-indice" aria-labelledby="diag-indice-titulo">
             <h2 class="diag-titulo diag-indice__titulo" id="diag-indice-titulo">A carteira está indo bem?</h2>
-            <p class="diag-indice__instrucao">Quatro perguntas, lidas nesta ordem. Toque em uma para ver a conta.</p>
+            <p class="diag-indice__instrucao">Cinco perguntas, lidas nesta ordem. Toque em uma para ver a conta.</p>
             <nav aria-label="Perguntas do diagnóstico">
               <ol class="diag-indice__lista">
                 <template x-for="l in diagIndiceLinhas()" :key="l.n">
@@ -1823,7 +1823,7 @@
                 </template>
               </ol>
             </nav>
-            <p class="diag-indice__caminho" data-testid="diag-indice-caminho"><strong>O caminho.</strong> A primeira pergunta olha quanto a carteira balançou. A segunda separa o resultado: o plano, o desvio do plano e os ativos escolhidos. A terceira pergunta se essas escolhas são habilidade ou sorte. A quarta olha o momento dos seus aportes. Cada uma explica, por dentro, como ler a conta.</p>
+            <p class="diag-indice__caminho" data-testid="diag-indice-caminho"><strong>O caminho.</strong> A primeira pergunta olha quanto a carteira balançou. A segunda separa o resultado: o plano, o desvio do plano e os ativos escolhidos. A terceira pergunta se essas escolhas são habilidade ou sorte. A quarta olha o momento dos seus aportes. A quinta olha como a carteira está montada e quanto custam os fundos. Cada uma explica, por dentro, como ler a conta.</p>
             <p class="diag-indice__nota">Cada linha resume a janela desde o início. A conta, as outras janelas e os escopos ficam dentro de cada pergunta.</p>
             <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
           </article>
@@ -2235,6 +2235,203 @@
                 </div>
               </details>
             </template>
+
+            <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
+          </article>
+        </template>
+      </section>
+
+      <!-- ── Tela #/raiox/diagnostico/construcao: capítulo 5 (7a.BT.2) ── -->
+      <!-- Como a carteira está montada (bloco `construcao`, schema 2.38):
+           concentração de hoje, a parte de cada classe na oscilação por janela
+           e o custo da taxa dos fundos. Família ensaio, coluna única, sem
+           escopo. Ousadia num lugar só: a régua dupla "pesou × somou à
+           oscilação", sem cor de ganho ou perda. O conteúdo só monta na
+           própria rota (x-if). -->
+      <section class="tela-detalhes tela-diag-construcao" x-show="rota === 'diag-construcao'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="cons-h1" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="cons-h1">Diagnóstico</h1>
+        </header>
+
+        <template x-if="rota === 'diag-construcao' && !cons">
+          <p class="placeholder" data-testid="cons-indisponivel">Como a carteira está montada: indisponível hoje.</p>
+        </template>
+
+        <template x-if="rota === 'diag-construcao' && cons">
+          <article class="diag-ensaio cons-ensaio" aria-labelledby="cons-titulo">
+            <p class="diag-ordinal" aria-hidden="true">5</p>
+            <h2 class="diag-titulo" id="cons-titulo">Como a carteira está montada</h2>
+            <p class="pol-pergunta" data-testid="cons-pergunta">Quanto ela depende dos maiores ativos, de onde vem a oscilação e quanto custam os fundos.</p>
+
+            <!-- Concentração: hoje, sem janela (spec §6.3 itens 2 e 3). -->
+            <h3 class="diag-subtitulo" id="cons-maiores-titulo">Os maiores ativos</h3>
+            <p class="diag-frase cons-frase" data-testid="cons-conc-frase"><template x-for="(s, i) in cons.conc.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+            <p class="diag-ate" data-testid="cons-conc-ate" x-text="cons.conc.ate"></p>
+            <ol class="cons-lista" data-testid="cons-maiores" aria-labelledby="cons-maiores-titulo">
+              <template x-for="m in cons.conc.maiores" :key="m.ticker">
+                <li class="cons-item"><span class="cons-ponto" :style="m.ponto" aria-hidden="true"></span><span class="cons-ticker" x-text="m.ticker"></span><span class="cons-peso" x-text="m.peso"></span></li>
+              </template>
+            </ol>
+
+            <!-- A oscilação por janela e a régua dupla (itens 4 a 6). -->
+            <h3 class="diag-subtitulo" id="cons-osc-titulo">De onde vem a oscilação</h3>
+            <template x-if="!cons.osc">
+              <p class="diag-texto" data-testid="cons-osc-indisponivel">A oscilação por classe está indisponível hoje.</p>
+            </template>
+            <template x-if="cons.osc">
+              <div class="cons-osc">
+                <div class="diag-janelas" role="group" aria-label="Janela">
+                  <template x-for="j in cons.osc.janelas" :key="j.chave">
+                    <button type="button" class="diag-janela diag-janela--herda"
+                            :data-testid="'cons-janela-' + j.chave"
+                            :aria-pressed="cons.osc.chave === j.chave ? 'true' : 'false'"
+                            :aria-disabled="j.disponivel ? null : 'true'"
+                            :aria-describedby="j.disponivel ? null : 'cons-motivo'"
+                            @click="consEscolherJanela(j.chave)"
+                            x-text="j.rotulo"></button>
+                  </template>
+                </div>
+                <p class="diag-motivo" id="cons-motivo" data-testid="cons-motivo" aria-live="polite"
+                   x-show="cons.osc.motivo" x-text="cons.osc.motivo"></p>
+
+                <template x-if="cons.osc.semJanela">
+                  <p class="diag-sem-janela" data-testid="cons-sem-janela" x-text="cons.osc.semJanela"></p>
+                </template>
+
+                <template x-if="!cons.osc.semJanela">
+                  <div class="cons-osc-corpo">
+                    <template x-if="cons.osc.frase.length">
+                      <p class="diag-frase cons-frase" data-testid="cons-osc-frase"><template x-for="(s, i) in cons.osc.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+                    </template>
+                    <p class="diag-ate" data-testid="cons-osc-ate" x-text="cons.osc.ate"></p>
+
+                    <div class="cons-regua">
+                      <template x-for="l in cons.osc.linhas" :key="l.id">
+                        <div class="cons-regua-linha" data-testid="cons-regua-linha" role="img" :aria-label="l.label" :data-id="l.id">
+                          <span class="cons-nome"><span class="cons-ponto" :style="l.ponto"></span><span x-text="l.nome"></span></span>
+                          <span class="cons-trilho-linha">
+                            <span class="cons-trilho"><span class="cons-barra cons-barra--pesou" :style="l.estiloPesou"></span></span>
+                            <span class="cons-valor cons-valor--pesou" data-testid="cons-pesou" x-text="l.pesou"></span>
+                          </span>
+                          <template x-if="l.somou">
+                            <span class="cons-trilho-linha">
+                              <span class="cons-trilho"><span class="cons-barra cons-barra--somou" :style="l.estiloSomou"></span></span>
+                              <span class="cons-valor cons-valor--somou" data-testid="cons-somou" x-text="l.somou"></span>
+                            </span>
+                          </template>
+                        </div>
+                      </template>
+                    </div>
+                    <!-- Tabela equivalente para leitor de tela (o .sr-only no wrapper). -->
+                    <div class="sr-only">
+                      <table data-testid="cons-tabela">
+                        <caption>Quanto cada classe pesou na carteira e somou à oscilação, em %</caption>
+                        <thead><tr><th scope="col">Classe</th><th scope="col">Pesou</th><th scope="col">Somou à oscilação</th></tr></thead>
+                        <tbody>
+                          <template x-for="l in cons.osc.linhas" :key="'t-' + l.id">
+                            <tr><th scope="row" x-text="l.nome"></th><td x-text="l.tabPesou"></td><td x-text="l.tabSomou"></td></tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <template x-if="cons.osc.curto">
+                      <p class="diag-texto" data-testid="cons-curto">Histórico curto para medir a oscilação.</p>
+                    </template>
+                    <template x-if="!cons.osc.curto">
+                      <div class="cons-ativos-bloco">
+                        <h4 class="cons-h4" id="cons-ativos-titulo">Os ativos que mais mexeram na oscilação</h4>
+                        <ol class="cons-lista" data-testid="cons-ativos" aria-labelledby="cons-ativos-titulo">
+                          <template x-for="a in cons.osc.ativos" :key="a.ticker">
+                            <li class="cons-item"><span class="cons-ponto" :style="a.ponto" aria-hidden="true"></span><span class="cons-ticker" x-text="a.ticker"></span><span class="cons-ativo-vals"><span class="cons-ativo-pesou" x-text="a.pesou"></span><span class="cons-ativo-somou" x-text="a.somou"></span></span></li>
+                          </template>
+                        </ol>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- O custo (item 7). -->
+            <h3 class="diag-subtitulo" id="cons-custo-titulo">Quanto custam os fundos</h3>
+            <p class="diag-frase cons-frase" data-testid="cons-custo-frase"><template x-for="(s, i) in cons.custo.frase" :key="i"><span><template x-if="s.b"><strong x-text="s.t"></strong></template><template x-if="!s.b"><span x-text="s.t"></span></template></span></template></p>
+            <p class="pol-cinza" data-testid="cons-custo-fora" x-text="cons.custo.fora"></p>
+            <p class="pol-cinza" data-testid="cons-custo-banco">Corretagem, emolumentos e o imposto retido nos proventos ainda não estão no banco; quando estiverem, entram aqui.</p>
+
+            <section class="diag-ler" data-testid="cons-ler" aria-labelledby="cons-ler-titulo">
+              <h3 class="diag-subtitulo" id="cons-ler-titulo">Como ler esta conta</h3>
+              <h4 class="diag-ler__sub">O que esta pergunta mede</h4>
+              <p class="diag-texto">Uma carteira pode render bem e depender demais de poucos ativos, ou ter uma parte pequena que responde pela maior parte dos solavancos. Aqui ficam três olhares sobre a montagem: o peso dos maiores, de onde vem a oscilação e quanto os fundos cobram.</p>
+              <h4 class="diag-ler__sub">Os números</h4>
+              <dl class="diag-ler__nums">
+                <dt>Os 5 e os 10 maiores</dt>
+                <dd>Quanto da carteira está nos maiores ativos. Quanto maior, mais o resultado depende deles.</dd>
+                <dt>Carteira de N ativos de mesmo peso</dt>
+                <dd>Uma forma de contar a diversificação: com 40 ativos (número inventado), se poucos pesam muito, a carteira se comporta como se tivesse bem menos. Um fundo de índice conta como um ativo, mesmo tendo centenas de empresas dentro, então este número subestima a diversificação dos fundos.</dd>
+                <dt>Pesou × somou à oscilação</dt>
+                <dd>O primeiro é o peso médio da classe na janela; o segundo, quanto ela respondeu pelos solavancos da carteira. Uma classe que pesa pouco e soma muito é a que mais balança, ou a que balança junto com o resto. Uma classe que "reduziu" a oscilação costuma subir quando as outras caem.</dd>
+                <dt>A taxa dos fundos</dt>
+                <dd>O que os fundos descontam por ano, em porcentagem da carteira inteira. Sai da ficha de cada fundo, e entra só o fundo que tem ficha registrada.</dd>
+              </dl>
+              <h4 class="diag-ler__sub">Como ler o seu resultado</h4>
+              <p class="diag-texto">Compare as duas colunas da régua: onde "somou" passa muito de "pesou", ali está a parte que mais mexe com a carteira. No custo, compare com a política: a diferença vem de ter mais ou menos fundo do que o alvo, e de quais fundos.</p>
+              <h4 class="diag-ler__sub">O que estes números não dizem</h4>
+              <p class="diag-texto">A oscilação é a do passado, com os pesos de cada mês: a carteira de hoje pode se comportar diferente. A concentração não sabe que dois ativos podem ser da mesma empresa ou do mesmo setor. E o custo ainda não inclui corretagem, emolumentos e o imposto retido.</p>
+            </section>
+
+            <details class="diag-conta">
+              <summary>Ver a conta</summary>
+              <div class="diag-conta__corpo">
+                <p class="diag-conta__nota diag-conta__abre">Os nomes técnicos e as fórmulas, para conferir.</p>
+                <p class="diag-conta__nota" x-text="cons.conta.herf"></p>
+                <p class="diag-conta__nota">A parte de cada classe na oscilação é a contribuição de cada classe à variância (covariância da contribuição mensal com o retorno da carteira, sobre a variância). As partes somam 100%.</p>
+                <template x-if="cons.conta.corr.length">
+                  <p class="diag-conta__nota">Correlação entre as classes, mês a mês, em cada janela:</p>
+                </template>
+                <template x-for="tb in cons.conta.corr" :key="tb.chave">
+                  <div class="pol-conta-janela">
+                    <template x-if="tb.motivo">
+                      <p class="diag-conta__nota" :data-janela="tb.chave"><strong class="pol-conta-rotulo" x-text="tb.rotulo + ':'"></strong> <span x-text="tb.motivo"></span></p>
+                    </template>
+                    <template x-if="!tb.motivo">
+                      <table class="diag-tabela" data-testid="cons-corr" :data-janela="tb.chave">
+                        <caption class="pol-conta-tabela__titulo" x-text="tb.rotulo"></caption>
+                        <tbody>
+                          <template x-for="l in tb.linhas" :key="l.par">
+                            <tr><th scope="row" x-text="l.rotulo"></th><td x-text="l.valor"></td></tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </template>
+                  </div>
+                </template>
+                <table class="diag-tabela" data-testid="cons-fundos">
+                  <caption class="pol-conta-tabela__titulo">A taxa de cada fundo</caption>
+                  <thead><tr><td></td><th scope="col">Taxa ao ano</th><th scope="col">Peso</th></tr></thead>
+                  <tbody>
+                    <template x-for="f in cons.conta.fundos" :key="f.ticker">
+                      <tr><th scope="row" x-text="f.ticker"></th><td x-text="f.ter"></td><td x-text="f.peso"></td></tr>
+                    </template>
+                  </tbody>
+                </table>
+                <p class="diag-conta__nota">Fonte de cada taxa:</p>
+                <ul class="pol-fontes">
+                  <template x-for="(f, i) in cons.conta.fontes" :key="i">
+                    <li data-testid="cons-fonte" x-text="f"></li>
+                  </template>
+                </ul>
+                <template x-if="cons.conta.cripto">
+                  <p class="diag-conta__nota" data-testid="cons-cripto" x-text="cons.conta.cripto"></p>
+                </template>
+                <p class="diag-conta__nota">Os pesos de hoje são os da Alocação, sem a cripto.</p>
+              </div>
+            </details>
 
             <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
           </article>

@@ -19,6 +19,9 @@ const APORTES = fx("portfolio_selecao_aportes.test.json.enc");
 const ATR_NULO = fx("portfolio_atribuicao_null.test.json.enc");
 const ATR_PARCIAL = fx("portfolio_atribuicao_parcial.test.json.enc");
 const PRE237 = fx("portfolio_pre_v237.test.json.enc");
+const CONS_NULO = fx("portfolio_construcao_null.test.json.enc");
+const CONS_RISCO_NULO = fx("portfolio_construcao_risco_null.test.json.enc");
+const PRE238 = fx("portfolio_pre_v238.test.json.enc");
 
 const TELA = ".tela-diag-indice";
 const linha = (page: Page, n: number) => page.locator(`${TELA} [data-testid="diag-indice-${n}"]`);
@@ -79,17 +82,17 @@ async function linha2Esperada(page: Page) {
 }
 
 test.describe("7a.BR.2 — índice do Diagnóstico", () => {
-  test("título, instrução, quatro perguntas tocáveis de 44 px, nota e aviso; o ← volta ao Raio-X", async ({ page }) => {
+  test("título, instrução, cinco perguntas tocáveis de 44 px, nota e aviso; o ← volta ao Raio-X", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
     await expect(page.locator(`${TELA} .breadcrumb h1`)).toHaveText("Diagnóstico");
     await expect(page.locator(`${TELA} .diag-indice__titulo`)).toHaveText("A carteira está indo bem?");
-    await expect(page.locator(`${TELA} .diag-indice__instrucao`)).toHaveText("Quatro perguntas, lidas nesta ordem. Toque em uma para ver a conta.");
-    const titulos = ["Quanto risco a carteira correu", "De onde veio o resultado", "Seus picks batem o índice?", "O momento dos seus aportes"];
-    const rotas = ["#/raiox/diagnostico/risco", "#/raiox/diagnostico/politica", "#/raiox/diagnostico/selecao", "#/raiox/diagnostico/aportes"];
-    await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(4);
-    for (let i = 0; i < 4; i++) {
+    await expect(page.locator(`${TELA} .diag-indice__instrucao`)).toHaveText("Cinco perguntas, lidas nesta ordem. Toque em uma para ver a conta.");
+    const titulos = ["Quanto risco a carteira correu", "De onde veio o resultado", "Seus picks batem o índice?", "O momento dos seus aportes", "Como a carteira está montada"];
+    const rotas = ["#/raiox/diagnostico/risco", "#/raiox/diagnostico/politica", "#/raiox/diagnostico/selecao", "#/raiox/diagnostico/aportes", "#/raiox/diagnostico/construcao"];
+    await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(5);
+    for (let i = 0; i < 5; i++) {
       const a = linha(page, i + 1);
       await expect(a).toHaveAttribute("href", rotas[i]);
       await expect(a.locator(".diag-indice__ordinal")).toHaveText(String(i + 1));
@@ -202,7 +205,7 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
       await autenticar(page, corpo);
       const card = norm(await page.locator(".diag-card-home__texto").textContent());
       await abrir(page);
-      await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(4);
+      await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(5);
       await expect(linha(page, 2).locator(".diag-indice__pergunta")).toHaveText("De onde veio o resultado");
       await expect(linha(page, 2).locator(".diag-indice__estado")).toHaveText("Indisponível hoje.");
       await expect(linha(page, 1).locator(".diag-indice__estado")).toHaveText(card.endsWith(".") ? card : card + ".");
@@ -267,10 +270,10 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
 
   test("cada linha abre o seu capítulo, e o ← do capítulo volta ao índice", async ({ page }) => {
     const erros = coletarErros(page);
-    // A fixture principal (v2.37) tem os quatro capítulos montados; a
+    // A fixture principal (v2.38) tem os cinco capítulos montados; a
     // portfolio_selecao_aportes é anterior ao bloco `atribuicao`.
     await autenticar(page, PRINCIPAL);
-    for (const [n, tela] of [[1, ".tela-diagnostico"], [2, ".tela-diag-politica"], [3, ".tela-diag-selecao"], [4, ".tela-diag-aportes"]] as const) {
+    for (const [n, tela] of [[1, ".tela-diagnostico"], [2, ".tela-diag-politica"], [3, ".tela-diag-selecao"], [4, ".tela-diag-aportes"], [5, ".tela-diag-construcao"]] as const) {
       await abrir(page);
       await linha(page, n).click();
       await expect(page.locator(`${tela} .diag-ensaio`)).toBeVisible();
@@ -369,7 +372,7 @@ test.describe("7a.BR.2 — índice: regras de forma (spec §6.6)", () => {
 
 // 7a.BU §3.2 (emendada em 07/11/2026, opção B do Dr. Arthur): o parágrafo do
 // caminho vem logo depois da lista, antes da nota do rodapé, com no máximo 50
-// palavras no corpo; as quatro linhas ficam inteiras na primeira tela a 375 px.
+// palavras no corpo; as quatro primeiras linhas ficam inteiras na primeira tela a 375 px.
 test.describe("7a.BU — o caminho no índice", () => {
   test("o parágrafo fica entre a lista e a nota do rodapé, com até 50 palavras", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
@@ -385,21 +388,84 @@ test.describe("7a.BU — o caminho no índice", () => {
       return {
         depoisDaLista: !!(nav.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING),
         antesDaNota: !!(p.compareDocumentPosition(nota) & Node.DOCUMENT_POSITION_FOLLOWING),
-        // O corpo, sem o "O caminho." de abertura: a copy aprovada da §3.2 tem
-        // 50 palavras nele (52 com a abertura).
+        // O corpo, sem o "O caminho." de abertura: a copy aprovada da 7a.BU
+        // §3.2 tinha 50 palavras; a 7a.BT §6.1 acrescenta a frase da quinta
+        // pergunta (13 palavras), 63 no total.
         palavras: (p.textContent || "").replace("O caminho.", "").trim().split(/\s+/).length,
       };
     }, TELA);
     expect(r.depoisDaLista).toBe(true);
     expect(r.antesDaNota).toBe(true);
-    expect(r.palavras).toBeLessThanOrEqual(50);
+    expect(r.palavras).toBeLessThanOrEqual(63);
+    await expect(c).toContainText(
+      "A quarta olha o momento dos seus aportes. A quinta olha como a carteira está montada e quanto custam os fundos. Cada uma explica");
   });
 
-  test("a 375 × 812, as quatro linhas seguem na primeira tela", async ({ page }) => {
+  test("a 375 × 812, as quatro primeiras linhas seguem na primeira tela; a quinta desce sem corte", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await autenticar(page, PRINCIPAL);
     await abrir(page);
     const fundo = await linha(page, 4).evaluate((el) => el.getBoundingClientRect().bottom);
     expect(fundo).toBeLessThanOrEqual(812);
+    // 7a.BT §6.1: mede a quinta. Se não couber, a lista desce; nenhum texto
+    // é cortado (o estado da linha 5 cabe inteiro na própria caixa).
+    const l5 = await linha(page, 5).evaluate((el) => {
+      const est = el.querySelector(".diag-indice__estado") as HTMLElement;
+      return { fundo: el.getBoundingClientRect().bottom, cortado: est.scrollHeight > est.clientHeight + 1 };
+    });
+    console.log(`medida: linha 5, fundo a 375×812: ${l5.fundo.toFixed(0)} px`);
+    expect(l5.cortado).toBe(false);
   });
+});
+
+// Fase 7a.BT.2 (spec §6.2, §6.4): a linha 5, "Como a carteira está montada".
+// O esperado é montado aqui do payload decifrado (top5 a 1 casa, a taxa dos
+// fundos a 2 casas), com os formatadores próprios do teste.
+test.describe("7a.BT.2 — índice: linha 5 (construção e custo)", () => {
+  const pct = (x: number, casas: number) => (x * 100).toFixed(casas).replace(".", ",") + "%";
+
+  test("linha 5: 'Os 5 maiores ativos são P% da carteira; a taxa dos fundos custa T% ao ano.'", async ({ page }) => {
+    const erros = coletarErros(page);
+    await autenticar(page, PRINCIPAL);
+    await abrir(page);
+    const c = await page.evaluate(() => (window as any).Alpine.$data(document.body).json.construcao);
+    const esperado = `Os 5 maiores ativos são ${pct(c.concentracao.top5, 1)} da carteira; `
+      + `a taxa dos fundos custa ${pct(c.custo.ter_carteira, 2)} ao ano.`;
+    await expect(linha(page, 5).locator(".diag-indice__pergunta")).toHaveText("Como a carteira está montada");
+    await expect(linha(page, 5).locator(".diag-indice__estado")).toHaveText(esperado);
+    expect(erros).toEqual([]);
+  });
+
+  test("linha 5 trava a copy com os números da fixture", async ({ page }) => {
+    await autenticar(page, PRINCIPAL);
+    await abrir(page);
+    await expect(linha(page, 5).locator(".diag-indice__estado")).toHaveText(
+      "Os 5 maiores ativos são 62,0% da carteira; a taxa dos fundos custa 0,04% ao ano.");
+  });
+
+  test("risco nulo não derruba a linha 5 (concentração e custo seguem)", async ({ page }) => {
+    await autenticar(page, CONS_RISCO_NULO);
+    await abrir(page);
+    await expect(linha(page, 5).locator(".diag-indice__estado")).toHaveText(
+      "Os 5 maiores ativos são 62,0% da carteira; a taxa dos fundos custa 0,04% ao ano.");
+  });
+
+  for (const [nome, corpo] of [["construcao null", CONS_NULO], ["pré-v2.38", PRE238]] as const) {
+    test(`payload ${nome}: a linha 5 diz 'Indisponível hoje.' e continua tocável; as outras seguem`, async ({ page }) => {
+      const erros = coletarErros(page);
+      await autenticar(page, corpo);
+      await abrir(page);
+      await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(5);
+      await expect(linha(page, 5).locator(".diag-indice__pergunta")).toHaveText("Como a carteira está montada");
+      await expect(linha(page, 5).locator(".diag-indice__estado")).toHaveText("Indisponível hoje.");
+      await expect(linha(page, 2).locator(".diag-indice__estado")).not.toHaveText("Indisponível hoje.");
+      const caixa = await linha(page, 5).boundingBox();
+      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+      await linha(page, 5).click();
+      await expect(page).toHaveURL(/#\/raiox\/diagnostico\/construcao$/);
+      await expect(page.locator(".tela-diag-construcao [data-testid='cons-indisponivel']")).toHaveText(
+        "Como a carteira está montada: indisponível hoje.");
+      expect(erros).toEqual([]);
+    });
+  }
 });

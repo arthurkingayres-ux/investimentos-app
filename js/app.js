@@ -757,6 +757,8 @@ function diagMeses(n) {
 // O motivo novo do risco (n < 12) mais os da ponte, na voz da tela.
 function diagMotivoTexto(motivo) {
   if (motivo === "histórico curto: menos de 12 meses") return "Histórico curto: menos de 12 meses.";
+  // 7a.BT.2: motivo próprio do bloco `construcao` (Var(R) ≈ 0, construcao._MOTIVO_VAR).
+  if (motivo === "oscilação zero na janela") return "A carteira não oscilou nesta janela.";
   return rent2MotivoTexto(motivo);
 }
 
@@ -1269,6 +1271,219 @@ function polContaTabelas(a) {
       };
     }),
   };
+}
+
+// ── Fase 7a.BT.2: capítulo 5 "Como a carteira está montada" ─────────────
+// Lê o bloco `construcao` (schema 2.38, src/calculadora/construcao.py): só
+// formata e desenha, sem gêmea JS (spec 7a.BT §5.2). Funções puras de topo,
+// como as do capítulo 2: o e2e as chama com valores sintéticos.
+const CONS_JANELAS = [["3a", "3 anos"], ["5a", "5 anos"], ["desde", "Desde o início"]];
+const CONS_CURTO = "Histórico curto para medir a oscilação.";
+// Os 6 pares de classes da correlação, na ordem de construcao.CLASSES.
+const CONS_PARES = POL_CATS.flatMap((a, i) => POL_CATS.slice(i + 1).map((b) => `${a}|${b}`));
+
+function consNum(x) {
+  return typeof x === "number" && Number.isFinite(x);
+}
+
+// Fração → "62,0%" (1 casa) ou "0,04%" (2 casas), meio-para-par como o Python.
+function consPct(x, casas = 1) {
+  const r = ponteRoundPy(x * 100, casas);
+  return (r < 0 ? "−" : "") + Math.abs(r).toFixed(casas).replace(".", ",") + "%";
+}
+
+function consJanelaValida(j) {
+  if (!j || typeof j !== "object") return false;
+  if (!(j.indisponivel === null || (typeof j.indisponivel === "string" && j.indisponivel))) return false;
+  if (j.indisponivel !== null) return true;
+  if (!consNum(j.n_meses) || typeof j.de !== "string" || typeof j.ate !== "string"
+    || typeof j.historico_curto !== "boolean") return false;
+  const curto = j.historico_curto;
+  const parteOk = (p) => (curto ? p === null : consNum(p));
+  const cl = j.classes;
+  if (!cl || typeof cl !== "object" || Object.keys(cl).length !== POL_CATS.length) return false;
+  if (!POL_CATS.every((c) => cl[c] && consNum(cl[c].peso_medio) && parteOk(cl[c].parte))) return false;
+  if (!Array.isArray(j.ativos) || (curto && j.ativos.length)) return false;
+  if (!j.ativos.every((a) => a && typeof a.ticker === "string" && POL_CATS.includes(a.classe)
+    && consNum(a.peso_medio) && consNum(a.parte))) return false;
+  const co = j.correlacoes;
+  // Exatamente os 6 pares "a|b" na ordem fixa das classes (o rótulo da tabela
+  // sai deles; par faltando encolheria a tabela em silêncio).
+  if (!co || typeof co !== "object") return false;
+  const ks = Object.keys(co);
+  return ks.length === CONS_PARES.length && CONS_PARES.every((k) => k in co && (co[k] === null || consNum(co[k])));
+}
+
+// Bloco com a forma completa da spec §5.1; qualquer falta derruba o bloco
+// (linha 5 do índice "Indisponível hoje."), nunca TypeError no template.
+function consValido(c) {
+  if (!c || typeof c !== "object" || !polData(c.data)) return false;
+  const k = c.concentracao;
+  if (!k || !["n_ativos", "top5", "top10", "n_efetivo", "cripto_fora"].every((f) => consNum(k[f]))) return false;
+  if (!Array.isArray(k.maiores) || !k.maiores.every((m) => m && typeof m.ticker === "string"
+    && POL_CATS.includes(m.classe) && consNum(m.peso))) return false;
+  const u = c.custo;
+  const nums = ["ter_carteira", "reais_ano", "peso_com_fonte", "peso_sem_taxa", "peso_sem_fonte",
+    "ter_politica", "politica_peso_sem_fonte"];
+  if (!u || !nums.every((f) => consNum(u[f]))) return false;
+  if (!Array.isArray(u.fora) || !u.fora.every((f) => f && ["fiis", "outros"].includes(f.grupo) && consNum(f.peso))) return false;
+  if (!Array.isArray(u.fundos) || !u.fundos.every((f) => f && typeof f.ticker === "string"
+    && consNum(f.ter) && consNum(f.peso) && typeof f.fonte_ter === "string")) return false;
+  const r = c.risco;
+  if (r === null) return true;
+  return !!r && typeof r.ate === "string" && !!r.janelas
+    && CONS_JANELAS.every(([kj]) => consJanelaValida(r.janelas[kj]));
+}
+
+const _consCache = new WeakMap();
+function consMemo(c, pedida, clique) {
+  let m = _consCache.get(c);
+  if (!m) { m = new Map(); _consCache.set(c, m); }
+  const chave = `${pedida}|${clique}`;
+  if (!m.has(chave)) m.set(chave, consMontar(c, pedida, clique));
+  return m.get(chave);
+}
+
+function consMontar(c, pedida, clique) {
+  const k = c.concentracao;
+  const d = c.data;
+  const N = ponteRoundPy(k.n_efetivo, 0);
+  return {
+    conc: {
+      frase: [
+        { t: "Hoje, os 5 maiores ativos são " }, { t: consPct(k.top5), b: true },
+        { t: " da carteira, e os 10 maiores, " }, { t: consPct(k.top10), b: true },
+        { t: ". Ela se comporta como uma carteira de " }, { t: String(N), b: true },
+        { t: " ativos de mesmo peso." },
+      ],
+      ate: `em ${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(2, 4)} · ${k.n_ativos} ativos`,
+      maiores: k.maiores.map((m) => ({ ticker: m.ticker, peso: consPct(m.peso), ponto: `background: ${POL_COR[m.classe]}` })),
+    },
+    osc: c.risco ? consOsc(c.risco, pedida, clique) : null,
+    custo: consCusto(c.custo),
+    conta: consConta(c),
+  };
+}
+
+// "39,6%" a partir de pontos já arredondados (sem sinal).
+function consAbs1(p) {
+  return `${rent2Abs1(p)}%`;
+}
+
+// A oscilação da janela escolhida (spec §6.3 itens 4 a 6). Indisponível volta
+// à anterior válida, Desde → 5 anos → 3 anos (a regra do capítulo 1).
+function consOsc(r, pedida, clique) {
+  const js = r.janelas;
+  const janelas = CONS_JANELAS.map(([k, rotulo]) => {
+    const disponivel = js[k].indisponivel === null;
+    return { chave: k, rotulo, disponivel, motivo: disponivel ? "" : diagMotivoTexto(js[k].indisponivel) };
+  });
+  const i0 = DIAG_ORDEM_VOLTA.indexOf(pedida);
+  const ordem = [...DIAG_ORDEM_VOLTA.slice(i0), ...DIAG_ORDEM_VOLTA.slice(0, i0)];
+  const chave = ordem.find((k) => js[k].indisponivel === null) || null;
+  const base = { janelas, chave, semJanela: "", motivo: clique, frase: [], ate: "", linhas: [], curto: false, ativos: [] };
+  const motivoPedida = diagMotivoTexto(js[pedida].indisponivel);
+  if (!chave) return { ...base, semJanela: motivoPedida };
+  if (!base.motivo && chave !== pedida) base.motivo = motivoPedida;
+  const j = js[chave];
+  const curto = j.historico_curto;
+  // Fecho exibido a 1 casa nas duas colunas (spec §6.3 item 5): os pesos
+  // somam 100,0, e as partes também.
+  const pes = arredondarFechando(POL_CATS.map((x) => j.classes[x].peso_medio * 100), 100);
+  const par = curto ? null : arredondarFechando(POL_CATS.map((x) => j.classes[x].parte * 100), 100);
+  const linhas = POL_CATS.map((x, i) => {
+    const pesou = `pesou ${consAbs1(pes[i])}`;
+    const l = {
+      id: x, nome: POL_ROTULO[x], ponto: `background: ${POL_COR[x]}`,
+      pesou, estiloPesou: `width: ${pes[i]}%`, tabPesou: consAbs1(pes[i]),
+      somou: "", estiloSomou: "", tabSomou: "histórico curto", label: `${POL_ROTULO[x]}: ${pesou}`,
+    };
+    if (par) {
+      const v = par[i];
+      l.somou = `${v < 0 ? "reduziu" : "somou"} ${consAbs1(v)}`;
+      l.estiloSomou = `width: ${v < 0 ? 0 : Math.min(v, 100)}%`;
+      l.tabSomou = (v < 0 ? "−" : "") + consAbs1(v);
+      l.label = `${POL_ROTULO[x]}: ${pesou}, ${l.somou} da oscilação`;
+    }
+    return l;
+  });
+  let frase = [];
+  if (par) {
+    const top = POL_CATS.reduce((a, b) => (j.classes[b].parte > j.classes[a].parte ? b : a));
+    const i = POL_CATS.indexOf(top);
+    frase = [
+      { t: `Desde ${rent2MmmAa(diagMesAnterior(j.de))}, ${POL_ROTULO[top]} pesou ` }, { t: consAbs1(pes[i]), b: true },
+      { t: " da carteira e somou " }, { t: consAbs1(par[i]), b: true }, { t: " da oscilação." },
+    ];
+  }
+  const ativos = curto ? [] : j.ativos.map((a) => {
+    const w = ponteRoundPy(a.peso_medio * 100, 1);
+    const p = ponteRoundPy(a.parte * 100, 1);
+    return {
+      ticker: a.ticker, ponto: `background: ${POL_COR[a.classe]}`,
+      pesou: `pesou ${consAbs1(w)}`, somou: `${p < 0 ? "reduziu" : "somou"} ${consAbs1(p)}`,
+    };
+  });
+  return {
+    ...base, frase, linhas, curto, ativos,
+    ate: `até ${rent2MmmAa(j.ate)} · ${diagMeses(j.n_meses)}`,
+  };
+}
+
+// O custo (spec §6.3 item 7). A linha do que fica fora: as ações sempre; os
+// FIIs e o resto sem taxa registrada só quando pesam.
+function consCusto(u) {
+  const peso = (g) => (u.fora.find((f) => f.grupo === g) || { peso: 0 }).peso;
+  const fiis = peso("fiis"), outros = peso("outros");
+  let fora = `Ações não cobram taxa de administração (${consPct(u.peso_sem_taxa)} da carteira).`;
+  if (fiis > 0) {
+    fora += ` Os FIIs (${consPct(fiis)} da carteira) cobram, dentro do fundo, mas a taxa deles ainda não está registrada: ficam fora da conta.`;
+  }
+  if (outros > 0) fora += ` Outros ${consPct(outros)} da carteira também ficam fora, sem taxa registrada.`;
+  // A frase da política diz a mesma ressalva (spec §4.4): os FIIs do alvo são
+  // picks sem taxa registrada, e fundo da política sem ficha fica fora.
+  if (u.politica_peso_sem_fonte > 0) {
+    fora += ` Na política, ${consPct(u.politica_peso_sem_fonte)} dos pesos-alvo também ficam fora da conta, sem taxa registrada.`;
+  }
+  return {
+    frase: [
+      { t: "A taxa dos fundos custa " }, { t: consPct(u.ter_carteira, 2), b: true },
+      { t: " da carteira ao ano, cerca de " }, { t: rent2Dinheiro(u.reais_ano, "BRL"), b: true },
+      { t: " por ano. A política, com os mesmos fundos nos pesos-alvo, custaria " },
+      { t: consPct(u.ter_politica, 2), b: true }, { t: "." },
+    ],
+    fora,
+  };
+}
+
+// "Ver a conta" (spec §6.3 item 9).
+function consConta(c) {
+  const k = c.concentracao, u = c.custo, r = c.risco;
+  const corr = !r ? [] : CONS_JANELAS.map(([kj, rotulo]) => {
+    const j = r.janelas[kj];
+    if (j.indisponivel !== null) return { chave: kj, rotulo, motivo: diagMotivoTexto(j.indisponivel), linhas: [] };
+    return {
+      chave: kj, rotulo, motivo: "",
+      linhas: Object.keys(j.correlacoes).map((par) => {
+        const [a, b] = par.split("|");
+        const v = j.correlacoes[par];
+        return { par, rotulo: `${POL_ROTULO[a]} e ${POL_ROTULO[b]}`, valor: v === null ? "histórico curto" : diagNum2(v) };
+      }),
+    };
+  });
+  return {
+    herf: `O número de ativos de mesmo peso é o inverso do índice de Herfindahl (1/Σw²): ${rent2Abs1(ponteRoundPy(k.n_efetivo, 1))}.`,
+    corr,
+    fundos: u.fundos.map((f) => ({ ticker: f.ticker, ter: consPct(f.ter, 2), peso: consPct(f.peso) })),
+    fontes: u.fundos.map((f) => `${f.ticker}: ${f.fonte_ter}.`),
+    cripto: k.cripto_fora > 0 ? `A cripto, ${consPct(k.cripto_fora)} da carteira, fica fora, como na Rentabilidade.` : "",
+  };
+}
+
+// Linha 5 do índice (spec §6.2).
+function consIndiceFrase(c) {
+  return `Os 5 maiores ativos são ${consPct(c.concentracao.top5)} da carteira; `
+    + `a taxa dos fundos custa ${consPct(c.custo.ter_carteira, 2)} ao ano.`;
 }
 
 // Janelas fixas da ponte por escopo e moeda, memorizadas por bloco (cada
@@ -1956,6 +2171,9 @@ document.addEventListener("alpine:init", () => {
     // escopo, abrindo em Desde; motivo da janela indisponível tocada).
     polJanela: "desde",
     polMotivoClique: "",
+    // 7a.BT.2: capítulo 5 (janela da oscilação, abrindo em Desde).
+    consJanela: "desde",
+    consMotivoClique: "",
     moeda: localStorage.getItem("moedaEUA") || "BRL",
     // 7a.E.31: tela #alocação unificada — uma lista de cards de categoria
     // colapsáveis. catAberta mapeia nome→bool; todas começam fechadas (map
@@ -2203,13 +2421,13 @@ document.addEventListener("alpine:init", () => {
       }
       if (path === "/raiox/diagnostico") {
         // 7a.BQ.2: Diagnóstico, push child da tab Raio-X, irmã da renda.
-        // 7a.BR.2: virou o índice das perguntas (quatro desde a 7a.BS.2). voltar() cai em
+        // 7a.BR.2: virou o índice das perguntas (cinco desde a 7a.BT.2). voltar() cai em
         // home["raiox"] = "" (mapa genérico).
         this.rota = "diagnostico";
         this.tab = "raiox";
         return;
       }
-      const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|politica|selecao|aportes)$/);
+      const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|politica|selecao|aportes|construcao)$/);
       if (mdiag) {
         // 7a.BR.2: capítulos do Diagnóstico; o "←" volta ao índice (voltar()).
         this.rota = "diag-" + mdiag[1];
@@ -3465,13 +3683,16 @@ document.addEventListener("alpine:init", () => {
       const card = this.risco ? this.diagCardTexto() : "";
       const s = this.selecao;
       const a = this.atribuicao;
+      const c = this.construcao;
       // 7a.BS.2 (item 11 da §8): 1 risco, 2 de onde veio o resultado, 3 picks,
-      // 4 aportes. As rotas não mudam; muda só o ordinal mostrado.
+      // 4 aportes. As rotas não mudam; muda só o ordinal mostrado. 7a.BT.2
+      // (decisão 9): 5 como a carteira está montada.
       return [
         { n: 1, href: "#/raiox/diagnostico/risco", pergunta: "Quanto risco a carteira correu", estado: card ? fim(card) : "Indisponível hoje." },
         { n: 2, href: "#/raiox/diagnostico/politica", pergunta: "De onde veio o resultado", estado: a ? polIndiceFrase(a) : "Indisponível hoje." },
         { n: 3, href: "#/raiox/diagnostico/selecao", pergunta: "Seus picks batem o índice?", estado: s ? selIndiceFrase(s) : "Indisponível hoje." },
         { n: 4, href: "#/raiox/diagnostico/aportes", pergunta: "O momento dos seus aportes", estado: this.aporIndiceTexto() },
+        { n: 5, href: "#/raiox/diagnostico/construcao", pergunta: "Como a carteira está montada", estado: c ? consIndiceFrase(c) : "Indisponível hoje." },
       ];
     },
 
@@ -3568,12 +3789,33 @@ document.addEventListener("alpine:init", () => {
       if (!a.janelas || !POL_JANELAS.every(([k]) => polJanelaValida(a.janelas[k], cats))) return null;
       return a;
     },
+    // Bloco `construcao` v2.38 (spec 7a.BT §5.1, §6.4): só vale com a forma
+    // completa. Ausente, null, parcial ou payload < 2.38 ⇒ null.
+    get construcao() {
+      const j = this.json, c = j && j.construcao;
+      if (!c || !rent2VersaoAoMenos(j.versao, [2, 38]) || !consValido(c)) return null;
+      return c;
+    },
+    // Tudo o que o capítulo 5 desenha, para a janela escolhida da oscilação.
+    get cons() {
+      const c = this.construcao;
+      if (!c) return null;
+      return consMemo(c, this.consJanela, this.consMotivoClique || "");
+    },
     // Tudo o que o capítulo desenha, para a janela escolhida. Janela
     // indisponível volta à anterior válida (regra do capítulo 1) e diz o motivo.
     get pol() {
       const a = this.atribuicao;
       if (!a) return null;
       return polMemo(a, this.polJanela, this.polMotivoClique || "");
+    },
+    consEscolherJanela(k) {
+      const d = this.cons;
+      const j = d && d.osc && d.osc.janelas.find((x) => x.chave === k);
+      if (!j) return;
+      if (!j.disponivel) { this.consMotivoClique = j.motivo; return; }
+      this.consJanela = k;
+      this.consMotivoClique = "";
     },
     polEscolherJanela(k) {
       const d = this.pol;
@@ -4140,6 +4382,7 @@ document.addEventListener("alpine:init", () => {
       Object.assign(this, { diagEscopo: "Total", diagMoeda: "BRL", diagJanela: "desde", diagMotivoClique: "" });
       Object.assign(this, { selJanela: "desde", aporEscopo: "Total", aporMoeda: "BRL", aporJanela: "desde", aporMotivoClique: "" });
       Object.assign(this, { polJanela: "desde", polMotivoClique: "" });
+      Object.assign(this, { consJanela: "desde", consMotivoClique: "" });
       if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
       this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
     },

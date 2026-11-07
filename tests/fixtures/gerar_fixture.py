@@ -7,6 +7,17 @@ Uso (rodar do repo Investimentos com PYTHONPATH configurado):
 Saída: ../investimentos-app/tests/fixtures/portfolio.test.json.enc
 PIN de teste: 123456
 
+Schema v2.38 (Fase 7a.BT.2): bloco top-level ``construcao`` -- como a carteira
+está montada (concentração de hoje, a parte de cada classe na oscilação por
+janela e o custo da taxa dos fundos ao lado da política), consumido pelo
+capítulo ``#/raiox/diagnostico/construcao`` e pela linha 5 do índice. Sempre
+gerado por ``construir_bloco_construcao`` sobre uma ponte sintética própria
+(``_ponte_construcao``, 72 meses, mesmo ``ate`` da publicada, com a Renda Fixa
+espelhada para dar parte negativa), valores, taxas e alvo sintéticos; todo
+ticker do bloco começa por ``SINT``. Variantes: ``portfolio_construcao_{null,
+risco_null,curto,sem_fora,sem_cripto}`` e ``portfolio_pre_v238`` (2.37, sem a
+chave). Ver a seção da fase.
+
 Schema v2.37 (Fase 7a.BS.2): bloco top-level ``atribuicao`` -- de onde veio o
 resultado (a política como carteira-modelo em cestas, o desvio do alvo por
 categoria, a mesma carteira só com índices, suas escolhas e o dólar) por janela
@@ -1629,8 +1640,263 @@ def _atribuicao_sintetica(variante: str = "normal") -> dict:
     return bloco
 
 
+# ── Fase 7a.BT.2: bloco ``construcao`` (schema v2.38) ─────────────────────────
+# CONTEÚDO 100% SINTÉTICO, GERADO POR FÓRMULA (repo público, PIN de teste
+# público): todo ticker do bloco começa por ``SINT`` (os 10 maiores, os 5 da
+# oscilação, os fundos), as fontes de taxa dizem "ficha sintética", e nenhum
+# valor, peso, taxa ou alvo sai do DB ou dos YAML reais. O bloco é SEMPRE
+# ``construir_bloco_construcao`` (referência Python da BT.1) sobre a ponte, os
+# valores, as taxas e o alvo abaixo, nunca escrito à mão.
+#
+# Ponte própria (``_ponte_construcao``), 72 meses com o mesmo ``ate`` da
+# publicada, como as das 7a.BQ/BR/BS. ``SINTRF11`` é a série espelhada: rende
+# ao contrário das ações, então a Renda Fixa REDUZ a oscilação (parte < 0) e
+# entra nos 5 ativos de maior |parte| com "reduziu". ``curto`` usa 30 meses:
+# 3a e 5a ficam indisponíveis ("histórico começa em ..."), Desde fica em
+# histórico curto (a convenção de ``ponte.janelas_fixas``, não todas curtas).
+_CONS_N = 72
+_CONS_N_CURTO = 30
+# ticker, classe, passivo, valor inicial (nativo), aporte, fórmula do retorno
+_CONS_PONTE = [
+    ("SINTAA3", "acoes_br", False, 9000.0, 300.0, "acao_a"),
+    ("SINTAB3", "acoes_br", False, 5000.0, 150.0, "acao_b"),
+    ("SINTIX11", "acoes_br", True, 7000.0, 250.0, "ibov"),
+    ("SINTFA11", "fiis", False, 6000.0, 200.0, "fii_a"),
+    ("SINTFB11", "fiis", False, 3000.0, 100.0, "fii_b"),
+    ("SINTUS", "eua", True, 2000.0, 80.0, "sp"),
+    ("SINTUA", "eua", False, 700.0, 30.0, "sp_a"),
+    ("SINTRF11", "renda_fixa", True, 6000.0, 200.0, "espelho"),
+    ("SINTRG11", "renda_fixa", True, 2600.0, 110.0, "cdi"),
+]
+# valores de hoje (sem a cripto), em reais; SINTZ03 vale zero (fica fora) e
+# SINTXZ11 não tem entrada nas taxas (vai para "outros", com aviso)
+_CONS_VALORES = {
+    "SINTAA3": 18300.0, "SINTIX11": 15700.0, "SINTAB3": 11900.0, "SINTAC3": 8800.0,
+    "SINTAD3": 4100.0, "SINTFA11": 8200.0, "SINTFB11": 6100.0, "SINTFC11": 2900.0,
+    "SINTUS": 22400.0, "SINTUA": 6800.0, "SINTUB": 5300.0, "SINTRF11": 10200.0,
+    "SINTRG11": 3900.0, "SINTXZ11": 2100.0, "SINTZ03": 0.0,
+}
+_CONS_CLASSES = {
+    "SINTAA3": "acoes_br", "SINTIX11": "acoes_br", "SINTAB3": "acoes_br",
+    "SINTAC3": "acoes_br", "SINTAD3": "acoes_br", "SINTXZ11": "acoes_br",
+    "SINTZ03": "acoes_br", "SINTFA11": "fiis", "SINTFB11": "fiis", "SINTFC11": "fiis",
+    "SINTUS": "eua", "SINTUA": "eua", "SINTUB": "eua",
+    "SINTRF11": "renda_fixa", "SINTRG11": "renda_fixa",
+}
+_CONS_CRIPTO = 3600.0
+_CONS_FONTE = "ficha sintética, 01/01/2026"
+
+
+def _cons_taxas() -> dict:
+    """Taxas na forma de ``projecao_config`` (``ter``, ``fonte_ter``, ``fundo``)."""
+    def fundo(ter: float) -> dict:
+        return {"ter": ter, "fonte_ter": _CONS_FONTE, "fundo": True}
+
+    def sem(fundo_: bool = False) -> dict:
+        return {"ter": 0.0, "fonte_ter": None, "fundo": fundo_}
+
+    return {
+        "SINTIX11": fundo(0.0010), "SINTUS": fundo(0.0003), "SINTRF11": fundo(0.0020),
+        "SINTRG11": fundo(0.0025),
+        "SINTAA3": sem(), "SINTAB3": sem(), "SINTAC3": sem(), "SINTAD3": sem(),
+        "SINTZ03": sem(), "SINTUA": sem(), "SINTUB": sem(),
+        "SINTFA11": sem(), "SINTFB11": sem(), "SINTFC11": sem(),
+    }
+
+
+def _cons_alvo() -> dict:
+    """Alvo redondo (0,30 / 0,20 / 0,35 / 0,15) que NÃO reproduz o alvo real."""
+    return {
+        "acoes_br": {"peso": 0.30, "passive": 0.5, "fundos": {"SINTIX11": 1.0}, "picks": 0.5},
+        "fiis": {"peso": 0.20, "passive": 0.0, "fundos": {}, "picks": 1.0},
+        "eua": {"peso": 0.35, "passive": 0.8, "fundos": {"SINTUS": 1.0}, "picks": 0.2},
+        "renda_fixa": {"peso": 0.15, "passive": 1.0,
+                       "fundos": {"SINTRF11": 0.6, "SINTRG11": 0.4}, "picks": 0.0},
+    }
+
+
+def _cons_retorno(formula: str, t: int, ib: list, ifx: list, sp: list, cdi: list) -> float:
+    if formula == "acao_a":
+        return ib[t] + 0.0012 + 0.008 * math.sin(1.1 * t + 0.3)
+    if formula == "acao_b":
+        return 1.3 * ib[t] - 0.0010 + 0.010 * math.sin(0.9 * t + 1.7)
+    if formula == "ibov":
+        return ib[t]
+    if formula == "fii_a":
+        return ifx[t] + 0.0005 + 0.004 * math.sin(1.3 * t + 0.9)
+    if formula == "fii_b":
+        return ifx[t] - 0.0007 + 0.006 * math.sin(0.8 * t + 2.2)
+    if formula == "sp":
+        return sp[t]
+    if formula == "sp_a":
+        return sp[t] + 0.0020 + 0.012 * math.sin(1.2 * t + 0.4)
+    if formula == "espelho":  # sobe quando as ações caem
+        return 0.0080 - 0.9 * (ib[t] - 0.008) + 0.002 * math.sin(0.5 * t)
+    if formula == "cdi":
+        return cdi[t]
+    raise ValueError(formula)
+
+
+def _ponte_construcao(n: int = _CONS_N) -> dict:
+    """Ponte sintética do ``construcao`` (``ate`` = o da ponte publicada), na
+    forma das pontes da 7a.BS.2: entradas ``[i, D, G]`` em reais (e em dólar
+    para EUA), fluxos por escopo, índices de ``_ponte_indices``."""
+    meses = _ponte_meses(n, _risco_inicio(n))
+    ind_brl, ind_usd = _ponte_indices(n, anomalias=False)
+    ib, ifx, cdi, sp = ind_brl["IBOV"], ind_brl["IFIX"], ind_brl["CDI"], ind_usd["SP500TR"]
+    ativos = [{"t": tk, "classe": c, "passivo": p, "cesta_eua": ("passive" if p else "picks")
+               if c == "eua" else None} for (tk, c, p, *_r) in _CONS_PONTE]
+    brl: list[list] = [[] for _ in range(n)]
+    usd: list[list] = [[] for _ in range(n)]
+    chaves = ("Total", "Brasil", "EUA_BRL", "EUA_USD")
+    fluxos = {k: {"v": [0.0] * n, "entrou": [0.0] * n, "prov": [0.0] * n} for k in chaves}
+
+    def _soma(chave: str, campo: str, t: int, x: float) -> None:
+        fluxos[chave][campo][t] = round(fluxos[chave][campo][t] + x, 2)
+
+    for i, (_tk, classe, _p, v0, aporte, formula) in enumerate(_CONS_PONTE):
+        eua = classe == "eua"
+        v_nat = v_brl = 0.0
+        for t in range(n):
+            f_nat = v0 if t == 0 else (aporte if (t + i) % 4 == 0 else 0.0)
+            d_nat = round(v_nat + 0.5 * f_nat, 2)
+            r = 0.0 if t == 0 else _cons_retorno(formula, t, ib, ifx, sp, cdi)
+            g_nat = round(r * d_nat, 2)
+            v_novo = round(v_nat + f_nat + g_nat, 2)
+            if eua:
+                fx = _ponte_fx(t)
+                f_brl, vb_novo = round(f_nat * fx, 2), round(v_novo * fx, 2)
+                g_brl = round(vb_novo - v_brl - f_brl, 2)
+                d_brl = round(v_brl + 0.5 * f_brl, 2)
+                usd[t].append([i, d_nat, g_nat])
+                for campo, x in (("v", v_novo), ("entrou", f_nat)):
+                    _soma("EUA_USD", campo, t, x)
+            else:
+                f_brl, vb_novo, g_brl, d_brl = f_nat, v_novo, g_nat, d_nat
+            brl[t].append([i, d_brl, g_brl])
+            for k in ("Total", "EUA_BRL" if eua else "Brasil"):
+                for campo, x in (("v", vb_novo), ("entrou", f_brl)):
+                    _soma(k, campo, t, x)
+            v_nat, v_brl = v_novo, vb_novo
+    return {
+        "ate": meses[-1], "meses": meses,
+        "indices": {"BRL": ind_brl, "USD": ind_usd},
+        "ativos": ativos, "brl": brl, "usd": usd, "fluxos": fluxos,
+        "buracos": {"Total": [], "Brasil": [], "EUA_BRL": [], "EUA_USD": []},
+    }
+
+
+def _cons_entradas(variante: str) -> tuple:
+    valores = dict(_CONS_VALORES)
+    classes = dict(_CONS_CLASSES)
+    if variante == "sem_fora":  # nenhum FII nem ativo sem taxa: peso_sem_fonte 0
+        for t in ("SINTFA11", "SINTFB11", "SINTFC11", "SINTXZ11"):
+            valores.pop(t)
+    cripto = 0.0 if variante == "sem_cripto" else _CONS_CRIPTO
+    if variante == "risco_null":
+        ponte_b = None
+    else:
+        ponte_b = _ponte_construcao(_CONS_N_CURTO if variante == "curto" else _CONS_N)
+    return valores, classes, cripto, ponte_b
+
+
+def _cons_fecha_ingenuo(partes: list[float]) -> bool:
+    """True se a soma das partes arredondadas a 1 casa, em pontos, NÃO dá 100,0:
+    a régua só exibe fecho por ``arredondarFechando``."""
+    return round(sum(round(p * 100, 1) for p in partes), 1) != 100.0
+
+
+def _cons_tickers(bloco: dict) -> list[str]:
+    out = [m["ticker"] for m in bloco["concentracao"]["maiores"]]
+    out += [f["ticker"] for f in bloco["custo"]["fundos"]]
+    if bloco["risco"] is not None:
+        for j in bloco["risco"]["janelas"].values():
+            out += [a["ticker"] for a in j["ativos"]]
+    return out
+
+
+def _cons_tripwire_real(tickers: list[str]) -> None:
+    """Nenhum ticker do bloco existe nos YAML reais do principal (lidos pelo
+    caminho relativo do cwd do gerador). Ausentes => pula com motivo: no CI
+    público quem vale é o prefixo ``SINT``."""
+    for nome in ("config/projecao.yaml", "config/alocacao.yaml"):
+        p = Path(nome)
+        if not p.exists():
+            print(f"construcao tripwire: {nome} ausente, pulado (vale o prefixo SINT)")
+            continue
+        texto = p.read_text(encoding="utf-8")
+        achados = sorted({t for t in tickers if t in texto})
+        assert not achados, f"ticker sintético colide com {nome}: {achados}"
+
+
+def _confere_construcao(bloco: dict, variante: str, avisos: list[str]) -> None:
+    """Afirma a forma do builder, o fecho e o estado que cada variante promete ao e2e."""
+    assert set(bloco) == {"data", "concentracao", "risco", "custo"}, set(bloco)
+    tickers = _cons_tickers(bloco)
+    assert tickers and all(t.startswith("SINT") for t in tickers), tickers
+    assert all(f["fonte_ter"] == _CONS_FONTE for f in bloco["custo"]["fundos"])
+    _cons_tripwire_real(tickers)
+    con = bloco["concentracao"]
+    assert len(con["maiores"]) == 10, len(con["maiores"])
+    assert "SINTZ03" not in [m["ticker"] for m in con["maiores"]]
+    assert (con["cripto_fora"] == 0) == (variante == "sem_cripto"), con["cripto_fora"]
+    cus = bloco["custo"]
+    soma = cus["peso_com_fonte"] + cus["peso_sem_taxa"] + cus["peso_sem_fonte"]
+    assert abs(soma - 1.0) <= 1e-7, soma
+    assert (cus["peso_sem_fonte"] == 0) == (variante == "sem_fora"), cus["peso_sem_fonte"]
+    if variante != "sem_fora":
+        assert [f["grupo"] for f in cus["fora"]] == ["fiis", "outros"], cus["fora"]
+        assert any("SINTXZ11" in a for a in avisos), avisos
+    assert cus["ter_carteira"] > 0 and cus["reais_ano"] > 0
+    assert cus["politica_peso_sem_fonte"] > 0  # FIIs da política são picks
+    r = bloco["risco"]
+    if variante == "risco_null":
+        assert r is None
+        return
+    js = r["janelas"]
+    assert r["ate"] == "2026-09", r["ate"]
+    if variante == "curto":
+        assert js["3a"]["indisponivel"] and js["5a"]["indisponivel"], js["3a"]
+        d = js["desde"]
+        assert d["indisponivel"] is None and d["historico_curto"] is True, d
+        assert d["ativos"] == [] and all(c["parte"] is None for c in d["classes"].values())
+        return
+    for k in ("3a", "5a", "desde"):
+        j = js[k]
+        assert j["indisponivel"] is None and j["historico_curto"] is False, (k, j["indisponivel"])
+        assert list(j["classes"]) == ["acoes_br", "fiis", "eua", "renda_fixa"], k
+        partes = [c["parte"] for c in j["classes"].values()]
+        pesos = [c["peso_medio"] for c in j["classes"].values()]
+        assert abs(sum(partes) - 1.0) <= 1e-7 and abs(sum(pesos) - 1.0) <= 1e-7, k
+        assert j["classes"]["renda_fixa"]["parte"] < 0, (k, j["classes"]["renda_fixa"])
+        assert len(j["ativos"]) == 5 and any(a["parte"] < 0 for a in j["ativos"]), k
+    d = js["desde"]
+    partes = [c["parte"] for c in d["classes"].values()]
+    pesos = [c["peso_medio"] for c in d["classes"].values()]
+    # a mutação "régua sem arredondarFechando" só fica vermelha se o ingênuo não
+    # fecha: em Desde (a janela que abre), nas duas colunas
+    assert _cons_fecha_ingenuo(partes) and _cons_fecha_ingenuo(pesos), (partes, pesos)
+    if variante == "normal":
+        print("construcao Desde: ingênuo não fecha em partes:", _cons_fecha_ingenuo(partes),
+              "pesos:", _cons_fecha_ingenuo(pesos))
+
+
+def _construcao_sintetica(variante: str = "normal") -> dict | None:
+    """Bloco ``construcao`` por variante: ``normal``, ``null``, ``risco_null``,
+    ``curto``, ``sem_fora``, ``sem_cripto``."""
+    from src.calculadora.construcao import construir_bloco_construcao
+
+    if variante == "null":
+        return None
+    valores, classes, cripto, ponte_b = _cons_entradas(variante)
+    bloco, avisos = construir_bloco_construcao("2026-09-30", valores, classes, cripto,
+                                               _cons_taxas(), _cons_alvo(), ponte_b)
+    _confere_construcao(bloco, variante, avisos)
+    return bloco
+
+
 PAYLOAD = {
-    "versao": "2.37",
+    "versao": "2.38",
     "atualizado_em": "2026-04-26T15:00:00",
     # 7a.AE.2/AE.3 — `atualizado_em` acima e o carimbo de PUBLICACAO; este e o
     # do FECHAMENTO. Datas MISTAS de proposito: o intervalo e o caso que a tela
@@ -2159,6 +2425,11 @@ assert PAYLOAD["selecao"]["ate"] == PAYLOAD["ponte"]["ate"]
 PAYLOAD["atribuicao"] = _atribuicao_sintetica("normal")
 assert PAYLOAD["atribuicao"]["ate"] == PAYLOAD["ponte"]["ate"]
 
+# Schema v2.38 (Fase 7a.BT.2): como a carteira está montada, da ponte sintética
+# própria (``_ponte_construcao``), com o mesmo ``ate`` da ponte publicada.
+PAYLOAD["construcao"] = _construcao_sintetica("normal")
+assert PAYLOAD["construcao"]["risco"]["ate"] == PAYLOAD["ponte"]["ate"]
+
 # Schema v2.33 (7a.BO.2): ranking completo por classe, aberto pelo top-3
 # literal; na 2.34 (7a.BO.4) o top-3 sai do payload como chave própria.
 PAYLOAD["dividend_yield"]["ranking"] = _ranking_sintetico(PAYLOAD["dividend_yield"].pop("campeoes"))
@@ -2166,7 +2437,7 @@ _confere_ranking(PAYLOAD["dividend_yield"])
 
 # Passo intermediário de ``_PRE_RENDA``: os payloads de versão anterior à 2.33
 # não carregam ``dividend_yield.ranking`` (nenhuma fixture própria desde a 2.34).
-_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k not in ("risco", "selecao", "atribuicao")} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
+_PRE_RANKING = {k: v for k, v in PAYLOAD.items() if k not in ("risco", "selecao", "atribuicao", "construcao")} | {"dividend_yield": {k: v for k, v in PAYLOAD["dividend_yield"].items()
                                              if k != "ranking"}}
 
 # Payloads de versão anterior à 2.32 não carregam ``renda``.
@@ -2856,6 +3127,21 @@ def gerar_portfolio_atribuicao_variantes() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.BT.2 (Task 5): os estados do capítulo ``#/raiox/diagnostico/construcao`` e
+# da linha 5 do índice -- ``construcao: null`` (builder falhou), as variantes do
+# bloco e o payload 2.37 (sem a chave). Gerar só estas e o ``OUT`` (a cifra não
+# é determinística), nunca o main().
+def gerar_portfolio_construcao_variantes() -> None:
+    alvos = [("portfolio_pre_v238", {k: v for k, v in PAYLOAD.items() if k != "construcao"}
+              | {"versao": "2.37"})]
+    alvos += [(f"portfolio_construcao_{v}", PAYLOAD | {"construcao": _construcao_sintetica(v)})
+              for v in ("null", "risco_null", "curto", "sem_fora", "sem_cripto")]
+    for nome, payload in alvos:
+        alvo = OUT.parent / f"{nome}.test.json.enc"
+        alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+        print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BK.1 (Task 2): a #alocacao por faixa de tolerância. Duas variantes do
 # PAYLOAD com a ``politica`` trocada por pesos SINTÉTICOS redondos (repo
 # público). Regra da faixa: tol = max(0,02; 0,10 × alvo), bordas inclusivas.
@@ -3159,6 +3445,7 @@ def main() -> None:
     gerar_portfolio_risco_variantes()      # 7a.BQ.2 (Task 5)
     gerar_portfolio_selecao_variantes()    # 7a.BR.2 (Task 4)
     gerar_portfolio_atribuicao_variantes() # 7a.BS.2 (Task 6)
+    gerar_portfolio_construcao_variantes() # 7a.BT.2 (Task 5)
 
 
 if __name__ == "__main__":

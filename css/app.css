@@ -4949,3 +4949,46 @@ body:has(.tab-bar) main {
   .pol-linha { grid-template-columns: minmax(0, 108px) minmax(0, 1fr) auto; gap: 8px; padding: 4px 6px; }
   .pol-linha--degrau .pol-rotulo { padding-left: 6px; }
 }
+
+/* ── Fase 7a.BT.2: capítulo 5 "Como a carteira está montada" ──────────────
+   Família ensaio, só tokens (flipam no Modo Plantão sozinhos), sem motion.
+   Ousadia num lugar só: a régua dupla "pesou × somou à oscilação". Os dois
+   trilhos de cada classe estão na mesma escala de 0 a 100%; o valor fica numa
+   coluna de largura fixa para os trilhos alinharem. Nem --g-700 nem --red:
+   oscilação não é ganho nem perda. Números da frase em strong 700 --ink, sem
+   mono (a regra dos capítulos 2 a 4). */
+.cons-frase { font-variant-numeric: tabular-nums; }
+.cons-frase strong { font-weight: 700; color: var(--ink); }
+
+.cons-lista { list-style: none; margin: 0.875rem 0 0; padding: 0; max-width: 40ch; }
+.cons-item {
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 2px; padding: 9px 0;
+  border-top: 1px solid var(--neutral-200);
+  font-size: 0.9375rem; line-height: 1.35; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.cons-item:last-child { border-bottom: 1px solid var(--neutral-200); }
+.cons-ponto { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; }
+/* O ticker nunca encolhe abaixo do próprio texto: sem espaço, os valores
+   descem para a linha de baixo, à direita (a 320 px, na lista dos 5). */
+.cons-ticker { flex: 1 0 auto; }
+.cons-peso { flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
+.cons-ativo-vals { flex: 0 0 auto; margin-left: auto; display: flex; gap: 12px; white-space: nowrap; }
+.cons-ativo-pesou { color: var(--gray); }
+.cons-ativo-somou { font-weight: 700; color: var(--ink); }
+.cons-h4 { margin: 1.75rem 0 0; font-size: 0.9375rem; line-height: 1.35; font-weight: 700; color: var(--ink); }
+
+.cons-regua { display: grid; gap: 1.125rem; margin: 1.25rem 0 0; max-width: 40rem; }
+.cons-regua-linha { display: block; }
+.cons-nome { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--ink); }
+.cons-trilho-linha { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.cons-trilho { position: relative; flex: 1 1 auto; min-width: 0; height: 6px; overflow: hidden; }
+.cons-barra { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+.cons-barra--pesou { background: var(--neutral-200); }
+.cons-barra--somou { background: var(--ink); }
+.cons-valor { flex: 0 0 7.75rem; font-size: 0.8125rem; line-height: 1.3; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cons-valor--pesou { color: var(--gray); }
+.cons-valor--somou { font-weight: 700; color: var(--ink); }
+@media (max-width: 360px) {
+  .cons-valor { flex-basis: 6.75rem; }
+  .cons-ativo-vals { gap: 8px; }
+}
