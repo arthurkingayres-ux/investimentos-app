@@ -60,11 +60,21 @@ async function registrarFalha(env, erro) {
   await env.COMITE.put(CHAVE_FALHA, JSON.stringify({ em: new Date().toISOString(), motivo: String(erro.message ?? erro) }));
 }
 
+// Dispara o pendente. So o dispatch pode falhar "de verdade": se ele passou e
+// o KV falhar ao marcar `disparado_em`, o workflow JA esta rodando, e tratar
+// isso como falha faria o app dizer "na fila" e o cron redisparar o mesmo
+// pedido. O caso fica no log; um redisparo pelo cron da madrugada continua
+// possivel (o KV nao sabe que disparou) e a rodada duplicada e barrada na
+// BW.6 pelo nonce do pedido.
 async function dispararPendente(env, pendente) {
   await dispatch({ modo: "aporte", pedido: pendente.cifra }, env);
   pendente.disparado_em = new Date().toISOString();
-  await env.COMITE.put(CHAVE_PENDENTE, JSON.stringify(pendente));
-  await env.COMITE.delete(CHAVE_FALHA);
+  try {
+    await env.COMITE.put(CHAVE_PENDENTE, JSON.stringify(pendente));
+    await env.COMITE.delete(CHAVE_FALHA);
+  } catch (e) {
+    console.error("disparado, mas o KV nao gravou disparado_em");
+  }
 }
 
 async function lerCorpo(request) {
@@ -87,6 +97,10 @@ async function postPedido(request, env) {
   const corpo = await lerCorpo(request);
   if (corpo.status) return json({ erro: corpo.status === 413 ? "corpo grande demais" : "corpo invalido" }, corpo.status);
 
+  // Ler-somar-gravar no KV nao e atomico (e o KV e eventualmente consistente):
+  // dois POSTs simultaneos podem passar do limite. Aceito: um usuario so, e o
+  // app desabilita o botao e serializa o reenvio. O limite protege a cota, nao
+  // e controle de acesso (esse e o Access + a cifra pela frase).
   const { iso } = diaBrt(Date.now());
   const chaveLimite = `limite:${iso}`;
   const usados = Number((await env.COMITE.get(chaveLimite)) ?? 0);
@@ -143,6 +157,9 @@ export default {
     const { dia } = diaBrt(event.scheduledTime ?? Date.now());
     const pendente = await env.COMITE.get(CHAVE_PENDENTE, "json");
     try {
+      // Exclusivo de proposito: no dia 12 com pedido por disparar, a rodada
+      // de aporte ja produz os registros estrategicos (spec 7a.BW §6.5); a
+      // "so registros" existe para o mes sem pedido.
       if (pendente && !pendente.disparado_em) {
         await dispararPendente(env, pendente);
       } else if (dia === 12) {

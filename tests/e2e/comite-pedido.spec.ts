@@ -159,6 +159,38 @@ test.describe("Comitê: o pedido no #aportar", () => {
     expect(await page.evaluate(() => localStorage.getItem("comite:rascunho"))).toBeNull();
   });
 
+  test("dois eventos 'online' seguidos com rascunho: um POST só", async ({ page }) => {
+    await abrirAportar(page);
+    let posts = 0;
+    await page.route("**/comite/pedido", async (route) => {
+      posts++;
+      await new Promise((ok) => setTimeout(ok, 300));
+      await route.fulfill({ status: 202, contentType: "application/json", body: '{"estado":"na_fila"}' });
+    });
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "comite:rascunho",
+        JSON.stringify({ cifra: "QUJD", imediato: false, criado_em: new Date().toISOString() }),
+      ),
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("online"));
+      window.dispatchEvent(new Event("online"));
+    });
+    await expect(status(page)).toHaveText("Pedido na fila; resposta até amanhã às 7h.");
+    expect(posts).toBe(1);
+  });
+
+  test("valor acima de R$ 1.000.000: não envia e diz o teto", async ({ page }) => {
+    const captura: Captura = { corpos: [] };
+    await abrirAportar(page);
+    await rotaPedido(page, { status: 202, body: { estado: "na_fila" } }, captura);
+    await page.locator(".aporte-input").fill("1000001");
+    await botao(page).click();
+    await expect(bloco(page)).toContainText("até R$ 1.000.000");
+    expect(captura.corpos).toHaveLength(0);
+  });
+
   test("429: diz que o limite do dia acabou", async ({ page }) => {
     const captura: Captura = { corpos: [] };
     await abrirAportar(page);

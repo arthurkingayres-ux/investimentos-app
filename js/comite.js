@@ -31,7 +31,12 @@
   const CHAVE_ENVIADO = "comite:enviado_em";
   const ESTADO_JANELA_MS = 72 * 3600 * 1000;
   const NOTA_MAX = 280;
-  const RASCUNHO_TTL_MS = 72 * 3600 * 1000;
+  // 48 h, e não as 72 h que o Python aceita para `criado_em`: o pedido ainda
+  // espera até ~24 h na fila do Worker pelo cron das 03:30. Travado contra a
+  // constante do Python em tests/comite/test_pedido.py.
+  const RASCUNHO_TTL_MS = 48 * 3600 * 1000;
+  // Teto do Python (src/comite/pedido.py VALOR_MAX_BRL), travado no mesmo teste.
+  const VALOR_MAX_BRL = 1_000_000;
   // Disparo sem resposta conhecida há mais que isto deixa de ser "rodando".
   const RODANDO_MAX_MS = 2 * 3600 * 1000;
 
@@ -42,7 +47,7 @@
     offline_rascunho: "Sem conexão; guardei o pedido. Ele sai quando a conexão voltar.",
     limite: "Limite de 3 pedidos por dia atingido. O último pedido segue valendo; amanhã dá para pedir de novo.",
     sessao: "O login do app expirou. Entre de novo e toque em Enviar de novo; o pedido está guardado.",
-    expirado: "O pedido guardado tem mais de 3 dias e foi descartado. Peça de novo.",
+    expirado: "O pedido guardado tem mais de 2 dias e foi descartado. Peça de novo.",
   };
 
   function lerRascunho() {
@@ -117,12 +122,7 @@
       comiteErroCampo: "",
     });
     return {
-      comiteEstado: "vazio",
-      comiteMensagem: "",
-      comiteRemetido: "",
-      comiteNota: "",
-      comiteAgora: false,
-      comiteErroCampo: "",
+      ...inicial(),
       comiteNotaMax: NOTA_MAX,
 
       // Chamado por _limparEstadoSensivel (Bloquear sessão): a nota e a
@@ -201,6 +201,10 @@
         this.comiteErroCampo = "";
         const valor = this.comiteValor();
         if (!(valor > 0) || !this.segredo) return;
+        if (valor > VALOR_MAX_BRL) {
+          this._comitePor("falha", "O Comitê aceita pedidos de até R$ 1.000.000. Ajuste o valor acima.");
+          return;
+        }
         const remetido = lerUsd(this.comiteRemetido);
         if (Number.isNaN(remetido)) {
           this.comiteErroCampo = "Valor em US$ inválido. Use só números, como 300 ou 300,50.";
@@ -229,6 +233,9 @@
       },
 
       async comiteReenviar() {
+        // Um envio por vez: o evento "online" e o toque em "Enviar agora"
+        // podem chegar juntos, e cada POST gasta uma das 3 vagas do dia.
+        if (this.comiteEstado === "enviando") return;
         const r = lerRascunho();
         if (!r) return;
         if (Date.now() - Date.parse(r.criado_em) > RASCUNHO_TTL_MS) {

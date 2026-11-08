@@ -8,9 +8,9 @@
 // Segredos vivem na configuracao do Worker (`wrangler secret put` ou painel),
 // nunca aqui: GITHUB_PAT_COMITE, ACCESS_AUD, ACCESS_TEAM_DOMAIN. Os dois do
 // Access sao secrets e nao `vars` porque o repo e publico: o time do Access nao
-// entra em arquivo dele (travado por tests/e2e/worker-config.spec.ts). Com
-// `main`, secret sobrevive a deploy (medido na BW.1); sem `main`, o 1o build da
-// BW.2 os apagou.
+// entra em arquivo dele (travado por tests/e2e/worker-config.spec.ts). Um
+// Worker sem `main` nao guarda secret: o 1o build da BW.2 os apagou. Depois de
+// deploy que mude bindings, conferir `wrangler secret list`.
 //
 // html_handling fica no padrao ("auto-trailing-slash"): /index.html responde
 // 307 para /. O service-worker.js trata isso (ver o cabecalho dele).

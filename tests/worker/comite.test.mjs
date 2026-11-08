@@ -205,6 +205,42 @@ test("pendente ja disparado em dia 12: a rodada de registros acontece", async ()
   assert.deepEqual(JSON.parse(falso.chamadas[1].init.body).inputs, { modo: "registros" });
 });
 
+test("dia 12 com pendente por disparar: so o aporte (a rodada de aporte ja produz os registros)", async () => {
+  const cifra = cifraFicticia();
+  await post({ cifra, imediato: false });
+  await cron(12);
+  assert.equal(falso.chamadas.length, 1);
+  assert.deepEqual(JSON.parse(falso.chamadas[0].init.body).inputs, { modo: "aporte", pedido: cifra });
+});
+
+test("dispatch ok e put do KV falhando: o pedido conta como disparado, nao como falha", async () => {
+  const cifra = cifraFicticia();
+  await post({ cifra, imediato: false });
+  const putOriginal = kv.put;
+  kv.put = async (chave, ...resto) => {
+    if (chave === "pedido:pendente") throw new Error("kv fora");
+    return putOriginal.call(kv, chave, ...resto);
+  };
+  await cron(11); // nao lanca: o workflow foi disparado
+  assert.equal(falso.chamadas.length, 1);
+  kv.put = putOriginal;
+  assert.equal(kv.dados.has("falha:ultima"), false);
+});
+
+test("imediato com dispatch ok e put do KV falhando: responde disparado", async () => {
+  const putOriginal = kv.put;
+  let n = 0;
+  kv.put = async (chave, ...resto) => {
+    if (chave === "pedido:pendente" && ++n === 2) throw new Error("kv fora");
+    return putOriginal.call(kv, chave, ...resto);
+  };
+  const r = await post({ cifra: cifraFicticia(), imediato: true });
+  kv.put = putOriginal;
+  assert.equal(r.status, 202);
+  assert.deepEqual(await r.json(), { estado: "disparado" });
+  assert.equal(falso.chamadas.length, 1);
+});
+
 test("scheduled com dispatch falhando: registra ultima_falha e lanca", async () => {
   await post({ cifra: cifraFicticia(), imediato: false });
   globalThis.fetch = falso = fetchFalso(par, { status: 401 });
