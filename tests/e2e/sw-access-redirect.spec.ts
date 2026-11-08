@@ -158,6 +158,27 @@ test.describe("SW atrás do Access (Worker com Static Assets)", () => {
     await indoAoLogin;
   });
 
+  test("cache envenenado com resposta redirecionada: a navegação offline ainda abre", async ({ context }) => {
+    // O `unredirected` na entrega é o que o Safari/Chromium exigem: resposta
+    // com o flag `redirected` servida a uma navegação vira net::ERR_FAILED.
+    // O precache já grava sem o flag, então o caminho só é exercitado com o
+    // cache envenenado (cache de versão anterior, ou outro escritor). CRB da
+    // 7a.BW.2: sem este teste, `unredirected` virar identidade passava verde.
+    const page = await instalarComCarteira(context);
+    const redirecionada = await page.evaluate(async () => {
+      const r = await fetch("/index.html");
+      const nome = (await caches.keys()).find((n) => n.startsWith("carteira-shell-"));
+      if (!nome) throw new Error("cache do shell ausente");
+      await (await caches.open(nome)).put("./", r.clone());
+      return r.redirected;
+    });
+    expect(redirecionada, "a resposta guardada tem de vir redirecionada").toBe(true);
+    await context.setOffline(true);
+    await page.goto(base + "/");
+    await expect(page.locator(".raiox")).toBeVisible({ timeout: 15_000 });
+    await context.setOffline(false);
+  });
+
   test("sessão vencida: a carteira cacheada não é sobrescrita pela página de login", async ({ context }) => {
     const page = await instalarComCarteira(context);
     estado.acesso = "vencido";

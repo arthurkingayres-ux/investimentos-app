@@ -47,6 +47,24 @@ function itensObservados(): string[] {
   return [...ler(ALERTA).matchAll(/^\s*-\s*"(.+?)"\s*$/gm)].map((m) => m[1]);
 }
 
+/**
+ * O `if:` de cada job, pelo nome do job (chave com 2 espaços sob `jobs:`).
+ * Lê só a configuração, não os comentários.
+ */
+function ifPorJob(): Record<string, string> {
+  const t = ler(ALERTA);
+  const corpo = t.slice(t.indexOf("\njobs:"));
+  const out: Record<string, string> = {};
+  let job = "";
+  for (const linha of corpo.split(/\r?\n/)) {
+    const mJob = linha.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (mJob) { job = mJob[1]; continue; }
+    const mIf = linha.match(/^ {4}if:\s*(.+)$/);
+    if (mIf && job) out[job] = mIf[1];
+  }
+  return out;
+}
+
 test.describe("guard: workflow de alerta de falha", () => {
   test("dispara em workflow_run completed", () => {
     const t = ler(ALERTA);
@@ -140,12 +158,26 @@ test.describe("guard: workflow de alerta de falha", () => {
     //
     // `skipped` fica de fora porque é o que ESTE workflow conclui a cada
     // sucesso do observado; incluí-lo faria o canal alertar sobre si mesmo.
-    const t = ler(ALERTA);
-    expect(t).toContain("conclusion != 'success'");
-    expect(t).toContain("conclusion != 'skipped'");
-    expect(t, "gate voltou a enumerar um valor único").not.toContain(
-      "conclusion == 'failure'",
-    );
+    //
+    // Travado POR JOB (CRB da 7a.BW.2, provado por mutação): com dois jobs, um
+    // `toContain` no arquivo inteiro casava a substring no `if` do outro job, e
+    // o gate do `alertar` podia sumir com a suíte verde.
+    const ifs = ifPorJob();
+    const ifCi = ifs["alertar"];
+    expect(ifCi, "job alertar sem if").toBeDefined();
+    expect(ifCi).toContain("github.event_name == 'workflow_run'");
+    expect(ifCi).toContain("github.event.workflow_run.conclusion != 'success'");
+    expect(ifCi).toContain("github.event.workflow_run.conclusion != 'skipped'");
+    const ifDeploy = ifs["alertar-deploy"];
+    expect(ifDeploy, "job alertar-deploy sem if").toBeDefined();
+    expect(ifDeploy).toContain("github.event_name == 'check_run'");
+    expect(ifDeploy).toContain("github.event.check_run.conclusion != 'success'");
+    expect(ifDeploy).toContain("github.event.check_run.conclusion != 'skipped'");
+    for (const [job, cond] of Object.entries(ifs)) {
+      expect(cond, `${job}: gate voltou a enumerar um valor único`).not.toContain(
+        "conclusion == 'failure'",
+      );
+    }
   });
 
   test("contexto vai por ENV, nunca interpolado em run:", () => {
