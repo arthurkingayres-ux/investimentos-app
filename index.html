@@ -15,9 +15,9 @@
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=97"></script>
+  <script src="js/app.js?v=98"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
-  <script src="js/sw-update.js?v=1"></script>
+  <script src="js/sw-update.js?v=2"></script>
 </head>
 <body x-data="app" x-cloak>
   <div
@@ -3012,7 +3012,7 @@
   <!-- Aviso de nova versão do app (shell). Surge via evento window
        "sw:update-available" (js/sw-update.js) → estado atualizacaoDisponivel.
        Superfície teal sólida; sem border-left; copy sem travessão. -->
-  <div class="update-snackbar" x-show="atualizacaoDisponivel"
+  <div class="update-snackbar versao-snackbar" x-show="atualizacaoDisponivel && !acessoVencido"
        x-transition:enter="us-enter"
        x-transition:enter-start="us-enter-start"
        x-transition:enter-end="us-enter-end"
@@ -3021,6 +3021,20 @@
     <span class="update-snackbar__texto">Nova versão disponível</span>
     <button type="button" class="update-snackbar__acao" @click="recarregarVersao()">Recarregar</button>
     <button type="button" class="update-snackbar__fechar" @click="dispensarAtualizacao()"
+            aria-label="Dispensar aviso">✕</button>
+  </div>
+
+  <!-- 7a.BW.2: sessão do Cloudflare Access vencida. A carteira na tela é a
+       última guardada; "Entrar" abre o login (código por e-mail). Mesma
+       superfície do aviso de nova versão, que cede a vez a este. -->
+  <div class="update-snackbar acesso-snackbar" x-show="acessoVencido"
+       x-transition:enter="us-enter"
+       x-transition:enter-start="us-enter-start"
+       x-transition:enter-end="us-enter-end"
+       role="status" aria-live="polite" x-cloak>
+    <span class="update-snackbar__texto">Sessão expirada. Entre para atualizar a carteira.</span>
+    <button type="button" class="update-snackbar__acao" @click="entrarDeNovo()">Entrar</button>
+    <button type="button" class="update-snackbar__fechar" @click="dispensarAcessoVencido()"
             aria-label="Dispensar aviso">✕</button>
   </div>
 </body>

@@ -93,13 +93,13 @@ test.describe("Aviso de nova versão — snackbar (fiação por seam)", () => {
   test("carga normal (sem evento): snackbar NÃO aparece", async ({ page }) => {
     await autenticar(page);
     await page.waitForTimeout(500);
-    await expect(page.locator(".update-snackbar")).not.toBeVisible();
+    await expect(page.locator(".versao-snackbar")).not.toBeVisible();
   });
 
   test("evento → snackbar visível: texto, role, botões e alvos ≥44px", async ({ page }) => {
     await autenticar(page);
     await dispararUpdate(page);
-    const snack = page.locator(".update-snackbar");
+    const snack = page.locator(".versao-snackbar");
     await expect(snack).toBeVisible();
     await expect(snack).toHaveAttribute("role", "status");
     const icone = snack.locator(".update-snackbar__icone");
@@ -123,7 +123,7 @@ test.describe("Aviso de nova versão — snackbar (fiação por seam)", () => {
     await autenticar(page);
     await stubAplicar(page);
     await dispararUpdate(page);
-    await page.locator(".update-snackbar__acao").click();
+    await page.locator(".versao-snackbar .update-snackbar__acao").click();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(await page.evaluate(() => (window as any).__aplicarChamado)).toBe(true);
     await expect(page.locator(".raiox")).toBeVisible(); // não navegou
@@ -133,9 +133,9 @@ test.describe("Aviso de nova versão — snackbar (fiação por seam)", () => {
     await autenticar(page);
     await stubAplicar(page);
     await dispararUpdate(page);
-    await expect(page.locator(".update-snackbar")).toBeVisible();
-    await page.locator(".update-snackbar__fechar").click();
-    await expect(page.locator(".update-snackbar")).not.toBeVisible();
+    await expect(page.locator(".versao-snackbar")).toBeVisible();
+    await page.locator(".versao-snackbar .update-snackbar__fechar").click();
+    await expect(page.locator(".versao-snackbar")).not.toBeVisible();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(await page.evaluate(() => (window as any).__aplicarChamado)).toBe(false);
   });
@@ -144,7 +144,7 @@ test.describe("Aviso de nova versão — snackbar (fiação por seam)", () => {
     await autenticar(page);
     await page.locator("button.theme-toggle").click();
     await dispararUpdate(page);
-    const snack = page.locator(".update-snackbar");
+    const snack = page.locator(".versao-snackbar");
     await expect(snack).toBeVisible();
     const cor = await snack.evaluate((el) => getComputedStyle(el).color);
     expect(cor).toBe("rgb(4, 19, 12)");
@@ -155,7 +155,7 @@ test.describe("Aviso de nova versão — snackbar (fiação por seam)", () => {
     const page = await context.newPage();
     await autenticar(page);
     await dispararUpdate(page);
-    const snack = page.locator(".update-snackbar");
+    const snack = page.locator(".versao-snackbar");
     await expect(snack).toBeVisible();
     await expect(snack).toHaveCSS("opacity", "1");
     await context.close();

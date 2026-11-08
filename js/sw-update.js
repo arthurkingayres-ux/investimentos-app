@@ -77,6 +77,16 @@
     });
   }
 
+  // 7a.BW.2: o SW avisa que o Cloudflare Access recusou um dado (sessão
+  // vencida) e que serviu a cópia do cache. A flag cobre a mensagem que chega
+  // antes de o Alpine montar; o evento cobre a que chega depois.
+  navigator.serviceWorker.addEventListener("message", function (event) {
+    if (event.data && event.data.type === "ACESSO_VENCIDO") {
+      window.__acessoVencido = true;
+      window.dispatchEvent(new CustomEvent("sw:acesso-vencido"));
+    }
+  });
+
   window.addEventListener("load", function () {
     try {
       navigator.serviceWorker

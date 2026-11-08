@@ -2152,6 +2152,7 @@ document.addEventListener("alpine:init", () => {
     // (dispensarAtualizacao) — reaparece no próximo boot pois o worker segue
     // em espera. Não persistido.
     atualizacaoDisponivel: false,
+    acessoVencido: false,
     agoraTimer: null,
     escopoAtivo: "Total",
     // 7a.BQ.2: Diagnóstico. Escopo, moeda e janela próprios (não mexem na
@@ -2280,6 +2281,17 @@ document.addEventListener("alpine:init", () => {
       window.addEventListener("sw:update-available", () => {
         this.atualizacaoDisponivel = true;
       });
+      // 7a.BW.2: sessão do Access vencida (js/sw-update.js repassa o aviso do
+      // SW). A carteira na tela é a do cache; "Entrar" refaz o login.
+      if (window.__acessoVencido) this.acessoVencido = true;
+      window.addEventListener("sw:acesso-vencido", () => {
+        this.acessoVencido = true;
+      });
+      // Volta do login: tira o `?entrar=` da barra, para um recarregar
+      // depois não ir à rede de novo à toa.
+      if (new URLSearchParams(location.search).has("entrar")) {
+        history.replaceState(null, "", location.pathname + location.hash);
+      }
       this.atualizarRota();
       // 7a.I.6: posiciona indicator. A tab-bar só vira DOM quando fase virar
       // 'raiox' (template x-if), então também observamos `fase`.
@@ -2357,6 +2369,16 @@ document.addEventListener("alpine:init", () => {
     // em espera até um reload de verdade).
     dispensarAtualizacao() {
       this.atualizacaoDisponivel = false;
+    },
+
+    // 7a.BW.2: a query única fura o cache do SW (sensível a query); a
+    // navegação vai à rede e recebe o redirect do login do Access.
+    entrarDeNovo() {
+      window.location.href = "./?entrar=" + Date.now();
+    },
+
+    dispensarAcessoVencido() {
+      this.acessoVencido = false;
     },
 
     atualizarRota() {
