@@ -83,25 +83,6 @@ test.describe("Comitê: a rota #comite", () => {
     expect(await tela(page).innerText()).not.toMatch(VERBO_DE_ORDEM);
   });
 
-  test("320 px sem rolagem horizontal", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 640 });
-    await abrir(page, { resposta: resposta(), hash: "#comite" });
-    await expect(tela(page).locator(".comite-registro")).toHaveCount(3, { timeout: 10_000 });
-    await assentada(page);
-    const r = await page.evaluate(() => {
-      const vp = document.documentElement.clientWidth;
-      return {
-        doc: document.documentElement.scrollWidth,
-        vp,
-        fora: Array.from(document.querySelectorAll(".tela-comite *")).filter(
-          (el) => el.getBoundingClientRect().right > vp + 0.5,
-        ).length,
-      };
-    });
-    expect(r.doc).toBeLessThanOrEqual(r.vp);
-    expect(r.fora).toBe(0);
-  });
-
   // Ajuste pós-BW.6 (08/11): o Comitê cita evidências como caminhos do
   // envelope; a tela mostra o rótulo em português (o caminho segue no dado,
   // para o validador), na mesma ordem e quantidade, e nada transborda a 320 px.
@@ -113,6 +94,8 @@ test.describe("Comitê: a rota #comite", () => {
     "diagnostico.atribuicao.janelas.5a.campo_novo_que_o_app_nao_conhece",
     "diagnostico.construcao.risco.janelas.3a.correlacoes.acoes_br|eua",
     "queda de margem no trimestre sintético",
+    "12.5%",
+    "0.85x",
   ];
   const ROTULOS = [
     "Excesso sobre o CDI ao ano (risco, Brasil, 3 anos)",
@@ -122,6 +105,8 @@ test.describe("Comitê: a rota #comite", () => {
     "Campo novo que o app nao conhece (atribuição, 5 anos)",
     "Correlações (construção, risco, 3 anos, Ações BR × EUA)",
     "queda de margem no trimestre sintético",
+    "12.5%",
+    "0.85x",
   ];
   const comCaminhos = () =>
     resposta((r) => {

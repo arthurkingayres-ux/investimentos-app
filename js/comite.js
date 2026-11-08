@@ -195,12 +195,15 @@
 
   const legivel = (seg) => seg.replace(/_/g, " ").trim();
   const PAR_CLASSES = /^[a-z_]+\|[a-z_]+$/;
+  const CAMINHO = /^[A-Za-z_][A-Za-z0-9_|]*(?:\.[A-Za-z0-9_|]+|\[\d+\])+$/;
 
   function evidenciaLegivel(e) {
     if (typeof e !== "string") return "";
     const bruto = e.trim();
-    // Só caminho: sem espaço e com ao menos um ponto. O resto é texto livre.
-    if (!bruto || /\s/.test(bruto) || !bruto.includes(".")) return bruto;
+    // Só caminho: começa por letra e é feito de segmentos de palavra ligados
+    // por ponto (ou índice [n]). O resto é texto livre e passa intacto:
+    // "12.5%" ou "0.85x" não podem perder o inteiro (board BW.6.1).
+    if (!CAMINHO.test(bruto)) return bruto;
     const segs = bruto.split(/[.[\]]+/).filter((s) => s && !/^\d+$/.test(s) && !EVID_ESTRUTURA.has(s));
     if (!segs.length) return bruto;
     const nomeCtx = (s) => {
