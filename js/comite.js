@@ -60,15 +60,22 @@
   // Código estável do validador → uma linha, sem jargão. Código desconhecido
   // não ganha parênteses: a linha diz só que não passou.
   const MOTIVOS = {
-    ACIMA_DO_TETO: "levava um ativo acima do teto da faixa",
-    FORA_DO_ENVELOPE: "propunha um ativo fora dos que estão abaixo do alvo",
-    SOMA_DIFERENTE: "a soma não fechava com o valor pedido",
+    MODO_DIVERGENTE: "respondeu a outra rodada",
+    PROPOSTA_AUSENTE: "não trouxe proposta",
+    PROPOSTA_EM_REGISTROS: "trouxe proposta numa rodada só de registros",
+    ATIVO_FORA_DO_ENVELOPE: "propunha um ativo fora dos que estão abaixo do alvo",
+    ATIVO_REPETIDO: "repetia um ativo na proposta",
     MAIS_DE_5: "passava de 5 ativos",
-    NUMERO_INVENTADO: "citava um número que não está nos dados",
-    VERBO_DE_ORDEM: "falava em tom de ordem",
+    ACIMA_DO_TETO: "levava um ativo acima do teto da faixa",
+    SOMA_DIFERENTE: "a soma não fechava com o valor pedido",
     CUSTO_DIVERGENTE: "o custo declarado não batia com o recalculado",
-    TESE_SEM_AVISO: "deixava de avisar uma tese quebrada",
+    NUMERO_INEXISTENTE: "citava um número que não está nos dados",
+    VERBO_DE_ORDEM: "falava em tom de ordem",
+    TESE_QUEBRADA_SEM_AVISO: "deixava de avisar uma tese quebrada",
     REGISTRO_REPETIDO: "repetia um registro sem fato novo",
+    REGISTRO_SEM_EVIDENCIA: "trazia um registro sem evidência",
+    SAIDA_AUSENTE: "não respondeu a tempo",
+    SAIDA_INVALIDA: "respondeu fora do formato",
   };
 
   const TIPO_REGISTRO = {
