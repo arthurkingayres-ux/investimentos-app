@@ -85,6 +85,148 @@
     reforco: "Reforço",
   };
 
+  // Ajuste pós-BW.6 (08/11): o Comitê cita cada evidência pelo caminho do
+  // número no envelope (ex.: diagnostico.selecao.classes.acoes_br.janelas.3a.t).
+  // O caminho continua no dado (o validador e a conferência o leem); a tela
+  // mostra o rótulo em português: a métrica primeiro, o contexto entre
+  // parênteses, na mesma ordem e quantidade. Caminho com segmento que o mapa
+  // não conhece cai num rótulo legível (sublinhado vira espaço), nunca some.
+  // Texto livre (com espaço) passa como veio.
+  const EVID_ESTRUTURA = new Set(["contexto", "diagnostico", "escopos", "classes", "janelas", "categorias"]);
+  const EVID_CONTEXTO = {
+    risco: "risco",
+    selecao: "seleção",
+    atribuicao: "atribuição",
+    construcao: "construção",
+    elegiveis: "elegíveis",
+    excluidos: "excluídos",
+    regra: "regra",
+    proposta: "proposta",
+    pedido: "pedido",
+    idade_fontes: "idade das fontes",
+    estado_mes: "mês corrente",
+    anteriores: "rodadas anteriores",
+    registros: "registros",
+    propostas: "propostas",
+    tese: "tese",
+    custo: "custo",
+    concentracao: "concentração",
+    queda: "queda",
+    curva: "curva",
+    indices: "índices",
+    fontes: "fontes",
+    Brasil: "Brasil",
+    Total: "carteira toda",
+    EUA_BRL: "EUA em reais",
+    EUA_USD: "EUA em dólar",
+    acoes_br: "Ações BR",
+    eua: "EUA",
+    fiis: "FIIs",
+    renda_fixa: "renda fixa",
+    "3a": "3 anos",
+    "5a": "5 anos",
+    "12m": "12 meses",
+    desde: "desde o início",
+  };
+  const EVID_METRICA = {
+    excesso_aa: "excesso sobre o CDI ao ano",
+    excesso_medio_aa: "excesso médio ao ano",
+    retorno_aa: "retorno ao ano",
+    cdi_aa: "CDI ao ano",
+    volatilidade_aa: "volatilidade ao ano",
+    sharpe: "índice de Sharpe",
+    sortino: "índice de Sortino",
+    queda_maxima: "queda máxima",
+    meses_queda: "meses em queda",
+    meses_recuperacao: "meses até recuperar",
+    recuperacao: "recuperação",
+    n_meses: "meses na amostra",
+    historico_curto: "histórico curto",
+    diferenca_aa: "diferença sobre o índice ao ano",
+    picks_aa: "retorno das escolhas ao ano",
+    indice_aa: "retorno do índice ao ano",
+    desvio_aa: "desvio ao ano",
+    t: "estatística t",
+    anos_para_afirmar: "anos para afirmar",
+    grau: "grau de evidência",
+    razao: "razão",
+    sinais_divergem: "sinais divergentes",
+    desvio: "desvio da política",
+    escolhas: "efeito das escolhas",
+    dolar: "efeito do dólar",
+    carteira: "carteira",
+    carteira_sem_dolar: "carteira sem o dólar",
+    politica: "política",
+    so_indices: "só os índices",
+    n_efetivo: "número efetivo de ativos",
+    n_ativos: "número de ativos",
+    top5: "peso dos 5 maiores",
+    top10: "peso dos 10 maiores",
+    ter_carteira: "taxa de administração da carteira",
+    ter_politica: "taxa de administração da política",
+    reais_ano: "custo em reais por ano",
+    correlacoes: "correlações",
+    gap: "distância até o alvo",
+    gap_brl: "distância até o alvo em reais",
+    peso_atual: "peso atual",
+    peso_alvo: "peso-alvo",
+    teto_faixa: "teto da faixa",
+    preco_brl: "preço em reais",
+    tese_quebrada: "tese quebrada",
+    veredito: "veredito da tese",
+    quebra_se: "condição de quebra da tese",
+    quebra_atingido: "condição de quebra atingida",
+    idade_confronto_dias: "dias desde o último confronto",
+    valor_brl: "valor em reais",
+    remetido_usd: "já remetido em dólar",
+    taxa: "câmbio",
+    fx_usd_brl: "câmbio dólar/real",
+    ordens_avenue_no_mes: "ordens na Avenue no mês",
+    usd_ja_remetido: "dólar já remetido",
+    dividend_yield: "dividend yield",
+    patrimonio_brl: "patrimônio",
+    patrimonio_pos_brl: "patrimônio depois do aporte",
+    posicoes_ate: "posições até",
+    ultima_ingestao: "última ingestão",
+    dias_sem_ingestao: "dias sem ingestão",
+    precos_em: "data dos preços",
+    grifo_dado_velho: "dado velho",
+  };
+
+  const legivel = (seg) => seg.replace(/_/g, " ").trim();
+  const PAR_CLASSES = /^[a-z_]+\|[a-z_]+$/;
+
+  function evidenciaLegivel(e) {
+    if (typeof e !== "string") return "";
+    const bruto = e.trim();
+    // Só caminho: sem espaço e com ao menos um ponto. O resto é texto livre.
+    if (!bruto || /\s/.test(bruto) || !bruto.includes(".")) return bruto;
+    const segs = bruto.split(/[.[\]]+/).filter((s) => s && !/^\d+$/.test(s) && !EVID_ESTRUTURA.has(s));
+    if (!segs.length) return bruto;
+    const nomeCtx = (s) => {
+      if (Object.prototype.hasOwnProperty.call(EVID_CONTEXTO, s)) return EVID_CONTEXTO[s];
+      if (PAR_CLASSES.test(s)) return s.split("|").map((c) => EVID_CONTEXTO[c] || legivel(c)).join(" × ");
+      if (/^[A-Z0-9]{4,7}$/.test(s)) return s; // ticker, como veio
+      return legivel(s);
+    };
+    const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    const ehCtx = (x) => tem(EVID_CONTEXTO, x) || PAR_CLASSES.test(x) || /^[A-Z0-9]{4,7}$/.test(x);
+    // A métrica é o último segmento conhecido como métrica; sem nenhum, o
+    // último segmento que não é contexto (par de classes, ticker) vira a
+    // métrica pelo rótulo legível. O resto, na ordem, é o contexto.
+    let im = -1;
+    for (let i = segs.length - 1; i >= 0 && im < 0; i--) if (tem(EVID_METRICA, segs[i])) im = i;
+    if (im < 0 && !ehCtx(segs[segs.length - 1])) im = segs.length - 1;
+    const metrica = im >= 0 ? (EVID_METRICA[segs[im]] || legivel(segs[im])) : null;
+    const ctx = segs.filter((_, i) => i !== im).map(nomeCtx).filter(Boolean);
+    if (!metrica) {
+      const t = ctx.join(", ");
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    }
+    const cab = metrica.charAt(0).toUpperCase() + metrica.slice(1);
+    return ctx.length ? `${cab} (${ctx.join(", ")})` : cab;
+  }
+
   const LADO_RISCO = {
     mais_risco: "Mais risco que a regra",
     menos_risco: "Menos risco que a regra",
@@ -507,6 +649,10 @@
 
       comiteTipoRegistro(tipo) {
         return TIPO_REGISTRO[tipo] || "Registro";
+      },
+
+      comiteEvidencia(e) {
+        return evidenciaLegivel(e);
       },
 
       // Os registros da mesma rodada da proposta (mesmo dia) dão a contagem.

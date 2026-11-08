@@ -8,6 +8,15 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 const tela = (page: Page) => page.locator(".tela-comite");
 
+// A tela entra com transição (push-enter): medida durante ela não vê o
+// transbordo (o teste de 320 px passava com a regra de quebra removida).
+// Espera a tela assentar antes de medir largura.
+const assentada = (page: Page) =>
+  page.waitForFunction(() => {
+    const t = document.querySelector(".tela-comite");
+    return !!t && t.getAnimations({ subtree: true }).length === 0 && !t.className.includes("push-");
+  });
+
 test.describe("Comitê: a rota #comite", () => {
   test("abrir #comite busca a resposta mesmo sem pedido recente", async ({ page }) => {
     let buscas = 0;
@@ -78,6 +87,72 @@ test.describe("Comitê: a rota #comite", () => {
     await page.setViewportSize({ width: 320, height: 640 });
     await abrir(page, { resposta: resposta(), hash: "#comite" });
     await expect(tela(page).locator(".comite-registro")).toHaveCount(3, { timeout: 10_000 });
+    await assentada(page);
+    const r = await page.evaluate(() => {
+      const vp = document.documentElement.clientWidth;
+      return {
+        doc: document.documentElement.scrollWidth,
+        vp,
+        fora: Array.from(document.querySelectorAll(".tela-comite *")).filter(
+          (el) => el.getBoundingClientRect().right > vp + 0.5,
+        ).length,
+      };
+    });
+    expect(r.doc).toBeLessThanOrEqual(r.vp);
+    expect(r.fora).toBe(0);
+  });
+
+  // Ajuste pós-BW.6 (08/11): o Comitê cita evidências como caminhos do
+  // envelope; a tela mostra o rótulo em português (o caminho segue no dado,
+  // para o validador), na mesma ordem e quantidade, e nada transborda a 320 px.
+  const CAMINHOS = [
+    "diagnostico.risco.escopos.Brasil.3a.excesso_aa",
+    "diagnostico.selecao.classes.acoes_br.janelas.3a.anos_para_afirmar",
+    "contexto.diagnostico.selecao.classes.acoes_br.janelas.desde.t",
+    "elegiveis.ZZCC3.gap",
+    "diagnostico.atribuicao.janelas.5a.campo_novo_que_o_app_nao_conhece",
+    "diagnostico.construcao.risco.janelas.3a.correlacoes.acoes_br|eua",
+    "queda de margem no trimestre sintético",
+  ];
+  const ROTULOS = [
+    "Excesso sobre o CDI ao ano (risco, Brasil, 3 anos)",
+    "Anos para afirmar (seleção, Ações BR, 3 anos)",
+    "Estatística t (seleção, Ações BR, desde o início)",
+    "Distância até o alvo (elegíveis, ZZCC3)",
+    "Campo novo que o app nao conhece (atribuição, 5 anos)",
+    "Correlações (construção, risco, 3 anos, Ações BR × EUA)",
+    "queda de margem no trimestre sintético",
+  ];
+  const comCaminhos = () =>
+    resposta((r) => {
+      const alvo = r.registros.find((x: any) => x.id === "r2");
+      alvo.evidencias = CAMINHOS;
+    });
+
+  test("evidência em caminho do envelope aparece em português, na mesma ordem", async ({ page }) => {
+    const erros: string[] = [];
+    await abrir(page, { resposta: comCaminhos(), hash: "#comite", erros });
+    const r0 = tela(page).locator(".comite-registro").nth(0);
+    await expect(r0.locator(".comite-registro__evidencias li")).toHaveText(ROTULOS, { timeout: 10_000 });
+    const texto = await tela(page).innerText();
+    expect(texto).not.toContain("diagnostico.");
+    expect(texto).not.toContain("_aa");
+    expect(erros).toEqual([]);
+  });
+
+  test("320 px sem rolagem horizontal com evidências longas", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await abrir(page, {
+      resposta: resposta((r) => {
+        const alvo = r.registros.find((x: any) => x.id === "r2");
+        alvo.evidencias = [...CAMINHOS, "um_token_qualquer_sem_ponto_e_sem_espaco_muito_comprido_que_nao_quebra"];
+      }),
+      hash: "#comite",
+    });
+    await expect(tela(page).locator(".comite-registro__evidencias li")).toHaveCount(CAMINHOS.length + 3, {
+      timeout: 10_000,
+    });
+    await assentada(page);
     const r = await page.evaluate(() => {
       const vp = document.documentElement.clientWidth;
       return {

@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=92">
+  <link rel="stylesheet" href="css/app.css?v=93">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/comite.js?v=5"></script>
+  <script src="js/comite.js?v=6"></script>
   <script src="js/app.js?v=100"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
@@ -2779,7 +2779,7 @@
                 <div class="comite-registro__bloco">
                   <p class="comite-registro__rot">Evidências</p>
                   <ul class="comite-registro__evidencias">
-                    <template x-for="(e, i) in r.evidencias" :key="i"><li x-text="e"></li></template>
+                    <template x-for="(e, i) in r.evidencias" :key="i"><li x-text="comiteEvidencia(e)"></li></template>
                   </ul>
                 </div>
               </template>
