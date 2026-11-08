@@ -66,6 +66,11 @@ async function registrarFalha(env, erro) {
 // pedido. O caso fica no log; um redisparo pelo cron da madrugada continua
 // possivel (o KV nao sabe que disparou) e a rodada duplicada e barrada na
 // BW.6 pelo nonce do pedido.
+//
+// O `pendente` foi lido antes do dispatch e e regravado depois: um POST que
+// chegue nesse intervalo e sobrescrito pela cifra antiga (o app disse "na fila"
+// para ele). Aceito pelo mesmo motivo do contador: um usuario so, e o dispatch
+// leva menos de um segundo.
 async function dispararPendente(env, pendente) {
   await dispatch({ modo: "aporte", pedido: pendente.cifra }, env);
   pendente.disparado_em = new Date().toISOString();

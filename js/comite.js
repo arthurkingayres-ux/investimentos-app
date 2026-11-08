@@ -31,10 +31,11 @@
   const CHAVE_ENVIADO = "comite:enviado_em";
   const ESTADO_JANELA_MS = 72 * 3600 * 1000;
   const NOTA_MAX = 280;
-  // 48 h, e não as 72 h que o Python aceita para `criado_em`: o pedido ainda
-  // espera até ~24 h na fila do Worker pelo cron das 03:30. Travado contra a
-  // constante do Python em tests/comite/test_pedido.py.
-  const RASCUNHO_TTL_MS = 48 * 3600 * 1000;
+  // 47 h, e não as 72 h que o Python aceita para `criado_em`: o pedido ainda
+  // espera até 24 h na fila do Worker pelo cron diário das 03:30, mais a fila
+  // do próprio workflow; a hora que sobra é essa folga. Travado contra a
+  // constante do Python e o cron do wrangler.jsonc em tests/comite/test_pedido.py.
+  const RASCUNHO_TTL_MS = 47 * 3600 * 1000;
   // Teto do Python (src/comite/pedido.py VALOR_MAX_BRL), travado no mesmo teste.
   const VALOR_MAX_BRL = 1_000_000;
   // Disparo sem resposta conhecida há mais que isto deixa de ser "rodando".
