@@ -12,6 +12,8 @@ jobs:
     # chromium nele ("does not support chromium on ubuntu26.04-x64"). Soltar quando
     # o @playwright/test subir para uma versao que suporte 26.04.
     runs-on: ubuntu-24.04
+    # Teto (7a.BW.3): repo privado gasta a cota da conta; verde leva 7-10 min.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,6 +74,7 @@ jobs:
 
   pii-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 

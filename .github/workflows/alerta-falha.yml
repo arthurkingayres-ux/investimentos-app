@@ -61,6 +61,7 @@ jobs:
     # cobria o caso originador. O alargamento e para os modos ainda nao vistos.
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -87,6 +88,7 @@ jobs:
     # qualquer outra origem.
     if: ${{ github.event_name == 'check_run' && github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.event.check_run.conclusion != 'success' && github.event.check_run.conclusion != 'skipped' && github.event.check_run.conclusion != 'neutral' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
