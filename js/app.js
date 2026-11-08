@@ -4883,8 +4883,14 @@ document.addEventListener("alpine:init", () => {
     // Entrada na rota: escolhe a categoria default do ranking (7a.BO.2) —
     // a de MAIOR dy entre os 3 sub-escopos (empty-safe: fica null se os 3
     // vierem sem dado, ou se dividend_yield ainda não existir no payload).
-    hidratarDY() {
+    //
+    // `soSeVazio` (7a.BW.3): as re-hidratações de DEPOIS do payload (destrave,
+    // auto-resume, cerimônia) existem para o cold-start que entrou na rota sem
+    // json. Elas rodam depois do `await carregarIndiceRelatorios()` (PBKDF2),
+    // com a tela já à vista: sem a guarda, desfaziam o toque dado nessa janela.
+    hidratarDY({ soSeVazio = false } = {}) {
       if (this.rota !== "dy" || !this.json) return;
+      if (soSeVazio && this.dySelecionado) return;
       const dy = this.json?.dividend_yield || {};
       let melhor = null;
       let melhorValor = -Infinity;
@@ -6209,7 +6215,7 @@ document.addEventListener("alpine:init", () => {
         // `#/proventos/dy` (bookmark/share-link) chega aqui sem json ainda,
         // então hidratarDY() precisa rodar agora que o payload chegou; senão
         // dySelecionado fica null e o ranking (x-show) nunca aparece por default.
-        if (this.rota === "dy") this.hidratarDY();
+        if (this.rota === "dy") this.hidratarDY({ soSeVazio: true });
         // 7a.BD.2: cold-start em `#rentabilidade` (o PWA reabre na última
         // hash) — a tela inteira sai de hidratarRentabilidade, que no 1º
         // atualizarRota rodou sem json; sem isto ela abriria vazia.
@@ -6446,7 +6452,7 @@ document.addEventListener("alpine:init", () => {
       if (this.rota === "relatorio") this.hidratarRelatorio();
       if (this.rota === "dossie") this.hidratarDossie();
       if (this.rota === "patrimonio") this.hidratarPatrimonio();
-      if (this.rota === "dy") this.hidratarDY();
+      if (this.rota === "dy") this.hidratarDY({ soSeVazio: true });
       if (this.rota === "aportar") this.hidratarAportar();
     },
 
@@ -6556,7 +6562,7 @@ document.addEventListener("alpine:init", () => {
         }
         // 7a.S.7b: bookmark direto de `#/proventos/dy` — re-hidrata o DY
         // depois que `json` chegou via submitPin (espelha #/raiox/chart).
-        if (this.rota === "dy") this.hidratarDY();
+        if (this.rota === "dy") this.hidratarDY({ soSeVazio: true });
       } catch (err) {
         console.error("decifra falhou", err);
         this.registrarFalha();

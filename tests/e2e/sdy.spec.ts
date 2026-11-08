@@ -388,3 +388,36 @@ test.describe("Fixture — dividend_yield.ranking (7a.BO.2, 2.34 na 7a.BO.4)", (
     }
   });
 });
+
+// Corrida achada na 7a.BW.3 (CI intermitente desde 01/11): no destrave, a tela
+// aparece ANTES do `await carregarIndiceRelatorios()` (decifra PBKDF2 600k),
+// e o `hidratarDY()` de depois do await reescrevia a classe para a default,
+// desfazendo o toque dado nessa janela. Aqui a janela é segurada à força.
+test("toque na classe durante a carga do índice de relatórios não é desfeito", async ({ page }) => {
+  let soltar!: () => void;
+  const segurado = new Promise<void>((r) => { soltar = r; });
+  let pedido = false;
+  await page.route("**/relatorios_index.json.enc", async (route) => {
+    pedido = true;
+    await segurado;
+    await route.continue();
+  });
+  await page.route("**/portfolio.json.enc", (route) =>
+    route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }));
+  await page.addInitScript(() => {
+    localStorage.setItem("pin", "123456");
+    localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
+  });
+  await page.goto("/#/proventos/dy");
+  await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
+  await expect.poll(() => pedido).toBe(true); // a janela está aberta
+  await page.locator(".tela-dy .dy-row", {
+    has: page.locator(".cls", { hasText: /^Ação BR$/ }),
+  }).click();
+  const live = page.locator('[data-testid="dy-champs"] [aria-live]');
+  await expect(live).toContainText("Ranking Ação BR");
+  soltar();
+  await page.waitForResponse("**/relatorios_index.json.enc").catch(() => {});
+  await page.waitForTimeout(300);
+  await expect(live).toContainText("Ranking Ação BR");
+});
