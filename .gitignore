@@ -34,3 +34,6 @@ tests/screenshots/
 # Worktrees de fase (7a.AX; follow-up da 7a.AW.2): sem isto o checkout
 # isolado aparece como untracked no main.
 .worktrees/
+
+# 7a.BW.2: estado local do wrangler
+.wrangler/
