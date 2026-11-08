@@ -37,6 +37,7 @@ const TIPOS: Record<string, string> = {
 };
 
 const estado = { acesso: "ok" as "ok" | "vencido" };
+let contadorEstado = 0;
 let servidor: http.Server;
 let base = "";
 
@@ -50,6 +51,13 @@ function responder(req: http.IncomingMessage, res: http.ServerResponse) {
   if (url.pathname === "/index.html") {
     res.writeHead(307, { Location: "/" });
     res.end();
+    return;
+  }
+  // 7a.BW.5: estado do Comitê, sempre um valor novo; se o SW cachear, repete.
+  if (url.pathname === "/comite/estado") {
+    contadorEstado++;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ n: contadorEstado }));
     return;
   }
   if (url.pathname === "/portfolio.json.enc") {
@@ -121,6 +129,23 @@ test.describe("SW: o precache cobre o shell que o index.html carrega", () => {
     ].map((m) => "./" + m[1].split("?")[0]);
     expect(usados.length).toBeGreaterThan(5);
     for (const u of usados) expect(precache, u).toContain(u);
+  });
+});
+
+test.describe("SW: /comite/* nunca passa pelo cache (7a.BW.5)", () => {
+  test("GET /comite/estado vai à rede toda vez, com o SW controlando a página", async ({ context }) => {
+    const page = await instalarComCarteira(context);
+    const ler = () => page.evaluate(async () => (await (await fetch("./comite/estado")).json()).n);
+    const primeiro = await ler();
+    const segundo = await ler();
+    expect(segundo).toBe(primeiro + 1);
+    const nomes = await page.evaluate(async () => {
+      const urls: string[] = [];
+      for (const n of await caches.keys()) for (const r of await (await caches.open(n)).keys()) urls.push(r.url);
+      return urls;
+    });
+    expect(nomes.length).toBeGreaterThan(5); // controle: o cache existe e foi lido
+    expect(nomes.filter((u) => u.includes("/comite/"))).toEqual([]);
   });
 });
 

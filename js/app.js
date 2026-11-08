@@ -2018,6 +2018,8 @@ const COLORS = {
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
+    // 7a.BW.5: estado e métodos do pedido do Comitê (js/comite.js).
+    ...window.comiteBloco(),
     fase: "pin",
     rota: "",
     tab: "raiox",
@@ -4216,6 +4218,7 @@ document.addEventListener("alpine:init", () => {
       this._limparEstadoProventosDY();
       this._limparEstadoAlocacao();
       this._limparEstadoAppShell();
+      this._limparEstadoComite();
     },
 
     // CRB final 7a.U (Finding 1): estado de SELEÇÃO das telas #proventos e

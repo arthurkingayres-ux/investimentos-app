@@ -29,7 +29,7 @@
 // servindo o cache dele. O install tolerante de antes ativaria um SW com
 // shell vazio, e o `activate` apagaria o cache bom: offline morto.
 
-const CACHE_VERSION = "v111";
+const CACHE_VERSION = "v112";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -43,6 +43,7 @@ const SHELL_PRECACHE = [
   "./js/format.js",
   "./js/transitions.js",
   "./js/aportar.js",
+  "./js/comite.js",
   "./js/vendor/alpine.min.js",
   "./js/vendor/echarts.min.js",
   "./js/echarts-theme.js",
@@ -113,6 +114,11 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // 7a.BW.5: /comite/* é a API do Worker (estado do pedido). Nunca passa pelo
+  // cache: um estado velho mostraria "na fila" para sempre.
+  const escopo = new URL(self.registration.scope).pathname;
+  if (url.pathname.startsWith(escopo + "comite/")) return;
 
   // 7a.Q.3: todos os .enc (portfolio + índice/meses do relatório) são dados →
   // network-first. Cada pathname distinto cacheia em separado no CACHE_DADOS.

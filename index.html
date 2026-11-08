@@ -15,7 +15,8 @@
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/app.js?v=98"></script>
+  <script src="js/comite.js?v=1"></script>
+  <script src="js/app.js?v=99"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -2592,6 +2593,49 @@
           <span>Tickers da política sem posição vigente (sem cotação para incluir no cálculo): </span>
           <span x-text="aporteTickersSemPosicao.join(', ')"></span>
         </p>
+
+        <!-- 7a.BW.5: o pedido do Comitê (js/comite.js). Abaixo do plano da
+             regra, que fica como está (spec 7a.BW §13.1). Um toque envia,
+             sem modal; os campos opcionais ficam recolhidos. A resposta
+             lado a lado chega na BW.6. -->
+        <section class="comite-bloco" aria-labelledby="comite-titulo" x-init="comiteIniciar()">
+          <h2 class="comite-titulo" id="comite-titulo">Comitê</h2>
+          <p class="comite-ajuda">O Comitê lê a carteira e propõe onde pôr este aporte, ao lado do plano da regra acima.</p>
+
+          <details class="comite-opcoes">
+            <summary>Remessa, nota e horário</summary>
+            <div class="comite-campo">
+              <label for="comite-remetido">Já remeti para a Avenue (US$)</label>
+              <input id="comite-remetido" class="comite-input" type="text" inputmode="decimal"
+                     autocomplete="off" placeholder="0" x-model="comiteRemetido"
+                     :aria-invalid="comiteErroCampo ? 'true' : 'false'"
+                     aria-describedby="comite-remetido-erro">
+              <p class="comite-erro" id="comite-remetido-erro" x-show="comiteErroCampo" x-text="comiteErroCampo" x-cloak></p>
+            </div>
+            <div class="comite-campo">
+              <label for="comite-nota">Nota para o Comitê</label>
+              <textarea id="comite-nota" class="comite-input comite-nota" rows="3"
+                        :maxlength="comiteNotaMax" x-model="comiteNota"
+                        aria-describedby="comite-nota-conta"></textarea>
+              <p class="comite-conta" id="comite-nota-conta" x-text="comiteNota.length + '/' + comiteNotaMax"></p>
+            </div>
+            <div class="comite-campo comite-campo--check">
+              <input id="comite-agora" type="checkbox" x-model="comiteAgora" aria-describedby="comite-agora-ajuda">
+              <label for="comite-agora">Rodar agora</label>
+              <p class="comite-ajuda-campo" id="comite-agora-ajuda">Sem marcar, roda às 3h30. Agora pode falhar se você estiver usando o Claude, porque a cota é a mesma.</p>
+            </div>
+          </details>
+
+          <button type="button" class="comite-pedir" @click="comiteEnviar()"
+                  :disabled="comiteBotaoDesabilitado()"
+                  :aria-busy="comiteEstado === 'enviando' ? 'true' : 'false'"
+                  x-text="comiteBotaoTexto()">Pedir proposta</button>
+          <p class="comite-ajuda-campo" x-show="!(comiteValor() > 0)" x-cloak>Digite o valor acima para pedir uma proposta.</p>
+
+          <p class="comite-status" :data-estado="comiteEstado" aria-live="polite" x-text="comiteMensagem"></p>
+          <button type="button" class="comite-reenviar" x-show="comiteTemRascunho()" x-cloak
+                  @click="comiteReenviar()" x-text="comiteTextoReenviar()"></button>
+        </section>
       </section>
 
       <!-- ── Tela #relatorio (Fase 7a.Q.3) ──────────────────────────────── -->

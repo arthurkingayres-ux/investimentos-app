@@ -3362,6 +3362,160 @@ button.ponte-degrau { cursor: pointer; }
   color: var(--gray);
 }
 
+/* 7a.BW.5: o pedido do Comitê, abaixo do plano da regra. Restrained como o
+   resto do #aportar: uma linha fina separa a segunda leitura da primeira, um
+   único botão cheio (a ação da tela), campos opcionais recolhidos. Toque de
+   44 px, campos a 16 px (sem zoom do iOS), status em aria-live. */
+.comite-bloco {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--neutral-200);
+}
+.comite-titulo {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.comite-ajuda {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--gray);
+  margin: 0 0 12px;
+}
+.comite-opcoes {
+  margin: 0 0 14px;
+}
+.comite-opcoes > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.875rem;
+  color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+.comite-opcoes > summary::-webkit-details-marker { display: none; }
+.comite-opcoes > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  transition: transform 150ms ease-out;
+}
+.comite-opcoes[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .comite-opcoes > summary::before { transition: none; }
+}
+.comite-campo {
+  margin: 10px 0 0;
+}
+.comite-campo label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.comite-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--neutral-300);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+#comite-remetido { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.comite-input:focus { border-color: var(--accent); }
+.comite-input[aria-invalid="true"] { border-color: var(--red); }
+.comite-nota { resize: vertical; line-height: 1.45; }
+.comite-conta {
+  margin: 4px 0 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--gray);
+}
+.comite-erro {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--red);
+}
+.comite-campo--check {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 10px;
+  align-items: center;
+}
+.comite-campo--check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.comite-campo--check label {
+  margin: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.comite-campo--check .comite-ajuda-campo { grid-column: 2; margin-top: 0; }
+.comite-ajuda-campo {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--gray);
+  margin: 6px 0 0;
+}
+.comite-pedir {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--surface);
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 120ms ease-out, opacity 150ms ease-out;
+}
+.comite-pedir:active:not(:disabled) { transform: scale(0.98); }
+.comite-pedir:disabled { opacity: 0.45; cursor: not-allowed; }
+.comite-pedir[aria-busy="true"] { cursor: progress; }
+@media (prefers-reduced-motion: reduce) {
+  .comite-pedir { transition: none; }
+  .comite-pedir:active:not(:disabled) { transform: none; }
+}
+.comite-status {
+  margin: 12px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.comite-status:empty { margin: 0; }
+.comite-status[data-estado="falha"] { color: var(--red-800); }
+.comite-reenviar {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
 /* === Tab bar + Monument typography (sub-fases 7a.I.1 + 7a.I.2) ============= */
 :root {
   --tab-bar-height: 56px;
