@@ -79,35 +79,29 @@ test.describe("guard: workflow de alerta de falha", () => {
     const observados = itensObservados();
     expect(observados).toEqual(expect.arrayContaining(esperados));
 
-    // Os extras são ALLOWLIST justificada, não sobra: o Pages é dinâmico e não
-    // tem arquivo neste repo, então não pode ser derivado. Exigir igualdade
-    // exata deixaria este teste vermelho para sempre; aceitar qualquer extra
-    // deixaria entrar lixo. A allowlist nomeada é o meio-termo que envelhece
-    // visivelmente.
+    // Sem extras: o único que havia era o Pages (dinâmico, sem arquivo aqui),
+    // que saiu na 7a.BW.2. Um extra novo é nome que não existe, ou seja,
+    // observação muda.
     const extras = observados.filter((n) => !esperados.includes(n));
-    expect(extras).toEqual(["pages-build-deployment"]);
+    expect(extras).toEqual([]);
   });
 
-  test("observa o Pages pelo nome do WORKFLOW (hífens), não pelo do RUN", () => {
-    // O achado de 07/08/2026, e ele custou uma conclusão errada. O workflow
-    // dinâmico do Pages tem DOIS nomes conforme o endpoint:
-    //
-    //   /actions/workflows  ->  "pages-build-deployment"     (hífens)
-    //   /actions/runs       ->  "pages build and deployment" (espaços)
-    //
-    // `workflow_run` casa pelo nome do WORKFLOW. A 1ª versão usou a forma com
-    // espaços e a sonda concluiu "workflow_run não observa o Pages" — errado:
-    // o nome é que estava errado, e o erro se manifesta como SILÊNCIO, que é
-    // indistinguível de "o GitHub não emite isto". Conferir o nome contra a
-    // API não basta se for contra o endpoint errado.
-    //
-    // Extrai os ITENS da lista, não uma fatia de texto: `indexOf("workflows:")`
-    // casa primeiro no COMENTÁRIO que explica a armadilha, e a fatia arrastaria
-    // junto a prosa que — corretamente — cita as duas formas. Um assert que lê
-    // comentário mede documentação, não configuração.
-    const observados = itensObservados();
-    expect(observados).toContain("pages-build-deployment");
-    expect(observados).not.toContain("pages build and deployment");
+  test("observa o deploy do Workers Builds pelo CHECK RUN do app da Cloudflare", () => {
+    // 7a.BW.2: o deploy saiu do Pages (workflow dinâmico deste repo) para o
+    // Workers Builds, que não é workflow daqui e não tem alerta de build com
+    // falha na Cloudflare. O sinal que existe é o check run que o app
+    // `cloudflare-workers-and-pages` publica no commit (medido em a5206a5).
+    // Slug errado = alerta mudo, o mesmo modo de falha do nome literal.
+    const t = ler(ALERTA);
+    expect(t).toMatch(/^\s{2}check_run:\s*$/m);
+    expect(t).toContain("github.event.check_run.app.slug == 'cloudflare-workers-and-pages'");
+    expect(t).toContain("github.event.check_run.conclusion != 'success'");
+    expect(t).toContain("github.event.check_run.conclusion != 'skipped'");
+    // O job do workflow_run não pode reagir a check_run (o contexto dele
+    // viria vazio): cada job é guardado pelo próprio evento.
+    expect(t).toContain("github.event_name == 'workflow_run'");
+    expect(t).toContain("github.event_name == 'check_run'");
+    expect(itensObservados()).not.toContain("pages-build-deployment");
   });
 
   test("o script standalone não importa nada que não exista neste repo", () => {

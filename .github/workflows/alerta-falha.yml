@@ -8,7 +8,9 @@ name: Alerta de falha
 # acrescentar o nome. A vantagem que sobra, e basta, e centralizar a logica e os
 # secrets num lugar so, em vez de espalhar um passo `if: failure()` por workflow.
 #
-# O Pages e enumerado como `pages-build-deployment` — COM HIFENS, e isso e o
+# HISTORICO (o Pages saiu na 7a.BW.2; a licao do nome literal continua
+# valendo para qualquer item novo da lista): o Pages era enumerado como
+# `pages-build-deployment` — COM HIFENS, e isso e o
 # achado que custou uma conclusao errada em 07/08/2026. O workflow dinamico tem
 # DOIS nomes conforme o endpoint que o devolve:
 #
@@ -30,7 +32,16 @@ on:
   workflow_run:
     workflows:
       - "CI"
-      - "pages-build-deployment"
+    types: [completed]
+  # 7a.BW.2: o app saiu do GitHub Pages para o Worker investimentos-app, e o
+  # deploy passou a ser do Workers Builds da Cloudflare, que NAO e workflow
+  # deste repo (nao ha `workflow_run` para ele) e NAO oferece alerta de build
+  # com falha nas notificacoes da conta (medido em 08/11/2026: so "Pages
+  # Alerts" e Observability). O que ele publica e um CHECK RUN no commit,
+  # "Workers Builds: investimentos-app", do app `cloudflare-workers-and-pages`
+  # (medido no commit a5206a5). O job `alertar-deploy` observa esse evento.
+  # O `pages-build-deployment` saiu da lista junto com o Pages.
+  check_run:
     types: [completed]
 
 permissions:
@@ -48,7 +59,7 @@ jobs:
     # Medido em 07/08/2026: os 8 runs de Pages falhos do historico (inclusive os
     # 2 do outage de 06/08) saem `conclusion: failure`, entao o gate antigo JA
     # cobria o caso originador. O alargamento e para os modos ainda nao vistos.
-    if: ${{ github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,4 +79,30 @@ jobs:
           ALERTA_RUN_URL: ${{ github.event.workflow_run.html_url }}
           ALERTA_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           ALERTA_EVENT: ${{ github.event.workflow_run.event }}
+        run: python scripts/ci/alertar_falha.py
+
+  alertar-deploy:
+    # Mesma forma NEGATIVA do job acima. `neutral` sai porque nao e falha.
+    # O filtro pelo app e o que impede este job de reagir a check run de
+    # qualquer outra origem.
+    if: ${{ github.event_name == 'check_run' && github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.event.check_run.conclusion != 'success' && github.event.check_run.conclusion != 'skipped' && github.event.check_run.conclusion != 'neutral' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Enviar alerta
+        env:
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+          ALERTA_REPO: ${{ github.repository }}
+          ALERTA_WORKFLOW: ${{ github.event.check_run.name }}
+          ALERTA_CONCLUSION: ${{ github.event.check_run.conclusion }}
+          ALERTA_RUN_URL: ${{ github.event.check_run.html_url }}
+          ALERTA_HEAD_BRANCH: ${{ github.event.check_run.check_suite.head_branch }}
+          ALERTA_EVENT: check_run
         run: python scripts/ci/alertar_falha.py
