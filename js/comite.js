@@ -92,6 +92,14 @@
   // parênteses, na mesma ordem e quantidade. Caminho com segmento que o mapa
   // não conhece cai num rótulo legível (sublinhado vira espaço), nunca some.
   // Texto livre (com espaço) passa como veio.
+  // Chaves de topo do envelope (src/comite/envelope.py) e os blocos do
+  // Diagnóstico, que o Comitê às vezes cita sem o prefixo `contexto.`.
+  const EVID_RAIZ = new Set([
+    "versao", "modo", "pedido", "regra", "patrimonio_brl", "patrimonio_pos_brl", "elegiveis",
+    "excluidos", "contexto", "idade_fontes", "avisos", "grifo_dado_velho", "tabela_custos_medida_em",
+    "anteriores", "diagnostico", "risco", "selecao", "atribuicao", "construcao", "fx_usd_brl",
+    "ordens_avenue_no_mes", "dividend_yield", "estado_mes",
+  ]);
   const EVID_ESTRUTURA = new Set(["contexto", "diagnostico", "escopos", "classes", "janelas", "categorias"]);
   const EVID_CONTEXTO = {
     risco: "risco",
@@ -202,8 +210,9 @@
     const bruto = e.trim();
     // Só caminho: começa por letra e é feito de segmentos de palavra ligados
     // por ponto (ou índice [n]). O resto é texto livre e passa intacto:
-    // "12.5%" ou "0.85x" não podem perder o inteiro (board BW.6.1).
-    if (!CAMINHO.test(bruto)) return bruto;
+    // "12.5%" ou "0.85x" não podem perder o inteiro (board BW.6.1), e o
+    // primeiro segmento tem de ser chave do envelope: "v1.2.3" é texto.
+    if (!CAMINHO.test(bruto) || !EVID_RAIZ.has(bruto.split(/[.[]/)[0])) return bruto;
     const segs = bruto.split(/[.[\]]+/).filter((s) => s && !/^\d+$/.test(s) && !EVID_ESTRUTURA.has(s));
     if (!segs.length) return bruto;
     const nomeCtx = (s) => {

@@ -96,6 +96,8 @@ test.describe("Comitê: a rota #comite", () => {
     "queda de margem no trimestre sintético",
     "12.5%",
     "0.85x",
+    "v1.2.3",
+    "Q3.25",
   ];
   const ROTULOS = [
     "Excesso sobre o CDI ao ano (risco, Brasil, 3 anos)",
@@ -107,6 +109,8 @@ test.describe("Comitê: a rota #comite", () => {
     "queda de margem no trimestre sintético",
     "12.5%",
     "0.85x",
+    "v1.2.3",
+    "Q3.25",
   ];
   const comCaminhos = () =>
     resposta((r) => {
@@ -134,7 +138,8 @@ test.describe("Comitê: a rota #comite", () => {
       }),
       hash: "#comite",
     });
-    await expect(tela(page).locator(".comite-registro__evidencias li")).toHaveCount(CAMINHOS.length + 3, {
+    const alterado = tela(page).locator(".comite-registro").filter({ hasText: "A tese de ZZCC3" });
+    await expect(alterado.locator(".comite-registro__evidencias li")).toHaveCount(CAMINHOS.length + 1, {
       timeout: 10_000,
     });
     await assentada(page);
