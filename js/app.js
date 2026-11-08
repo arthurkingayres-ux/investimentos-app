@@ -2515,6 +2515,15 @@ document.addEventListener("alpine:init", () => {
         this.rota = "aportar";
         this.tab = "aportar";
         this.hidratarAportar();
+        this.comiteAoAbrir(); // 7a.BW.6: só busca a resposta com motivo (js/comite.js)
+        return;
+      }
+      if (path === "comite") {
+        // 7a.BW.6: registros do Comitê e a linha do placar, push child da tab
+        // Aportar; voltar() cai em home["aportar"] = "#aportar".
+        this.rota = "comite";
+        this.tab = "aportar";
+        this.comiteAoAbrir();
         return;
       }
       // Limite de 16 chars cobre tickers BR/EUA + sintéticos longos como

@@ -18,6 +18,10 @@ tests/fixtures/*.json
 # gemea JS. Conteudo 100% sintetico, gerado por formula em gerar_fixture.py
 # (nenhum numero lido do DB; sem PIN nem frase).
 !tests/fixtures/ponte_esperado.test.json
+# 7a.BW.6: terceiro .json PURO, por excecao NOMINAL (mesmo motivo acima). A
+# resposta do Comite em claro, 100% sintetica (tickers ZZ*, valores
+# inventados); os testes a cifram na hora com o segredo de teste.
+!tests/fixtures/comite-resposta.sintetica.json
 __pycache__/
 *.pyc
 

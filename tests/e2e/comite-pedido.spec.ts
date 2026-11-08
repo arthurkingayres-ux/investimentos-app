@@ -26,6 +26,11 @@ async function abrirAportar(page: Page, opcoes: { estado?: object | null; enviad
       ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(estado) })
       : route.fulfill({ status: 404, body: "" }),
   );
+  // 7a.BW.6: com pedido recente o app também pergunta pela resposta; aqui o
+  // Worker falso não tem nenhuma.
+  await page.route("**/comite/resposta", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: '{"cifra":null,"gravada_em":null}' }),
+  );
   await page.addInitScript((enviadoEm) => {
     localStorage.setItem("pin", "123456");
     localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));

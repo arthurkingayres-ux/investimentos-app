@@ -1,0 +1,60 @@
+{
+  "versao": 1,
+  "estado": "pronta",
+  "atual": {
+    "valor_pedido": 6000,
+    "nonce": "00000000000000000000000000000abc",
+    "comite": {
+      "ativos": [
+        {"ticker": "ZZAA3", "valor_brl": 2400},
+        {"ticker": "ZZBB11", "valor_brl": 1800},
+        {"ticker": "ZZCC3", "valor_brl": 1800}
+      ],
+      "juntar_remessa": true,
+      "ordens": {"xp": 2, "avenue": 0},
+      "custo_declarado_brl": 0,
+      "razao_principal": "Juntar a remessa: tudo para o Brasil este mês e os EUA no próximo, quando o valor maior dilui a tarifa e o spread.",
+      "porque": [
+        {"texto": "Os três ativos estão abaixo do alvo e cabem na faixa com folga.", "refs": ["faixa"]},
+        {"texto": "Sem remessa este mês, o caminho não paga spread nem IOF.", "refs": ["custos"]}
+      ],
+      "risco_retorno": {"lado": "equivalente", "texto": "Os mesmos mercados da regra, só em outra ordem no tempo."},
+      "argumento_contrario": "Se o dólar subir até a próxima remessa, adiar os EUA sai mais caro do que a tarifa poupada.",
+      "o_que_mudaria": "Uma remessa já feita para a Avenue tornaria a junção sem sentido.",
+      "confianca": {"nivel": "média", "motivo": "a economia depende do câmbio do mês que vem"},
+      "avisos": []
+    },
+    "regra": {
+      "estado": "ok",
+      "categorias": [
+        {"nome": "Ações BR", "compras": [
+          {"ticker": "ZZAA3", "cotas": 50, "cotasFormatadas": "50", "valor": 1100, "valorFormatado": "≈ R$ 1.100,00", "categoria": "Ações BR", "bandeira": "🇧🇷"},
+          {"ticker": "ZZCC3", "cotas": 30, "cotasFormatadas": "30", "valor": 900, "valorFormatado": "≈ R$ 900,00", "categoria": "Ações BR", "bandeira": "🇧🇷"}
+        ]},
+        {"nome": "EUA", "compras": [
+          {"ticker": "ZZDD", "cotas": 1.5, "cotasFormatadas": "1,5", "valor": 2300, "valorFormatado": "≈ R$ 2.300,00", "categoria": "EUA", "bandeira": "🇺🇸"},
+          {"ticker": "ZZEE", "cotas": 0.8, "cotasFormatadas": "0,8", "valor": 1700, "valorFormatado": "≈ R$ 1.700,00", "categoria": "EUA", "bandeira": "🇺🇸"}
+        ]}
+      ],
+      "sobra": 0,
+      "banner": null
+    },
+    "custos": {"comite": 0, "regra": 61.4},
+    "economia_brl": 61.4,
+    "motivo_recusa": null,
+    "avisos": [],
+    "idade_fontes": {"posicoes_ate": "2026-11-03", "ultima_ingestao": "2026-11-04", "dias_sem_ingestao": 4, "ordens_avenue_contadas_ate": "2026-11-03", "precos_em": "2026-11-07"},
+    "grifo_dado_velho": false,
+    "criado_em": "2026-11-08T06:40:00Z"
+  },
+  "historico": [
+    {"valor_pedido": 4000, "nonce": "0000000000000000000000000000000b", "comite": null, "regra": {"estado": "ok", "categorias": [], "sobra": 0, "banner": null}, "custos": {"comite": null, "regra": 20}, "economia_brl": null, "motivo_recusa": "ACIMA_DO_TETO", "avisos": [], "idade_fontes": {}, "grifo_dado_velho": false, "criado_em": "2026-11-05T06:40:00Z"},
+    {"valor_pedido": 5000, "nonce": "0000000000000000000000000000000a", "comite": null, "regra": {"estado": "ok", "categorias": [], "sobra": 0, "banner": null}, "custos": {"comite": null, "regra": 30}, "economia_brl": null, "motivo_recusa": "SOMA_DIFERENTE", "avisos": [], "idade_fontes": {}, "grifo_dado_velho": false, "criado_em": "2026-11-02T06:40:00Z"}
+  ],
+  "registros": [
+    {"id": "r1", "tipo": "observacao_politica", "texto": "A renda fixa paga acima do que a política supõe para o colchão.", "evidencias": ["taxa sintética de 12% no envelope"], "confirmaria": "a taxa seguir acima por mais dois meses", "derrubaria": "um corte de juros na próxima reunião", "tickers": [], "criado_em": "2026-11-02T06:40:00Z", "modo": "aporte"},
+    {"id": "r2", "tipo": "pergunta", "texto": "A tese de ZZCC3 segue de pé depois do resultado do trimestre?", "evidencias": ["queda de margem no trimestre sintético"], "confirmaria": "margem de volta no próximo trimestre", "derrubaria": "segunda queda seguida", "tickers": ["ZZCC3"], "criado_em": "2026-11-08T06:40:00Z", "modo": "aporte"},
+    {"id": "r3", "tipo": "reforco", "texto": "A diversificação entre os dois mercados segue a política.", "evidencias": ["pesos dentro da faixa"], "confirmaria": "pesos na faixa na próxima rodada", "derrubaria": "um mercado acima do teto", "tickers": [], "criado_em": "2026-11-05T06:40:00Z", "modo": "registros"}
+  ],
+  "ultima_rodada": {"modo": "aporte", "estado": "pronta", "criado_em": "2026-11-08T06:40:00Z", "motivo_recusa": null}
+}

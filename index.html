@@ -8,15 +8,15 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=91">
+  <link rel="stylesheet" href="css/app.css?v=92">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/comite.js?v=3"></script>
-  <script src="js/app.js?v=99"></script>
+  <script src="js/comite.js?v=4"></script>
+  <script src="js/app.js?v=100"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -2565,7 +2565,10 @@
           </article>
         </template>
 
-        <div class="grifo aporte-grifo" x-show="aporteGrifoHtml()" x-cloak x-html="aporteGrifoHtml()"></div>
+        <!-- 7a.BW.6: com resposta do Comitê que traz o seu grifo (a razão
+             principal, ou o aviso de dado velho), este vira texto comum: um
+             grifo por tela (spec 7a.BW §13.1). -->
+        <div class="aporte-grifo" :class="{ grifo: !comiteTomaGrifo() }" x-show="aporteGrifoHtml()" x-cloak x-html="aporteGrifoHtml()"></div>
 
         <section class="aporte-outras" x-show="aporteCategoriasNaoRecebedoras.length > 0" x-cloak>
           <h2 class="aporte-section-label">Outras categorias (sem aporte)</h2>
@@ -2635,7 +2638,163 @@
           <p class="comite-status" :data-estado="comiteEstado" aria-live="polite" x-text="comiteMensagem"></p>
           <button type="button" class="comite-reenviar" x-show="comiteTemRascunho()" x-cloak
                   @click="comiteReenviar()" x-text="comiteTextoReenviar()"></button>
+
+          <!-- 7a.BW.6: a resposta, lado a lado com a regra (§13.1, D5). x-if:
+               sem resposta decifrada o nó não existe. Coluna do Comitê antes
+               da Regra; a razão principal é o grifo único da tela (ou o aviso
+               de dado velho, quando os dados passaram de 35 dias); argumento
+               contrário visível, nada recolhido. -->
+          <template x-if="comiteAtual()">
+            <article class="comite-resposta" aria-labelledby="comite-resposta-cab">
+              <p class="comite-cabeca" id="comite-resposta-cab" x-text="comiteCabecalho()"></p>
+              <template x-if="comiteAntiga()">
+                <p class="comite-rotulo comite-antiga" x-text="comiteTextoAntiga()"></p>
+              </template>
+              <p class="comite-rotulo comite-outro-valor" x-show="comiteOutroValor()" x-text="comiteTextoOutroValor()"></p>
+              <template x-if="comiteDadoVelho() || comiteTextoIdade()">
+                <p class="comite-idade" :class="{ 'grifo comite-dado-velho': comiteDadoVelho() }" x-text="comiteTextoIdade()"></p>
+              </template>
+
+              <template x-if="comiteTemProposta()">
+                <p class="comite-razao" :class="{ grifo: !comiteDadoVelho() }" x-text="comiteAtual().comite.razao_principal"></p>
+              </template>
+              <template x-if="!comiteTemProposta()">
+                <p class="comite-recusa" x-text="comiteTextoRecusa()"></p>
+              </template>
+
+              <table class="comite-comparacao">
+                <caption x-text="comiteTemProposta() ? 'O que o Comitê propõe, ao lado da regra' : 'O plano da regra'"></caption>
+                <thead>
+                  <tr>
+                    <th scope="col"><span class="sr-only">Ativo</span></th>
+                    <template x-if="comiteTemProposta()"><th scope="col" class="comite-col">Comitê</th></template>
+                    <th scope="col" class="comite-col">Regra</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="l in comiteLinhas()" :key="l.ticker">
+                    <tr class="comite-linha" :data-ticker="l.ticker" :data-dif="l.dif">
+                      <th scope="row">
+                        <span class="comite-tk" x-text="l.ticker"></span>
+                        <span class="comite-dif" x-show="l.dif" x-text="l.dif"></span>
+                      </th>
+                      <template x-if="comiteTemProposta()">
+                        <td class="comite-num comite-col-comite" :class="{ 'comite-num--nada': l.comite == null }" x-text="comiteFmt(l.comite)"></td>
+                      </template>
+                      <td class="comite-num comite-col-regra" :class="{ 'comite-num--nada': l.regra == null }" x-text="comiteFmt(l.regra)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+                <tfoot>
+                  <tr class="comite-linha-custo">
+                    <th scope="row">Custo estimado</th>
+                    <template x-if="comiteTemProposta()">
+                      <td class="comite-num" x-text="comiteCusto('comite')"></td>
+                    </template>
+                    <td class="comite-num" x-text="comiteCusto('regra')"></td>
+                  </tr>
+                </tfoot>
+              </table>
+              <p class="comite-custo-nota" x-text="comiteCustoNota()"></p>
+              <template x-if="comiteEconomia()">
+                <p class="comite-economia" x-text="comiteEconomia()"></p>
+              </template>
+
+              <template x-if="comiteTemProposta()">
+                <div class="comite-leitura">
+                  <template x-if="(comiteAtual().comite.porque || []).length">
+                    <section class="comite-parte">
+                      <h3 class="comite-parte__tit">Por quê</h3>
+                      <ul class="comite-porque">
+                        <template x-for="(p, i) in comiteAtual().comite.porque" :key="i">
+                          <li x-text="p.texto"></li>
+                        </template>
+                      </ul>
+                    </section>
+                  </template>
+                  <template x-if="comiteRisco()">
+                    <section class="comite-parte">
+                      <h3 class="comite-parte__tit">Risco e retorno</h3>
+                      <p class="comite-risco" x-text="comiteRisco()"></p>
+                    </section>
+                  </template>
+                  <section class="comite-parte">
+                    <h3 class="comite-parte__tit">Argumento contrário</h3>
+                    <p class="comite-contrario" x-text="comiteAtual().comite.argumento_contrario"></p>
+                  </section>
+                  <section class="comite-parte">
+                    <h3 class="comite-parte__tit">O que mudaria a proposta</h3>
+                    <p class="comite-mudaria" x-text="comiteAtual().comite.o_que_mudaria"></p>
+                  </section>
+                  <p class="comite-confianca" x-text="comiteConfianca()"></p>
+                </div>
+              </template>
+
+              <template x-if="comiteAvisos().length">
+                <ul class="comite-avisos">
+                  <template x-for="(a, i) in comiteAvisos()" :key="i">
+                    <li x-text="a"></li>
+                  </template>
+                </ul>
+              </template>
+            </article>
+          </template>
+          <template x-if="comiteResposta">
+            <a class="comite-link-registros" href="#comite"><span x-text="comiteLinkRegistros()"></span> <span aria-hidden="true">›</span></a>
+          </template>
         </section>
+      </section>
+
+      <!-- ── Tela #comite (Fase 7a.BW.6) ──────────────────────────────────
+           Push child da tab Aportar: os registros estratégicos do Comitê
+           (do mais novo ao mais antigo) e a linha do placar. Leitura pura. -->
+      <section class="tela-detalhes tela-comite" x-show="rota === 'comite'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="comite-tela-titulo" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="comite-tela-titulo">Comitê</h1>
+        </header>
+        <p class="comite-tela-ajuda">O que o Comitê anotou para a revisão estrutural da política. Os registros nunca mexem no aporte.</p>
+        <template x-if="comiteResposta">
+          <div>
+            <p class="comite-placar" x-text="comitePlacar()"></p>
+            <p class="comite-ultima" x-show="comiteUltimaRodada()" x-text="comiteUltimaRodada()"></p>
+          </div>
+        </template>
+        <template x-if="comiteRegistros().length === 0">
+          <p class="comite-vazio">Nenhum registro ainda. Eles chegam com cada proposta e na rodada mensal do dia 12.</p>
+        </template>
+        <ol class="comite-registros" x-show="comiteRegistros().length > 0">
+          <template x-for="r in comiteRegistros()" :key="r.id">
+            <li class="comite-registro" :data-tipo="r.tipo">
+              <p class="comite-registro__cab">
+                <span class="comite-registro__tipo" x-text="comiteTipoRegistro(r.tipo)"></span>
+                <span class="comite-registro__data" x-text="comiteData(r.criado_em)"></span>
+              </p>
+              <p class="comite-registro__texto" x-text="r.texto"></p>
+              <template x-if="(r.evidencias || []).length">
+                <div class="comite-registro__bloco">
+                  <p class="comite-registro__rot">Evidências</p>
+                  <ul class="comite-registro__evidencias">
+                    <template x-for="(e, i) in r.evidencias" :key="i"><li x-text="e"></li></template>
+                  </ul>
+                </div>
+              </template>
+              <template x-if="r.confirmaria">
+                <p class="comite-registro__confirmaria"><span class="comite-registro__rot">Confirmaria</span> <span x-text="r.confirmaria"></span></p>
+              </template>
+              <template x-if="r.derrubaria">
+                <p class="comite-registro__derrubaria"><span class="comite-registro__rot">Derrubaria</span> <span x-text="r.derrubaria"></span></p>
+              </template>
+              <template x-if="(r.tickers || []).length">
+                <p class="comite-registro__tickers" x-text="r.tickers.join(', ')"></p>
+              </template>
+            </li>
+          </template>
+        </ol>
       </section>
 
       <!-- ── Tela #relatorio (Fase 7a.Q.3) ──────────────────────────────── -->

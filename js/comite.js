@@ -18,8 +18,18 @@
 // precisa de `this.segredo` (a frase em memória depois do desbloqueio) e do
 // valor do simulador (`aporteValor`, `_parseAporteValor`, `aporteFmtBrl0`).
 //
-// Estados (a resposta, `pronta|outro_valor|recusada|antiga`, chega na BW.6):
-//   vazio · offline_rascunho · enviando · na_fila · rodando · falha
+// Estados do pedido: vazio · offline_rascunho · enviando · na_fila · rodando · falha
+//
+// 7a.BW.6 (Task 6.6): a RESPOSTA. O Worker devolve em GET /comite/resposta
+// {"cifra", "gravada_em"}; a cifra é a resposta do `publicar` (versao 1),
+// cifrada com a frase, no formato de js/crypto.js. O app só pergunta quando
+// há motivo (a lição da BW.5: buscar sem motivo a cada abertura derrubou a
+// suíte por erro de console e sujeira de estado): (a) este aparelho enviou um
+// pedido nas últimas 72 h; (b) a rota #comite foi aberta; (c) o #aportar foi
+// aberto e há uma resposta guardada de antes. Guarda-se SÓ a cifra em
+// localStorage ("comite:resposta"); o claro vive em memória (`comiteResposta`)
+// e sai no "Bloquear sessão". A tela (pronta, outro valor, recusada, antiga,
+// dado velho) é derivada da resposta, sem estado próprio.
 
 (function () {
   "use strict";
@@ -40,6 +50,40 @@
   const VALOR_MAX_BRL = 1_000_000;
   // Disparo sem resposta conhecida há mais que isto deixa de ser "rodando".
   const RODANDO_MAX_MS = 2 * 3600 * 1000;
+  // A resposta guardada (só a cifra) e a idade em que a proposta vira "antiga".
+  const CHAVE_RESPOSTA = "comite:resposta";
+  const ANTIGA_MS = 30 * 24 * 3600 * 1000;
+  // Duas entradas seguidas na tela (boot e desbloqueio re-chamam a rota) não
+  // pedem a resposta duas vezes.
+  const BUSCA_INTERVALO_MS = 20 * 1000;
+
+  // Código estável do validador → uma linha, sem jargão. Código desconhecido
+  // não ganha parênteses: a linha diz só que não passou.
+  const MOTIVOS = {
+    ACIMA_DO_TETO: "levava um ativo acima do teto da faixa",
+    FORA_DO_ENVELOPE: "propunha um ativo fora dos que estão abaixo do alvo",
+    SOMA_DIFERENTE: "a soma não fechava com o valor pedido",
+    MAIS_DE_5: "passava de 5 ativos",
+    NUMERO_INVENTADO: "citava um número que não está nos dados",
+    VERBO_DE_ORDEM: "falava em tom de ordem",
+    CUSTO_DIVERGENTE: "o custo declarado não batia com o recalculado",
+    TESE_SEM_AVISO: "deixava de avisar uma tese quebrada",
+    REGISTRO_REPETIDO: "repetia um registro sem fato novo",
+  };
+
+  const TIPO_REGISTRO = {
+    pergunta: "Pergunta para você",
+    observacao_politica: "Observação de política",
+    reforco: "Reforço",
+  };
+
+  const LADO_RISCO = {
+    mais_risco: "Mais risco que a regra",
+    menos_risco: "Menos risco que a regra",
+    equivalente: "Risco parecido com o da regra",
+  };
+
+  const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
   const TEXTO = {
     enviando: "Enviando o pedido…",
@@ -94,6 +138,42 @@
     }
   }
 
+  function lerRespostaGuardada() {
+    try {
+      const r = JSON.parse(localStorage.getItem(CHAVE_RESPOSTA) || "null");
+      return r && typeof r.cifra === "string" && r.cifra ? r : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function gravarResposta(r) {
+    try {
+      localStorage.setItem(CHAVE_RESPOSTA, JSON.stringify(r));
+    } catch {
+      /* sem storage: a resposta só vive nesta aba */
+    }
+  }
+
+  function brl0(n) {
+    return Number.isFinite(n) ? window.formatBrl(Math.round(n), 0) : "—";
+  }
+
+  // "2026-11-08" ou ISO completo → "08/11/2026" (data local do aparelho).
+  function data(iso) {
+    if (typeof iso !== "string" || !iso) return "";
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(iso + "T12:00:00") : new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const p = (x) => String(x).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
+  // Fora do estado do Alpine (como `iniciado`): a cifra que gerou a resposta
+  // em memória, a busca em voo e a hora da última busca.
+  let cifraDecifrada = null;
+  let buscaEmVoo = null;
+  let ultimaBusca = 0;
+
   // Fora do estado do Alpine: o listener de "online" é do documento, uma vez
   // por carga, e uma flag reativa sobreviveria ao "Bloquear sessão" (o
   // lock-higiene.spec.ts compara o estado antes e depois).
@@ -121,6 +201,7 @@
       comiteNota: "",
       comiteAgora: false,
       comiteErroCampo: "",
+      comiteResposta: null,
     });
     return {
       ...inicial(),
@@ -131,6 +212,7 @@
       // rascunho em localStorage fica: é só a cifra.
       _limparEstadoComite() {
         Object.assign(this, inicial());
+        cifraDecifrada = null;
       },
 
       comiteValor() {
@@ -166,6 +248,12 @@
         window.addEventListener("online", () => {
           if (lerRascunho()) this.comiteReenviar();
         });
+        // Destravou numa tela que mostra a resposta: decifra a guardada.
+        this.$watch("segredo", (s) => {
+          if (!s || (this.rota !== "aportar" && this.rota !== "comite")) return;
+          const g = lerRespostaGuardada();
+          if (g) this._comiteDecifrar(g.cifra);
+        });
         const r = lerRascunho();
         if (r) {
           if (Date.now() - Date.parse(r.criado_em) > RASCUNHO_TTL_MS) {
@@ -185,17 +273,259 @@
         if (enviado === null || Date.now() - enviado > ESTADO_JANELA_MS) return;
         try {
           const r = await fetch("./comite/estado", { cache: "no-store", redirect: "manual" });
-          if (!r.ok) return;
-          const e = await r.json();
-          if (this.comiteEstado !== "vazio") return; // algo aconteceu enquanto lia
-          if (e.pendente) {
-            this._comitePor("na_fila");
-          } else if (e.disparado_em && Date.now() - Date.parse(e.disparado_em) < RODANDO_MAX_MS) {
-            this._comitePor("rodando");
+          if (r.ok) {
+            const e = await r.json();
+            // Só se nada aconteceu enquanto lia.
+            if (this.comiteEstado === "vazio") {
+              if (e.pendente) {
+                this._comitePor("na_fila");
+              } else if (e.disparado_em && Date.now() - Date.parse(e.disparado_em) < RODANDO_MAX_MS) {
+                this._comitePor("rodando");
+              }
+            }
           }
         } catch {
-          /* sem estado do Worker: fica "vazio" */
+          /* sem estado do Worker: fica como está */
         }
+        // (a) pedido recente deste aparelho: a resposta pode ter chegado.
+        await this.comiteBuscarResposta(true);
+      },
+
+      // Entrada em #aportar ou #comite (chamado por atualizarRota): (b) e (c).
+      comiteAoAbrir() {
+        const guardada = lerRespostaGuardada();
+        if (guardada) this._comiteDecifrar(guardada.cifra);
+        if (this.rota === "comite" || guardada) this.comiteBuscarResposta();
+      },
+
+      async comiteBuscarResposta(forcar = false) {
+        if (!navigator.onLine) return;
+        if (buscaEmVoo) return buscaEmVoo;
+        if (!forcar && Date.now() - ultimaBusca < BUSCA_INTERVALO_MS) return;
+        ultimaBusca = Date.now();
+        buscaEmVoo = (async () => {
+          try {
+            const r = await fetch("./comite/resposta", { cache: "no-store", redirect: "manual" });
+            if (!r.ok) return;
+            const corpo = await r.json();
+            if (typeof corpo?.cifra !== "string" || !corpo.cifra) return;
+            gravarResposta({ cifra: corpo.cifra, gravada_em: corpo.gravada_em ?? null });
+            await this._comiteDecifrar(corpo.cifra);
+          } catch {
+            /* sem rede ou login vencido: fica a resposta guardada */
+          } finally {
+            buscaEmVoo = null;
+          }
+        })();
+        return buscaEmVoo;
+      },
+
+      async _comiteDecifrar(cifra) {
+        const segredo = this.segredo;
+        if (!segredo || !cifra) return;
+        if (this.comiteResposta && cifraDecifrada === cifra) return;
+        let obj;
+        try {
+          obj = JSON.parse(await window.decifrar(cifra, segredo));
+        } catch {
+          return; // outra frase, ou cifra corrompida: não mostra nada
+        }
+        if (!obj || obj.versao !== 1 || this.segredo !== segredo) return;
+        cifraDecifrada = cifra;
+        this.comiteResposta = obj;
+        // A resposta chegou depois do pedido deste aparelho: o status da fila
+        // deixa de valer.
+        const enviado = lerEnviadoEm();
+        const quando = Date.parse(obj.ultima_rodada?.criado_em || obj.atual?.criado_em || "");
+        if ((this.comiteEstado === "na_fila" || this.comiteEstado === "rodando") && enviado && quando >= enviado) {
+          this._comitePor("vazio", "");
+        }
+      },
+
+      // ── A resposta na tela (tudo derivado de `comiteResposta`) ─────────
+      comiteAtual() {
+        return (this.comiteResposta && this.comiteResposta.atual) || null;
+      },
+
+      comiteTemProposta() {
+        const a = this.comiteAtual();
+        return !!(a && a.comite);
+      },
+
+      comiteDadoVelho() {
+        const a = this.comiteAtual();
+        return !!(a && a.grifo_dado_velho === true);
+      },
+
+      // O plano da regra perde o grifo quando a resposta traz o seu: a razão
+      // principal da proposta, ou o aviso de dado velho (um grifo por tela).
+      comiteTomaGrifo() {
+        return this.comiteTemProposta() || this.comiteDadoVelho();
+      },
+
+      comiteAntiga() {
+        const a = this.comiteAtual();
+        const t = a ? Date.parse(a.criado_em) : NaN;
+        return Number.isFinite(t) && Date.now() - t > ANTIGA_MS;
+      },
+
+      comiteOutroValor() {
+        const a = this.comiteAtual();
+        const v = this.comiteValor();
+        return !!(a && v > 0 && Number.isFinite(a.valor_pedido) && Math.round(v) !== Math.round(a.valor_pedido));
+      },
+
+      comiteFmt(n) {
+        return brl0(n);
+      },
+
+      comiteData(iso) {
+        return data(iso);
+      },
+
+      comiteCabecalho() {
+        const a = this.comiteAtual();
+        if (!a) return "";
+        return `Proposta de ${data(a.criado_em).slice(0, 5)} para ${brl0(a.valor_pedido)}`;
+      },
+
+      comiteTextoOutroValor() {
+        const a = this.comiteAtual();
+        if (!a) return "";
+        return `Esta proposta vale para ${brl0(a.valor_pedido)}; o valor acima é ${brl0(this.comiteValor())}. Para o valor novo, peça outra proposta.`;
+      },
+
+      comiteTextoAntiga() {
+        const a = this.comiteAtual();
+        return a ? `Proposta antiga, de ${data(a.criado_em)}; a carteira mudou desde então.` : "";
+      },
+
+      comiteTextoRecusa() {
+        const a = this.comiteAtual();
+        const m = a && MOTIVOS[a.motivo_recusa];
+        return `O Comitê não passou na conferência${m ? ` (${m})` : ""}; esta é a regra.`;
+      },
+
+      comiteTextoIdade() {
+        const a = this.comiteAtual();
+        const i = (a && a.idade_fontes) || {};
+        const partes = [];
+        if (i.posicoes_ate) partes.push(`posições até ${data(i.posicoes_ate)}`);
+        if (i.precos_em) partes.push(`preços de ${data(i.precos_em)}`);
+        let t = partes.length ? `Dados com ${partes.join(" e ")}` : "";
+        if (Number.isFinite(i.dias_sem_ingestao)) {
+          const d = i.dias_sem_ingestao;
+          t += `${t ? "; " : ""}${d} ${d === 1 ? "dia" : "dias"} sem extrato novo`;
+        }
+        if (!t) return "";
+        if (this.comiteDadoVelho()) {
+          return `Dados velhos. ${t}. A proposta usa esses números; atualize a carteira antes de remeter.`;
+        }
+        return `${t}.`;
+      },
+
+      // Uma linha por ativo: os do Comitê primeiro, na ordem dele; depois os
+      // que só a regra põe. A diferença vai em texto, nunca só em cor.
+      comiteLinhas() {
+        const a = this.comiteAtual();
+        if (!a) return [];
+        const regra = new Map();
+        for (const c of (a.regra && a.regra.categorias) || []) {
+          for (const x of c.compras || []) regra.set(x.ticker, (regra.get(x.ticker) || 0) + (x.valor || 0));
+        }
+        const linhas = [];
+        const vistos = new Set();
+        for (const x of (a.comite && a.comite.ativos) || []) {
+          vistos.add(x.ticker);
+          linhas.push({ ticker: x.ticker, comite: x.valor_brl, regra: regra.has(x.ticker) ? regra.get(x.ticker) : null });
+        }
+        for (const [ticker, v] of regra) {
+          if (!vistos.has(ticker)) linhas.push({ ticker, comite: null, regra: v });
+        }
+        for (const l of linhas) {
+          if (!a.comite) l.dif = "";
+          else if (l.comite == null) l.dif = "só na Regra";
+          else if (l.regra == null) l.dif = "só no Comitê";
+          else if (Math.abs(l.comite - l.regra) < 0.5) l.dif = "igual nos dois";
+          else l.dif = l.comite > l.regra ? "Comitê põe mais" : "Comitê põe menos";
+        }
+        return linhas;
+      },
+
+      comiteCusto(lado) {
+        const c = this.comiteAtual()?.custos;
+        if (!c) return "—";
+        return Number.isFinite(c[lado]) ? brl0(c[lado]) : "sem estimativa";
+      },
+
+      comiteCustoNota() {
+        const medido = this.comiteAtual()?.custos?.medido_em;
+        return `custo estimado; câmbio e IOF por parâmetro${medido ? ` medido em ${data(medido)}` : ""}`;
+      },
+
+      comiteEconomia() {
+        const a = this.comiteAtual();
+        const e = a && a.economia_brl;
+        if (!a || !a.comite || !Number.isFinite(e)) return "";
+        if (Math.abs(e) < 0.5) return "Os dois caminhos custam o mesmo.";
+        return e > 0 ? `O caminho do Comitê custa ${brl0(e)} a menos.` : `O caminho do Comitê custa ${brl0(-e)} a mais.`;
+      },
+
+      comiteRisco() {
+        const r = this.comiteAtual()?.comite?.risco_retorno;
+        if (!r) return "";
+        return [LADO_RISCO[r.lado], r.texto].filter(Boolean).join(". ");
+      },
+
+      comiteConfianca() {
+        const c = this.comiteAtual()?.comite?.confianca;
+        if (!c || !c.nivel) return "";
+        return `Confiança ${c.nivel}${c.motivo ? `: ${c.motivo}` : ""}.`;
+      },
+
+      comiteAvisos() {
+        const a = this.comiteAtual();
+        if (!a) return [];
+        return [...(a.avisos || []), ...((a.comite && a.comite.avisos) || [])].filter((x) => typeof x === "string" && x);
+      },
+
+      comiteRegistros() {
+        const rs = (this.comiteResposta && this.comiteResposta.registros) || [];
+        return [...rs].sort((x, y) => (Date.parse(y.criado_em) || 0) - (Date.parse(x.criado_em) || 0));
+      },
+
+      comiteTipoRegistro(tipo) {
+        return TIPO_REGISTRO[tipo] || "Registro";
+      },
+
+      // Os registros da mesma rodada da proposta (mesmo dia) dão a contagem.
+      comiteLinkRegistros() {
+        const a = this.comiteAtual();
+        const dia = a && typeof a.criado_em === "string" ? a.criado_em.slice(0, 10) : null;
+        const n = dia ? this.comiteRegistros().filter((r) => String(r.criado_em || "").slice(0, 10) === dia).length : 0;
+        return n > 0 ? `Anotado para a revisão estrutural (${n})` : "Registros do Comitê";
+      },
+
+      comitePlacar() {
+        const r = this.comiteResposta;
+        if (!r) return "";
+        const props = [r.atual, ...(r.historico || [])].filter((x) => x && x.valor_pedido != null);
+        const n = props.length;
+        const t = props.map((x) => Date.parse(x.criado_em)).filter(Number.isFinite);
+        let desde = "nov/2026";
+        if (t.length) {
+          const d = new Date(Math.min(...t));
+          desde = `${MESES[d.getMonth()]}/${d.getFullYear()}`;
+        }
+        return `histórico curto · ${n} ${n === 1 ? "proposta" : "propostas"} desde ${desde}`;
+      },
+
+      comiteUltimaRodada() {
+        const u = this.comiteResposta && this.comiteResposta.ultima_rodada;
+        if (!u || !u.criado_em) return "";
+        const modo = u.modo === "registros" ? "só registros" : "com proposta";
+        const recusa = /recusad/.test(u.estado || "") ? ", que não passou na conferência" : "";
+        return `Última rodada em ${data(u.criado_em)}, ${modo}${recusa}.`;
       },
 
       async comiteEnviar() {
