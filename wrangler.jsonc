@@ -1,0 +1,18 @@
+// 7a.BW.2: o app servido pelo Worker investimentos-app (Static Assets), atras
+// do Cloudflare Access. O Workers Builds implanta a cada push na main.
+//
+// Sem `main`: nesta sub-fase o Worker so serve arquivos. As rotas do Comite
+// (/comite/*) chegam na BW.5.
+//
+// O secret GITHUB_PAT_COMITE vive na configuracao do Worker (painel), nunca
+// aqui; `wrangler deploy` nao o apaga (medido na BW.1).
+//
+// html_handling fica no padrao ("auto-trailing-slash"): /index.html responde
+// 307 para /. O service-worker.js trata isso (ver o cabecalho dele).
+{
+  "name": "investimentos-app",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "."
+  }
+}

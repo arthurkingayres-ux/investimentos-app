@@ -1,0 +1,19 @@
+# 7a.BW.2: o Workers Builds publica a raiz deste repo como Static Assets do
+# Worker investimentos-app. Tudo abaixo NAO e o app e nao pode virar URL.
+# Travado por tests/e2e/worker-config.spec.ts.
+node_modules
+tests
+test-results
+playwright-report
+mockups
+scripts
+worker
+*.md
+package*.json
+playwright.config.ts
+wrangler.jsonc
+.git*
+.wrangler
+.tmp*
+.playwright-mcp
+LICENSE
