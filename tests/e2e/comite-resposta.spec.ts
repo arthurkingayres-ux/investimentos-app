@@ -295,3 +295,23 @@ test.describe("Comitê: a resposta no #aportar", () => {
     });
   }
 });
+
+// CRB 7a.BW.6 (iter 1): a rodada só de registros do dia 12 não responde ao pedido de
+// aporte; ela não pode limpar o "na fila" deste aparelho. Só a resposta de aporte
+// (atual.criado_em) depois do envio limpa.
+test("rodada so de registros mais nova nao limpa o pedido na fila", async ({ page }) => {
+  const enviado = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const r = resposta((x) => {
+    x.estado = "registros";
+    x.atual.criado_em = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+    x.ultima_rodada = { modo: "registros", estado: "registros", criado_em: new Date().toISOString(), motivo_recusa: null };
+  });
+  await abrir(page, {
+    resposta: r,
+    enviadoEm: enviado,
+    estado: { pendente: true, recebido_em: enviado, disparado_em: null, ultima_falha: null },
+  });
+  await expect(page.getByText("Pedido na fila; resposta até amanhã às 7h.")).toBeVisible();
+  await page.waitForTimeout(800);
+  await expect(page.getByText("Pedido na fila; resposta até amanhã às 7h.")).toBeVisible();
+});

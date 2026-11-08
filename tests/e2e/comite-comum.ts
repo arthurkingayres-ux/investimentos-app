@@ -43,6 +43,7 @@ export type Abrir = {
   resposta?: any | null; // null = Worker sem resposta (cifra null)
   enviadoEm?: string | null; // pedido recente DESTE aparelho
   cache?: any | null; // resposta já guardada (só a cifra) em localStorage
+  estado?: any; // corpo de GET /comite/estado (padrão: nada pendente)
   tema?: "dark" | null;
   hash?: string;
   erros?: string[];
@@ -59,7 +60,7 @@ export async function abrir(page: Page, o: Abrir = {}) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null }),
+      body: JSON.stringify(o.estado ?? { pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null }),
     }),
   );
   const corpo = o.resposta

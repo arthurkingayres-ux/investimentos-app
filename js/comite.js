@@ -76,6 +76,7 @@
     REGISTRO_SEM_EVIDENCIA: "trazia um registro sem evidência",
     SAIDA_AUSENTE: "não respondeu a tempo",
     SAIDA_INVALIDA: "respondeu fora do formato",
+    VALIDADOR_FALHOU: "a conferência falhou por erro interno",
   };
 
   const TIPO_REGISTRO = {
@@ -343,7 +344,10 @@
         // A resposta chegou depois do pedido deste aparelho: o status da fila
         // deixa de valer.
         const enviado = lerEnviadoEm();
-        const quando = Date.parse(obj.ultima_rodada?.criado_em || obj.atual?.criado_em || "");
+        // Só a rodada de aporte responde ao pedido: ela é a única que troca
+        // `atual`. A rodada só de registros (dia 12) tem `ultima_rodada` mais
+        // nova e não pode limpar o "na fila" (CRB 7a.BW.6).
+        const quando = Date.parse(obj.atual?.criado_em || "");
         if ((this.comiteEstado === "na_fila" || this.comiteEstado === "rodando") && enviado && quando >= enviado) {
           this._comitePor("vazio", "");
         }
