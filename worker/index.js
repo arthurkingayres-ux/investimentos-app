@@ -1,0 +1,160 @@
+// 7a.BW.5: Worker investimentos-app. Serve o app (Static Assets) e, so em
+// /comite/* (assets.run_worker_first), recebe o pedido do Comite de Aporte.
+//
+// O caminho (spec 7a.BW §9.1): o app cifra o pedido com a frase de acesso e faz
+// POST aqui; este Worker confere o JWT do Access, limita a 3 pedidos por dia
+// (BRT) e guarda o texto cifrado no KV como "pedido pendente" (o ultimo
+// substitui o anterior). O cron das 03:30 BRT (06:30 UTC) dispara o
+// `workflow_dispatch` de comite-aporte.yml no repo principal com a cifra como
+// input; "rodar agora" (`imediato`) dispara na hora. No dia 12 BRT, sem
+// pendente por disparar, o cron dispara a rodada "so registros".
+//
+// O Worker nunca ve o valor em claro e nunca loga a cifra nem o token: os logs
+// levam so status HTTP.
+//
+// Segredos (painel/`wrangler secret`, nunca aqui): GITHUB_PAT_COMITE,
+// ACCESS_AUD, ACCESS_TEAM_DOMAIN.
+
+import { verificarAccess } from "./access.js";
+
+const LIMITE_DIA = 3;
+const MAX_CORPO = 8 * 1024;
+const TTL_LIMITE_S = 2 * 24 * 3600;
+const BRT_MS = -3 * 3600 * 1000; // Brasil sem horario de verao desde 2019
+const RE_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+const CHAVE_PENDENTE = "pedido:pendente";
+const CHAVE_FALHA = "falha:ultima";
+
+function json(corpo, status = 200) {
+  return new Response(JSON.stringify(corpo), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+function diaBrt(ms) {
+  const d = new Date(ms + BRT_MS);
+  return { iso: d.toISOString().slice(0, 10), dia: d.getUTCDate() };
+}
+
+export async function dispatch(inputs, env) {
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${env.WORKFLOW}/dispatches`;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_PAT_COMITE}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      // A API do GitHub responde 403 sem User-Agent.
+      "User-Agent": "comite-aporte",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ref: "master", inputs }),
+  });
+  if (!r.ok) throw new Error(`dispatch falhou: HTTP ${r.status}`);
+  console.log(`dispatch ok (${inputs.modo}): HTTP ${r.status}`);
+}
+
+async function registrarFalha(env, erro) {
+  await env.COMITE.put(CHAVE_FALHA, JSON.stringify({ em: new Date().toISOString(), motivo: String(erro.message ?? erro) }));
+}
+
+async function dispararPendente(env, pendente) {
+  await dispatch({ modo: "aporte", pedido: pendente.cifra }, env);
+  pendente.disparado_em = new Date().toISOString();
+  await env.COMITE.put(CHAVE_PENDENTE, JSON.stringify(pendente));
+  await env.COMITE.delete(CHAVE_FALHA);
+}
+
+async function lerCorpo(request) {
+  const texto = await request.text();
+  if (new TextEncoder().encode(texto).length > MAX_CORPO) return { status: 413 };
+  let corpo;
+  try {
+    corpo = JSON.parse(texto);
+  } catch {
+    return { status: 400 };
+  }
+  if (!corpo || typeof corpo !== "object") return { status: 400 };
+  const { cifra, imediato } = corpo;
+  if (typeof cifra !== "string" || cifra.length === 0 || !RE_BASE64.test(cifra)) return { status: 400 };
+  if (typeof imediato !== "boolean") return { status: 400 };
+  return { cifra, imediato };
+}
+
+async function postPedido(request, env) {
+  const corpo = await lerCorpo(request);
+  if (corpo.status) return json({ erro: corpo.status === 413 ? "corpo grande demais" : "corpo invalido" }, corpo.status);
+
+  const { iso } = diaBrt(Date.now());
+  const chaveLimite = `limite:${iso}`;
+  const usados = Number((await env.COMITE.get(chaveLimite)) ?? 0);
+  if (usados >= LIMITE_DIA) return json({ erro: "limite diario" }, 429);
+  await env.COMITE.put(chaveLimite, String(usados + 1), { expirationTtl: TTL_LIMITE_S });
+
+  const pendente = { cifra: corpo.cifra, recebido_em: new Date().toISOString(), disparado_em: null };
+  await env.COMITE.put(CHAVE_PENDENTE, JSON.stringify(pendente));
+
+  if (corpo.imediato) {
+    try {
+      await dispararPendente(env, pendente);
+      return json({ estado: "disparado" }, 202);
+    } catch (e) {
+      // Fica na fila: o cron da madrugada tenta de novo.
+      console.error(`rodar agora falhou: ${e.message}`);
+      await registrarFalha(env, e);
+    }
+  }
+  return json({ estado: "na_fila" }, 202);
+}
+
+async function getEstado(env) {
+  const pendente = await env.COMITE.get(CHAVE_PENDENTE, "json");
+  const falha = await env.COMITE.get(CHAVE_FALHA, "json");
+  return json({
+    pendente: Boolean(pendente && !pendente.disparado_em),
+    recebido_em: pendente?.recebido_em ?? null,
+    disparado_em: pendente?.disparado_em ?? null,
+    ultima_falha: falha ?? null,
+  });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/comite/")) return env.ASSETS.fetch(request);
+
+    const acesso = await verificarAccess(request, env);
+    if (!acesso.ok) return json({ erro: "acesso negado" }, acesso.status);
+
+    if (url.pathname === "/comite/pedido") {
+      if (request.method !== "POST") return json({ erro: "metodo" }, 405);
+      return postPedido(request, env);
+    }
+    if (url.pathname === "/comite/estado") {
+      if (request.method !== "GET") return json({ erro: "metodo" }, 405);
+      return getEstado(env);
+    }
+    return json({ erro: "nao encontrado" }, 404);
+  },
+
+  async scheduled(event, env, ctx) {
+    const { dia } = diaBrt(event.scheduledTime ?? Date.now());
+    const pendente = await env.COMITE.get(CHAVE_PENDENTE, "json");
+    try {
+      if (pendente && !pendente.disparado_em) {
+        await dispararPendente(env, pendente);
+      } else if (dia === 12) {
+        await dispatch({ modo: "registros" }, env);
+        await env.COMITE.delete(CHAVE_FALHA);
+      } else {
+        console.log("cron: nada a disparar");
+      }
+    } catch (e) {
+      console.error(`cron falhou: ${e.message}`);
+      await registrarFalha(env, e);
+      throw e;
+    }
+  },
+};

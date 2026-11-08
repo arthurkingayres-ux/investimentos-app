@@ -66,14 +66,42 @@ test.describe("Worker investimentos-app: configuração", () => {
     for (const padrao of OBRIGATORIOS) expect(linhas, padrao).toContain(padrao);
   });
 
-  test("wrangler.jsonc: nome final e assets na raiz, sem main", () => {
+  test("wrangler.jsonc: nome final e assets na raiz", () => {
     const cfg = JSON.parse(
       semComentarios(fs.readFileSync(path.join(RAIZ, "wrangler.jsonc"), "utf8")),
     );
     expect(cfg.name).toBe("investimentos-app");
     expect(cfg.assets?.directory).toBe(".");
-    expect(cfg.main).toBeUndefined();
     expect(cfg.compatibility_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  // 7a.BW.5: o Worker ganha `main` só para /comite/*; o resto segue Static Assets.
+  test("wrangler.jsonc: rotas do Comitê (main, run_worker_first, KV, cron)", () => {
+    const cfg = JSON.parse(
+      semComentarios(fs.readFileSync(path.join(RAIZ, "wrangler.jsonc"), "utf8")),
+    );
+    expect(cfg.main).toBe("worker/index.js");
+    expect(cfg.assets?.binding).toBe("ASSETS");
+    expect(cfg.assets?.run_worker_first).toEqual(["/comite/*"]);
+    expect(cfg.kv_namespaces).toHaveLength(1);
+    expect(cfg.kv_namespaces[0].binding).toBe("COMITE");
+    expect(cfg.kv_namespaces[0].id).toMatch(/^[0-9a-f]{32}$/);
+    // 06:30 UTC = 03:30 BRT; nunca o horário do gatilho do relatório (08:30 UTC).
+    expect(cfg.triggers?.crons).toEqual(["30 6 * * *"]);
+    expect(cfg.vars?.GITHUB_REPO).toBe("arthurkingayres-ux/investimentos");
+    expect(cfg.vars?.WORKFLOW).toBe("comite-aporte.yml");
+  });
+
+  // Enquanto o repo for público, o time do Access (e qualquer segredo) não entra
+  // no arquivo: ACCESS_AUD, ACCESS_TEAM_DOMAIN e GITHUB_PAT_COMITE são secrets.
+  test("wrangler.jsonc: nada do Access nem token em texto", () => {
+    const bruto = fs.readFileSync(path.join(RAIZ, "wrangler.jsonc"), "utf8");
+    const cfg = JSON.parse(semComentarios(bruto));
+    for (const nome of ["ACCESS_AUD", "ACCESS_TEAM_DOMAIN", "GITHUB_PAT_COMITE"]) {
+      expect(cfg.vars?.[nome], nome).toBeUndefined();
+    }
+    expect(bruto).not.toMatch(/cloudflareaccess\.com/);
+    expect(bruto).not.toMatch(/github_pat_/);
   });
 
   test("controle positivo: o removedor de comentários preserva // dentro de string", () => {

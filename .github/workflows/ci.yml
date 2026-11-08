@@ -32,6 +32,10 @@ jobs:
       - name: Install Node deps
         run: npm ci
 
+      # 7a.BW.5: rotas do Comite no Worker (node --test, sem rede nem browser).
+      - name: Worker tests
+        run: npm run test:worker
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

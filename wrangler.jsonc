@@ -1,18 +1,43 @@
 // 7a.BW.2: o app servido pelo Worker investimentos-app (Static Assets), atras
 // do Cloudflare Access. O Workers Builds implanta a cada push na main.
 //
-// Sem `main`: nesta sub-fase o Worker so serve arquivos. As rotas do Comite
-// (/comite/*) chegam na BW.5.
+// 7a.BW.5: `main` existe so para /comite/* (run_worker_first): o pedido do
+// Comite de Aporte (worker/index.js). Todo o resto continua sendo arquivo
+// estatico servido sem passar pelo script.
 //
-// O secret GITHUB_PAT_COMITE vive na configuracao do Worker (painel), nunca
-// aqui; `wrangler deploy` nao o apaga (medido na BW.1).
+// Segredos vivem na configuracao do Worker (`wrangler secret put` ou painel),
+// nunca aqui: GITHUB_PAT_COMITE, ACCESS_AUD, ACCESS_TEAM_DOMAIN. Os dois do
+// Access sao secrets e nao `vars` porque o repo e publico: o time do Access nao
+// entra em arquivo dele (travado por tests/e2e/worker-config.spec.ts). Com
+// `main`, secret sobrevive a deploy (medido na BW.1); sem `main`, o 1o build da
+// BW.2 os apagou.
 //
 // html_handling fica no padrao ("auto-trailing-slash"): /index.html responde
 // 307 para /. O service-worker.js trata isso (ver o cabecalho dele).
 {
   "name": "investimentos-app",
   "compatibility_date": "2026-11-01",
+  "main": "worker/index.js",
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/comite/*"]
+  },
+  "kv_namespaces": [
+    { "binding": "COMITE", "id": "2e434e6260624ccea4555e14227f13d5" }
+  ],
+  // 06:30 UTC = 03:30 BRT, todo dia: dispara o pedido pendente; no dia 12 BRT,
+  // sem pendente, a rodada "so registros". Antes do gatilho do relatorio
+  // mensal (Worker gatilho-relatorio-mensal, 08:30 UTC, dias 5-9), longe das
+  // sessoes interativas: disputa da janela de 5 h da assinatura.
+  "triggers": {
+    "crons": ["30 6 * * *"]
+  },
+  "vars": {
+    "GITHUB_REPO": "arthurkingayres-ux/investimentos",
+    "WORKFLOW": "comite-aporte.yml"
+  },
+  "observability": {
+    "enabled": true
   }
 }
