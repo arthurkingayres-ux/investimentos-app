@@ -29,7 +29,7 @@
 // servindo o cache dele. O install tolerante de antes ativaria um SW com
 // shell vazio, e o `activate` apagaria o cache bom: offline morto.
 
-const CACHE_VERSION = "v109";
+const CACHE_VERSION = "v110";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -42,6 +42,7 @@ const SHELL_PRECACHE = [
   "./js/crypto.js",
   "./js/format.js",
   "./js/transitions.js",
+  "./js/aportar.js",
   "./js/vendor/alpine.min.js",
   "./js/vendor/echarts.min.js",
   "./js/echarts-theme.js",

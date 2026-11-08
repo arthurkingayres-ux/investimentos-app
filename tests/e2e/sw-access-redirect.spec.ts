@@ -105,6 +105,25 @@ async function instalarComCarteira(context: BrowserContext): Promise<Page> {
   return page;
 }
 
+test.describe("SW: o precache cobre o shell que o index.html carrega", () => {
+  test("todo script e stylesheet do index.html está no SHELL_PRECACHE", () => {
+    // Com o install estrito, SHELL_PRECACHE é o contrato do app offline: o
+    // que não está ali só entra no cache se for buscado com o SW já ativo.
+    // Derivado do index.html, não enumerado (CRB da 7a.BW.2: aportar.js faltava).
+    const html = fs.readFileSync(path.join(RAIZ, "index.html"), "utf8");
+    const sw = fs.readFileSync(path.join(RAIZ, "service-worker.js"), "utf8");
+    const bloco = sw.match(/const SHELL_PRECACHE = \[([\s\S]*?)\];/);
+    expect(bloco, "SHELL_PRECACHE não encontrado").not.toBeNull();
+    const precache = [...bloco![1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const usados = [
+      ...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g),
+      ...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g),
+    ].map((m) => "./" + m[1].split("?")[0]);
+    expect(usados.length).toBeGreaterThan(5);
+    for (const u of usados) expect(precache, u).toContain(u);
+  });
+});
+
 test.describe("SW atrás do Access (Worker com Static Assets)", () => {
   test("offline: o atalho ./index.html e a raiz abrem com a última carteira", async ({ context }) => {
     const page = await instalarComCarteira(context);
