@@ -286,3 +286,38 @@ test("nenhum console.* recebe a cifra nem o token", async () => {
     Object.assign(console, orig);
   }
 });
+
+// 7a.BW.6 Task 6.4: a resposta cifrada mora no KV (repo do app e publico, Registro BW.3);
+// o publicar do comite-aporte.yml grava `resposta` pela API da Cloudflare.
+function getResposta({ comJwt = true, method = "GET" } = {}) {
+  const headers = comJwt ? { "Cf-Access-Jwt-Assertion": jwt } : {};
+  return worker.fetch(new Request("https://app.exemplo.invalid/comite/resposta", { method, headers }), env, {});
+}
+
+test("GET resposta sem nada no KV: 200 com cifra null (404 viraria erro de console no app)", async () => {
+  const r = await getResposta();
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await r.json(), { cifra: null, gravada_em: null });
+});
+
+test("GET resposta devolve a cifra e a data gravadas pelo publicar", async () => {
+  const cifra = cifraFicticia();
+  await kv.put("resposta", JSON.stringify({ cifra, gravada_em: "2026-11-09T06:41:00Z" }));
+  const r = await getResposta();
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { cifra, gravada_em: "2026-11-09T06:41:00Z" });
+});
+
+test("GET resposta sem JWT: 401, e POST: 405", async () => {
+  await kv.put("resposta", JSON.stringify({ cifra: cifraFicticia(), gravada_em: "2026-11-09T06:41:00Z" }));
+  assert.equal((await getResposta({ comJwt: false })).status, 401);
+  assert.equal((await getResposta({ method: "POST" })).status, 405);
+});
+
+test("GET resposta com valor ilegivel no KV: cifra null, sem lancar", async () => {
+  await kv.put("resposta", "isto nao e json");
+  const r = await getResposta();
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { cifra: null, gravada_em: null });
+});

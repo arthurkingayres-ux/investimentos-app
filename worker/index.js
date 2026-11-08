@@ -8,6 +8,8 @@
 // `workflow_dispatch` de comite-aporte.yml no repo principal com a cifra como
 // input; "rodar agora" (`imediato`) dispara na hora. No dia 12 BRT, sem
 // pendente por disparar, o cron dispara a rodada "so registros".
+// 7a.BW.6: GET /comite/resposta entrega a resposta cifrada que o `publicar` do
+// workflow grava no KV (`resposta`); o app a decifra com a frase.
 //
 // O Worker nunca ve o valor em claro e nunca loga a cifra nem o token: os logs
 // levam so status HTTP.
@@ -25,6 +27,9 @@ const RE_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const CHAVE_PENDENTE = "pedido:pendente";
 const CHAVE_FALHA = "falha:ultima";
+// 7a.BW.6: gravada pelo `publicar` do comite-aporte.yml pela API da Cloudflare
+// (o repo do app e publico; Registro BW.3). Valor: {cifra, gravada_em}.
+const CHAVE_RESPOSTA = "resposta";
 
 function json(corpo, status = 200) {
   return new Response(JSON.stringify(corpo), {
@@ -139,6 +144,19 @@ async function getEstado(env) {
   });
 }
 
+// Sem resposta (ou valor ilegivel) responde 200 com cifra null: um 404 viraria
+// erro de console no app a cada abertura.
+async function getResposta(env) {
+  let gravada = null;
+  try {
+    gravada = await env.COMITE.get(CHAVE_RESPOSTA, "json");
+  } catch {
+    gravada = null;
+  }
+  const cifra = typeof gravada?.cifra === "string" && gravada.cifra ? gravada.cifra : null;
+  return json({ cifra, gravada_em: cifra ? (gravada.gravada_em ?? null) : null });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -154,6 +172,10 @@ export default {
     if (url.pathname === "/comite/estado") {
       if (request.method !== "GET") return json({ erro: "metodo" }, 405);
       return getEstado(env);
+    }
+    if (url.pathname === "/comite/resposta") {
+      if (request.method !== "GET") return json({ erro: "metodo" }, 405);
+      return getResposta(env);
     }
     return json({ erro: "nao encontrado" }, 404);
   },
