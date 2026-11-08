@@ -417,7 +417,13 @@ test("toque na classe durante a carga do índice de relatórios não é desfeito
   const live = page.locator('[data-testid="dy-champs"] [aria-live]');
   await expect(live).toContainText("Ranking Ação BR");
   soltar();
-  await page.waitForResponse("**/relatorios_index.json.enc").catch(() => {});
-  await page.waitForTimeout(300);
+  // Estado observável em vez de sono fixo: o `finally` do loader zera a
+  // promise em voo; a continuação síncrona do destrave (que chama o
+  // hidratarDY) roda antes da próxima task deste poll. Vale também quando o
+  // índice não decifra com o PIN de teste (relIndice fica null).
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { Alpine: { $data: (el: Element) => Record<string, unknown> } })
+      .Alpine.$data(document.body)._relIndicePromise === null,
+  )).toBe(true);
   await expect(live).toContainText("Ranking Ação BR");
 });

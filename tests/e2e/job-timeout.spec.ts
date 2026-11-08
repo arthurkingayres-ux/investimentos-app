@@ -27,6 +27,7 @@ function jobs(texto: string): Map<string, string> {
   let atual: string | null = null;
   let corpo: string[] = [];
   for (const l of linhas.slice(ini + 1)) {
+    if (/^\s*#/.test(l)) continue; // comentário, em qualquer coluna, não encerra `jobs:`
     if (/^\S/.test(l)) break; // fim de `jobs:`
     const m = l.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
     if (m) {
@@ -45,7 +46,7 @@ const TETO: Record<string, number> = { test: 30 };
 const TETO_PADRAO = 10;
 
 test("controle positivo: o fatiador acha jobs e a ausência de timeout", () => {
-  const exemplo = "on: push\njobs:\n  a:\n    runs-on: x\n  b:\n    timeout-minutes: 5\n    runs-on: x\n";
+  const exemplo = "on: push\njobs:\n  a:\n    runs-on: x\n# comentário em coluna 0\n  b:\n    timeout-minutes: 5\n    runs-on: x\n";
   const j = jobs(exemplo);
   expect([...j.keys()]).toEqual(["a", "b"]);
   expect(j.get("a")).not.toMatch(/^ {4}timeout-minutes:/m);
