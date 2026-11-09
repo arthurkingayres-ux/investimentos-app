@@ -21,6 +21,18 @@ export function fixtureResposta(): any {
   );
 }
 
+export function decifrar(b64: string, segredo = SEGREDO_TESTE): any {
+  const buf = Buffer.from(b64.trim(), "base64");
+  const salt = buf.subarray(0, 16);
+  const nonce = buf.subarray(16, 28);
+  const ct = buf.subarray(28, buf.length - 16);
+  const tag = buf.subarray(buf.length - 16);
+  const chave = crypto.pbkdf2Sync(segredo, salt, 600_000, 32, "sha256");
+  const d = crypto.createDecipheriv("aes-256-gcm", chave, nonce);
+  d.setAuthTag(tag);
+  return JSON.parse(Buffer.concat([d.update(ct), d.final()]).toString("utf8"));
+}
+
 export function cifrar(texto: string, segredo = SEGREDO_TESTE): string {
   const salt = crypto.randomBytes(16);
   const nonce = crypto.randomBytes(12);
@@ -28,6 +40,20 @@ export function cifrar(texto: string, segredo = SEGREDO_TESTE): string {
   const c = crypto.createCipheriv("aes-256-gcm", chave, nonce);
   const ct = Buffer.concat([c.update(texto, "utf8"), c.final(), c.getAuthTag()]);
   return Buffer.concat([salt, nonce, ct]).toString("base64");
+}
+
+// `comite_placar` sintético (forma do backend, 7a.BW.7 Task 7.3a).
+export function placar(mudar?: (c: any) => void): any {
+  const c: any = {
+    estado: "historico_curto",
+    n_propostas: 2,
+    desde: "2026-11",
+    meses: 1,
+    sombras: { regra: [], comite: [], real: [] },
+    twr: { regra: null, comite: null, real: null },
+  };
+  if (mudar) mudar(c);
+  return c;
 }
 
 // A fixture com o `criado_em` da proposta atual a uma hora de agora (pronta,
@@ -47,11 +73,20 @@ export type Abrir = {
   tema?: "dark" | null;
   hash?: string;
   erros?: string[];
+  // 7a.BW.7 Task 7.3b: ajusta o portfolio decifrado (ex.: injeta `comite_placar`
+  // sintético) antes de servi-lo de novo cifrado.
+  portfolio?: (p: any) => void;
 };
 
 export async function abrir(page: Page, o: Abrir = {}) {
+  let portfolioCifrado = PORTFOLIO;
+  if (o.portfolio) {
+    const p = decifrar(PORTFOLIO);
+    o.portfolio(p);
+    portfolioCifrado = cifrar(JSON.stringify(p));
+  }
   await page.route("**/portfolio.json.enc", (route) =>
-    route.fulfill({ status: 200, body: PORTFOLIO, contentType: "text/plain" }),
+    route.fulfill({ status: 200, body: portfolioCifrado, contentType: "text/plain" }),
   );
   await page.route("**/relatorios_index.json.enc", (route) =>
     route.fulfill({ status: 200, body: IDX_REL, contentType: "text/plain" }),

@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
-import { abrir, resposta, contraste, VERBO_DE_ORDEM } from "./comite-comum";
+import { abrir, resposta, placar, contraste, VERBO_DE_ORDEM } from "./comite-comum";
 
 // 7a.BW.6 Task 6.6: a rota #comite, com os registros estratégicos e a linha do
 // placar (spec 7a.BW §6.5, §13 e D5). Fixture SINTÉTICA.
@@ -46,16 +46,64 @@ test.describe("Comitê: a rota #comite", () => {
     await expect(r0.locator(".comite-registro__data")).toHaveText("08/11/2026");
   });
 
-  test("linha do placar: histórico curto e N propostas (atual + histórico)", async ({ page }) => {
-    await abrir(page, { resposta: resposta(), hash: "#comite" });
-    await expect(tela(page).locator(".comite-placar")).toHaveText("histórico curto · 3 propostas desde nov/2026", {
+  test("linha do placar lê comite_placar do payload (N e mês/ano de desde)", async ({ page }) => {
+    // A resposta do KV tem 3 propostas desde nov/2026; o payload diz 4 desde mar/2027:
+    // o texto só pode vir do payload.
+    await abrir(page, {
+      resposta: resposta(),
+      hash: "#comite",
+      portfolio: (p) => (p.comite_placar = placar((c) => ((c.n_propostas = 4), (c.desde = "2027-03")))),
+    });
+    await expect(tela(page).locator(".comite-placar")).toHaveText("histórico curto · 4 propostas desde mar/2027", {
       timeout: 10_000,
     });
   });
 
   test("placar no singular com uma proposta só", async ({ page }) => {
-    await abrir(page, { resposta: resposta((r) => (r.historico = [])), hash: "#comite" });
+    await abrir(page, {
+      resposta: resposta(),
+      hash: "#comite",
+      portfolio: (p) => (p.comite_placar = placar((c) => ((c.n_propostas = 1), (c.desde = "2026-11")))),
+    });
     await expect(tela(page).locator(".comite-placar")).toHaveText("histórico curto · 1 proposta desde nov/2026", {
+      timeout: 10_000,
+    });
+  });
+
+  test("placar sem desde (livro vazio): sem mês inventado, sem quebrar", async ({ page }) => {
+    const erros: string[] = [];
+    await abrir(page, {
+      resposta: resposta(),
+      hash: "#comite",
+      erros,
+      portfolio: (p) => (p.comite_placar = placar((c) => ((c.n_propostas = 0), (c.desde = null)))),
+    });
+    await expect(tela(page).locator(".comite-placar")).toHaveText("histórico curto · 0 propostas", {
+      timeout: 10_000,
+    });
+    expect(erros).toEqual([]);
+  });
+
+  test("payload antigo sem comite_placar: a linha é vazia, sem cair na contagem do KV", async ({ page }) => {
+    const erros: string[] = [];
+    await abrir(page, {
+      resposta: resposta(),
+      hash: "#comite",
+      erros,
+      portfolio: (p) => delete p.comite_placar,
+    });
+    await expect(tela(page).locator(".comite-registro")).toHaveCount(3, { timeout: 10_000 });
+    await expect(tela(page).locator(".comite-placar")).toHaveText("");
+    expect(erros).toEqual([]);
+  });
+
+  test("estado comparavel renderiza a mesma linha de histórico curto", async ({ page }) => {
+    await abrir(page, {
+      resposta: resposta(),
+      hash: "#comite",
+      portfolio: (p) => (p.comite_placar = placar((c) => ((c.estado = "comparavel"), (c.n_propostas = 7), (c.desde = "2026-12")))),
+    });
+    await expect(tela(page).locator(".comite-placar")).toHaveText("histórico curto · 7 propostas desde dez/2026", {
       timeout: 10_000,
     });
   });

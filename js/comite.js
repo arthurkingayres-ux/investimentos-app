@@ -675,18 +675,17 @@
         return n > 0 ? `Anotado para a revisão estrutural (${n})` : "Registros do Comitê";
       },
 
+      // 7a.BW.7: a linha lê `comite_placar` do payload da carteira (o backend
+      // conta no livro). Payload antigo, sem a chave: linha vazia, sem cair na
+      // contagem do KV. "comparavel" (inalcançável nesta fase) usa a mesma linha.
       comitePlacar() {
-        const r = this.comiteResposta;
-        if (!r) return "";
-        const props = [r.atual, ...(r.historico || [])].filter((x) => x && x.valor_pedido != null);
-        const n = props.length;
-        const t = props.map((x) => Date.parse(x.criado_em)).filter(Number.isFinite);
-        let desde = "nov/2026";
-        if (t.length) {
-          const d = new Date(Math.min(...t));
-          desde = `${MESES[d.getMonth()]}/${d.getFullYear()}`;
-        }
-        return `histórico curto · ${n} ${n === 1 ? "proposta" : "propostas"} desde ${desde}`;
+        const p = this.json && this.json.comite_placar;
+        if (!p || !Number.isFinite(p.n_propostas)) return "";
+        const n = p.n_propostas;
+        const m = typeof p.desde === "string" ? /^(\d{4})-(\d{2})$/.exec(p.desde) : null;
+        const mes = m ? MESES[Number(m[2]) - 1] : null;
+        const desde = mes ? ` desde ${mes}/${m[1]}` : "";
+        return `histórico curto · ${n} ${n === 1 ? "proposta" : "propostas"}${desde}`;
       },
 
       comiteUltimaRodada() {
