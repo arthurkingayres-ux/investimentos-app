@@ -405,7 +405,11 @@ test.describe("7a.R.3.b Task 6 — responsivo, Modo Plantão e a11y", () => {
       ".tela-dossie h1, .tela-dossie h2, .tela-dossie h3",
     ).evaluateAll((els) => els.map((e) => e.tagName));
     const entradas = await page.locator(".tela-dossie .dossie-tl__item").count();
-    expect(niveis).toEqual(["H1", "H2", "H2", ...Array(entradas).fill("H3")]);
+    // 7a.BX.4: a seção Vigília (h2) entra entre a tese e a linha do tempo quando o
+    // Olho tem o que dizer; aqui o servidor de teste responde "nunca rodou".
+    const vigilia = await page.locator(".tela-dossie .dossie-vigilia").count();
+    expect(vigilia).toBe(1);
+    expect(niveis).toEqual(["H1", "H2", "H2", "H2", ...Array(entradas).fill("H3")]);
   });
 
   test("botão voltar tem alvo ≥44px e rótulo acessível", async ({ page }) => {

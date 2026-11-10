@@ -5375,3 +5375,147 @@ body:has(.tab-bar) main {
   .cons-valor { flex-basis: 6.75rem; }
   .cons-ativo-vals { gap: 8px; }
 }
+
+/* === O Olho (7a.BX.4, spec 7a.BX §13.1) ====================================
+   Três superfícies de leitura, zero token novo. A gravidade vem em FORMA e
+   TEXTO (glifo aria-hidden + o grau por extenso), nunca só na cor: ▲ tese sob
+   ameaça, ◇ observar, · sem efeito. --amber-700 só onde há ameaça ainda não
+   examinada (é o token de warning como texto: 4,80:1 claro, 11,89:1 Plantão).
+   O trecho oficial vai em citação tipográfica (aspas penduradas e recuo), não
+   em grifo nem em borda lateral: o grifo do dossiê é do quebra_se. */
+.olho-glifo { display: inline-block; min-width: 1em; text-align: center; font-weight: 700; }
+
+/* Raio-X: uma linha, abaixo do link do histórico, só com ameaça pendente. */
+.olho-raiox {
+  display: flex; width: fit-content; align-items: center; gap: 0.35rem;
+  min-height: 44px; padding: 0.4rem 0.15rem;
+  font-size: 0.875rem; font-weight: 600; line-height: 1.3;
+  color: var(--amber-700); text-decoration: none;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.olho-raiox__ver { font-weight: 500; }
+.olho-raiox__chevron { font-size: 1.05rem; line-height: 1; }
+.olho-raiox:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .olho-raiox { transition: transform var(--d1) var(--ease); }
+}
+.olho-raiox:active { transform: scale(.97); }
+
+/* Índice do Diagnóstico: a entrada do Olho, fora da lista numerada. */
+.diag-indice__olho {
+  display: grid; grid-template-columns: minmax(0, 1fr) 1rem; column-gap: 10px; align-items: start;
+  min-height: 44px; margin-top: 0.75rem; padding: 14px 0;
+  border-bottom: 1px solid var(--neutral-200);
+  color: var(--ink); text-decoration: none; touch-action: manipulation;
+}
+.diag-indice__olho:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* #olho */
+.olho-corpo { min-width: 0; overflow-wrap: anywhere; }
+.olho-ajuda,
+.olho-vazio,
+.olho-vazio p {
+  margin: 0 0 12px; font-size: 0.875rem; line-height: 1.5; color: var(--gray); max-width: 62ch;
+}
+.olho-tentar {
+  min-height: 44px; padding: 0 14px; font: inherit; font-weight: 600;
+  color: var(--accent); background: none; border: 1px solid var(--neutral-200); border-radius: 8px;
+}
+.olho-aviso { margin: 0 0 12px; font-size: 0.875rem; line-height: 1.5; color: var(--ink); }
+.olho-aviso--atraso { color: var(--amber-700); font-weight: 600; }
+.olho-estado { padding: 4px 0 14px; }
+.olho-estado__rodada {
+  margin: 0; font-size: 0.9375rem; font-weight: 600; line-height: 1.4; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.olho-fontes {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; column-gap: 0.5rem; row-gap: 2px;
+  font-size: 0.8125rem; line-height: 1.45; color: var(--gray);
+}
+/* Fonte ok fica curta e cinza, separada por ponto; fonte fora vira frase
+   própria, em linha inteira, para não se perder entre as que estão bem. */
+.olho-fontes li:not(.is-fora) + li:not(.is-fora)::before { content: "·"; margin-right: 0.5rem; color: var(--faint); }
+.olho-fontes li.is-fora { flex-basis: 100%; color: var(--amber-700); font-weight: 600; }
+.olho-estado__fila { margin: 6px 0 0; font-size: 0.8125rem; line-height: 1.45; color: var(--gray); }
+.olho-nada {
+  margin: 0; padding: 14px 0; border-top: 1px solid var(--neutral-200);
+  font-size: 0.9375rem; line-height: 1.5; color: var(--ink);
+}
+
+.olho-grupo { padding-top: 18px; border-top: 1px solid var(--neutral-200); }
+.olho-grupo + .olho-grupo { margin-top: 6px; }
+.olho-grupo__titulo {
+  display: flex; align-items: baseline; gap: 6px; margin: 0;
+  font-size: 1rem; font-weight: 700; line-height: 1.3; color: var(--g-900);
+}
+.olho-grupo[data-grau="tese_sob_ameaca"] .olho-grupo__titulo { color: var(--amber-700); }
+.olho-lista { list-style: none; margin: 0; padding: 0; }
+
+/* Um alerta: nota de interconsulta (achado, fonte, conduta a decidir). */
+.olho-alerta { padding: 14px 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.olho-alerta + .olho-alerta { border-top: 1px solid var(--neutral-200); }
+.olho-alerta p { margin: 0; }
+.olho-alerta__meta,
+.olho-alerta__grau {
+  display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 0.5rem; row-gap: 2px;
+  font-size: 0.8125rem; line-height: 1.4; color: var(--gray);
+}
+.olho-alerta__grau { font-weight: 700; color: var(--ink); }
+.olho-alerta[data-grau="tese_sob_ameaca"] .olho-alerta__grau { color: var(--amber-700); }
+.olho-alerta__grau .olho-alerta__data { font-weight: 400; color: var(--gray); }
+.olho-alerta__ticker {
+  display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0;
+  font-family: var(--mono); font-weight: 700; color: var(--accent); text-decoration: none;
+}
+.olho-alerta__ticker:focus-visible,
+.olho-alerta__titulo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.olho-alerta__data { font-variant-numeric: tabular-nums; }
+.olho-alerta__titulo {
+  display: inline-block; padding: 4px 0;
+  font-size: 0.9375rem; font-weight: 600; line-height: 1.4; color: var(--ink);
+  text-decoration: underline; text-decoration-color: var(--neutral-200);
+  text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.olho-alerta__motivo { font-size: 0.9375rem; line-height: 1.55; color: var(--ink); max-width: 62ch; }
+.olho-trecho { margin: 2px 0 0; padding: 0 0 0 1.1rem; max-width: 60ch; }
+.olho-trecho p {
+  margin: 0; text-indent: -0.42em;
+  font-size: 0.875rem; line-height: 1.6; color: var(--gray); font-style: italic;
+}
+.olho-alerta__estado { font-size: 0.8125rem; line-height: 1.4; font-weight: 600; color: var(--ink); }
+.olho-alerta[data-grau="tese_sob_ameaca"] .olho-alerta__estado:not(.is-examinado) { color: var(--amber-700); }
+.olho-alerta__estado.is-examinado { font-weight: 400; color: var(--gray); }
+
+.olho-falhas .olho-grupo__titulo { color: var(--ink); }
+.olho-falha { padding: 8px 0; font-size: 0.875rem; line-height: 1.45; color: var(--ink); }
+.olho-falha a { color: var(--ink); text-underline-offset: 3px; }
+
+.olho-sem-efeito { margin-top: 6px; border-top: 1px solid var(--neutral-200); }
+.olho-sem-efeito__botao {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 10px 0;
+  font: inherit; font-size: 0.875rem; color: var(--gray); text-align: left;
+  background: none; border: 0; cursor: pointer; touch-action: manipulation;
+}
+.olho-sem-efeito__botao:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.olho-sem-efeito__chevron { margin-left: auto; font-size: 1.05rem; line-height: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .olho-sem-efeito__chevron { transition: transform var(--d1) var(--ease); }
+}
+.olho-sem-efeito__botao[aria-expanded="true"] .olho-sem-efeito__chevron { transform: rotate(90deg); }
+.olho-sem-efeito__lista { list-style: none; margin: 0 0 8px; padding: 0; }
+.olho-sem-efeito__lista li {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  font-size: 0.8125rem; color: var(--gray); font-variant-numeric: tabular-nums;
+}
+.olho-sem-efeito__lista a {
+  display: inline-flex; align-items: center; min-height: 44px;
+  font-family: var(--mono); font-weight: 700; color: var(--accent); text-decoration: none;
+}
+
+/* Dossiê: a seção Vigília, entre a tese e a linha do tempo. */
+.dossie-vigilia { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.dossie-vigilia__nota { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--gray); }
+.dossie-vigilia__nota a { color: var(--ink); text-underline-offset: 3px; }
+.dossie-vigilia .olho-alerta:first-child { padding-top: 4px; }
+.dossie-vigilia__rodape { margin: 4px 0 0; font-size: var(--num-xs); line-height: 1.5; color: var(--gray); font-variant-numeric: tabular-nums; }

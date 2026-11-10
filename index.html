@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=93">
+  <link rel="stylesheet" href="css/app.css?v=94">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
@@ -16,7 +16,8 @@
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
   <script src="js/comite.js?v=8"></script>
-  <script src="js/app.js?v=100"></script>
+  <script src="js/olho.js?v=1"></script>
+  <script src="js/app.js?v=101"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -197,6 +198,19 @@
           <span>Ver histórico</span>
           <span class="hero-chart-link__chevron" aria-hidden="true">›</span>
         </a>
+
+        <!-- 7a.BX.4 — o Olho (spec 7a.BX §13.1, D1): UMA linha, só quando existe
+             tese sob ameaça que o reexame ainda não confrontou. Sem banner, sem
+             card, sem contagem animada; some quando o reexame acontece, nunca
+             por toque. x-if (não x-show): sem ameaça o nó não existe. -->
+        <template x-if="olhoLinhaRaiox()">
+          <a href="#olho" class="olho-raiox" data-testid="olho-raiox">
+            <span class="olho-glifo" aria-hidden="true">▲</span>
+            <span class="olho-raiox__texto" x-text="olhoLinhaRaiox()"></span>
+            <span class="olho-raiox__ver">· ver</span>
+            <span class="olho-raiox__chevron" aria-hidden="true">›</span>
+          </a>
+        </template>
 
         <!-- 7a.S.5 Task 2: quando o schema tem `ultimos_7d` mas ainda não há
              dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem
@@ -1824,6 +1838,15 @@
                 </template>
               </ol>
             </nav>
+            <!-- 7a.BX.4: entrada permanente para a vigília do Olho. Fora da lista
+                 numerada de propósito: não é uma das perguntas lidas em ordem. -->
+            <a class="diag-indice__olho" href="#olho" data-testid="diag-indice-olho">
+              <span class="diag-indice__corpo">
+                <span class="diag-indice__pergunta">O Olho: aconteceu algo com as empresas?</span>
+                <span class="diag-indice__estado" x-text="olhoEstadoIndice()"></span>
+              </span>
+              <span class="diag-indice__chevron" aria-hidden="true">›</span>
+            </a>
             <p class="diag-indice__caminho" data-testid="diag-indice-caminho"><strong>O caminho.</strong> A primeira pergunta olha quanto a carteira balançou. A segunda separa o resultado: o plano, o desvio do plano e os ativos escolhidos. A terceira pergunta se essas escolhas são habilidade ou sorte. A quarta olha o momento dos seus aportes. A quinta olha como a carteira está montada e quanto custam os fundos. Cada uma explica, por dentro, como ler a conta.</p>
             <p class="diag-indice__nota">Cada linha resume a janela desde o início. A conta, as outras janelas e os escopos ficam dentro de cada pergunta.</p>
             <p class="diag-aviso">Rentabilidade passada não garante rentabilidade futura.</p>
@@ -2797,6 +2820,129 @@
         </ol>
       </section>
 
+      <!-- ── Tela #olho: a vigília (7a.BX.4, spec 7a.BX §13.1) ──────────────
+           Push child da tab Raio-X. Estado da última rodada, depois os alertas
+           agrupados por grau (ameaça, observar), os mais recentes primeiro; os
+           "sem efeito" numa linha de contagem recolhida. Só leitura. -->
+      <section class="tela-detalhes tela-olho" x-show="rota === 'olho'"
+        x-transition:enter="push-enter"
+        x-transition:enter-start="push-from-right"
+        x-transition:enter-end="push-at-rest"
+        aria-labelledby="olho-titulo" x-cloak>
+        <header class="breadcrumb">
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
+          <h1 class="eyebrow eyebrow--accent" id="olho-titulo">O Olho</h1>
+        </header>
+        <template x-if="rota === 'olho'">
+          <div class="olho-corpo">
+            <p class="olho-ajuda">O Olho leu, na fonte oficial, o que saiu de novo sobre cada empresa com tese e confrontou com o que quebraria a tese.</p>
+
+            <template x-if="olhoAvisoCache()">
+              <p class="olho-aviso" data-testid="olho-cache" x-text="olhoAvisoCache()"></p>
+            </template>
+            <template x-if="olhoAtrasado()">
+              <p class="olho-aviso olho-aviso--atraso" data-testid="olho-atraso" x-text="olhoAvisoAtraso()"></p>
+            </template>
+
+            <template x-if="olhoEstado === 'carregando' || olhoEstado === 'ausente'">
+              <p class="olho-vazio" data-testid="olho-carregando">Abrindo a vigília.</p>
+            </template>
+            <template x-if="olhoEstado === 'erro'">
+              <div class="olho-vazio" data-testid="olho-erro">
+                <p>Não foi possível abrir a vigília agora.</p>
+                <button type="button" class="olho-tentar" @click="olhoCarregar()">Tentar de novo</button>
+              </div>
+            </template>
+            <template x-if="olhoEstado === 'nunca'">
+              <p class="olho-vazio" data-testid="olho-nunca" x-text="olhoPrimeiraVigilia()"></p>
+            </template>
+
+            <template x-if="olhoEstado === 'pronto'">
+              <div>
+                <div class="olho-estado" data-testid="olho-estado">
+                  <p class="olho-estado__rodada" x-text="olhoCabecalho()"></p>
+                  <ul class="olho-fontes" aria-label="Fontes desta vigília">
+                    <template x-for="f in olhoFontes()" :key="f.fonte">
+                      <li :class="{ 'is-fora': !f.ok }" :data-fonte="f.fonte" x-text="f.texto"></li>
+                    </template>
+                  </ul>
+                  <template x-if="olhoFila()">
+                    <p class="olho-estado__fila" data-testid="olho-fila" x-text="olhoFila()"></p>
+                  </template>
+                </div>
+
+                <template x-if="olhoSemNovidade()">
+                  <p class="olho-nada" data-testid="olho-sem-novidade" x-text="olhoFraseSemNovidade()"></p>
+                </template>
+
+                <template x-for="grau in ['tese_sob_ameaca', 'observar']" :key="grau">
+                  <template x-if="olhoAlertas(grau).length">
+                    <section class="olho-grupo" :data-grau="grau" :aria-label="olhoGrau(grau).rotulo">
+                      <h2 class="olho-grupo__titulo">
+                        <span class="olho-glifo" aria-hidden="true" x-text="olhoGrau(grau).glifo"></span>
+                        <span x-text="olhoGrau(grau).rotulo"></span>
+                      </h2>
+                      <ol class="olho-lista">
+                        <template x-for="a in olhoAlertas(grau)" :key="a.chave">
+                        <li class="olho-alerta" :data-grau="a.grau" :data-chave="a.chave" :aria-label="olhoRotuloAlerta(a)">
+                          <p class="olho-alerta__meta">
+                            <a class="olho-alerta__ticker" :href="'#/dossie/' + a.ticker" x-text="a.ticker"></a>
+                            <span class="olho-alerta__data" x-text="olhoMetaSemTicker(a)"></span>
+                          </p>
+                          <a class="olho-alerta__titulo" :href="a.url" target="_blank" rel="noopener noreferrer" x-text="a.titulo || 'Documento na fonte oficial'"></a>
+                          <p class="olho-alerta__motivo" x-text="a.motivo"></p>
+                          <template x-if="a.trecho">
+                            <blockquote class="olho-trecho"><p x-text="'“' + a.trecho + '”'"></p></blockquote>
+                          </template>
+                          <p class="olho-alerta__estado" :class="{ 'is-examinado': a.examinado }" x-text="olhoEstadoAlerta(a)"></p>
+                        </li>
+                        </template>
+                      </ol>
+                    </section>
+                  </template>
+                </template>
+
+                <template x-if="olhoFalhas().length">
+                  <section class="olho-grupo olho-falhas" data-grau="falha_leitura" aria-label="Documentos não lidos">
+                    <h2 class="olho-grupo__titulo">Não foi possível ler</h2>
+                    <ul class="olho-lista">
+                      <template x-for="f in olhoFalhas()" :key="f.chave">
+                        <li class="olho-falha">
+                          <span x-text="f.ticker + ': '"></span>
+                          <a :href="f.url" target="_blank" rel="noopener noreferrer" x-text="f.titulo || f.categoria || 'documento'"></a>
+                        </li>
+                      </template>
+                    </ul>
+                  </section>
+                </template>
+
+                <template x-if="olhoSemEfeitoTotal() > 0">
+                  <div class="olho-sem-efeito">
+                    <button type="button" class="olho-sem-efeito__botao" data-testid="olho-sem-efeito"
+                      :aria-expanded="olhoSemEfeitoAberto ? 'true' : 'false'" aria-controls="olho-sem-efeito-lista"
+                      @click="olhoSemEfeitoAberto = !olhoSemEfeitoAberto">
+                      <span class="olho-glifo" aria-hidden="true">·</span>
+                      <span x-text="olhoSemEfeitoRotulo()"></span>
+                      <span class="olho-sem-efeito__chevron" aria-hidden="true">›</span>
+                    </button>
+                    <template x-if="olhoSemEfeitoAberto">
+                      <ul class="olho-sem-efeito__lista" id="olho-sem-efeito-lista">
+                        <template x-for="l in olhoSemEfeitoLinhas()" :key="l.ticker">
+                          <li>
+                            <a :href="'#/dossie/' + l.ticker" x-text="l.ticker"></a>
+                            <span x-text="l.n === 1 ? '1 documento' : l.n + ' documentos'"></span>
+                          </li>
+                        </template>
+                      </ul>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+
       <!-- ── Tela #relatorio (Fase 7a.Q.3) ──────────────────────────────── -->
       <section class="tela-detalhes tela-relatorio" x-show="rota === 'relatorio'"
         x-transition:enter="push-enter"
@@ -3143,6 +3289,55 @@
                 <span>esta tese pede revisão</span>
               </p>
             </section>
+
+            <!-- 4b. VIGÍLIA (7a.BX.4): o que o Olho leu deste ativo. Logo abaixo
+                 da tese, porque é contra ela que cada documento foi lido. O
+                 trecho vai em citação tipográfica, NÃO em grifo: o único grifo
+                 da tela segue sendo o `quebra_se`. -->
+            <template x-if="olhoMostraVigilia(dossieAtual.ticker)">
+              <section class="dossie-vigilia" data-testid="dossie-vigilia" aria-labelledby="dossie-vigilia-h">
+                <h2 class="dossie-h" id="dossie-vigilia-h">Vigília</h2>
+                <template x-if="olhoEstado === 'nunca'">
+                  <p class="dossie-vigilia__nota" x-text="olhoPrimeiraVigilia()"></p>
+                </template>
+                <template x-if="olhoEstado === 'pronto' && olhoSituacaoDe(dossieAtual.ticker) === 'fora'">
+                  <p class="dossie-vigilia__nota" data-testid="dossie-vigilia-fora">Fora da vigília: ETF não tem fato de empresa.</p>
+                </template>
+                <template x-if="olhoEstado === 'pronto' && olhoSituacaoDe(dossieAtual.ticker) === 'vigiado'">
+                  <div class="dossie-vigilia__corpo">
+                    <template x-if="olhoAtrasado()">
+                      <p class="olho-aviso olho-aviso--atraso" x-text="olhoAvisoAtraso()"></p>
+                    </template>
+                    <template x-if="olhoFonteForaDe(dossieAtual.ticker)">
+                      <p class="olho-aviso" x-text="olhoFonteForaDe(dossieAtual.ticker)"></p>
+                    </template>
+                    <template x-if="olhoAlertasDe(dossieAtual.ticker).length">
+                      <ol class="olho-lista">
+                        <template x-for="a in olhoAlertasDe(dossieAtual.ticker)" :key="a.chave">
+                          <li class="olho-alerta" :data-grau="a.grau" :data-chave="a.chave" :aria-label="olhoRotuloAlerta(a)">
+                            <p class="olho-alerta__grau">
+                              <span class="olho-glifo" aria-hidden="true" x-text="olhoGrau(a.grau).glifo"></span>
+                              <span class="olho-alerta__rotulo" x-text="olhoGrau(a.grau).rotulo"></span>
+                              <span class="olho-alerta__data" x-text="olhoMetaSemTicker(a)"></span>
+                            </p>
+                            <a class="olho-alerta__titulo" :href="a.url" target="_blank" rel="noopener noreferrer" x-text="a.titulo || 'Documento na fonte oficial'"></a>
+                            <p class="olho-alerta__motivo" x-text="a.motivo"></p>
+                            <template x-if="a.trecho">
+                              <blockquote class="olho-trecho"><p x-text="'“' + a.trecho + '”'"></p></blockquote>
+                            </template>
+                            <p class="olho-alerta__estado" :class="{ 'is-examinado': a.examinado }" x-text="olhoEstadoAlerta(a)"></p>
+                          </li>
+                        </template>
+                      </ol>
+                    </template>
+                    <template x-for="f in olhoFalhas(dossieAtual.ticker)" :key="f.chave">
+                      <p class="dossie-vigilia__nota">Não foi possível ler: <a :href="f.url" target="_blank" rel="noopener noreferrer" x-text="f.titulo || f.categoria || 'documento'"></a></p>
+                    </template>
+                    <p class="dossie-vigilia__rodape" data-testid="dossie-vigilia-rodape" x-text="olhoRodapeDe(dossieAtual.ticker)"></p>
+                  </div>
+                </template>
+              </section>
+            </template>
 
             <!-- 5. LINHA DO TEMPO — ordem cronológica ASCENDENTE, todas as
                  entradas abertas. Documento contínuo separado por hairline;

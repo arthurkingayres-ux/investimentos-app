@@ -29,7 +29,7 @@
 // servindo o cache dele. O install tolerante de antes ativaria um SW com
 // shell vazio, e o `activate` apagaria o cache bom: offline morto.
 
-const CACHE_VERSION = "v120";
+const CACHE_VERSION = "v123";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -44,6 +44,7 @@ const SHELL_PRECACHE = [
   "./js/transitions.js",
   "./js/aportar.js",
   "./js/comite.js",
+  "./js/olho.js",
   "./js/vendor/alpine.min.js",
   "./js/vendor/echarts.min.js",
   "./js/echarts-theme.js",
@@ -119,6 +120,13 @@ self.addEventListener("fetch", (event) => {
   // cache: um estado velho mostraria "na fila" para sempre.
   const escopo = new URL(self.registration.scope).pathname;
   if (url.pathname.startsWith(escopo + "comite/")) return;
+  // 7a.BX.4: /olho (o payload cifrado do Olho, do KV via Worker) é dado:
+  // rede primeiro, e a última cópia para offline ou sessão vencida, marcada
+  // com `x-olho-cache: 1` para a tela dizer a idade em vez de fingir frescor.
+  if (url.pathname === escopo + "olho") {
+    event.respondWith(networkFirstDados(event, { marcarCache: true }));
+    return;
+  }
 
   // 7a.Q.3: todos os .enc (portfolio + índice/meses do relatório) são dados →
   // network-first. Cada pathname distinto cacheia em separado no CACHE_DADOS.
@@ -199,23 +207,40 @@ async function avisarAcessoVencido(event) {
   alvos.forEach((c) => c.postMessage({ type: "ACESSO_VENCIDO" }));
 }
 
-async function networkFirstDados(event) {
+// Cópia do cache com o cabeçalho `x-olho-cache: 1` (o corpo é JSON pequeno).
+async function marcada(cached) {
+  const headers = new Headers(cached.headers);
+  headers.set("x-olho-cache", "1");
+  return new Response(await cached.blob(), { status: cached.status, statusText: cached.statusText, headers });
+}
+
+async function networkFirstDados(event, { marcarCache = false } = {}) {
   const req = event.request;
   const cache = await caches.open(CACHE_DADOS);
+  const doCache = async () => {
+    const c = await cache.match(req, { ignoreSearch: true });
+    return c && marcarCache ? marcada(c) : c;
+  };
   let resp;
   try {
     resp = await fetchComTimeout(req, DADOS_TIMEOUT_MS);
   } catch (err) {
-    const cached = await cache.match(req, { ignoreSearch: true });
+    const cached = await doCache();
     if (cached) return cached;
     throw err;
   }
   if (ehBloqueioDoAccess(resp)) {
     event.waitUntil(avisarAcessoVencido(event));
-    const cached = await cache.match(req, { ignoreSearch: true });
+    const cached = await doCache();
     // Sem cópia: 401 sintético. Devolver o opaqueredirect a um fetch da
     // página (redirect "follow") viraria erro de rede sem explicação.
     return cached || new Response("", { status: 401, statusText: "Acesso vencido" });
+  }
+  // 7a.BX.4: o Worker do /olho fora do ar (5xx) não apaga a vigília da tela:
+  // a última cópia, marcada, vale mais que um erro.
+  if (marcarCache && resp.status >= 500) {
+    const cached = await doCache();
+    if (cached) return cached;
   }
   if (resp.ok) {
     const copia = resp.clone();

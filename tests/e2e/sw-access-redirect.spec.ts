@@ -36,8 +36,9 @@ const TIPOS: Record<string, string> = {
   ".json": "application/json",
 };
 
-const estado = { acesso: "ok" as "ok" | "vencido" };
+const estado = { acesso: "ok" as "ok" | "vencido", olho500: false };
 let contadorEstado = 0;
+let contadorOlho = 0;
 let servidor: http.Server;
 let base = "";
 
@@ -58,6 +59,18 @@ function responder(req: http.IncomingMessage, res: http.ServerResponse) {
     contadorEstado++;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ n: contadorEstado }));
+    return;
+  }
+  // 7a.BX.4: o payload do Olho, sempre uma cifra nova (o SW guarda a última).
+  if (url.pathname === "/olho") {
+    if (estado.olho500) {
+      res.writeHead(503);
+      res.end();
+      return;
+    }
+    contadorOlho++;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ cifra: `c${contadorOlho}`, gravada_em: "2026-11-16T11:31:00Z" }));
     return;
   }
   if (url.pathname === "/portfolio.json.enc") {
@@ -95,6 +108,7 @@ test.afterAll(async () => {
 
 test.beforeEach(() => {
   estado.acesso = "ok";
+  estado.olho500 = false;
 });
 
 /** Abre o app com sessão local, espera o SW controlar a página e a carteira passar por ele. */
@@ -146,6 +160,30 @@ test.describe("SW: /comite/* nunca passa pelo cache (7a.BW.5)", () => {
     });
     expect(nomes.length).toBeGreaterThan(5); // controle: o cache existe e foi lido
     expect(nomes.filter((u) => u.includes("/comite/"))).toEqual([]);
+  });
+});
+
+test.describe("SW: /olho é rede primeiro, com a última cópia para offline (7a.BX.4)", () => {
+  const ler = (page: Page) => page.evaluate(async () => {
+    const r = await fetch("./olho", { cache: "no-store" });
+    return { cifra: (await r.json()).cifra, cache: r.headers.get("x-olho-cache") };
+  });
+
+  test("online vai à rede; offline e sessão vencida servem a última, marcada", async ({ context }) => {
+    const page = await instalarComCarteira(context);
+    const a = await ler(page);
+    const b = await ler(page);
+    expect(b.cifra).not.toBe(a.cifra); // controle: online não é cache
+    expect(b.cache).toBeNull();
+    await context.setOffline(true);
+    expect(await ler(page)).toEqual({ cifra: b.cifra, cache: "1" });
+    await context.setOffline(false);
+    estado.acesso = "vencido";
+    expect(await ler(page)).toEqual({ cifra: b.cifra, cache: "1" });
+    // Worker fora do ar (5xx): também a última cópia, marcada.
+    estado.acesso = "ok";
+    estado.olho500 = true;
+    expect(await ler(page)).toEqual({ cifra: b.cifra, cache: "1" });
   });
 });
 

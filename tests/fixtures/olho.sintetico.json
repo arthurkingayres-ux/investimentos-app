@@ -1,0 +1,42 @@
+{
+  "versao": 1,
+  "ultima_rodada": {
+    "data": "2026-11-16",
+    "fontes": {
+      "cvm": {"estado": "ok", "motivo": null, "por_categoria": {}, "ids": 2},
+      "fnet": {"estado": "ok", "motivo": null, "por_categoria": {}, "ids": 2},
+      "edgar": {"estado": "ok", "motivo": null, "por_categoria": {}, "ids": 1}
+    },
+    "vigiados": 5,
+    "novidades": 6,
+    "lidos": 6,
+    "por_grau": {"tese_sob_ameaca": 1, "observar": 1, "sem_efeito": 4},
+    "fila": 0,
+    "tokens": 1000,
+    "nao_vigiados": 0,
+    "a_mais": 0
+  },
+  "primeira_rodada": "2026-11-09",
+  "vigiados": {"EMPR3": "cvm", "OUTR3": "cvm", "FUND11": "fnet", "FUNX11": "fnet", "EXMP": "edgar"},
+  "alertas": [
+    {
+      "chave": "cvm:900001:1", "ticker": "EMPR3", "grau": "tese_sob_ameaca", "fonte": "cvm",
+      "categoria": "Fato Relevante", "data_entrega": "2026-11-12", "data_rodada": "2026-11-16",
+      "titulo": "Revisão da estimativa de margem para 2027", "url": "https://exemplo.invalid/doc/900001",
+      "motivo": "O documento reporta margem estimada de 18% para 2027; a tese quebra com margem abaixo de 20% por dois trimestres.",
+      "trecho": "a Companhia revisa sua estimativa de margem para 18%",
+      "examinado": false, "examinado_em": null
+    },
+    {
+      "chave": "fnet:900002", "ticker": "FUND11", "grau": "observar", "fonte": "fnet",
+      "categoria": "Relatório Gerencial", "data_entrega": "2026-11-10", "data_rodada": "2026-11-16",
+      "titulo": "Relatório gerencial de outubro", "url": "https://exemplo.invalid/doc/900002",
+      "motivo": "O documento reporta vacância física de 9%, acima dos 7% do semestre anterior.",
+      "trecho": "a vacância física encerrou o mês em 9%",
+      "examinado": false, "examinado_em": null
+    }
+  ],
+  "sem_efeito_por_ticker": {"EMPR3": 1, "EXMP": 2, "OUTR3": 1},
+  "falhas_leitura": [],
+  "fila": 0
+}

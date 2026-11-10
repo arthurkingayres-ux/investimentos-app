@@ -2020,6 +2020,8 @@ document.addEventListener("alpine:init", () => {
   Alpine.data("app", () => ({
     // 7a.BW.5: estado e métodos do pedido do Comitê (js/comite.js).
     ...window.comiteBloco(),
+    // 7a.BX.4: o Olho (js/olho.js): payload da vigília, só leitura.
+    ...window.olhoBloco(),
     fase: "pin",
     rota: "",
     tab: "raiox",
@@ -2516,6 +2518,14 @@ document.addEventListener("alpine:init", () => {
         this.tab = "aportar";
         this.hidratarAportar();
         this.comiteAoAbrir(); // 7a.BW.6: só busca a resposta com motivo (js/comite.js)
+        return;
+      }
+      if (path === "olho") {
+        // 7a.BX.4: a vigília do Olho, push child da tab Raio-X (entrada pela
+        // linha do Raio-X e pelo índice do Diagnóstico); voltar() cai no Raio-X.
+        this.rota = "olho";
+        this.tab = "raiox";
+        this.olhoCarregar();
         return;
       }
       if (path === "comite") {
@@ -4228,6 +4238,7 @@ document.addEventListener("alpine:init", () => {
       this._limparEstadoAlocacao();
       this._limparEstadoAppShell();
       this._limparEstadoComite();
+      this._limparEstadoOlho();
     },
 
     // CRB final 7a.U (Finding 1): estado de SELEÇÃO das telas #proventos e
@@ -6206,6 +6217,7 @@ document.addEventListener("alpine:init", () => {
         // reativas e acendem quando ele chega. Aguardá-lo aqui empurraria a
         // hidratação dos gráficos por uma derivação PBKDF2 inteira (600k).
         this.carregarIndiceDossies();
+        this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
         if (this.rota === "relatorio") this.hidratarRelatorio();
         // Deep-link direto no dossiê: hidratarDossie aguarda o índice por
         // dentro, compartilhando a promise em voo disparada acima.
@@ -6461,6 +6473,7 @@ document.addEventListener("alpine:init", () => {
       this.atualizarRota();
       await this.carregarIndiceRelatorios();
       this.carregarIndiceDossies();
+      this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
       if (this.rota === "relatorio") this.hidratarRelatorio();
       if (this.rota === "dossie") this.hidratarDossie();
       if (this.rota === "patrimonio") this.hidratarPatrimonio();
@@ -6563,6 +6576,7 @@ document.addEventListener("alpine:init", () => {
         // chega aqui sem pin ainda, então hidratarDossie roda agora que a
         // sessão existe, aguardando o índice por dentro.
         this.carregarIndiceDossies();
+        this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
         if (this.rota === "relatorio") this.hidratarRelatorio();
         if (this.rota === "dossie") this.hidratarDossie();
         // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;
