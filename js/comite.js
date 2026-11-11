@@ -72,6 +72,8 @@
     NUMERO_INEXISTENTE: "citava um número que não está nos dados",
     VERBO_DE_ORDEM: "falava em tom de ordem",
     TESE_QUEBRADA_SEM_AVISO: "deixava de avisar uma tese quebrada",
+    DESVIO_SEM_MOTIVO: "trocava um ativo da regra sem dizer por quê",
+    TROCA_POR_RETORNO: "trocava um ativo por retorno esperado sem cumprir as travas",
     REGISTRO_REPETIDO: "repetia um registro sem fato novo",
     REGISTRO_SEM_EVIDENCIA: "trazia um registro sem evidência",
     SAIDA_AUSENTE: "não respondeu a tempo",
