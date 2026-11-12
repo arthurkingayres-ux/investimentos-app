@@ -22,6 +22,10 @@ tests/fixtures/*.json
 # resposta do Comite em claro, 100% sintetica (tickers ZZ*, valores
 # inventados); os testes a cifram na hora com o segredo de teste.
 !tests/fixtures/comite-resposta.sintetica.json
+# 7a.BY.4: bloco retorno_esperado em claro, 100% sintetico (tickers
+# inventados, numeros escolhidos a mao); os testes o injetam no portfolio de
+# teste e cifram na hora com o segredo de teste.
+!tests/fixtures/retorno.sintetico.json
 __pycache__/
 *.pyc
 

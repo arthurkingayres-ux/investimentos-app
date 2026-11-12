@@ -211,9 +211,9 @@ test.describe("Olho: o dossiê", () => {
     await abrirOlho(page, { payload: p, hash: "#/dossie/EMPR3" });
     const v = page.getByTestId("dossie-vigilia");
     await expect(v).toBeVisible({ timeout: 10_000 });
-    // Ordem: tese, vigília, linha do tempo.
+    // Ordem: tese, vigília, retorno esperado (7a.BY.4), linha do tempo.
     const ordem = await page.locator(".dossie-corpo > section").evaluateAll((els) => els.map((e) => e.className));
-    expect(ordem.slice(0, 3)).toEqual(["dossie-tese", "dossie-vigilia", "dossie-tl"]);
+    expect(ordem.slice(0, 4)).toEqual(["dossie-tese", "dossie-vigilia", "dossie-retorno", "dossie-tl"]);
     const a = v.locator(".olho-alerta");
     await expect(a).toHaveCount(1);
     await expect(a.locator(".olho-alerta__grau")).toHaveText(/▲\s*Tese sob ameaça\s*12\/11 · Fato Relevante/);

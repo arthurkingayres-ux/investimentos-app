@@ -409,7 +409,10 @@ test.describe("7a.R.3.b Task 6 — responsivo, Modo Plantão e a11y", () => {
     // Olho tem o que dizer; aqui o servidor de teste responde "nunca rodou".
     const vigilia = await page.locator(".tela-dossie .dossie-vigilia").count();
     expect(vigilia).toBe(1);
-    expect(niveis).toEqual(["H1", "H2", "H2", "H2", ...Array(entradas).fill("H3")]);
+    // 7a.BY.4: a seção Retorno esperado (h2) entra depois da Vigília, sempre.
+    const retorno = await page.locator(".tela-dossie .dossie-retorno").count();
+    expect(retorno).toBe(1);
+    expect(niveis).toEqual(["H1", "H2", "H2", "H2", "H2", ...Array(entradas).fill("H3")]);
   });
 
   test("botão voltar tem alvo ≥44px e rótulo acessível", async ({ page }) => {

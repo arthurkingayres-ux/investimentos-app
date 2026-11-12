@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=94">
+  <link rel="stylesheet" href="css/app.css?v=95">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
@@ -17,7 +17,8 @@
   <script src="js/aportar.js?v=42"></script>
   <script src="js/comite.js?v=8"></script>
   <script src="js/olho.js?v=1"></script>
-  <script src="js/app.js?v=101"></script>
+  <script src="js/retorno.js?v=2"></script>
+  <script src="js/app.js?v=102"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -2700,6 +2701,9 @@
                       <th scope="row">
                         <span class="comite-tk" x-text="l.ticker"></span>
                         <span class="comite-dif" x-show="l.dif" x-text="l.dif"></span>
+                        <template x-if="retornoLinhaAportar(l.ticker)">
+                          <span class="comite-ret" x-text="retornoLinhaAportar(l.ticker)"></span>
+                        </template>
                       </th>
                       <template x-if="comiteTemProposta()">
                         <td class="comite-num comite-col-comite" :class="{ 'comite-num--nada': l.comite == null }" x-text="comiteFmt(l.comite)"></td>
@@ -2786,6 +2790,9 @@
             <p class="comite-placar" x-text="comitePlacar()"></p>
             <p class="comite-ultima" x-show="comiteUltimaRodada()" x-text="comiteUltimaRodada()"></p>
           </div>
+        </template>
+        <template x-if="retornoLinhaPlacar()">
+          <p class="comite-placar comite-placar--regua" data-testid="comite-regua" x-text="retornoLinhaPlacar()"></p>
         </template>
         <template x-if="comiteRegistros().length === 0">
           <p class="comite-vazio">Nenhum registro ainda. Eles chegam com cada proposta e na rodada mensal do dia 12.</p>
@@ -3338,6 +3345,75 @@
                 </template>
               </section>
             </template>
+
+            <!-- 4c. RETORNO ESPERADO (7a.BY.4, spec 7a.BY §10.1): ao preço de
+                 hoje, quanto isto tende a devolver por ano, e com que incerteza.
+                 A régua do futuro é o elemento memorável: eixo fixo de 0% ao
+                 teto do payload (igual em todo dossiê, para a largura significar
+                 o mesmo), traço de tinta do pessimista ao otimista e, por trás,
+                 a faixa clara de um ano qualquer. Sem cor de ganho ou perda.
+                 Calculado uma vez por abertura (x-effect refaz quando o dossiê
+                 ou o payload mudam), não a cada expressão r.*. -->
+            <section class="dossie-retorno" data-testid="dossie-retorno" aria-labelledby="dossie-retorno-h"
+              x-data="{ r: { estado: 'ausente' } }" x-effect="r = retornoDe(dossieAtual.ticker)">
+              <h2 class="dossie-h" id="dossie-retorno-h">Retorno esperado</h2>
+              <template x-if="r.estado === 'ausente'">
+                <p class="ret-nota" data-testid="retorno-indisponivel">Retorno esperado indisponível hoje.</p>
+              </template>
+              <template x-if="r.estado === 'sem_faixa'">
+                <p class="ret-nota" data-testid="retorno-motivo" x-text="r.motivo"></p>
+              </template>
+              <template x-if="r.estado === 'faixa'">
+                <div class="ret-corpo">
+                  <template x-if="retornoOffline()">
+                    <p class="ret-aviso" data-testid="retorno-offline" x-text="retornoOffline()"></p>
+                  </template>
+                  <template x-if="r.velhos">
+                    <p class="ret-aviso" data-testid="retorno-velhos" x-text="r.velhos"></p>
+                  </template>
+                  <p class="ret-frase" data-testid="retorno-frase">Ao preço de hoje, entre <strong x-text="r.pess + '%'"></strong> e <strong x-text="r.otim + '%'"></strong> ao ano acima da inflação; o meio da conta dá <strong x-text="r.cent + '%'"></strong>.</p>
+                  <figure class="ret-regua" data-testid="retorno-regua">
+                    <svg viewBox="0 0 300 40" role="img" :aria-label="r.aria">
+                      <!-- Dentro do SVG, <template x-if> não funciona (o template vira
+                           elemento SVG e os filhos sempre desenham): x-show. -->
+                      <rect class="ret-regua__faixa" x-show="r.g.faixa" :x="r.g.faixa ? r.g.faixa.x : 0" y="11" :width="r.g.faixa ? r.g.faixa.w : 0" height="18" rx="3"></rect>
+                      <line class="ret-regua__eixo" x1="12" y1="20" x2="288" y2="20"></line>
+                      <line class="ret-regua__marca" x1="12" y1="14" x2="12" y2="26"></line>
+                      <line class="ret-regua__marca" x1="150" y1="16" x2="150" y2="24"></line>
+                      <line class="ret-regua__marca" x1="288" y1="14" x2="288" y2="26"></line>
+                      <line class="ret-regua__traco" :x1="r.g.x1" y1="20" :x2="r.g.x2" y2="20"></line>
+                      <path class="ret-regua__seta ret-regua__seta--esq" x-show="r.g.setaEsq" d="M 4 20 L 11 15 L 11 25 Z"></path>
+                      <path class="ret-regua__seta ret-regua__seta--dir" x-show="r.g.setaDir" d="M 296 20 L 289 15 L 289 25 Z"></path>
+                      <circle class="ret-regua__ponto" :cx="r.g.xc" cy="20" r="5.5"></circle>
+                    </svg>
+                    <p class="ret-regua__rotulos" aria-hidden="true"><template x-for="t in r.g.rotulos" :key="t"><span x-text="t"></span></template></p>
+                  </figure>
+                  <template x-if="r.convencao">
+                    <p class="ret-linha" data-testid="retorno-convencao">A fonte publica um ponto; a faixa é convenção desta casa.</p>
+                  </template>
+                  <template x-if="r.dispersao">
+                    <p class="ret-linha" data-testid="retorno-dispersao" x-text="r.dispersao"></p>
+                  </template>
+                  <p class="ret-linha" data-testid="retorno-metodo" x-show="r.metodo" x-text="r.metodo"></p>
+                  <p class="ret-linha ret-linha--datas" data-testid="retorno-datas"><template x-for="(d, i) in r.datas" :key="i"><span><template x-if="i > 0"><span> · </span></template><span class="ret-inteiro" x-text="d"></span></span></template></p>
+                  <p class="ret-honestidade" data-testid="retorno-honestidade">Estimativa. É a peça mais incerta do app; o placar dirá se ela ordena bem. Até lá, não prova nada.</p>
+                  <details class="ret-conta" data-testid="retorno-conta">
+                    <summary>Ver a conta</summary>
+                    <dl class="ret-conta__insumos">
+                      <template x-for="i in r.conta.insumos" :key="i[0]">
+                        <div class="ret-conta__par" data-testid="retorno-insumo"><dt x-text="i[0]"></dt><dd x-text="i[1]"></dd></div>
+                      </template>
+                    </dl>
+                    <ul class="ret-conta__cenarios">
+                      <template x-for="c in r.conta.cenarios" :key="c[0]">
+                        <li class="ret-conta__par" data-testid="retorno-cenario"><span x-text="c[0]"></span><span class="ret-conta__valor" x-text="c[1]"></span></li>
+                      </template>
+                    </ul>
+                    <p class="ret-conta__nota" x-show="r.conta.nota" x-text="r.conta.nota"></p>
+                  </details>
+                </div>
+              </template>
+            </section>
 
             <!-- 5. LINHA DO TEMPO — ordem cronológica ASCENDENTE, todas as
                  entradas abertas. Documento contínuo separado por hairline;

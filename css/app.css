@@ -5519,3 +5519,51 @@ body:has(.tab-bar) main {
 .dossie-vigilia__nota a { color: var(--ink); text-underline-offset: 3px; }
 .dossie-vigilia .olho-alerta:first-child { padding-top: 4px; }
 .dossie-vigilia__rodape { margin: 4px 0 0; font-size: var(--num-xs); line-height: 1.5; color: var(--gray); font-variant-numeric: tabular-nums; }
+
+/* ── 7a.BY.4 — RETORNO ESPERADO no dossiê (spec 7a.BY §10.1) ───────────────
+   Molde da `sel-regua`: mesma tinta, mesmo neutro claro, mesmo respiro
+   lateral. O contraste entre o traço estreito (a expectativa) e a faixa larga
+   por trás (um ano qualquer) é a mensagem; sem cor de ganho ou perda. */
+.dossie-retorno { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.ret-corpo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ret-nota { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--gray); }
+.ret-aviso { margin: 0 0 4px; font-size: 0.875rem; line-height: 1.5; color: var(--ink); }
+.ret-frase { margin: 0; font-size: 1rem; line-height: 1.55; color: var(--ink); }
+.ret-frase strong { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ret-regua { margin: 10px 0 4px; }
+.ret-regua svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ret-regua__faixa { fill: var(--neutral-200); }
+.ret-regua__eixo { stroke: var(--gray); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ret-regua__marca { stroke: var(--gray); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ret-regua__traco { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ret-regua__seta { fill: var(--ink); }
+.ret-regua__ponto { fill: var(--ink); stroke: var(--neutral-50); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.ret-regua__rotulos {
+  display: flex; justify-content: space-between; margin: 4px 0 0;
+  font-family: var(--mono); font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums;
+}
+.ret-linha { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--ink); }
+.ret-linha--datas { color: var(--gray); font-variant-numeric: tabular-nums; }
+.ret-honestidade { margin: 2px 0 0; font-size: 0.875rem; line-height: 1.5; color: var(--gray); }
+.ret-conta { margin: 4px 0 0; border-top: 1px solid var(--neutral-200); }
+.ret-conta > summary {
+  min-height: 44px; display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; list-style: none; color: var(--accent); font-size: 0.875rem; font-weight: 600;
+}
+.ret-conta > summary::-webkit-details-marker { display: none; }
+.ret-conta > summary::after { content: "›"; color: var(--gray); font-size: 1.25rem; line-height: 1; }
+.ret-conta[open] > summary::after { transform: rotate(90deg); }
+.ret-conta__insumos, .ret-conta__cenarios { margin: 0 0 10px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.ret-conta__par { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 0.875rem; line-height: 1.45; color: var(--ink); }
+.ret-conta__par dt, .ret-conta__par > span:first-child { min-width: 0; }
+.ret-conta__par dd, .ret-conta__valor { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ret-conta__insumos .ret-conta__par { color: var(--gray); }
+.ret-conta__nota { margin: 0 0 8px; font-size: 0.8125rem; line-height: 1.5; color: var(--gray); }
+@media (prefers-reduced-motion: no-preference) {
+  .ret-conta > summary::after { transition: transform var(--d1) var(--ease); }
+}
+
+/* #aportar: a faixa sob o ticker, secundária; #comite: a linha da régua. */
+.comite-ret { display: block; margin-top: 2px; font-size: 0.75rem; font-weight: 400; color: var(--gray); font-variant-numeric: tabular-nums; }
+.comite-placar--regua { font-weight: 400; }
+.ret-inteiro { white-space: nowrap; }

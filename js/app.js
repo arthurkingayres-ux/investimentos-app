@@ -2022,6 +2022,7 @@ document.addEventListener("alpine:init", () => {
     ...window.comiteBloco(),
     // 7a.BX.4: o Olho (js/olho.js): payload da vigília, só leitura.
     ...window.olhoBloco(),
+    ...window.retornoBloco(),
     fase: "pin",
     rota: "",
     tab: "raiox",
