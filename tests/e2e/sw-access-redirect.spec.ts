@@ -62,7 +62,8 @@ function responder(req: http.IncomingMessage, res: http.ServerResponse) {
     return;
   }
   // 7a.BX.4: o payload do Olho, sempre uma cifra nova (o SW guarda a última).
-  if (url.pathname === "/olho") {
+  // 7a.BZ.2: /reserva no mesmo molde (mesmo contador, mesma chave de 5xx).
+  if (url.pathname === "/olho" || url.pathname === "/reserva") {
     if (estado.olho500) {
       res.writeHead(503);
       res.end();
@@ -163,11 +164,11 @@ test.describe("SW: /comite/* nunca passa pelo cache (7a.BW.5)", () => {
   });
 });
 
-test.describe("SW: /olho é rede primeiro, com a última cópia para offline (7a.BX.4)", () => {
-  const ler = (page: Page) => page.evaluate(async () => {
-    const r = await fetch("./olho", { cache: "no-store" });
+for (const rota of ["olho", "reserva"]) test.describe(`SW: /${rota} é rede primeiro, com a última cópia para offline (7a.BX.4, 7a.BZ.2)`, () => {
+  const ler = (page: Page) => page.evaluate(async (r0) => {
+    const r = await fetch("./" + r0, { cache: "no-store" });
     return { cifra: (await r.json()).cifra, cache: r.headers.get("x-olho-cache") };
-  });
+  }, rota);
 
   test("online vai à rede; offline e sessão vencida servem a última, marcada", async ({ context }) => {
     const page = await instalarComCarteira(context);

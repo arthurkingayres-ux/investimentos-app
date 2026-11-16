@@ -2,7 +2,8 @@
 // do Cloudflare Access. O Workers Builds implanta a cada push na main.
 //
 // 7a.BW.5: `main` existe so para /comite/* (run_worker_first): o pedido do
-// Comite de Aporte (worker/index.js); 7a.BX.4: e /olho, o payload do Olho.
+// Comite de Aporte (worker/index.js); 7a.BX.4: e /olho, o payload do Olho;
+// 7a.BZ.2: e /reserva, a reserva fora da carteira.
 // Todo o resto continua sendo arquivo
 // estatico servido sem passar pelo script.
 //
@@ -22,7 +23,7 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
-    "run_worker_first": ["/comite/*", "/olho", "/olho/*"]
+    "run_worker_first": ["/comite/*", "/olho", "/olho/*", "/reserva", "/reserva/*"]
   },
   "kv_namespaces": [
     { "binding": "COMITE", "id": "2e434e6260624ccea4555e14227f13d5" }

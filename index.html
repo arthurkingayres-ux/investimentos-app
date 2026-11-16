@@ -17,6 +17,7 @@
   <script src="js/aportar.js?v=42"></script>
   <script src="js/comite.js?v=8"></script>
   <script src="js/olho.js?v=1"></script>
+  <script src="js/reserva.js?v=1"></script>
   <script src="js/retorno.js?v=2"></script>
   <script src="js/app.js?v=102"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
@@ -212,6 +213,28 @@
             <span class="olho-raiox__chevron" aria-hidden="true">›</span>
           </a>
         </template>
+
+        <!-- 7a.BZ.2 — a reserva (spec 7a.BZ §4.4): fora do hero do patrimônio,
+             rotulada como fora da carteira, visível ao abrir sem toque, nunca
+             somada a número nenhum. Sem link: não há tela para onde ir. O código
+             é público e não nomeia a instituição; a origem é "Open Finance". -->
+        <section class="reserva" data-testid="reserva" aria-labelledby="reserva-titulo"
+                 :aria-busy="reservaEstado === 'carregando'">
+          <div class="reserva__linha">
+            <p class="reserva__titulo" id="reserva-titulo">Reserva</p>
+            <p class="reserva__valor" data-testid="reserva-valor"
+               :class="{ 'is-vazio': !reserva }" x-text="reservaValorTexto()"></p>
+          </div>
+          <p class="reserva__fora">Fora da carteira de aposentadoria</p>
+          <template x-if="reserva">
+            <p class="reserva__fonte" data-testid="reserva-fonte"
+               :class="{ 'is-desatualizada': reservaDesatualizada() }"
+               x-text="reservaFonteTexto()"></p>
+          </template>
+          <template x-if="reservaSemSaldoTexto()">
+            <p class="reserva__aviso" data-testid="reserva-sem-saldo" x-text="reservaSemSaldoTexto()"></p>
+          </template>
+        </section>
 
         <!-- 7a.S.5 Task 2: quando o schema tem `ultimos_7d` mas ainda não há
              dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem

@@ -1421,6 +1421,18 @@ Verificado ao vivo (Playwright MCP): 390×844 claro e 320×640 Modo Plantão, as
 etapas e os dois motivos, alvos de 49px e 48px (≥44), **zero overflow horizontal** a
 320px.
 
+### A reserva no Raio-X (7a.BZ.2)
+
+A reserva de emergência, lida todo dia pelo Open Finance, **não é carteira**: fica fora do hero, nunca é somada a número nenhum da tela e não entra em alocação, rentabilidade nem projeção. Mixin `js/reserva.js`, rota `GET /reserva` do Worker (KV, chave `reserva`), SW rede-primeiro como o `/olho`. **Zero token novo.**
+
+- **Lugar:** logo abaixo do "Ver histórico" (e da linha do Olho, quando houver), antes dos "Últimos 7 dias". Dentro da primeira tela a 320 px, sem toque.
+- **Forma:** linha de razão entre duas hairlines `--neutral-200`, sem card, sem grifo, sem link. Título "Reserva" à esquerda (0.9375rem, 600, `--ink`) e o valor à direita (`--mono`, `--num-md`, 700, `--ink`: não é o teal do patrimônio). Abaixo, em 0.75rem `--gray`: "Fora da carteira de aposentadoria" e "Lida em dd/mm pelo Open Finance".
+- **Desatualizada** (status do item fora de `UPDATED`, execução fora de `SUCCESS`, banco sem data ou com mais de 48 h, ou leitura com mais de 48 h): a linha da fonte vira "Desatualizada: lida em dd/mm pelo Open Finance", em `--amber-700` peso 600. O valor continua à vista, com a data.
+- **Aplicação sem saldo:** uma linha a mais, em `--amber-700`: "N aplicações vieram sem saldo e ficaram fora da soma."
+- **Indisponível** (sem frase, erro de rede, KV sem a chave, versão desconhecida, nenhuma posição): o valor vira "indisponível" em `--gray`, a fonte some, o resto da tela fica.
+- **Rebusca ao voltar ao app** (`visibilitychange`): a marca de 48 h não fica parada num PWA aberto por dias.
+- **O código é público e não nomeia a instituição.** O stub `reserva` na raiz responde "KV sem a chave" ao servidor da suíte.
+
 ## Frescor do hero — publicação → fechamento (Fase 7a.AE.3)
 
 O slot `.hero-updated`, no canto direito do `.hero-meta`, **mudou de assunto**. Ele
