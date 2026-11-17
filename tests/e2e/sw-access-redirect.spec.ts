@@ -63,7 +63,8 @@ function responder(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   // 7a.BX.4: o payload do Olho, sempre uma cifra nova (o SW guarda a última).
   // 7a.BZ.2: /reserva no mesmo molde (mesmo contador, mesma chave de 5xx).
-  if (url.pathname === "/olho" || url.pathname === "/reserva") {
+  // 7a.BZ.3: /conferencia também.
+  if (url.pathname === "/olho" || url.pathname === "/reserva" || url.pathname === "/conferencia") {
     if (estado.olho500) {
       res.writeHead(503);
       res.end();
@@ -164,7 +165,7 @@ test.describe("SW: /comite/* nunca passa pelo cache (7a.BW.5)", () => {
   });
 });
 
-for (const rota of ["olho", "reserva"]) test.describe(`SW: /${rota} é rede primeiro, com a última cópia para offline (7a.BX.4, 7a.BZ.2)`, () => {
+for (const rota of ["olho", "reserva", "conferencia"]) test.describe(`SW: /${rota} é rede primeiro, com a última cópia para offline (7a.BX.4, 7a.BZ.2, 7a.BZ.3)`, () => {
   const ler = (page: Page) => page.evaluate(async (r0) => {
     const r = await fetch("./" + r0, { cache: "no-store" });
     return { cifra: (await r.json()).cifra, cache: r.headers.get("x-olho-cache") };

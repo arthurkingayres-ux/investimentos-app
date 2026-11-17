@@ -2024,6 +2024,8 @@ document.addEventListener("alpine:init", () => {
     ...window.olhoBloco(),
     // 7a.BZ.2: a reserva fora da carteira (js/reserva.js), só leitura.
     ...window.reservaBloco(),
+    // 7a.BZ.3: as notas pendentes da conferência (js/conferencia.js), só leitura.
+    ...window.conferenciaBloco(),
     ...window.retornoBloco(),
     fase: "pin",
     rota: "",
@@ -4243,6 +4245,7 @@ document.addEventListener("alpine:init", () => {
       this._limparEstadoComite();
       this._limparEstadoOlho();
       this._limparEstadoReserva();
+      this._limparEstadoConferencia();
     },
 
     // CRB final 7a.U (Finding 1): estado de SELEÇÃO das telas #proventos e
@@ -6223,6 +6226,7 @@ document.addEventListener("alpine:init", () => {
         this.carregarIndiceDossies();
         this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
         this.reservaCarregar(); // 7a.BZ.2: idem
+        this.conferenciaCarregar(); // 7a.BZ.3: idem
         if (this.rota === "relatorio") this.hidratarRelatorio();
         // Deep-link direto no dossiê: hidratarDossie aguarda o índice por
         // dentro, compartilhando a promise em voo disparada acima.
@@ -6480,6 +6484,7 @@ document.addEventListener("alpine:init", () => {
       this.carregarIndiceDossies();
       this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
       this.reservaCarregar(); // 7a.BZ.2: idem
+      this.conferenciaCarregar(); // 7a.BZ.3: idem
       if (this.rota === "relatorio") this.hidratarRelatorio();
       if (this.rota === "dossie") this.hidratarDossie();
       if (this.rota === "patrimonio") this.hidratarPatrimonio();
@@ -6584,6 +6589,7 @@ document.addEventListener("alpine:init", () => {
         this.carregarIndiceDossies();
         this.olhoCarregar(); // 7a.BX.4: sem await, como o índice
         this.reservaCarregar(); // 7a.BZ.2: idem
+        this.conferenciaCarregar(); // 7a.BZ.3: idem
         if (this.rota === "relatorio") this.hidratarRelatorio();
         if (this.rota === "dossie") this.hidratarDossie();
         // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;

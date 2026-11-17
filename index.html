@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=95">
+  <link rel="stylesheet" href="css/app.css?v=96">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
@@ -18,8 +18,9 @@
   <script src="js/comite.js?v=8"></script>
   <script src="js/olho.js?v=1"></script>
   <script src="js/reserva.js?v=1"></script>
+  <script src="js/conferencia.js?v=1"></script>
   <script src="js/retorno.js?v=2"></script>
-  <script src="js/app.js?v=102"></script>
+  <script src="js/app.js?v=103"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -235,6 +236,39 @@
             <p class="reserva__aviso" data-testid="reserva-sem-saldo" x-text="reservaSemSaldoTexto()"></p>
           </template>
         </section>
+
+        <!-- 7a.BZ.3 — as notas pendentes (spec 7a.BZ §4.5): o que a corretora mostra
+             pelo Open Finance e ainda não veio por nota. Logo abaixo da reserva,
+             na mesma linha de razão. x-if: sem item (ou sem payload) o nó não
+             existe e nenhum espaço fica reservado. Nada aqui é somado. O código
+             é público e não nomeia a instituição. -->
+        <template x-if="conferenciaVisivel()">
+          <section class="conferencia" data-testid="conferencia" aria-labelledby="conferencia-titulo">
+            <div class="conferencia__linha">
+              <p class="conferencia__titulo" id="conferencia-titulo">Notas pendentes</p>
+              <p class="conferencia__contagem" data-testid="conferencia-contagem">
+                <span aria-hidden="true" x-text="conferencia.itens.length"></span>
+                <span class="sr-only" x-text="conferenciaContagemTexto()"></span>
+              </p>
+            </div>
+            <p class="conferencia__explica">A corretora mostra operações que ainda não vieram por nota.</p>
+            <ul class="conferencia__lista" data-testid="conferencia-lista">
+              <template x-for="(item, i) in conferencia.itens" :key="i">
+                <li class="conferencia__item" data-testid="conferencia-item">
+                  <template x-if="item.tipo === 'operacao'">
+                    <span><span class="conferencia__mono" x-text="conferenciaData(item.data)"></span> · <span class="conferencia__mono" x-text="item.ticker"></span> · <span x-text="item.lado"></span></span>
+                  </template>
+                  <template x-if="item.tipo === 'posicao'">
+                    <span><span class="conferencia__mono" x-text="item.ticker"></span> · posição diferente do banco</span>
+                  </template>
+                </li>
+              </template>
+            </ul>
+            <p class="conferencia__fonte" data-testid="conferencia-fonte"
+               :class="{ 'is-desatualizada': conferenciaDesatualizada() }"
+               x-text="conferenciaFonteTexto()"></p>
+          </section>
+        </template>
 
         <!-- 7a.S.5 Task 2: quando o schema tem `ultimos_7d` mas ainda não há
              dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem

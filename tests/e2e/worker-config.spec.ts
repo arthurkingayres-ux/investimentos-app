@@ -82,13 +82,15 @@ test.describe("Worker investimentos-app: configuração", () => {
     );
     expect(cfg.main).toBe("worker/index.js");
     expect(cfg.assets?.binding).toBe("ASSETS");
-    expect(cfg.assets?.run_worker_first).toEqual(["/comite/*", "/olho", "/olho/*", "/reserva", "/reserva/*"]);
+    expect(cfg.assets?.run_worker_first).toEqual(["/comite/*", "/olho", "/olho/*", "/reserva", "/reserva/*", "/conferencia", "/conferencia/*"]);
     // 7a.BX.4: o arquivo `olho` na raiz é o stub do servidor de teste local
     // (python -m http.server), no estado "KV sem a chave". Em produção o Worker
     // responde /olho antes dos assets (a linha acima), então ele nunca é servido.
     expect(JSON.parse(fs.readFileSync(path.join(RAIZ, "olho"), "utf-8"))).toEqual({ cifra: null, gravada_em: null });
     // 7a.BZ.2: idem para `reserva` (stub local; em produção o Worker responde antes).
     expect(JSON.parse(fs.readFileSync(path.join(RAIZ, "reserva"), "utf-8"))).toEqual({ cifra: null, gravada_em: null });
+    // 7a.BZ.3: idem para `conferencia`.
+    expect(JSON.parse(fs.readFileSync(path.join(RAIZ, "conferencia"), "utf-8"))).toEqual({ cifra: null, gravada_em: null });
     expect(cfg.kv_namespaces).toHaveLength(1);
     expect(cfg.kv_namespaces[0].binding).toBe("COMITE");
     expect(cfg.kv_namespaces[0].id).toMatch(/^[0-9a-f]{32}$/);

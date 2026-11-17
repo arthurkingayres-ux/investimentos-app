@@ -29,7 +29,7 @@
 // servindo o cache dele. O install tolerante de antes ativaria um SW com
 // shell vazio, e o `activate` apagaria o cache bom: offline morto.
 
-const CACHE_VERSION = "v127";
+const CACHE_VERSION = "v128";
 const CACHE_SHELL = `carteira-shell-${CACHE_VERSION}`;
 const CACHE_DADOS = `carteira-dados-${CACHE_VERSION}`;
 
@@ -46,6 +46,7 @@ const SHELL_PRECACHE = [
   "./js/comite.js",
   "./js/olho.js",
   "./js/reserva.js",
+  "./js/conferencia.js",
   "./js/retorno.js",
   "./js/vendor/alpine.min.js",
   "./js/vendor/echarts.min.js",
@@ -134,6 +135,12 @@ self.addEventListener("fetch", (event) => {
   // velha não engana: o payload traz a data da leitura e a tela marca
   // "desatualizada" depois de 48 h.
   if (url.pathname === escopo + "reserva") {
+    event.respondWith(networkFirstDados(event, { marcarCache: true }));
+    return;
+  }
+  // 7a.BZ.3: /conferencia (as notas pendentes) é dado do KV pelo mesmo motivo.
+  // A cópia velha traz a data da conferência e a tela a marca depois de 48 h.
+  if (url.pathname === escopo + "conferencia") {
     event.respondWith(networkFirstDados(event, { marcarCache: true }));
     return;
   }

@@ -1433,6 +1433,16 @@ A reserva de emergência, lida todo dia pelo Open Finance, **não é carteira**:
 - **Rebusca ao voltar ao app** (`visibilitychange`): a marca de 48 h não fica parada num PWA aberto por dias.
 - **O código é público e não nomeia a instituição.** O stub `reserva` na raiz responde "KV sem a chave" ao servidor da suíte.
 
+### As notas pendentes no Raio-X (7a.BZ.3)
+
+A conferência diária, pelo Open Finance, do que a corretora mostra e ainda não veio por nota. Mixin `js/conferencia.js`, rota `GET /conferencia` do Worker (KV, chave `conferencia`), SW rede-primeiro como a `/reserva`. **Zero token novo.** Nada é somado nem muda número nenhum da tela.
+
+- **Lugar:** logo abaixo da reserva, antes dos "Últimos 7 dias". Fecha com a hairline de baixo; a de cima é a da reserva.
+- **Só existe com item:** `x-if`. Lista vazia, sem payload, `cifra: null`, erro ou payload fora da forma (um item malformado derruba o payload inteiro): o nó não existe e nenhum espaço fica reservado.
+- **Forma:** título "Notas pendentes" à esquerda (0.9375rem, 600, `--ink`) e a contagem à direita (`--mono`, `--num-md`, 700, `--ink`), com "N pendentes" em `.sr-only`. Abaixo, em 0.75rem `--gray`: "A corretora mostra operações que ainda não vieram por nota." Lista `<ul>` sem marcador, um item por linha em 0.8125rem `--ink`: operação "dd/mm/aaaa · TICKER · Compra|Venda", posição "TICKER · posição diferente do banco", data e ticker em `--mono`, na ordem do payload.
+- **Rodapé:** "Conferida em dd/mm pelo Open Finance"; com `lido_em` a mais de 48 h, "Desatualizada: conferida em dd/mm pelo Open Finance" em `--amber-700` 600, como a reserva.
+- **O código é público e não nomeia a corretora nem o banco.** Stub `conferencia` na raiz, como o da reserva.
+
 ## Frescor do hero — publicação → fechamento (Fase 7a.AE.3)
 
 O slot `.hero-updated`, no canto direito do `.hero-meta`, **mudou de assunto**. Ele

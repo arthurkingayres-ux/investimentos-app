@@ -2,6 +2,7 @@
 // /comite/* (assets.run_worker_first), recebe o pedido do Comite de Aporte.
 // 7a.BX.4: /olho tambem passa por aqui (leitura do payload do Olho).
 // 7a.BZ.2: e /reserva (a reserva fora da carteira, lida pelo Open Finance).
+// 7a.BZ.3: e /conferencia (as notas pendentes, conferidas pelo Open Finance).
 //
 // O caminho (spec 7a.BW §9.1): o app cifra o pedido com a frase de acesso e faz
 // POST aqui; este Worker confere o JWT do Access, limita a 3 pedidos por dia
@@ -16,6 +17,8 @@
 // do olho.yml grava no mesmo KV (chave `olho`), toda segunda.
 // 7a.BZ.2: GET /reserva, idem, para a reserva que o reserva.yml grava todo dia
 // (chave `reserva`).
+// 7a.BZ.3: GET /conferencia, idem, para a conferencia das notas que o reserva.yml
+// grava todo dia (chave `conferencia`).
 //
 // O Worker nunca ve o valor em claro e nunca loga a cifra nem o token: os logs
 // levam so status HTTP.
@@ -40,6 +43,8 @@ const CHAVE_RESPOSTA = "resposta";
 const CHAVE_OLHO = "olho";
 // 7a.BZ.2: gravada pelo reserva.yml do repo principal.
 const CHAVE_RESERVA = "reserva";
+// 7a.BZ.3: gravada pelo job `conferencia` do reserva.yml do repo principal.
+const CHAVE_CONFERENCIA = "conferencia";
 
 function json(corpo, status = 200) {
   return new Response(JSON.stringify(corpo), {
@@ -172,7 +177,8 @@ export default {
     const url = new URL(request.url);
     const ehOlho = url.pathname === "/olho" || url.pathname.startsWith("/olho/");
     const ehReserva = url.pathname === "/reserva" || url.pathname.startsWith("/reserva/");
-    if (!url.pathname.startsWith("/comite/") && !ehOlho && !ehReserva) return env.ASSETS.fetch(request);
+    const ehConferencia = url.pathname === "/conferencia" || url.pathname.startsWith("/conferencia/");
+    if (!url.pathname.startsWith("/comite/") && !ehOlho && !ehReserva && !ehConferencia) return env.ASSETS.fetch(request);
 
     const acesso = await verificarAccess(request, env);
     if (!acesso.ok) return json({ erro: "acesso negado" }, acesso.status);
@@ -184,6 +190,10 @@ export default {
     if (url.pathname === "/reserva") {
       if (request.method !== "GET") return json({ erro: "metodo" }, 405);
       return getCifraGravada(env, CHAVE_RESERVA);
+    }
+    if (url.pathname === "/conferencia") {
+      if (request.method !== "GET") return json({ erro: "metodo" }, 405);
+      return getCifraGravada(env, CHAVE_CONFERENCIA);
     }
     if (url.pathname === "/comite/pedido") {
       if (request.method !== "POST") return json({ erro: "metodo" }, 405);
