@@ -323,7 +323,7 @@ Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 
 
 ### Tab bar (Monument)
 
-Bottom nav fixa, 5 destinos **por extenso** (Raio-X · Rentabilidade · Alocação · Proventos · Aportar), text-only (sem ícones), indicator 2px no **topo** da tab ativa que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todas as tabs — não é pseudo `::before` por tab.
+Bottom nav fixa, **cinco grupos por extenso** (Raio-X · Retorno · Carteira · Análise · Aportar; 7a.CC.1, antes Raio-X · Rentabilidade · Alocação · Proventos · Aportar), text-only (sem ícones), indicator 2px no **topo** do grupo ativo que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todos os grupos — não é pseudo `::before` por tab. Os links saem do mapa `GRUPOS` (`js/navegacao.js`, `x-for`); `data-tab` é o id do grupo (`raiox|retorno|carteira|analise|aportar`) e o toque leva à última tela visitada do grupo (no grupo já aceso, à primeira da faixa). As telas de cada grupo ficam na **faixa de telas** (seção abaixo).
 
 ```css
 .tab-bar {
@@ -362,9 +362,19 @@ Bottom nav fixa, 5 destinos **por extenso** (Raio-X · Rentabilidade · Alocaç�
 
 **Rótulos por extenso (7a.S.4):** as abreviações `raio-x/rent/aloca/prov/apt` (pré-7a.S) viraram `Raio-X/Rentabilidade/Alocação/Proventos/Aportar`. Risco medido: "Rentabilidade" (13 caracteres, palavra sem quebra) a 320px em 5 colunas (~64px/tab) — `min-width: 0` no item do grid + `padding: 0 2px` evitam o "grid blowout" (a track de `1fr` cresceria além da viewport com `min-width: auto` padrão). Verificado: 0 overflow horizontal a 320px (`tab-vozes.spec.ts`).
 
-**Persistência:** visível nas 5 tabs e nas telas de push (`#ativo/:ticker`, `#/raiox/chart`). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
+**Persistência:** visível em todas as telas-membro dos 5 grupos e nas telas de push (`#ativo/:ticker`, `#/dossie/:ticker`, os capítulos do Diagnóstico). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
 
 **Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 inativa / 700 ativa, color shift `--faint` → `--accent`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + cor + tracking + indicator.
+
+### Cabeçalho de grupo e faixa de telas (7a.CC.1)
+
+O segundo nível da navegação. Um único `<header class="grupo-cab">`, primeiro filho de `<main>`, visível só em **tela-membro** de grupo (`x-show="grupoAtual"`); tela de push não o mostra.
+
+- **Cabeçalho:** `position: sticky; top: 0`, `padding-top: env(safe-area-inset-top)`, fundo `--tab-bg` + `backdrop-filter: blur(14px)` + hairline `--tab-bar-border` embaixo (o mesmo tratamento funcional da barra de baixo), sangrando até a borda de `<main>`. Linha do eyebrow com `min-height: 40px` em todo grupo: `.eyebrow` com o nome do grupo e, só no Hoje, o `.theme-toggle` no canto direito.
+- **Faixa (`nav.faixa`, `aria-label="Telas de {grupo}"`):** um `<a href>` real por tela, `aria-current="page"` na ativa. Item 14px, peso 600 `--gray`; ativo 700 `--accent` sobre pílula de raio 999px. A pílula é **opaca e pré-composta**: `background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--neutral-50)`. Translúcida, com o hero escuro rolando sob o cabeçalho, o contraste caía a ~3,4:1 no claro; opaca, fica em 4,63:1 (claro) e 8,77:1 (Plantão) com qualquer fundo. Alvo ≥ 44px de altura, `gap: 4px`, `padding: 0 12px`.
+- **Largura:** nunca quebra linha (`white-space: nowrap`); rola na horizontal dentro dela, sem barra visível (`scrollbar-width: none`), e a tela ativa é trazida para a área visível por `scrollLeft` (nunca `scrollIntoView`, que rolaria o documento). Retorno cabe inteiro em 375px e rola em 320px.
+- **Âncoras:** `main [id] { scroll-margin-top: calc(var(--grupo-cab-h) + 8px) }`; `--grupo-cab-h` é medida a cada troca de rota (0 em tela de push).
+- **Motion:** só cor e fundo da pílula, em 220ms, dentro de `prefers-reduced-motion: no-preference`.
 
 ### Voz única de abertura de tela — `.eyebrow` (7a.S.4)
 
@@ -379,11 +389,11 @@ Antes da 7a.S.4, cada tela abria com um `<h1>` grande e inconsistente (tamanhos/
 .eyebrow--accent { color: var(--accent); }  /* 7a.S.4: variante das push screens */
 ```
 
-**Mapeamento por tela:**
-- **Tab screens** (Raio X, Rentabilidade, Alocação, Proventos, Aportar) — o `<h1>` de abertura vira `<p class="eyebrow">`, cor `--faint`. No raio-x, o eyebrow é filho direto de `.raiox` (sem `.breadcrumb`, tela âncora); nas demais 4, o eyebrow substitui o `<h1>` dentro do `<header class="breadcrumb">` já existente (sem botão voltar). O **hero-poster do patrimônio** no raio-x permanece intocado — só o h1 redundante com o rótulo da própria tab bar é rebaixado.
-- **Push screens** (`#ativo/:ticker`, `#/raiox/chart` → `.tela-patrimonio`, `#relatorio`) — mesmo `.eyebrow`, variante `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. O `.breadcrumb` com botão "←" **não é removido** — a variante troca só a cor do label, não a navegação.
+**Mapeamento por tela (desde a 7a.CC.1):**
+- **Telas-membro de grupo** (as 13 da faixa: Hoje, Histórico, Rentabilidade, Proventos, DY, Renda, Alocação, Vigília, Diagnóstico, Projeção, Relatório, Sugestão, Comitê) — o eyebrow visível é o **do grupo**, no `.grupo-cab` (`.eyebrow`, cor `--faint`). A tela não tem cabeçalho próprio visível: o título dela fica como `<h1 class="sr-only">` (mantém `aria-labelledby` e a hierarquia para leitor de tela), sem botão voltar. O Relatório é a exceção parcial: mantém `<header class="breadcrumb rel-breadcrumb">` só pelo seletor de mês. O **hero-poster do patrimônio** no Hoje permanece intocado.
+- **Telas de push** (`#ativo/:ticker`, `#/dossie/:ticker` e os cinco capítulos do Diagnóstico) — `.breadcrumb` com botão "←" e `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. Sem cabeçalho de grupo.
 
-Nenhuma tela usa `<h1>` daqui pra frente, exceto a PIN screen (`<h1>Carteira</h1>`, fora do shell autenticado — não é uma "tela" no sentido de navegação por tab/push).
+Nenhuma tela usa `<h1>` visível, exceto a PIN screen (`<h1>Carteira</h1>`, fora do shell autenticado — não é uma "tela" no sentido de navegação por tab/push).
 
 ### Card (padrão)
 Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
@@ -429,9 +439,9 @@ Barra horizontal com preenchimento + marker vertical de alvo.
 ### Aloca unificada (7a.E.31)
 `#alocacao` é **uma única lista de cards de categoria colapsáveis** — sem
 segmented Atual/Alvo (removido), sem accordion de seção. A tela consolida
-política alvo + estado atual lado a lado. Cabeçalho `.breadcrumb` padrão (só
-o `<h1>Alocação</h1>`, idêntico às demais telas — sem repetir patrimônio
-total, que já é o hero do #raiox).
+política alvo + estado atual lado a lado. Sem cabeçalho próprio visível
+(7a.CC.1): o nome está na faixa do grupo Carteira e o `<h1>Alocação</h1>` fica
+`.sr-only`; o topo não repete patrimônio total, que já é o hero do #raiox.
 
 **Anatomia do card (`.aloca-cat`, `--cat` via `catStyleVar(nome)` inline):**
 - **Header-resumo sempre visível** (`.aloca-cat__head`, `<button>`): dot
@@ -606,7 +616,8 @@ novos substituem o que saiu:
   `"Total · 12 meses"` no Mensal — troca com o toggle.
 - **Chamada de Dividend Yield** (`.dy-chamada`, idioma do card
   `.rel-card-home` do Relatório do mês): mostra o DY trailing-12m da
-  carteira e navega (push) para a tela dedicada `#/proventos/dy`.
+  carteira e leva à tela dedicada `#/proventos/dy` (tela-membro DY do grupo
+  Retorno desde a 7a.CC.1, também na faixa).
 
 ```css
 .prov-chart-card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px var(--g-900-07); }
@@ -628,11 +639,9 @@ fica inerte (sem scroll visível). Container ganha `tabindex="0"` +
 
 ### Dividend Yield dedicado — `#s-dy` (7a.S.7b, ranking 7a.BO.2)
 
-Tela push (`#/proventos/dy`, tab bar **persiste** em "Proventos" —
-mesmo mecanismo genérico de `#ativo`/`#/raiox/chart`; `voltar()` usa o
-mapa `home["provent"] = "#proventos"`, sem shim dedicado), aberta pela
-chamada de `#proventos`. Breadcrumb com `.eyebrow--accent` "Dividend
-Yield" + botão voltar.
+Tela-membro de Retorno (`#/proventos/dy`, item "DY" da faixa; 7a.CC.1,
+antes push), aberta também pela chamada de `#proventos`. Sem "←": volta-se
+a Proventos pela faixa. O título "Dividend Yield" fica como `<h1>` `.sr-only`.
 
 - **Poster** (`.poster`, mono, `--num-poster-xl` 54px, cor `--accent`)
   = `dividend_yield.total.dy` da carteira + caption `.poster-cap`
@@ -881,11 +890,13 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 
 | Animação | Duração | Curva | Property | Reduced-motion |
 |---|---|---|---|---|
-| Tab cross-fade (conteúdo) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
+| Cross-fade de tela (troca de grupo e de tela na faixa; `tabFade`) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
 | Tab indicator slide | 220ms | cubic-bezier(0.16,1,0.3,1) | transform translateX | zera |
 | Hero count-up (Raio-X) | 700ms | cubic-out via RAF | textContent | reveal instantâneo; flag em sessionStorage limita a 1×/sessão |
-| Push #ativo / #/raiox/chart | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
+| Push (#ativo, #/dossie, capítulos do Diagnóstico) | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
 | Segmented Aloca (Atual/Alvo) | — | — | — | LEGADO: removido em 7a.E.31 (vista única); config `segmented` em transitions.js sem uso |
+
+7a.CC.1: as telas que eram push e viraram membro de grupo (Histórico, DY, Projeção, Renda, Diagnóstico índice, Relatório, Comitê, Vigília) trocaram o `push-enter` pelo cross-fade `tabFade` (`x-transition:enter.opacity.duration.220ms`). A pílula da faixa só anima cor e fundo, em 220ms.
 
 **Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
 
@@ -898,7 +909,7 @@ Orçamento de motion **separado** do stagger de barras de dataviz (anti-pattern 
 O ritual diário do produto (desbloqueio → home) vira **cena única**, orquestrada em `js/app.js` (`submitPin` + `iniciarAbertura`, x-init da `.raiox`) e `css/app.css`. Três movimentos, sempre nesta ordem:
 
 1. **Dissolve da PIN screen** — no `submitPin` bem-sucedido, `.pin-screen` ganha `.pin-dissolve` (opacity 1→0 + `scale(1.05)`, `--d3`/550ms) ANTES de `fase` virar `"raiox"`; a troca de fase só ocorre ~620ms depois (folga pós-transição, nó sai assentado — mesmo racional do 320ms de saída do `.hero-face`, 7a.S.5).
-2. **Reveal em stagger da home** — 4 grupos (`.eyebrow` → `#hero` → `.raiox-7d` → `.rel-card-home`) entram em **100 / 250 / 400 / 550ms** (opacity 0→1 + `translateY(12px)→0`, `--d3`/`--ease`). **Exceção documentada** ao orçamento "reveal stagger de app-shell" (≤110ms/passo, seção acima): aqui o passo é ~150ms — sancionado porque é uma cerimônia de UMA vez por sessão (não uma tela revisitada a cada navegação, como `.aporte-card`/`.plan-cat`), e o hero de facetas (7a.S.5) já materializa com o count-up existente (`ativarCountUpHero`, 1×/sessão via `heroCountUpDone` — a cerimônia não re-dispara, só orquestra o momento em que o card do hero fica visível ao redor dele).
+2. **Reveal em stagger da home** — 4 grupos (`.grupo-cab .eyebrow`, o eyebrow "Raio-X" do cabeçalho de grupo desde a 7a.CC.1 → `#hero` → `.raiox-7d` → `.rel-card-home`) entram em **100 / 250 / 400 / 550ms** (opacity 0→1 + `translateY(12px)→0`, `--d3`/`--ease`). **Exceção documentada** ao orçamento "reveal stagger de app-shell" (≤110ms/passo, seção acima): aqui o passo é ~150ms — sancionado porque é uma cerimônia de UMA vez por sessão (não uma tela revisitada a cada navegação, como `.aporte-card`/`.plan-cat`), e o hero de facetas (7a.S.5) já materializa com o count-up existente (`ativarCountUpHero`, 1×/sessão via `heroCountUpDone` — a cerimônia não re-dispara, só orquestra o momento em que o card do hero fica visível ao redor dele).
 3. **Delta pill "respira"** — ao fim (~980ms), `.hero-delta` ganha `.abertura-breathe`: UM ciclo de `scale(1→1.045→1)` (`animation-iteration-count: 1`, `--d3`/550ms), removido pelo próprio JS no `animationend`. Não é decoração permanente nem loop.
 
 **Trigger e 1×/sessão:** `iniciarAbertura()` é o `x-init` da própria `.raiox` — dispara sempre que a fase vira `"raiox"`, seja via `submitPin` (PIN digitado) OU `tentarAutoResume` (sessão deslizante ≤7d, silencioso). A flag `aberturaFeita` (sessionStorage, mesmo padrão de `heroCountUpDone`/`heroFacetHintSeen`) garante que só a 1ª abertura da sessão toca a cena — refresh/re-navegação dentro da mesma aba mostra a home direto, sem reveal.
@@ -1090,7 +1101,8 @@ Aplicações futuras e refactors NUNCA podem introduzir:
                      .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
                      .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
                      .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
-                     .theme-toggle (☽/☀ Modo Plantão, topo do Raio-X — 7a.S.12, ver seção dedicada abaixo)
+                     .theme-toggle (☽/☀ Modo Plantão, na linha do eyebrow do .grupo-cab, só no Hoje — 7a.S.12/7a.CC.1, ver seção dedicada abaixo)
+                     .grupo-cab/.grupo-cab__linha/.faixa (cabeçalho de grupo e faixa de telas, 7a.CC.1 — ver seção dedicada acima)
                      .renda-ensaio/.renda-tabela/.renda-grafico/.renda-origem/.renda-pisos (Renda da carteira #/raiox/renda, 7a.BJ.2 — ver seção dedicada abaixo); .renda-card-home agrupado com .rel-card-home/.proj-card-home
                      .diag-ensaio/.diag-frase/.diag-mono/.diag-pares/.diag-par/.diag-janela/.diag-grafico/.diag-conta (Diagnóstico, capítulo 1 #/raiox/diagnostico/risco, 7a.BQ.2 — ver seção dedicada abaixo); .diag-card-home agrupado com os cards da home
                      .diag-indice__* (índice #/raiox/diagnostico), .sel-*/.sel-regua (capítulo 3, a régua da confiança), .apor-* (capítulo 4), .pol-* (capítulo 2 da 7a.BS.2, a cascata), .cons-* (capítulo 5 da 7a.BT.2, a régua dupla), .diag-janela--herda (janelas com font: inherit), .rent-grifo-sel/.rent-aporte-frase (Rentabilidade) — 7a.BR.2, ver seção dedicada abaixo
@@ -1127,11 +1139,11 @@ Tema escuro para uso real (plantão, madrugada, sala escura): **warm OLED, teal-
 
 ### Toggle, persistência, boot
 
-- `<button class="theme-toggle">` (☽/☀, glifo `aria-hidden`) no topo do Raio-X (`index.html`, dentro de `.raiox`, ao lado do `.eyebrow`) — `aria-label="Alternar tema (claro/plantão)"` + `:aria-pressed="tema === 'dark'"`.
+- `<button class="theme-toggle">` (☽/☀, glifo `aria-hidden`) na linha do eyebrow do `.grupo-cab`, à direita, só no Hoje (`x-show="rota === ''"`; 7a.CC.1, antes dentro de `.raiox`) — `aria-label="Alternar tema (claro/plantão)"` + `:aria-pressed="tema === 'dark'"`.
 - `alternarTema()` (`js/app.js`): flip `this.tema` → `document.documentElement.setAttribute('data-theme', tema)` (via `_aplicarTema`) → `localStorage.setItem('tema', tema)` → `window.drarthurChart.reregister()`.
 - Boot (`init()`, ANTES de `tentarAutoResume()`): `this.tema = localStorage.getItem('tema') === 'dark' ? 'dark' : 'light'` — **NUNCA lê `prefers-color-scheme`** (spec §5.5: só o Dr. Arthur decide, manual + persistido; SO em dark não muda nada sem o toggle).
 - `_aplicarTema` também atualiza `<meta name="theme-color">` (`#064e3b` light / `#03110a` dark) — chrome do navegador/status bar acompanha o tema.
-- O toggle só existe dentro de `.raiox` (`x-show="rota === ''"`) — no instante do clique nenhuma tela de chart pode estar ativa, por construção. `alternarTema()` não re-hidrata chart nenhum: a próxima entrada em `#rentabilidade`/`#/raiox/chart`/`#proventos` já dispara `hidratarX()` (dispose+init incondicional a cada navegação) lendo os tokens recém-reregistrados — zero flash de cor antiga, porque o chart nunca fica "vivo e desatualizado" (ou não existe ainda, ou é reconstruído do zero a cada entrada na tela).
+- O toggle só aparece no Hoje (`x-show="rota === ''"`) — no instante do clique nenhuma tela de chart pode estar ativa, por construção. `alternarTema()` não re-hidrata chart nenhum: a próxima entrada em `#rentabilidade`/`#/raiox/chart`/`#proventos` já dispara `hidratarX()` (dispose+init incondicional a cada navegação) lendo os tokens recém-reregistrados — zero flash de cor antiga, porque o chart nunca fica "vivo e desatualizado" (ou não existe ainda, ou é reconstruído do zero a cada entrada na tela).
 
 ### Bloco `:root[data-theme="dark"]` — remap completo
 
@@ -1180,7 +1192,7 @@ O tema `'drarthur'` do ECharts (`js/echarts-theme.js`) e o `tooltipBase` são re
 
 ## Relatório Mensal (7a.Q.3) — componentes
 
-Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `--amber*`, `.kpi`, `.flag`, `.grifo--amber`):
+Tela-membro de Análise `#/raiox/relatorio` (7a.CC.1, antes push) reusa a casca `.tela-detalhes`; o `.rel-breadcrumb` fica só pelo seletor de mês, sem "←" (o título "Relatório" é `<h1>` `.sr-only`). **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `--amber*`, `.kpi`, `.flag`, `.grifo--amber`):
 
 - `.rel-card-home` — card de entrada na home Raio-X (surface branca, `--neutral-200` border, chevron `--g-700`); empty-safe (`x-show="relUltimoMes"`).
 - `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — layout: borda-esquerda arredondada + padding/gap; peso por hierarquia, **calma, sem vermelho gritante**). Desde 7a.S.9 a *cor* de `.rel-secao--destaque` vem inteira de `.grifo--amber` (abaixo) — a classe de layout não carrega mais `--sem-down` própria.
@@ -1189,7 +1201,7 @@ Tela push `#/raiox/relatorio` reusa a casca `.tela-detalhes` + `.breadcrumb`. **
 
 ### Capa editorial + evento mensal (7a.S.9)
 
-- **Capa editorial** — `.rel-capa` no header (abaixo do `.breadcrumb`, que mantém botão "←" + `.eyebrow.eyebrow--accent` intactos): `.rel-poster` mostra o mês do artefato como poster de 2 linhas (mês / ano, `--num-poster-lg` 46px mono `--accent`, via `formatMesAno(relMes.mes)` partido em `relPosterMes`/`relPosterAno`) + `.rel-veredito-linha` logo abaixo ("Veredito do mês: …", `--num-sm`/`--surface-2`). **Sem fabricar dado**: o artefato `relatorio_mensal_v1` não tem campo `veredito`/`headline`/`resumo` (ver `validar_artefato` no repo principal) — o getter `relVeredito` deriva a **1ª frase literal** da seção `leitura_mes` ("Leitura do mês", o panorama narrativo já escrito pelo motor `/relatorio-mensal`) via `_primeiraFrase`; só o rótulo "Veredito do mês:" é UI, o texto é 100% do artefato. `.rel-seletor__btn` ganha `white-space: nowrap` (corrige o micro-atrito Fable §3 — "Maio 2026 ▾" não quebra em 2 linhas @320px); dropdown inalterado.
+- **Capa editorial** — `.rel-capa` no header (abaixo do `.rel-breadcrumb` com o seletor de mês; desde a 7a.CC.1 sem "←" nem eyebrow próprio): `.rel-poster` mostra o mês do artefato como poster de 2 linhas (mês / ano, `--num-poster-lg` 46px mono `--accent`, via `formatMesAno(relMes.mes)` partido em `relPosterMes`/`relPosterAno`) + `.rel-veredito-linha` logo abaixo ("Veredito do mês: …", `--num-sm`/`--surface-2`). **Sem fabricar dado**: o artefato `relatorio_mensal_v1` não tem campo `veredito`/`headline`/`resumo` (ver `validar_artefato` no repo principal) — o getter `relVeredito` deriva a **1ª frase literal** da seção `leitura_mes` ("Leitura do mês", o panorama narrativo já escrito pelo motor `/relatorio-mensal`) via `_primeiraFrase`; só o rótulo "Veredito do mês:" é UI, o texto é 100% do artefato. `.rel-seletor__btn` ganha `white-space: nowrap` (corrige o micro-atrito Fable §3 — "Maio 2026 ▾" não quebra em 2 linhas @320px); dropdown inalterado.
 - **Evento mensal — dot "não lido"** — `.rel-dot` (7px, `var(--amber)`) no `.rel-card-home` (quando o último mês não foi lido) e em cada `.rel-seletor__item` cujo mês ainda não foi aberto. Estado 100% client-side: `relRead` (Alpine state, espelhado em `localStorage.relRead`) é um mapa `{'YYYY-MM': true}`; `mesLido(mes)` lê, `_marcarMesLido(mes)` grava e é chamado dentro de `carregarRelatorioMes` no sucesso — abrir um mês marca ele lido e o dot some (home + seletor), sem backend/schema. **A11y**: dot é `aria-hidden` + par `.sr-only` "não lido" (textual, não só cor+pulse). **Motion**: `.rel-dot::after` anima um anel via `transform: scale`/`opacity` (nunca `box-shadow` com `rgba()` ad-hoc — zero cor hardcoded fora de `:root`); a animação só existe dentro de `@media (prefers-reduced-motion: no-preference)`, então reduced-motion vira um dot estático (o `::after` fica parado sobre o próprio dot, mesma cor/tamanho).
 - **Grifo âmbar consagrado** — `classeSecao('nao_funcionando')` retorna `"rel-secao--destaque grifo--amber"`: o box ganha `.grifo--amber` (S.1: `border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`), a colocação canônica do Apêndice B ("Relatório = âmbar", variante distinta do `.grifo` accent — nunca leem como o mesmo sinal). Os selos de veredito dentro do box (ex.: SMAL11/KISU11) são preservados intactos.
 
@@ -1212,7 +1224,7 @@ Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + ar
 
 > **Superada em 26/09/2026.** A tela descrita nesta seção (gráfico único `.proj-chart`, listas `.proj-sens`/`.proj-estresse`, tabela `.proj-aporte` com marco, premissas por classe) foi substituída pelo ensaio em capítulos da seção seguinte, "Projeção — ensaio (7a.AW)". O texto abaixo fica como registro das decisões que a 7a.AV.2 mediu. O que continua valendo: o card da home agrupado com `.rel-card-home`, a limpeza no lock e a lição das fontes do sistema. **[Carimbo 7a.AX, 26/09/2026: a limpeza no lock deixou de continuar valendo — ver o carimbo no próprio bullet, abaixo.]**
 
-Push screen `#/raiox/projecao` — a resposta a "quanto vou ter aos 65?", derivada da simulação Monte Carlo que o pipeline recalcula toda noite (semente fixa, milhares de trajetórias) a partir de `config/projecao.yaml`. Alcançada por um card na home Raio-X, `.proj-card-home`, imediatamente abaixo do card "Relatório do mês" — **mesmo idioma visual, seletor próprio**: `.proj-card-home` é agrupado com `.rel-card-home` no CSS (mesmo bloco de regras, mesma geometria/hover/`:active`) mas **não reusa a classe**, pela mesma razão da tela do dossiê — reusar a raiz faria os locators do Relatório resolverem a 2 nós. Ambos os cards são **empty-safe** (`x-show="projecao"` / `x-show="relUltimoMes"`) e convivem: payload sem `projecao` (pré-v2.27, ou premissas ausentes/inválidas) simplesmente não mostra o card, sem placeholder nem erro.
+Tela `#/raiox/projecao` (membro de Análise desde a 7a.CC.1; antes push) — a resposta a "quanto vou ter aos 65?", derivada da simulação Monte Carlo que o pipeline recalcula toda noite (semente fixa, milhares de trajetórias) a partir de `config/projecao.yaml`. Alcançada por um card na home Raio-X, `.proj-card-home`, imediatamente abaixo do card "Relatório do mês" — **mesmo idioma visual, seletor próprio**: `.proj-card-home` é agrupado com `.rel-card-home` no CSS (mesmo bloco de regras, mesma geometria/hover/`:active`) mas **não reusa a classe**, pela mesma razão da tela do dossiê — reusar a raiz faria os locators do Relatório resolverem a 2 nós. Ambos os cards são **empty-safe** (`x-show="projecao"` / `x-show="relUltimoMes"`) e convivem: payload sem `projecao` (pré-v2.27, ou premissas ausentes/inválidas) simplesmente não mostra o card, sem placeholder nem erro.
 
 - **Ousadia num lugar só.** A linha-resposta (`.proj-resposta`) é o único elemento em destaque da tela: "Aos 65, entre **R$ X** e **R$ Y**" com os dois números da faixa em `--num-xl`/mono/700, seguido de uma sub-linha quieta com o valor central e "em reais de hoje". O resto da tela é deliberadamente calmo — listas sem card (`.proj-sens`, `.proj-estresse`), tabelas densas sem borda decorativa — para que a atenção não compita com a resposta.
 - **~~Gráfico em leque, zero dataZoom~~ (superado pela 7a.AW.2).** O gráfico único `.proj-chart` (leque + curva histórica tracejada + `markLine` do marco de formação) saiu. O leque virou dois pequenos múltiplos, um por âncora, no capítulo 5; as medianas dos quatro cenários foram para o gráfico-mapa do capítulo 4; o marco saiu junto com o aporte de dois períodos. Ver "Projeção — ensaio (7a.AW)".
@@ -1226,7 +1238,7 @@ Push screen `#/raiox/projecao` — a resposta a "quanto vou ter aos 65?", deriva
 
 ### Projeção — ensaio (7a.AW, forma refeita na 7a.AX, um cenário na 7a.AY)
 
-Push screen `#/raiox/projecao`, um **ensaio em capítulos**: coluna única, sem cards, a separação é tipográfica e espacial. Desde a 7a.AY.2 a tela mostra **um** cenário, com premissas prospectivas por classe (payload v2.29); as quatro leituras da 7a.AW (dois históricos e dois de mercado) saíram, e os retornos históricos vivem só no `#rentabilidade`.
+Tela `#/raiox/projecao` (membro de Análise), um **ensaio em capítulos**: coluna única, sem cards, a separação é tipográfica e espacial. Desde a 7a.AY.2 a tela mostra **um** cenário, com premissas prospectivas por classe (payload v2.29); as quatro leituras da 7a.AW (dois históricos e dois de mercado) saíram, e os retornos históricos vivem só no `#rentabilidade`.
 
 - **Abertura (`.proj-resposta`).** "Aos 65 você teria cerca de **R$ X**, em reais de hoje." e, na linha de baixo, "Em 8 de cada 10 cenários, entre **R$ A** e **R$ B**." X = p50 (`--num-xl`), A e B = p10 e p90 (`--num-lg`, `.proj-resposta__intervalo`). ", em reais de hoje." volta ao corpo do texto e a frase `em reais de hoje.` é inteira (`.proj-resposta__inteiro`, sem quebra): a 320 px ela desce junta, nunca parte "em | reais". O card da home diz "Aos 65, cerca de R$ X".
 - **Capítulo (`.proj-cap`, 6 na tela).** Gramática única: ordinal (`.proj-cap__ordinal`, pequeno, `--accent`, tipografia de título e **nunca** `--num-*`) → título → número-tema (`.proj-cap__tema`, fonte do texto, `--num-lg`, 700, tabular) → texto → "ver a conta" (`details.proj-conta`, fechado por padrão). Os capítulos 4, 5 e 6 não têm número-tema.
@@ -1243,7 +1255,7 @@ Push screen `#/raiox/projecao`, um **ensaio em capítulos**: coluna única, sem 
 
 ### Renda da carteira — ensaio (7a.BJ.2)
 
-Push screen `#/raiox/renda`, irmã da projeção e da mesma família: coluna única, sem cards, separação tipográfica e espacial, zero motion novo. Responde "quanto a carteira já paga por mês, e como isso cresce". Consome o bloco `renda` do payload **v2.32**. Classes próprias `renda-*` (os testes da projeção têm locators globais `.proj-*`; reusar a classe faria colidir).
+Tela `#/raiox/renda` (membro de Retorno desde a 7a.CC.1; antes push), irmã da projeção e da mesma família: coluna única, sem cards, separação tipográfica e espacial, zero motion novo. Responde "quanto a carteira já paga por mês, e como isso cresce". Consome o bloco `renda` do payload **v2.32**. Classes próprias `renda-*` (os testes da projeção têm locators globais `.proj-*`; reusar a classe faria colidir).
 
 - **Herói (`.renda-resposta`).** "Se você parasse de trabalhar hoje, sua carteira sustentaria" / **R$ X** (`.renda-heroi`, `--num-xl`, mono, `--g-900`: o **único mono da tela**, travado por teste) "por mês" / "R$ Y por ano, em reais de hoje." Valores em reais inteiros (`formatBrlInteiro`).
 - **Chip de 12 meses (`.renda-chip`).** Borda `--neutral-200`, texto `--ink` nos dois sentidos: informa, não celebra (sem verde no positivo, sem vermelho no negativo). O sinal vai em texto (`+` / `−`), arredondando o **módulo** (o `Math.round` do JS é assimétrico em .5). Some com histórico < 12 meses.
@@ -1333,7 +1345,7 @@ Três superfícies de **leitura**, nenhuma ação (spec 7a.BX §13.1, D1). **Zer
 
 - **Gravidade em forma + texto, nunca só cor.** ▲ tese sob ameaça, ◇ observar, · sem efeito; glifo `aria-hidden` ao lado do grau por extenso. Não colidem com os do veredito do dossiê (◐ ▽ ●). `--amber-700` só onde há ameaça ainda não examinada: o título do grupo, a linha do grau e o "aguarda o reexame". Examinado volta a `--gray`, peso 400.
 - **Raio-X, `a.olho-raiox`.** Uma linha logo abaixo do "Ver histórico", **só** com tese sob ameaça não examinada ("▲ 1 tese sob ameaça · ver ›"), em `--amber-700`, 44 px, `:active scale(.97)`. Sem banner, card nem contagem animada. É `x-if`, não `x-show`: sem ameaça o nó não existe. Some quando o reexame do Relatório confronta a tese, nunca por toque.
-- **Rota `#olho` (`.tela-olho`), push child do Raio-X.** Ajuda em `--gray`; cabeçalho de estado `.olho-estado__rodada` ("Última vigília seg dd/mm · N ativos · N documentos lidos", `tabular-nums`; números e datas da tela, nunca daqui); `ul.olho-fontes` com "CVM ok · fnet ok · EDGAR ok" em `--gray`, separados por `li + li::before "·"`. Fonte fora (`.is-fora`) vira frase em linha inteira, em `--amber-700` ("fnet sem resposta nesta semana: N FIIs sem vigília"). Depois, os grupos por grau, ameaça antes de observar, e a linha recolhida dos sem efeito (`button[aria-expanded]`, chevron que gira 90°, lista por ativo com o ticker em mono linkado ao dossiê).
+- **Rota `#olho` (`.tela-olho`), Carteira › Vigília (tela-membro desde a 7a.CC.1; antes push child do Raio-X).** Ajuda em `--gray`; cabeçalho de estado `.olho-estado__rodada` ("Última vigília seg dd/mm · N ativos · N documentos lidos", `tabular-nums`; números e datas da tela, nunca daqui); `ul.olho-fontes` com "CVM ok · fnet ok · EDGAR ok" em `--gray`, separados por `li + li::before "·"`. Fonte fora (`.is-fora`) vira frase em linha inteira, em `--amber-700` ("fnet sem resposta nesta semana: N FIIs sem vigília"). Depois, os grupos por grau, ameaça antes de observar, e a linha recolhida dos sem efeito (`button[aria-expanded]`, chevron que gira 90°, lista por ativo com o ticker em mono linkado ao dossiê).
 - **Um alerta é uma nota de interconsulta** (achado, fonte, conduta a decidir), hairline entre alertas, sem card: meta (ticker em mono `--accent` com alvo de 44 px por margem negativa, data e categoria em `--gray`), título do documento como link sublinhado em `--neutral-200` para a fonte oficial (nova aba, `noopener`), motivo em `--ink` até 62ch, e o trecho em **citação tipográfica**: aspas curvas, recuo de 1.1rem e aspa pendurada (`text-indent: -0.42em`), itálico `--gray`. **Nem grifo nem borda lateral:** o único grifo do dossiê segue sendo o `quebra_se`.
 - **Dossiê, `section.dossie-vigilia`.** Entre a tese e a linha do tempo (é contra a tese que cada documento foi lido), h2 "Vigília". Rodapé em `--gray`, não `--faint` (é frase a ler e precisa de contraste): "Vigiado desde dd/mm · última vigília dd/mm · N documentos lidos sem efeito". Fora do universo: "Fora da vigília: ETF não tem fato de empresa." Payload anterior à BX.4 (sem `vigiados`): ETF sem seção, vigiado ainda mostra o que houver.
 - **Índice do Diagnóstico, `a.diag-indice__olho`.** Entrada permanente **fora** da lista numerada (não é uma das cinco perguntas), na grade `corpo · chevron` das linhas, com o estado da vigília na linha de baixo.

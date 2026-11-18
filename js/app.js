@@ -2027,6 +2027,14 @@ document.addEventListener("alpine:init", () => {
     // 7a.BZ.3: as notas pendentes da conferência (js/conferencia.js), só leitura.
     ...window.conferenciaBloco(),
     ...window.retornoBloco(),
+    // 7a.CC: mapa de navegação em dois níveis, memória de grupo e origem do
+    // "voltar" (js/navegacao.js).
+    ...window.navegacaoBloco(),
+    // Grupo da faixa do topo: só existe em tela-membro (push não tem faixa).
+    // Getter aqui e não no mixin: o spread avaliaria o getter uma vez.
+    get grupoAtual() {
+      return this.ehMembro(this.rota) ? this.grupoPorId(this.tab) : null;
+    },
     fase: "pin",
     rota: "",
     tab: "raiox",
@@ -2082,10 +2090,6 @@ document.addEventListener("alpine:init", () => {
     dossieCarregado: "",    // ticker já renderizado (evita refetch na re-entrada)
     dossieCarregando: false,
     dossieErro: "",
-    // Hash da tela de origem, gravado no clique da entrada. voltar() mapeia
-    // tab → home da seção, o que perderia o ticker — o dossiê chega de DUAS
-    // telas diferentes (#ativo e #relatorio), então precisa da origem literal.
-    dossieOrigem: "",
     // Promise da carga do índice em voo. A carga é disparada em DOIS pontos
     // (boot não-bloqueante + hidratarDossie de um deep-link) e cada decifra
     // custa uma derivação PBKDF2 de 600k iterações — duas em paralelo custam
@@ -2306,6 +2310,13 @@ document.addEventListener("alpine:init", () => {
       // 'raiox' (template x-if), então também observamos `fase`.
       this.$nextTick(() => this.updateTabIndicator());
       this.$watch("fase", () => this.$nextTick(() => this.updateTabIndicator()));
+      // 7a.CC: o auto-resume deriva a rota ainda na tela de PIN, quando a
+      // navegação não grava nada; ao destravar, registra a tela corrente.
+      this.$watch("fase", (f) => {
+        if (f !== "raiox") return;
+        this._registrarNavegacao();
+        this.$nextTick(() => this._ajustarFaixa());
+      });
       this.$watch("tab", () => this.$nextTick(() => this.updateTabIndicator()));
       // Resize debounce via rAF: teclado virtual mobile dispara dezenas de eventos
       // — coalesce em 1 update por frame evita layout thrashing.
@@ -2315,6 +2326,7 @@ document.addEventListener("alpine:init", () => {
         resizeRaf = requestAnimationFrame(() => {
           resizeRaf = 0;
           this.updateTabIndicator();
+          this._ajustarFaixa(); // 7a.CC: largura nova pode esconder a tela ativa
         });
       });
       // 7a.W.3.b: decide a fase inicial ANTES do auto-resume.
@@ -2390,18 +2402,32 @@ document.addEventListener("alpine:init", () => {
       this.acessoVencido = false;
     },
 
+    // 7a.CC: deriva `rota`/`tab` do hash e, depois, registra a navegação
+    // (memória de tela por grupo e origem do "voltar", js/navegacao.js) e
+    // traz a tela ativa para dentro da faixa do topo.
     atualizarRota() {
-      // 7a.I.1/7a.I.4: deriva tab top-level (1 de 5) de rota. Hash pode trazer
-      // querystring (ex.: `#alocacao?v=alvo`) — separamos `path` e `params`.
-      // #ativo/:ticker é push e PRESERVA a tab anterior (não reseta).
-      // 7a.I.5: rotas push-child usam `/` líder no path (ex.: `/raiox/chart`)
-      // — `replace(/^#/, "")` mantém a barra. Rotas top-level são sem barra.
+      this._derivarRota();
+      this._registrarNavegacao();
+      this.$nextTick(() => this._ajustarFaixa());
+    },
+
+    _derivarRota() {
+      // 7a.CC: `tab` é o id do GRUPO (raiox|retorno|carteira|analise|aportar),
+      // derivado de `rota` pelo mapa de js/navegacao.js (spec 7a.CC §5.1). Os
+      // prefixos `/raiox/` e `/proventos/` dos hashes antigos NÃO coincidem
+      // mais com o grupo (ex.: `#/raiox/renda` é Retorno, `#/raiox/projecao` é
+      // Análise); os hashes não mudam de propósito (deep links e shims).
+      // Hash pode trazer querystring (ex.: `#alocacao?v=alvo`) — separamos
+      // `path` e `params`. `#ativo/:ticker` e `#/dossie/:t` são push e
+      // PRESERVAM o grupo de origem (não resetam `tab`); os capítulos do
+      // Diagnóstico acendem a Análise. Rotas com `/` líder mantêm a barra no
+      // path (`replace(/^#/, "")`).
       const raw = (location.hash || "").replace(/^#/, "");
       const qIdx = raw.indexOf("?");
       const path = qIdx === -1 ? raw : raw.slice(0, qIdx);
       const params = new URLSearchParams(qIdx === -1 ? "" : raw.slice(qIdx + 1));
       if (path === "") {
-        this.rota = ""; this.tab = "raiox";
+        this.rota = ""; this.tab = this.grupoDaRota("");
         // 7a.S.11 CRB: dispara A Abertura quando a home é 1º vista (cobre o caso
         // deep-link: sessão que nasce numa sub-rota e só depois vai à home).
         // Idempotente — os guards jaFeita/fase/rota de iniciarAbertura garantem 1×.
@@ -2410,7 +2436,7 @@ document.addEventListener("alpine:init", () => {
       }
       if (path === "rentabilidade") {
         this.rota = "rentabilidade";
-        this.tab = "rentab";
+        this.tab = this.grupoDaRota(this.rota);
         // Hidrata o gráfico após Alpine renderizar a section.
         setTimeout(() => this.hidratarRentabilidade(), 0);
         return;
@@ -2419,7 +2445,7 @@ document.addEventListener("alpine:init", () => {
         // 7a.E.31: vista única. Sem ?v= (segmented Atual/Alvo removido). As
         // categorias começam fechadas; catAberta vive em memória Alpine.
         this.rota = "alocacao";
-        this.tab = "aloca";
+        this.tab = this.grupoDaRota(this.rota);
         return;
       }
       if (path === "politica") {
@@ -2427,63 +2453,59 @@ document.addEventListener("alpine:init", () => {
         // replaceState não dispara hashchange — sem loop com este handler.
         history.replaceState(null, "", "#alocacao");
         this.rota = "alocacao";
-        this.tab = "aloca";
+        this.tab = this.grupoDaRota(this.rota);
         return;
       }
       if (path === "proventos") {
         this.rota = "proventos";
-        this.tab = "provent";
+        this.tab = this.grupoDaRota(this.rota);
         setTimeout(() => this.hidratarProventos(), 0);
         return;
       }
       if (path === "/raiox/projecao") {
-        // 7a.AV.2: projeção até os 65 é push child da tab Raio-X, como
-        // #/raiox/chart. voltar() cai em home["raiox"] = "" (mapa genérico).
+        // 7a.AV.2: projeção até os 65. 7a.CC: tela-membro de Análise.
         this.rota = "projecao";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         return;
       }
       if (path === "/raiox/renda") {
-        // 7a.BJ.2: renda da carteira, push child da tab Raio-X, irmã da
-        // projeção. voltar() cai em home["raiox"] = "" (mapa genérico).
+        // 7a.BJ.2: renda da carteira. 7a.CC: tela-membro de Retorno.
         this.rota = "renda";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         return;
       }
       if (path === "/raiox/diagnostico") {
-        // 7a.BQ.2: Diagnóstico, push child da tab Raio-X, irmã da renda.
-        // 7a.BR.2: virou o índice das perguntas (cinco desde a 7a.BT.2). voltar() cai em
-        // home["raiox"] = "" (mapa genérico).
+        // 7a.BQ.2: Diagnóstico. 7a.BR.2: virou o índice das perguntas (cinco
+        // desde a 7a.BT.2). 7a.CC: tela-membro de Análise.
         this.rota = "diagnostico";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         return;
       }
       const mdiag = path.match(/^\/raiox\/diagnostico\/(risco|politica|selecao|aportes|construcao)$/);
       if (mdiag) {
         // 7a.BR.2: capítulos do Diagnóstico; o "←" volta ao índice (voltar()).
+        // 7a.CC: são push, mas acendem a Análise (grupoPadraoDoPush).
         this.rota = "diag-" + mdiag[1];
-        this.tab = "raiox";
+        this.tab = this.grupoPadraoDoPush(this.rota);
         return;
       }
       if (path === "/raiox/chart") {
-        // 7a.I.5: chart full é push child da tab Raio-X. URL canônica.
+        // 7a.I.5: chart full, URL canônica. 7a.CC: Raio-X › Histórico.
         this.rota = "patrimonio";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         setTimeout(() => this.hidratarPatrimonio(), 0);
         return;
       }
       if (path === "/proventos/dy") {
-        // 7a.S.7b: tela dedicada de Dividend Yield é push child da tab
-        // Proventos — tab persiste (não reseta pra raiox), voltar() usa
-        // home["provent"] = "#proventos" (mapa genérico, sem shim dedicado).
+        // 7a.S.7b: tela dedicada de Dividend Yield. 7a.CC: Retorno › DY.
         this.rota = "dy";
-        this.tab = "provent";
+        this.tab = this.grupoDaRota(this.rota);
         setTimeout(() => this.hidratarDY(), 0);
         return;
       }
-      // 7a.R.3.b: dossiê é push child alcançado de DUAS tabs (#ativo, que
-      // preserva a tab de origem, e #relatorio, que vive sob raiox). Por isso
-      // NÃO reseta `tab` — como `ativo/:ticker`. O voltar usa dossieOrigem.
+      // 7a.R.3.b: dossiê é push alcançado de várias telas (#ativo, Vigília,
+      // Relatório). NÃO reseta `tab` — como `ativo/:ticker`. 7a.CC: o voltar
+      // usa a origem do contexto do ativo (origemContexto, js/navegacao.js).
       // Charclass idêntica à de #ativo (16 chars cobrem BR/EUA + sintéticos).
       const mdos = path.match(/^\/dossie\/([A-Z0-9_-]{2,16})$/);
       if (mdos) {
@@ -2495,18 +2517,18 @@ document.addEventListener("alpine:init", () => {
       const mr = path.match(/^\/raiox\/relatorio(?:\/(\d{4}-\d{2}))?$/);
       if (mr) {
         this.rota = "relatorio";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         this.relRotaMes = mr[1] || null;
         this.relSeletorAberto = false;
         setTimeout(() => this.hidratarRelatorio(), 0);
         return;
       }
       if (path === "patrimonio") {
-        // 7a.I.5 shim: rota legada `#patrimonio` virou push child de raiox.
+        // 7a.I.5 shim: rota legada `#patrimonio` virou `#/raiox/chart`.
         // replaceState não dispara hashchange — sem loop.
         history.replaceState(null, "", "#/raiox/chart");
         this.rota = "patrimonio";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         setTimeout(() => this.hidratarPatrimonio(), 0);
         return;
       }
@@ -2520,24 +2542,22 @@ document.addEventListener("alpine:init", () => {
         // em `_limparEstadoAporte`.
         if (this.rota !== "aportar") this.aporteMercado = "tudo";
         this.rota = "aportar";
-        this.tab = "aportar";
+        this.tab = this.grupoDaRota(this.rota);
         this.hidratarAportar();
         this.comiteAoAbrir(); // 7a.BW.6: só busca a resposta com motivo (js/comite.js)
         return;
       }
       if (path === "olho") {
-        // 7a.BX.4: a vigília do Olho, push child da tab Raio-X (entrada pela
-        // linha do Raio-X e pelo índice do Diagnóstico); voltar() cai no Raio-X.
+        // 7a.BX.4: a vigília do Olho. 7a.CC: Carteira › Vigília.
         this.rota = "olho";
-        this.tab = "raiox";
+        this.tab = this.grupoDaRota(this.rota);
         this.olhoCarregar();
         return;
       }
       if (path === "comite") {
-        // 7a.BW.6: registros do Comitê e a linha do placar, push child da tab
-        // Aportar; voltar() cai em home["aportar"] = "#aportar".
+        // 7a.BW.6: registros do Comitê e a linha do placar. 7a.CC: Aportar › Comitê.
         this.rota = "comite";
-        this.tab = "aportar";
+        this.tab = this.grupoDaRota(this.rota);
         this.comiteAoAbrir();
         return;
       }
@@ -2549,13 +2569,13 @@ document.addEventListener("alpine:init", () => {
       // Fallback: hash inválido vira raio-x sem entrar no histórico.
       history.replaceState(null, "", location.pathname + location.search);
       this.rota = "";
-      this.tab = "raiox";
+      this.tab = this.grupoDaRota(this.rota);
     },
 
     tabIndex() {
       // 7a.I.6: mapa tab → índice (0..4) usado pelo indicator slide.
-      const ordem = ["raiox", "rentab", "aloca", "provent", "aportar"];
-      const i = ordem.indexOf(this.tab);
+      // 7a.CC: a ordem é a dos GRUPOS (js/navegacao.js).
+      const i = this.GRUPOS.findIndex((g) => g.id === this.tab);
       return i === -1 ? 0 : i;
     },
 
@@ -2888,7 +2908,9 @@ document.addEventListener("alpine:init", () => {
 
       const secao = document.querySelector(".raiox");
       const grupos = [
-        secao && secao.querySelector(".eyebrow"),
+        // 7a.CC: o eyebrow visível do Hoje passou a ser o do cabeçalho de
+        // grupo ("Raio-X"); o h1 da seção ficou só para leitor de tela.
+        document.querySelector(".grupo-cab .eyebrow"),
         document.getElementById("hero"),
         secao && secao.querySelector(".raiox-7d"),
         secao && secao.querySelector(".rel-card-home"),
@@ -2995,37 +3017,26 @@ document.addEventListener("alpine:init", () => {
       return (this.json?.dividend_yield?.por_ativo_parcial || []).includes(ticker);
     },
 
+    // 7a.CC (spec §5.5): o "←" só existe em tela de push.
+    //   1. Capítulo do Diagnóstico → o índice (7a.BR.2).
+    //   2. Contexto do ativo (#ativo, #/dossie) → a tela-membro de onde se
+    //      entrou nele (origemContexto, gravada por _registrarNavegacao); trocar
+    //      de tela dentro do contexto não muda a origem. O grupo aceso volta a
+    //      ser o dela, re-derivado por atualizarRota().
+    //   3. Sem origem (deep link direto no push) — fallback INTERINO da CC.1:
+    //      dossiê → #ativo do ticker; ativo → Hoje (Raio-X). A CC.2 troca para
+    //      Carteira › Ativos.
+    // Sempre replaceState + atualizarRota(), nunca history.back(): num link
+    // compartilhado aberto numa aba com histórico prévio, back sairia do PWA.
     voltar() {
-      // 7a.BR.2: o "←" de um capítulo do Diagnóstico volta ao índice, não ao
-      // Raio-X (o do índice segue o mapa genérico abaixo).
+      let destino = "";
       if (typeof this.rota === "string" && this.rota.startsWith("diag-")) {
-        history.replaceState(null, "", "#/raiox/diagnostico");
-        this.atualizarRota();
-        return;
+        destino = "#/raiox/diagnostico";
+      } else if (this.rota === "ativo" || this.rota === "dossie") {
+        destino = this.origemContexto
+          || (this.rota === "dossie" && this.dossieTicker ? "#ativo/" + this.dossieTicker : "");
       }
-      // history.length é heurística frágil — em link compartilhado aberto
-      // numa aba com histórico prévio, history.back() saída do PWA.
-      // Sempre reescrevemos o hash via replaceState; mais previsível e mantém
-      // o usuário dentro do app.
-      //
-      // O back de uma tela drill-down (#ativo, #/raiox/chart) retorna para a
-      // HOME da seção de origem — nunca pula para a Raio-X a partir de outra
-      // seção. `this.tab` preserva a tab de origem (atualizarRota não a reseta
-      // em push #ativo/:ticker), então mapeamos tab → hash da home e deixamos
-      // atualizarRota() re-derivar rota/tab/hidratação a partir do hash.
-      // 7a.I.7 forçava `tab=raiox` aqui: o back de #ativo aberto em
-      // #alocacao/#proventos caía na Raio-X em vez da seção de origem.
-      const home = {
-        raiox: "",
-        rentab: "#rentabilidade",
-        aloca: "#alocacao",
-        provent: "#proventos",
-        aportar: "#aportar",
-      };
-      const hash = Object.prototype.hasOwnProperty.call(home, this.tab)
-        ? home[this.tab]
-        : "";
-      history.replaceState(null, "", hash || location.pathname);
+      history.replaceState(null, "", destino && destino !== "#" ? destino : location.pathname);
       this.atualizarRota();
     },
 
@@ -4101,15 +4112,6 @@ document.addEventListener("alpine:init", () => {
       await this.carregarDossie(this.dossieTicker);
     },
 
-    // Grava a origem ANTES do hash mudar. As entradas do dossiê são <a href>
-    // REAIS (deep-linkáveis, middle-clicáveis) — o handler não navega, só
-    // registra de onde viemos e deixa o link fazer o resto. Um método nomeado
-    // em vez da expressão inline: são 3 call sites (entrada do #ativo + radar
-    // + prestação do Relatório) e um só lugar para mudar o comportamento.
-    registrarOrigemDossie() {
-      this.dossieOrigem = location.hash || "";
-    },
-
     // URL de fonte só vira link se for http(s). O payload é auto-produzido e
     // cifrado, mas o `href` é o único lugar da tela onde um valor do arquivo
     // vira comportamento do browser — a guarda custa uma linha. Scheme
@@ -4143,7 +4145,6 @@ document.addEventListener("alpine:init", () => {
       this.dossieAtual = null;
       this.dossieCarregado = "";
       this.dossieTicker = "";
-      this.dossieOrigem = "";
       this.dossieErro = "";
       this.dossieCarregando = false;
       this._dossiePromise = null;
@@ -4246,6 +4247,7 @@ document.addEventListener("alpine:init", () => {
       this._limparEstadoOlho();
       this._limparEstadoReserva();
       this._limparEstadoConferencia();
+      this._limparEstadoNavegacao(); // 7a.CC: memória de grupo e origem do voltar
     },
 
     // CRB final 7a.U (Finding 1): estado de SELEÇÃO das telas #proventos e
@@ -4437,19 +4439,6 @@ document.addEventListener("alpine:init", () => {
       Object.assign(this, { consJanela: "desde", consMotivoClique: "" });
       if (this.toast && this.toast.timer) clearTimeout(this.toast.timer);
       this.toast = { visible: false, mensagem: "", tom: "verde", timer: null };
-    },
-
-    voltarDoDossie() {
-      // Mesmo racional de voltar(): replaceState + atualizarRota, NUNCA
-      // history.back() (em link compartilhado, back sai do PWA). A diferença é
-      // o destino: voltar() mapeia tab → home da seção e perderia o ticker;
-      // aqui o destino é a origem literal. Deep-link direto (sem origem) cai
-      // no #ativo do próprio ticker.
-      const fallback = this.dossieTicker ? "#ativo/" + this.dossieTicker : "";
-      const destino = this.dossieOrigem || fallback;
-      this.dossieOrigem = "";
-      history.replaceState(null, "", destino || location.pathname);
-      this.atualizarRota();
     },
 
     // O dossiê carrega o vocabulário do BACKEND (o bootstrap copia
@@ -5106,10 +5095,6 @@ document.addEventListener("alpine:init", () => {
     selecionarMesRelatorio(mes) {
       this.relSeletorAberto = false;
       location.hash = "#/raiox/relatorio/" + mes; // hashchange → atualizarRota → hidrata
-    },
-
-    voltarDoRelatorio() {
-      location.hash = "";
     },
 
     // 7a.S.9 Task 2: evento mensal — dot "não lido". mesLido é lido a cada

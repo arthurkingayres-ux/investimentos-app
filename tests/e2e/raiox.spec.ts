@@ -23,12 +23,14 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Raio-X — cards e navegação", () => {
-  test("tab 'prov' navega para #proventos", async ({ page }) => {
+  test("Proventos se alcança pela barra (Retorno) e pela faixa → #proventos", async ({ page }) => {
+    // 7a.CC: Proventos deixou de ser aba; é a 2ª tela do grupo Retorno.
     await autenticar(page);
 
-    const tab = page.locator('.tab-bar a[data-tab="provent"]');
+    const tab = page.locator('.tab-bar a[data-tab="retorno"]');
     await expect(tab).toBeVisible();
     await tab.click();
+    await page.locator(".grupo-cab nav a", { hasText: /^Proventos$/ }).click();
     await expect(page).toHaveURL(/#proventos$/);
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
   });

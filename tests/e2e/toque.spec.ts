@@ -60,12 +60,14 @@ test.describe("Toque — focus-visible unificado (7a.S.2 Task 1)", () => {
     expect(computed.outlineWidth).toBe("2px");
   });
 
-  test(".breadcrumb button (em #patrimonio) foca com outline accent 2px", async ({
+  // 7a.CC: #patrimonio virou tela-membro (sem "←"); o "←" vive nas telas de
+  // push, e o #ativo é a canônica.
+  test(".breadcrumb button (em #ativo) foca com outline accent 2px", async ({
     page,
   }) => {
     await autenticar(page);
-    await page.goto("/#patrimonio");
-    const el = page.locator(".tela-patrimonio .breadcrumb button");
+    await page.goto("/#ativo/HGLG11");
+    const el = page.locator(".tela-ativo .breadcrumb button");
     await expect(el).toBeVisible({ timeout: 5_000 });
     await page.keyboard.press("Tab");
     await el.focus();
@@ -141,7 +143,7 @@ test.describe("Toque — :active pressionado (7a.S.2 Task 2)", () => {
     page,
   }) => {
     await autenticar(page);
-    const tab = page.locator('.tab-bar a[data-tab="rentab"]');
+    const tab = page.locator('.tab-bar a[data-tab="retorno"]');
     await expect(tab).toBeVisible();
     const box = await tab.boundingBox();
     expect(box).not.toBeNull();

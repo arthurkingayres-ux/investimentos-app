@@ -53,7 +53,7 @@ test.describe("#s-dy — tela dedicada Dividend Yield (Task 2)", () => {
   // A jornada "clicar a chamada em #proventos → chega em #s-dy" é coberta em
   // proventos.spec.ts / dividend-yield.spec.ts (Task 3, reforma do topo de
   // #proventos). Aqui a rota é exercitada diretamente pela URL canônica.
-  test("rota #/proventos/dy: poster + 3 dy-rows + ranking; tab persiste; breadcrumb", async ({ page }) => {
+  test("rota #/proventos/dy: poster + 3 dy-rows + ranking; grupo Retorno aceso; faixa volta a Proventos", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#/proventos/dy");
     await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
@@ -74,15 +74,17 @@ test.describe("#s-dy — tela dedicada Dividend Yield (Task 2)", () => {
     await expect(champs.locator(".champ .tk").first()).not.toBeEmpty();
     await expect(champs.locator(".champ .y").first()).toContainText("%");
 
-    // Tab bar persiste (push, não PIN) — Proventos segue marcada.
+    // 7a.CC: DY é tela-membro de Retorno — o grupo fica aceso na barra.
     await expect(page.locator(".tab-bar")).toBeVisible();
     await expect(
-      page.locator('.tab-bar a[data-tab="provent"]'),
+      page.locator('.tab-bar a[data-tab="retorno"]'),
     ).toHaveAttribute("aria-current", "page");
 
-    // Breadcrumb: eyebrow--accent + botão voltar → retorna a #proventos.
-    await expect(page.locator(".tela-dy .breadcrumb .eyebrow--accent")).toHaveText(/Dividend Yield/i);
-    await page.locator(".tela-dy .breadcrumb button").click();
+    // 7a.CC: título só para leitor de tela; sem "←", a faixa leva a Proventos.
+    // (Antes: breadcrumb com eyebrow--accent + botão voltar.)
+    await expect(page.locator(".tela-dy h1.sr-only")).toHaveText(/Dividend Yield/i);
+    await expect(page.locator(".grupo-cab nav [aria-current='page']")).toHaveText("DY");
+    await page.locator(".grupo-cab nav a", { hasText: /^Proventos$/ }).click();
     await expect(page.locator(".tela-proventos")).toBeVisible();
     await expect(page.locator(".tela-dy")).toBeHidden();
     await expect(page).not.toHaveURL(/\/proventos\/dy$/);

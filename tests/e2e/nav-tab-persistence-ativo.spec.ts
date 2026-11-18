@@ -24,7 +24,7 @@ async function autenticar(page: Page) {
 
 async function abrirPrimeiroTicker(page: Page) {
   // Navegar diretamente para #alocacao (clicar a tab dispara overlap com .rodape em
-  // viewport mobile do Pixel 7; #alocacao seta rota=alocacao + tab=aloca via atualizarRota).
+  // viewport mobile do Pixel 7; #alocacao seta rota=alocacao + tab=carteira via atualizarRota).
   await page.goto("/#alocacao");
   await expect(page.locator(".tela-alocacao")).toBeVisible({ timeout: 5_000 });
   // 7a.E.31: vista única — expandir o primeiro card de categoria e clicar o
@@ -46,14 +46,14 @@ async function abrirPrimeiroTicker(page: Page) {
 }
 
 test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
-  test("navegar Aloca → ticker mantém tab bar e aria-current=aloca", async ({ page }) => {
+  test("navegar Aloca → ticker mantém tab bar e aria-current=carteira", async ({ page }) => {
     await autenticar(page);
     await abrirPrimeiroTicker(page);
     await expect(page).toHaveURL(/#ativo\//);
     await expect(page.locator(".tela-ativo")).toBeVisible({ timeout: 5_000 });
     await expect(page.locator(".tab-bar")).toBeVisible();
     await expect(
-      page.locator('.tab-bar a[data-tab="aloca"]'),
+      page.locator('.tab-bar a[data-tab="carteira"]'),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -68,7 +68,7 @@ test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
     await expect(page.locator(".raiox")).toBeHidden();
     await expect(page.locator(".tab-bar")).toBeVisible();
     await expect(
-      page.locator('.tab-bar a[data-tab="aloca"]'),
+      page.locator('.tab-bar a[data-tab="carteira"]'),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -83,7 +83,7 @@ test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
     await expect(page.locator(".tela-proventos")).toBeVisible();
     await expect(page.locator(".raiox")).toBeHidden();
     await expect(
-      page.locator('.tab-bar a[data-tab="provent"]'),
+      page.locator('.tab-bar a[data-tab="retorno"]'),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -110,7 +110,7 @@ test.describe("Tab bar persiste em push #ativo/:ticker (7a.I.7)", () => {
       page.locator('.tab-bar a[data-tab="raiox"]'),
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      page.locator('.tab-bar a[data-tab="aloca"]'),
+      page.locator('.tab-bar a[data-tab="carteira"]'),
     ).not.toHaveAttribute("aria-current", "page");
   });
 });

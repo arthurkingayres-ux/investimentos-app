@@ -65,11 +65,14 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
   });
 
-  test("voltar do chart full retorna para Raio-X", async ({ page }) => {
+  // 7a.CC: o chart é Raio-X › Histórico (tela-membro, sem "←"); volta-se ao
+  // Hoje pela faixa. (Antes: botão Voltar.)
+  test("do chart full a faixa (Hoje) retorna para Raio-X", async ({ page }) => {
     await autenticar(page);
     await page.locator(".hero-chart-link").click();
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
-    await page.locator(".tela-patrimonio .breadcrumb button").click();
+    await expect(page.locator(".tela-patrimonio").getByRole("button", { name: /^Voltar/ })).toHaveCount(0);
+    await page.locator(".grupo-cab nav a", { hasText: /^Hoje$/ }).click();
     await expect(page.locator(".raiox")).toBeVisible();
     await expect(page.locator(".tela-patrimonio")).toBeHidden();
   });

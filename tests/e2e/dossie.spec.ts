@@ -80,13 +80,13 @@ test.describe("7a.R.3.b Task 2 — rota, carga e estados", () => {
     await expect(page.locator(".tela-dossie .breadcrumb .eyebrow")).toHaveText("Dossiê");
   });
 
-  test("a tab anterior é preservada (push child de duas tabs)", async ({ page }) => {
+  test("o grupo anterior é preservado (push alcançado de vários grupos)", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#alocacao");
-    await expect(page.locator('.tab-bar a[data-tab="aloca"]'))
+    await expect(page.locator('.tab-bar a[data-tab="carteira"]'))
       .toHaveAttribute("aria-current", "page");
     await abrirDossie(page, "HGLG11");
-    await expect(page.locator('.tab-bar a[data-tab="aloca"]'))
+    await expect(page.locator('.tab-bar a[data-tab="carteira"]'))
       .toHaveAttribute("aria-current", "page");
   });
 
@@ -308,15 +308,21 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
     await expect(page.locator(".tela-ativo .dossie-entrada")).toBeHidden();
   });
 
-  test("#ativo → dossiê → voltar retorna ao #ativo de origem", async ({ page }) => {
+  // 7a.CC (spec §5.5): o "←" do contexto do ativo volta à tela-membro de onde
+  // se entrou nele; passar pelo #ativo antes do dossiê não muda a origem.
+  // (Antes: o dossiê voltava ao #ativo.)
+  test("Alocação → #ativo → dossiê → voltar retorna à Alocação, de onde se entrou", async ({ page }) => {
     await autenticar(page);
+    await page.goto("/#alocacao");
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
     await page.goto("/#ativo/HGLG11");
     await page.locator(".tela-ativo .dossie-entrada").click();
     await expect(page).toHaveURL(/#\/dossie\/HGLG11$/);
     await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible();
     await page.locator(".tela-dossie .breadcrumb button").click();
-    await expect(page).toHaveURL(/#ativo\/HGLG11$/);
-    await expect(page.locator(".tela-ativo")).toBeVisible();
+    await expect(page).toHaveURL(/#alocacao$/);
+    await expect(page.locator(".tela-alocacao")).toBeVisible();
+    await expect(page.locator('.tab-bar a[data-tab="carteira"]')).toHaveAttribute("aria-current", "page");
   });
 
   test("Relatório: ticker com dossiê vira link; sem dossiê fica texto", async ({ page }) => {
@@ -345,8 +351,15 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
   });
 
   test("deep-link sem origem: voltar cai no #ativo do próprio ticker", async ({ page }) => {
-    await autenticar(page);
-    await abrirDossie(page, "AMZN");
+    // 7a.CC: deep link de verdade (o hash é a 1ª navegação da página). Pelo
+    // `autenticar`, a home já teria sido vista e viraria a origem.
+    await mockTudo(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("pin", "123456");
+      localStorage.setItem("pinTimestamp", String(Date.now() - 1 * 24 * 60 * 60 * 1000));
+    });
+    await page.goto("/#/dossie/AMZN");
+    await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible({ timeout: 10_000 });
     await page.locator(".tela-dossie .breadcrumb button").click();
     await expect(page).toHaveURL(/#ativo\/AMZN$/);
   });
@@ -471,20 +484,27 @@ test.describe("7a.R.3.b CRB — findings auto-aplicados", () => {
     await autenticar(page);
     const d = await page.evaluate(() => {
       const app = (window as any).Alpine.$data(document.querySelector("[x-data]"));
-      return { temAbrirDossie: typeof app.abrirDossie,
-               temRegistrar: typeof app.registrarOrigemDossie };
+      return { temAbrirDossie: typeof app.abrirDossie };
     });
-    // `abrirDossie` era dead code: o markup usa <a href> real e só registra a
-    // origem no @click. O método nomeado substitui a expressão inline nos 3
-    // call sites (entrada do #ativo + radar + prestação do Relatório).
+    // `abrirDossie` era dead code: o markup usa <a href> real. 7a.CC: a origem
+    // do "voltar" deixou de ser gravada no clique (era o handler das 3
+    // entradas) e passou a ser a do contexto do ativo, então as entradas são
+    // links puros, sem @click.
     expect(d.temAbrirDossie).toBe("undefined");
-    expect(d.temRegistrar).toBe("function");
     // Os links só existem dentro do #ativo / do Relatório — contar na home
     // daria 0 e o teste passaria por vacuidade.
     await page.goto("/#ativo/HGLG11");
-    await expect(page.locator('.tela-ativo a[href="#/dossie/HGLG11"]')).toBeVisible();
-    await expect(page.locator('.tela-ativo a[href="#/dossie/HGLG11"]'))
-      .toHaveAttribute("@click", /registrarOrigemDossie/);
+    const entrada = page.locator('.tela-ativo a[href="#/dossie/HGLG11"]');
+    await expect(entrada).toBeVisible();
+    expect(await entrada.getAttribute("@click")).toBeNull();
+    // A mesma intenção de antes: o "←" do dossiê aberto por uma entrada volta
+    // à tela de onde se veio (aqui, o Relatório).
+    await page.goto("/#/raiox/relatorio");
+    await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
+    await page.locator(".rel-radar-card__ticker--link").click();
+    await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible();
+    await page.locator(".tela-dossie .breadcrumb button").click();
+    await expect(page).toHaveURL(/#\/raiox\/relatorio$/);
   });
 
   test("CRB#2: lock manual descarta o dossiê decifrado da memória", async ({ page }) => {
@@ -499,9 +519,11 @@ test.describe("7a.R.3.b CRB — findings auto-aplicados", () => {
       const a = (window as any).Alpine.$data(document.querySelector("[x-data]"));
       a.bloquear();
       return { atual: !!a.dossieAtual, indice: a.dossieIndice.length,
-               carregado: a.dossieCarregado, origem: a.dossieOrigem };
+               carregado: a.dossieCarregado };
     });
-    expect(depois).toEqual({ atual: false, indice: 0, carregado: "", origem: "" });
+    // 7a.CC: a origem do "voltar" saiu do dossiê; o lock a zera junto com a
+    // memória de grupo (nav-grupos.spec.ts, "lock zera").
+    expect(depois).toEqual({ atual: false, indice: 0, carregado: "" });
   });
 
   test("CRB#3: URL de fonte com scheme não-http degrada para texto", async ({ page }) => {

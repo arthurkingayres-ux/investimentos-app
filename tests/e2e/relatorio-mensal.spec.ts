@@ -54,7 +54,8 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
     await card.click();
     await expect(page).toHaveURL(/#\/raiox\/relatorio$/);
     await expect(page.locator(".tela-relatorio")).toBeVisible();
-    await expect(page.locator('.tab-bar a[data-tab="raiox"]'))
+    // 7a.CC: o Relatório é tela-membro de Análise.
+    await expect(page.locator('.tab-bar a[data-tab="analise"]'))
       .toHaveAttribute("aria-current", "page");
     // último mês = 2026-05 → título visível no header
     await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Maio 2026");
@@ -178,11 +179,14 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
     await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Maio 2026");
   });
 
-  test("voltar retorna ao Raio-X", async ({ page }) => {
+  // 7a.CC: o Relatório virou tela-membro (sem "←"); a volta ao Raio-X é a
+  // barra. (Antes: botão "Voltar ao Raio-X" no cabeçalho.)
+  test("sem voltar no cabeçalho; a barra (Raio-X) retorna ao Raio-X", async ({ page }) => {
     await autenticar(page);
     await page.locator(".rel-card-home").click();
     await expect(page.locator(".tela-relatorio")).toBeVisible();
-    await page.locator(".tela-relatorio .breadcrumb button").first().click();
+    await expect(page.locator(".tela-relatorio").getByRole("button", { name: /^Voltar/ })).toHaveCount(0);
+    await page.locator('.tab-bar a[data-tab="raiox"]').click();
     await expect(page.locator(".raiox")).toBeVisible();
     await expect(page.locator(".tela-relatorio")).toBeHidden();
   });
@@ -252,7 +256,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
 
     await page.locator(".rel-card-home").click();
     await expect(page.locator(".tela-relatorio")).toBeVisible();
-    await page.locator(".tela-relatorio .breadcrumb button").first().click();
+    await page.locator('.tab-bar a[data-tab="raiox"]').click(); // 7a.CC: membro, sem "←"
     await expect(page.locator(".raiox")).toBeVisible();
     await expect(page.locator(".rel-card-home .rel-dot")).toBeHidden();
   });

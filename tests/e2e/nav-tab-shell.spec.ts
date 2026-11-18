@@ -36,9 +36,10 @@ test.describe("Tab bar shell (7a.I.1)", () => {
     // 7a.S.4: rótulos por extenso (fim das abreviações rent/aloca/prov/apt).
     // Cobertura detalhada do texto exato + estilo Monument vive em tab-vozes.spec.ts.
     await expect(tabs.nth(0)).toHaveText(/raio-?x/i);
-    await expect(tabs.nth(1)).toHaveText(/rentabilidade/i);
-    await expect(tabs.nth(2)).toHaveText(/alocação/i);
-    await expect(tabs.nth(3)).toHaveText(/proventos/i);
+    // 7a.CC: os cinco grupos.
+    await expect(tabs.nth(1)).toHaveText(/retorno/i);
+    await expect(tabs.nth(2)).toHaveText(/carteira/i);
+    await expect(tabs.nth(3)).toHaveText(/análise/i);
     await expect(tabs.nth(4)).toHaveText(/aportar/i);
   });
 
@@ -48,31 +49,31 @@ test.describe("Tab bar shell (7a.I.1)", () => {
     await expect(tabRaiox).toHaveAttribute("aria-current", "page");
   });
 
-  test("clicar tab rentab navega para #rentabilidade e marca aria-current", async ({
+  test("clicar tab Retorno navega para #rentabilidade e marca aria-current", async ({
     page,
   }) => {
     await autenticar(page);
-    await page.locator('.tab-bar a[data-tab="rentab"]').click();
+    await page.locator('.tab-bar a[data-tab="retorno"]').click();
     await expect(page).toHaveURL(/#rentabilidade$/);
     await expect(page.locator(".tela-rentabilidade")).toBeVisible();
     await expect(
-      page.locator('.tab-bar a[data-tab="rentab"]'),
+      page.locator('.tab-bar a[data-tab="retorno"]'),
     ).toHaveAttribute("aria-current", "page");
     await expect(
       page.locator('.tab-bar a[data-tab="raiox"]'),
     ).not.toHaveAttribute("aria-current", "page");
   });
 
-  test("rota legada #politica mantem tab aloca ativa", async ({ page }) => {
+  test("rota legada #politica mantem o grupo Carteira ativo", async ({ page }) => {
     // 7a.E.31: `#politica` foi fundida em `#alocacao` (vista única). O shim em
     // `atualizarRota` faz `replaceState` para `#alocacao` e a tab ativa
-    // continua sendo `aloca`.
+    // continua sendo a dela (7a.CC: grupo `carteira`).
     await autenticar(page);
     await page.goto("/#politica");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
     await expect(page.locator(".tela-alocacao .aloca-cat").first()).toBeVisible();
     await expect(
-      page.locator('.tab-bar a[data-tab="aloca"]'),
+      page.locator('.tab-bar a[data-tab="carteira"]'),
     ).toHaveAttribute("aria-current", "page");
   });
 

@@ -56,12 +56,13 @@ test.describe("A11y: focus-visible em controles secundários (7a.G.2)", () => {
   test(".breadcrumb button tem outline + min 44px (touch target)", async ({
     page,
   }) => {
+    // 7a.CC: #patrimonio virou tela-membro (sem "←"); mede no #ativo (push).
     await autenticar(page);
-    await page.goto("/#patrimonio");
-    await expect(page.locator(".tela-patrimonio .breadcrumb button")).toBeVisible({
+    await page.goto("/#ativo/HGLG11");
+    await expect(page.locator(".tela-ativo .breadcrumb button")).toBeVisible({
       timeout: 5_000,
     });
-    const el = page.locator(".tela-patrimonio .breadcrumb button");
+    const el = page.locator(".tela-ativo .breadcrumb button");
     // Ativa input modality "keyboard" antes do focus programático
     await page.keyboard.press("Tab");
     await el.focus();

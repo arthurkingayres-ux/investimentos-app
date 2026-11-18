@@ -123,7 +123,8 @@ test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
         };
         tentar();
       };
-      observarQuandoExistir(".raiox > .eyebrow", "eyebrow");
+      // 7a.CC: o eyebrow visível do Hoje é o do cabeçalho de grupo ("Raio-X").
+      observarQuandoExistir(".grupo-cab .eyebrow", "eyebrow");
       observarQuandoExistir("#hero", "hero");
       observarQuandoExistir(".raiox-7d", "7d");
       observarQuandoExistir(".rel-card-home", "relcard");

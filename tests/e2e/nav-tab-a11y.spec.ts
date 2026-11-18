@@ -25,7 +25,7 @@ async function autenticar(page: Page) {
 test.describe("Tab bar a11y (7a.I.7)", () => {
   test("tab tem touch target >= 44px (height e width)", async ({ page }) => {
     await autenticar(page);
-    const tab = page.locator('.tab-bar a[data-tab="rentab"]');
+    const tab = page.locator('.tab-bar a[data-tab="retorno"]');
     const box = await tab.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -34,7 +34,7 @@ test.describe("Tab bar a11y (7a.I.7)", () => {
 
   test("tab tem outline visível ao foco via teclado", async ({ page }) => {
     await autenticar(page);
-    const tab = page.locator('.tab-bar a[data-tab="rentab"]');
+    const tab = page.locator('.tab-bar a[data-tab="retorno"]');
     // Ativa input modality "keyboard" antes do focus programatico
     // (anti-flaky: garante :focus-visible — padrão de a11y-focus-visible.spec.ts).
     await page.keyboard.press("Tab");

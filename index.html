@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=96">
+  <link rel="stylesheet" href="css/app.css?v=97">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
@@ -20,7 +20,8 @@
   <script src="js/reserva.js?v=1"></script>
   <script src="js/conferencia.js?v=1"></script>
   <script src="js/retorno.js?v=2"></script>
-  <script src="js/app.js?v=103"></script>
+  <script src="js/navegacao.js?v=2"></script>
+  <script src="js/app.js?v=104"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -34,6 +35,31 @@
     aria-live="polite"
     x-text="toast.mensagem"></div>
   <main>
+    <!-- 7a.CC — cabeçalho de grupo (spec 7a.CC §5.3): eyebrow do grupo e a
+         faixa com as telas dele, fixo no topo, só em tela-membro. Tela de push
+         não tem faixa (mantém o próprio .breadcrumb com "←"). -->
+    <template x-if="fase === 'raiox'">
+      <header class="grupo-cab" x-show="grupoAtual" x-cloak>
+        <div class="grupo-cab__linha">
+          <p class="eyebrow" x-text="grupoAtual ? grupoAtual.rotulo : ''"></p>
+          <!-- 7a.S.12 — Modo Plantão: toggle ☽/☀ manual + persistido (localStorage
+               "tema"), NUNCA prefers-color-scheme. Glifo decorativo (aria-hidden);
+               o botão em si carrega o rótulo real via aria-label/aria-pressed.
+               7a.CC: só no Hoje, no canto da linha do eyebrow do grupo. -->
+          <button type="button" class="theme-toggle" @click="alternarTema()" x-show="rota === ''"
+            :aria-pressed="tema === 'dark'" aria-label="Alternar tema (claro/plantão)">
+            <span aria-hidden="true" x-text="tema === 'dark' ? '☀' : '☾'"></span>
+          </button>
+        </div>
+        <nav class="faixa" :aria-label="'Telas de ' + (grupoAtual ? grupoAtual.rotulo : '')">
+          <template x-for="t in (grupoAtual ? grupoAtual.telas : [])" :key="t.hash">
+            <a :href="t.hash" :aria-current="t.rota === rota ? 'page' : null"
+               @click.prevent="irParaTela(t.hash)" x-text="t.rotulo"></a>
+          </template>
+        </nav>
+      </header>
+    </template>
+
     <!-- 7a.W.3.b — cadastro da frase de acesso. Cerimônia sóbria, vista uma
          vez por aparelho: a gravidade comunica que aquela frase importa.
          Estratégia Restrained (default do produto), nenhuma cor nova, peso
@@ -146,14 +172,8 @@
       <div>
       <section class="raiox" x-show="rota === ''" x-transition:enter.opacity.duration.220ms x-cloak
                x-init="iniciarAbertura()">
-        <h1 class="eyebrow">Raio X</h1>
-        <!-- 7a.S.12 — Modo Plantão: toggle ☽/☀ manual + persistido (localStorage
-             "tema"), NUNCA prefers-color-scheme. Glifo decorativo (aria-hidden);
-             o botão em si carrega o rótulo real via aria-label/aria-pressed. -->
-        <button type="button" class="theme-toggle" @click="alternarTema()"
-          :aria-pressed="tema === 'dark'" aria-label="Alternar tema (claro/plantão)">
-          <span aria-hidden="true" x-text="tema === 'dark' ? '☀' : '☾'"></span>
-        </button>
+        <!-- 7a.CC: o nome do grupo e o toggle de tema moram no .grupo-cab. -->
+        <h1 class="sr-only">Raio X</h1>
 
         <!-- 7a.S.5: o hero virou um card de facetas — tap/Enter/Space/dots
              ciclam 4 fatos read-only (patrimônio · divisão BR/EUA · variação
@@ -485,9 +505,7 @@
       </section>
 
       <section class="tela-detalhes tela-rentabilidade" x-show="rota === 'rentabilidade'" x-transition:enter.opacity.duration.220ms x-cloak>
-        <header class="breadcrumb">
-          <h1 class="eyebrow">Rentabilidade</h1>
-        </header>
+        <h1 class="sr-only">Rentabilidade</h1>
 
         <div class="escopo-toggle" role="tablist">
           <button
@@ -740,9 +758,7 @@
       </section>
 
       <section class="tela-detalhes tela-alocacao" x-show="rota === 'alocacao'" x-transition:enter.opacity.duration.220ms x-cloak>
-        <header class="breadcrumb">
-          <h1 class="eyebrow">Alocação</h1>
-        </header>
+        <h1 class="sr-only">Alocação</h1>
 
         <p class="politica-intro" x-show="!json || !json.politica || !json.politica.categorias.length">
           Política não publicada ainda.
@@ -1019,12 +1035,11 @@
             </template>
 
             <!-- 7a.R.3.b: entrada para a memória viva do ativo. `<a href>` real
-                 (deep-linkável); o @click só grava a origem ANTES do hash mudar,
-                 sem preventDefault. Sem selo de veredito aqui: o #ativo é a tela
-                 dos números, e o veredito é leitura. -->
+                 (deep-linkável). 7a.CC: a origem do "voltar" é a do contexto do
+                 ativo (js/navegacao.js), sem handler aqui. Sem selo de veredito:
+                 o #ativo é a tela dos números, e o veredito é leitura. -->
             <a class="dossie-entrada" x-show="temDossie(posicaoAtual.ticker)" x-cloak
-              :href="'#/dossie/' + posicaoAtual.ticker"
-              @click="registrarOrigemDossie()">
+              :href="'#/dossie/' + posicaoAtual.ticker">
               <span class="dossie-entrada__rot">Dossiê</span>
               <span class="dossie-entrada__chevron" aria-hidden="true">›</span>
             </a>
@@ -1034,9 +1049,7 @@
 
       <!-- ── Tela #proventos ──────────────────────────────────────────── -->
       <section class="tela-detalhes tela-proventos" x-show="rota === 'proventos'" x-transition:enter.opacity.duration.220ms x-cloak>
-        <header class="breadcrumb">
-          <h1 class="eyebrow">Proventos</h1>
-        </header>
+        <h1 class="sr-only">Proventos</h1>
 
         <!-- 7a.S.7b Task 4: affordance de rolagem horizontal — o 3º KPI
              cortava a 320px (spec 7a.S §9, Fable). Substitui o wrap-to-1-col
@@ -1159,14 +1172,9 @@
 
       <!-- ── Tela #s-dy (Fase 7a.S.7b) — Dividend Yield dedicado ────────── -->
       <section class="tela-detalhes tela-dy" x-show="rota === 'dy'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent">Dividend Yield</h1>
-        </header>
+        <h1 class="sr-only">Dividend Yield</h1>
 
         <div class="poster-wrap">
           <p class="poster" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></p>
@@ -1252,14 +1260,9 @@
 
       <!-- ── Tela #patrimonio ─────────────────────────────────────────── -->
       <section class="tela-detalhes tela-patrimonio" x-show="rota === 'patrimonio'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent">Histórico patrimonial</h1>
-        </header>
+        <h1 class="sr-only">Histórico patrimonial</h1>
 
         <div class="kpi-grid kpi-stack">
           <div class="kpi">
@@ -1284,16 +1287,11 @@
       </section>
 
       <!-- ── Tela #/raiox/projecao (7a.AW.2; forma refeita na 7a.AX; um cenário na 7a.AY) ── -->
-      <!-- Push child da tab Raio-X. Ensaio em 6 capítulos, sem ECharts desde a 7a.AX; premissas prospectivas por classe desde a 7a.AY. -->
+      <!-- Tela-membro de Análise (7a.CC). Ensaio em 6 capítulos, sem ECharts desde a 7a.AX; premissas prospectivas por classe desde a 7a.AY. -->
       <section class="tela-detalhes tela-projecao" x-show="rota === 'projecao'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         aria-labelledby="proj-titulo" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent" id="proj-titulo">Projeção</h1>
-        </header>
+        <h1 class="sr-only" id="proj-titulo">Projeção</h1>
 
         <template x-if="!projecao">
           <p class="placeholder">Projeção indisponível hoje.</p>
@@ -1545,17 +1543,12 @@
       </section>
 
       <!-- ── Tela #/raiox/renda (7a.BJ.2) ── -->
-      <!-- Push child da tab Raio-X, irmã da projeção e da mesma família "ensaio":
+      <!-- Tela-membro de Retorno (7a.CC), da mesma família "ensaio" da projeção:
            coluna única, sem cards, separação tipográfica. Mono só no herói. -->
       <section class="tela-detalhes tela-renda" x-show="rota === 'renda'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         aria-labelledby="renda-titulo" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent" id="renda-titulo">Renda</h1>
-        </header>
+        <h1 class="sr-only" id="renda-titulo">Renda</h1>
 
         <template x-if="!renda">
           <p class="placeholder">Renda indisponível hoje.</p>
@@ -1698,7 +1691,7 @@
       </section>
 
       <!-- ── Tela #/raiox/diagnostico/risco (7a.BQ.2; rota própria desde a 7a.BR.2) ── -->
-      <!-- Capítulo 1 do Diagnóstico, push child da tab Raio-X, família "ensaio":
+      <!-- Capítulo 1 do Diagnóstico, tela de push do grupo Análise, família "ensaio":
            coluna única, sem cards. O "←" volta ao índice (#/raiox/diagnostico).
            Mono só nos três números da frase-resposta. -->
       <section class="tela-detalhes tela-diagnostico" x-show="rota === 'diag-risco'"
@@ -1867,14 +1860,9 @@
            rota): a ponte do capítulo 3 não é calculada fora dele, e os
            seletores globais do capítulo 1 não enxergam o markup delas. -->
       <section class="tela-detalhes tela-diag-indice" x-show="rota === 'diagnostico'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         aria-labelledby="diag-indice-h1" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent" id="diag-indice-h1">Diagnóstico</h1>
-        </header>
+        <h1 class="sr-only" id="diag-indice-h1">Diagnóstico</h1>
 
         <template x-if="rota === 'diagnostico'">
           <article class="diag-ensaio diag-indice" aria-labelledby="diag-indice-titulo">
@@ -2522,9 +2510,7 @@
 
       <!-- ── Tela #aportar (Fase 7a.H.1) ──────────────────────────────── -->
       <section class="tela-detalhes tela-aportar" x-show="rota === 'aportar'" x-transition:enter.opacity.duration.220ms x-cloak>
-        <header class="breadcrumb">
-          <h1 class="eyebrow">Próximo aporte</h1>
-        </header>
+        <h1 class="sr-only">Próximo aporte</h1>
 
         <!-- 7a.AU: onde está o dinheiro, antes de quanto. Reusa o
              .escopo-toggle (nenhum componente novo), com o padrão a11y de
@@ -2830,17 +2816,12 @@
       </section>
 
       <!-- ── Tela #comite (Fase 7a.BW.6) ──────────────────────────────────
-           Push child da tab Aportar: os registros estratégicos do Comitê
+           Tela-membro de Aportar (7a.CC): os registros estratégicos do Comitê
            (do mais novo ao mais antigo) e a linha do placar. Leitura pura. -->
       <section class="tela-detalhes tela-comite" x-show="rota === 'comite'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         aria-labelledby="comite-tela-titulo" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent" id="comite-tela-titulo">Comitê</h1>
-        </header>
+        <h1 class="sr-only" id="comite-tela-titulo">Comitê</h1>
         <p class="comite-tela-ajuda">O que o Comitê anotou para a revisão estrutural da política. Os registros nunca mexem no aporte.</p>
         <template x-if="comiteResposta">
           <div>
@@ -2885,18 +2866,13 @@
       </section>
 
       <!-- ── Tela #olho: a vigília (7a.BX.4, spec 7a.BX §13.1) ──────────────
-           Push child da tab Raio-X. Estado da última rodada, depois os alertas
+           Tela-membro de Carteira (7a.CC). Estado da última rodada, depois os alertas
            agrupados por grau (ameaça, observar), os mais recentes primeiro; os
            "sem efeito" numa linha de contagem recolhida. Só leitura. -->
       <section class="tela-detalhes tela-olho" x-show="rota === 'olho'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         aria-labelledby="olho-titulo" x-cloak>
-        <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent" id="olho-titulo">O Olho</h1>
-        </header>
+        <h1 class="sr-only" id="olho-titulo">O Olho</h1>
         <template x-if="rota === 'olho'">
           <div class="olho-corpo">
             <p class="olho-ajuda">O Olho leu, na fonte oficial, o que saiu de novo sobre cada empresa com tese e confrontou com o que quebraria a tese.</p>
@@ -3009,13 +2985,10 @@
 
       <!-- ── Tela #relatorio (Fase 7a.Q.3) ──────────────────────────────── -->
       <section class="tela-detalhes tela-relatorio" x-show="rota === 'relatorio'"
-        x-transition:enter="push-enter"
-        x-transition:enter-start="push-from-right"
-        x-transition:enter-end="push-at-rest"
+        x-transition:enter.opacity.duration.220ms
         x-cloak>
         <header class="breadcrumb rel-breadcrumb">
-          <button @click="voltarDoRelatorio()" aria-label="Voltar ao Raio-X" type="button">←</button>
-          <h1 class="eyebrow eyebrow--accent">Relatório</h1>
+          <h1 class="sr-only">Relatório</h1>
           <div class="rel-seletor" @keydown.escape="relSeletorAberto = false">
             <button class="rel-seletor__btn" type="button"
               :aria-expanded="relSeletorAberto"
@@ -3088,7 +3061,6 @@
                           <template x-if="temDossie(r.ticker)">
                             <a class="rel-radar-card__ticker rel-radar-card__ticker--link"
                               :href="'#/dossie/' + r.ticker"
-                              @click="registrarOrigemDossie()"
                               x-text="r.ticker"></a>
                           </template>
                           <template x-if="!temDossie(r.ticker)">
@@ -3201,7 +3173,6 @@
                           <template x-if="temDossie(p.ticker)">
                             <a class="rel-prestacao__ticker rel-prestacao__ticker--link"
                               :href="'#/dossie/' + p.ticker"
-                              @click="registrarOrigemDossie()"
                               x-text="p.ticker"></a>
                           </template>
                           <template x-if="!temDossie(p.ticker)">
@@ -3267,7 +3238,7 @@
         x-transition:enter-end="push-at-rest"
         x-cloak>
         <header class="breadcrumb">
-          <button aria-label="Voltar" @click="voltarDoDossie()" type="button">←</button>
+          <button aria-label="Voltar" @click="voltar()" type="button">←</button>
           <h1 class="eyebrow eyebrow--accent">Dossiê</h1>
         </header>
 
@@ -3531,11 +3502,12 @@
     <template x-if="fase === 'raiox'">
       <nav class="tab-bar" role="navigation" aria-label="Navegação principal">
         <span class="tab-bar-indicator" aria-hidden="true"></span>
-        <a href="#" data-tab="raiox" :aria-current="tab === 'raiox' ? 'page' : null" @click.prevent="rota = ''; tab = 'raiox'; history.replaceState(null, '', location.pathname); $nextTick(() => iniciarAbertura())">Raio-X</a>
-        <a href="#rentabilidade" data-tab="rentab" :aria-current="tab === 'rentab' ? 'page' : null">Rentabilidade</a>
-        <a href="#alocacao" data-tab="aloca" :aria-current="tab === 'aloca' ? 'page' : null">Alocação</a>
-        <a href="#proventos" data-tab="provent" :aria-current="tab === 'provent' ? 'page' : null">Proventos</a>
-        <a href="#aportar" data-tab="aportar" :aria-current="tab === 'aportar' ? 'page' : null">Aportar</a>
+        <!-- 7a.CC: os cinco grupos do mapa (js/navegacao.js). <a href> real
+             para a 1ª tela do grupo; o toque leva à última tela visitada. -->
+        <template x-for="g in GRUPOS" :key="g.id">
+          <a :href="g.telas[0].hash" :data-tab="g.id" :aria-current="tab === g.id ? 'page' : null"
+             @click.prevent="irParaGrupo(g.id)" x-text="g.rotulo"></a>
+        </template>
       </nav>
     </template>
   </main>

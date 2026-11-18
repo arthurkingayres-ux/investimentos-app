@@ -82,11 +82,14 @@ async function linha2Esperada(page: Page) {
 }
 
 test.describe("7a.BR.2 — índice do Diagnóstico", () => {
-  test("título, instrução, cinco perguntas tocáveis de 44 px, nota e aviso; o ← volta ao Raio-X", async ({ page }) => {
+  // 7a.CC: o índice é tela-membro de Análise: título só para leitor de tela,
+  // sem "←"; o caminho ao Raio-X é a barra. (Antes: "←" volta ao Raio-X.)
+  test("título, instrução, cinco perguntas tocáveis de 44 px, nota e aviso; a barra volta ao Raio-X", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page, PRINCIPAL);
     await abrir(page);
-    await expect(page.locator(`${TELA} .breadcrumb h1`)).toHaveText("Diagnóstico");
+    await expect(page.locator(`${TELA} h1.sr-only`)).toHaveText("Diagnóstico");
+    await expect(page.locator(".grupo-cab .eyebrow")).toHaveText("Análise");
     await expect(page.locator(`${TELA} .diag-indice__titulo`)).toHaveText("A carteira está indo bem?");
     await expect(page.locator(`${TELA} .diag-indice__instrucao`)).toHaveText("Cinco perguntas, lidas nesta ordem. Toque em uma para ver a conta.");
     const titulos = ["Quanto risco a carteira correu", "De onde veio o resultado", "Seus picks batem o índice?", "O momento dos seus aportes", "Como a carteira está montada"];
@@ -105,7 +108,8 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
     await expect(page.locator(`${TELA} .diag-indice__nota`)).toHaveText(
       "Cada linha resume a janela desde o início. A conta, as outras janelas e os escopos ficam dentro de cada pergunta.");
     await expect(page.locator(`${TELA} .diag-aviso`)).toHaveText("Rentabilidade passada não garante rentabilidade futura.");
-    await page.locator(`${TELA} .breadcrumb button`).click();
+    await expect(page.locator(TELA).getByRole("button", { name: /^Voltar/ })).toHaveCount(0);
+    await page.locator('.tab-bar a[data-tab="raiox"]').click();
     await expect(page.locator(".raiox")).toBeVisible();
     await expect(page).not.toHaveURL(/diagnostico/);
     expect(erros).toEqual([]);
