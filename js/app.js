@@ -2425,7 +2425,13 @@ document.addEventListener("alpine:init", () => {
     // (memória de tela por grupo e origem do "voltar", js/navegacao.js) e
     // traz a tela ativa para dentro da faixa do topo.
     atualizarRota() {
+      // 7a.CC.3 (§5.9/§5.10): troca entre segmentos do MESMO ativo é fade
+      // (tabFade), não push; a classe `troca-segmento` no <main> faz o CSS do
+      // push virar só opacidade. Calculado antes de o Alpine pintar a troca.
+      const antes = this._tickerDoContexto();
       this._derivarRota();
+      const depois = this._tickerDoContexto();
+      this.trocaDeSegmento = !!antes && antes === depois;
       this._registrarNavegacao();
       this.$nextTick(() => this._ajustarFaixa());
     },
@@ -2532,9 +2538,11 @@ document.addEventListener("alpine:init", () => {
       // Relatório). NÃO reseta `tab` — como `ativo/:ticker`. 7a.CC: o voltar
       // usa a origem do contexto do ativo (origemContexto, js/navegacao.js).
       // Charclass idêntica à de #ativo (16 chars cobrem BR/EUA + sintéticos).
-      const mdos = path.match(/^\/dossie\/([A-Z0-9_-]{2,16})$/);
+      // 7a.CC.3 (§5.9): `/retorno` é o segmento Retorno esperado, irmão do
+      // Dossiê; hidrata como ele (o Dossiê fica pronto para a troca).
+      const mdos = path.match(/^\/dossie\/([A-Z0-9_-]{2,16})(\/retorno)?$/);
       if (mdos) {
-        this.rota = "dossie";
+        this.rota = mdos[2] ? "dossie-retorno" : "dossie";
         this.dossieTicker = mdos[1];
         setTimeout(() => this.hidratarDossie(), 0);
         return;
@@ -3055,7 +3063,7 @@ document.addEventListener("alpine:init", () => {
 
     // 7a.CC (spec §5.5): o "←" só existe em tela de push.
     //   1. Capítulo do Diagnóstico → o índice (7a.BR.2).
-    //   2. Contexto do ativo (#ativo, #/dossie) → a tela-membro de onde se
+    //   2. Contexto do ativo (#ativo, #/dossie, #/dossie/:t/retorno) → a tela-membro de onde se
     //      entrou nele (origemContexto, gravada por _registrarNavegacao); trocar
     //      de tela dentro do contexto não muda a origem. O grupo aceso volta a
     //      ser o dela, re-derivado por atualizarRota().
@@ -3068,7 +3076,7 @@ document.addEventListener("alpine:init", () => {
       let destino = "";
       if (typeof this.rota === "string" && this.rota.startsWith("diag-")) {
         destino = "#/raiox/diagnostico";
-      } else if (this.rota === "ativo" || this.rota === "dossie") {
+      } else if (this.ehContextoDoAtivo(this.rota)) {
         destino = this.origemContexto || "#/carteira/ativos";
       }
       history.replaceState(null, "", destino && destino !== "#" ? destino : location.pathname);
@@ -4119,8 +4127,13 @@ document.addEventListener("alpine:init", () => {
       return promessa;
     },
 
+    // Dossiê e Retorno esperado (7a.CC.3) hidratam o mesmo dossiê.
+    _rotaDoDossie() {
+      return this.rota === "dossie" || this.rota === "dossie-retorno";
+    },
+
     async hidratarDossie() {
-      if (this.rota !== "dossie") return;
+      if (!this._rotaDoDossie()) return;
       if (!this.segredo) return; // pré-auth: re-chamado no boot (submitPin/auto-resume)
       if (!this.dossieIndice.length) await this.carregarIndiceDossies();
       // 7a.V (Item E): mesmo guard de `hidratarRelatorio()` — re-checa o pin no
@@ -6238,7 +6251,7 @@ document.addEventListener("alpine:init", () => {
         if (this.rota === "relatorio") this.hidratarRelatorio();
         // Deep-link direto no dossiê: hidratarDossie aguarda o índice por
         // dentro, compartilhando a promise em voo disparada acima.
-        if (this.rota === "dossie") this.hidratarDossie();
+        if (this._rotaDoDossie()) this.hidratarDossie();
         this.avaliarAtualizacao(this.json.atualizado_em);
         localStorage.setItem("atualizadoEm", this.json.atualizado_em);
         // 7a.H.1: se a rota já é #aportar (reload), hidratar agora que temos json.
@@ -6494,7 +6507,7 @@ document.addEventListener("alpine:init", () => {
       this.reservaCarregar(); // 7a.BZ.2: idem
       this.conferenciaCarregar(); // 7a.BZ.3: idem
       if (this.rota === "relatorio") this.hidratarRelatorio();
-      if (this.rota === "dossie") this.hidratarDossie();
+      if (this._rotaDoDossie()) this.hidratarDossie();
       if (this.rota === "patrimonio") this.hidratarPatrimonio();
       if (this.rota === "dy") this.hidratarDY({ soSeVazio: true });
       if (this.rota === "aportar") this.hidratarAportar();
@@ -6599,7 +6612,7 @@ document.addEventListener("alpine:init", () => {
         this.reservaCarregar(); // 7a.BZ.2: idem
         this.conferenciaCarregar(); // 7a.BZ.3: idem
         if (this.rota === "relatorio") this.hidratarRelatorio();
-        if (this.rota === "dossie") this.hidratarDossie();
+        if (this._rotaDoDossie()) this.hidratarDossie();
         // 7a.E.31: #alocação unificada abre com todas as categorias fechadas;
         // sem re-hidratação de colapso necessária pós-PIN.
         // 7a.I.5: mesmo padrão — bookmark direto de `#/raiox/chart` precisa

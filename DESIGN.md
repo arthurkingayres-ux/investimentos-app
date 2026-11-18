@@ -362,7 +362,7 @@ Bottom nav fixa, **cinco grupos por extenso** (Raio-X · Retorno · Carteira · 
 
 **Rótulos por extenso (7a.S.4):** as abreviações `raio-x/rent/aloca/prov/apt` (pré-7a.S) viraram `Raio-X/Rentabilidade/Alocação/Proventos/Aportar`. Risco medido: "Rentabilidade" (13 caracteres, palavra sem quebra) a 320px em 5 colunas (~64px/tab) — `min-width: 0` no item do grid + `padding: 0 2px` evitam o "grid blowout" (a track de `1fr` cresceria além da viewport com `min-width: auto` padrão). Verificado: 0 overflow horizontal a 320px (`tab-vozes.spec.ts`).
 
-**Persistência:** visível em todas as telas-membro dos 5 grupos e nas telas de push (`#ativo/:ticker`, `#/dossie/:ticker`, os capítulos do Diagnóstico). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
+**Persistência:** visível em todas as telas-membro dos 5 grupos e nas telas de push (`#ativo/:ticker`, `#/dossie/:ticker`, `#/dossie/:ticker/retorno`, os capítulos do Diagnóstico). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
 
 **Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 inativa / 700 ativa, color shift `--faint` → `--accent`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + cor + tracking + indicator.
 
@@ -375,6 +375,21 @@ O segundo nível da navegação. Um único `<header class="grupo-cab">`, primeir
 - **Largura:** nunca quebra linha (`white-space: nowrap`); rola na horizontal dentro dela, sem barra visível (`scrollbar-width: none`), e a tela ativa é trazida para a área visível por `scrollLeft` (nunca `scrollIntoView`, que rolaria o documento). Retorno cabe inteiro em 375px e rola em 320px.
 - **Âncoras:** `main [id] { scroll-margin-top: calc(var(--grupo-cab-h) + 8px) }`; `--grupo-cab-h` é medida a cada troca de rota (0 em tela de push).
 - **Motion:** só cor e fundo da pílula, em 220ms, dentro de `prefers-reduced-motion: no-preference`.
+
+### Faixa do ativo (7a.CC.3)
+
+O mesmo componente `nav.faixa`, em variante `.faixa-ativo` (`margin: -8px 0 12px`), logo abaixo do `.breadcrumb` ("←" e ticker em `.eyebrow--accent`) das três telas de um ativo; não é o `.grupo-cab` (tela de push não o mostra). `aria-label="Telas de {ticker}"`, `<a href>` reais, `aria-current="page"` no segmento ativo, mesma pílula opaca e mesmo alvo de 44px.
+
+| Segmento | Hash | Aparece |
+|---|---|---|
+| Posição | `#ativo/:t` | sempre |
+| Dossiê | `#/dossie/:t` | `temDossie(t)` |
+| Retorno esperado | `#/dossie/:t/retorno` | `retornoNaFaixa(t)` = `temDossie(t)`, pelo índice, antes de abrir o dossiê. A tela mostra o bloco quando o corpo do dossiê renderizaria (dossiê carregado, sem erro), como antes da 7a.CC, incluindo "indisponível hoje" e "motivo"; até lá, os estados carregando, erro e vazio do Dossiê (mesmas classes `.dossie-*` e textos). Os dois coincidem quando o dossiê carrega (medido 18/11/2026) |
+
+- **Um segmento só, sem faixa** (`x-if` com `segmentosDoAtivo(t).length > 1`): nem espaço reservado.
+- **Motion:** trocar de segmento é `tabFade` (220ms, opacidade; classe `troca-segmento` no `<main>` zera o deslocamento do `push-enter`), nunca push, e não altera a origem do "←". Entrar no ativo a partir de uma lista continua sendo push.
+- **Cabeçalho por segmento:** o `<h1 class="eyebrow eyebrow--accent">` do Dossiê é "Dossiê de {ticker}" e o do Retorno esperado é "Retorno esperado de {ticker}"; o prefixo é `sr-only` e o ticker fica visível, porque o nome do segmento já está na faixa.
+- **Saiu:** a linha `.dossie-entrada` ("por que eu tenho isso?") do fim do `#ativo` e o CSS dela. O Retorno esperado saiu da rolagem do Dossiê.
 
 ### Pede atenção (Raio-X › Hoje)
 
@@ -402,7 +417,7 @@ Antes da 7a.S.4, cada tela abria com um `<h1>` grande e inconsistente (tamanhos/
 
 **Mapeamento por tela (desde a 7a.CC.1):**
 - **Telas-membro de grupo** (as 13 da faixa: Hoje, Histórico, Rentabilidade, Proventos, DY, Renda, Alocação, Vigília, Diagnóstico, Projeção, Relatório, Sugestão, Comitê) — o eyebrow visível é o **do grupo**, no `.grupo-cab` (`.eyebrow`, cor `--faint`). A tela não tem cabeçalho próprio visível: o título dela fica como `<h1 class="sr-only">` (mantém `aria-labelledby` e a hierarquia para leitor de tela), sem botão voltar. O Relatório é a exceção parcial: mantém `<header class="breadcrumb rel-breadcrumb">` só pelo seletor de mês. O **hero-poster do patrimônio** no Hoje permanece intocado.
-- **Telas de push** (`#ativo/:ticker`, `#/dossie/:ticker` e os cinco capítulos do Diagnóstico) — `.breadcrumb` com botão "←" e `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. Sem cabeçalho de grupo.
+- **Telas de push** (`#ativo/:ticker`, `#/dossie/:ticker`, `#/dossie/:ticker/retorno` e os cinco capítulos do Diagnóstico) — `.breadcrumb` com botão "←" e `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. Sem cabeçalho de grupo. Nas três telas do ativo, o breadcrumb leva o **ticker** visível e o h1 é por segmento (7a.CC.3): `#ativo` mostra só o ticker; o Dossiê lê "Dossiê de {ticker}" e o Retorno esperado "Retorno esperado de {ticker}" (prefixo `sr-only`). Logo abaixo vem a faixa do ativo (ver "Faixa do ativo").
 
 Nenhuma tela usa `<h1>` visível, exceto a PIN screen (`<h1>Carteira</h1>`, fora do shell autenticado — não é uma "tela" no sentido de navegação por tab/push).
 
@@ -901,10 +916,10 @@ App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo méd
 
 | Animação | Duração | Curva | Property | Reduced-motion |
 |---|---|---|---|---|
-| Cross-fade de tela (troca de grupo e de tela na faixa; `tabFade`) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
+| Cross-fade de tela (troca de grupo, de tela na faixa e de segmento na faixa do ativo; `tabFade`) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
 | Tab indicator slide | 220ms | cubic-bezier(0.16,1,0.3,1) | transform translateX | zera |
 | Hero count-up (Raio-X) | 700ms | cubic-out via RAF | textContent | reveal instantâneo; flag em sessionStorage limita a 1×/sessão |
-| Push (#ativo, #/dossie, capítulos do Diagnóstico) | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
+| Push (entrada em #ativo e #/dossie, vindo de uma lista; capítulos do Diagnóstico; trocar de segmento NÃO é push) | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
 | Segmented Aloca (Atual/Alvo) | — | — | — | LEGADO: removido em 7a.E.31 (vista única); config `segmented` em transitions.js sem uso |
 
 7a.CC.1: as telas que eram push e viraram membro de grupo (Histórico, DY, Projeção, Renda, Diagnóstico índice, Relatório, Comitê, Vigília) trocaram o `push-enter` pelo cross-fade `tabFade` (`x-transition:enter.opacity.duration.220ms`). A pílula da faixa só anima cor e fundo, em 220ms.
@@ -1219,7 +1234,7 @@ Tela-membro de Análise `#/raiox/relatorio` (7a.CC.1, antes push) reusa a casca 
 
 ### Tela do dossiê de empresa (7a.R.3.b)
 
-Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + arco de 2 anos), alcançada de **duas** telas: a linha `.dossie-entrada` ao fim do `#ativo` ("por que eu tenho isso?") e o ticker linkado no radar/prestação do Relatório ("sob pressão contra o quê?"). **Zero token novo**: a tela inteira se compõe de `--num-*`, `--cat-*`, `--g-*`, `--ink`/`--gray`/`--faint`, `--amber-700` (só no selo da 7a.AD.2, ver abaixo), `--neutral-*`, `--mono`, `.flag`, `.grifo`, `.rel-selo`, `.rel-prosa`. Não é um segundo `#ativo` (spec §6.1): zero preço, zero DY, zero KPI vivo, zero delta colorido.
+Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + arco de 2 anos), segmento **Dossiê** da faixa do ativo (7a.CC.3; a linha `.dossie-entrada` do fim do `#ativo` saiu, e o Retorno esperado ganhou o endereço `#/dossie/<TICKER>/retorno`), e também do ticker linkado no radar/prestação do Relatório ("sob pressão contra o quê?") e da Vigília. **Zero token novo**: a tela inteira se compõe de `--num-*`, `--cat-*`, `--g-*`, `--ink`/`--gray`/`--faint`, `--amber-700` (só no selo da 7a.AD.2, ver abaixo), `--neutral-*`, `--mono`, `.flag`, `.grifo`, `.rel-selo`, `.rel-prosa`. Não é um segundo `#ativo` (spec §6.1): zero preço, zero DY, zero KPI vivo, zero delta colorido.
 
 - **Ponte de vocabulário de categoria.** O dossiê carrega o vocabulário do BACKEND (o bootstrap copia `posicoes_view.classe`: `Ação BR`/`Exterior`/`FII`/`Cripto`/`Renda Fixa BR`), que **não** é o vocabulário da política lido por `catCssVar` (`Ações BR`/`EUA`/…). `dossieCatStyle()` traduz os dois casos divergentes antes de delegar. Sem essa ponte o dot cairia no fallback `--g-700` e **toda** categoria ficaria teal — falha silenciosa, travada por teste. `catCssVar` não foi alterada: ela é do `#alocação`.
 - **`numeros_reportados` é lista de definição, não grid de KPI.** Desvio consciente da regra geral `number-tabular`: são **citações congeladas na data-base da fonte**, frequentemente frases inteiras ("física 4,09% (de 4,20%) — em queda"), não escalares vivos. Rótulo derivado da chave (underscore→espaço, uppercase, 11px `--gray`) sobre o valor em prosa sans `--ink`; sem `tnum`, sem mono, sem cor semântica. Stack 1-col a 390px **e** a 320px — não há grid para quebrar.

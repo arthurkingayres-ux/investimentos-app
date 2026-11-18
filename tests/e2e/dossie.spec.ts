@@ -78,7 +78,13 @@ test.describe("7a.R.3.b Task 2 — rota, carga e estados", () => {
   test("deep-link #/dossie/HGLG11 abre a tela do dossiê", async ({ page }) => {
     await autenticar(page);
     await abrirDossie(page, "HGLG11");
-    await expect(page.locator(".tela-dossie .breadcrumb .eyebrow")).toHaveText("Dossiê");
+    // 7a.CC.3 (§5.9): o breadcrumb mostra o ticker, como a Posição; o nome do
+    // segmento está na faixa do ativo e, para leitor de tela, no h1.
+    const h1 = page.locator(".tela-dossie .breadcrumb h1.eyebrow");
+    await expect(h1).toHaveText("Dossiê de HGLG11");
+    await expect(h1.locator(".sr-only")).toHaveText("Dossiê de");
+    await expect(page.getByRole("heading", { level: 1, name: "Dossiê de HGLG11" })).toBeVisible();
+    await expect(page.locator(".tela-dossie nav.faixa-ativo [aria-current='page']")).toHaveText("Dossiê");
   });
 
   test("o grupo anterior é preservado (push alcançado de vários grupos)", async ({ page }) => {
@@ -298,15 +304,21 @@ test.describe("7a.R.3.b Task 4 — linha do tempo", () => {
 });
 
 test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
+  // 7a.CC.3 (§5.9): a entrada no dossiê deixou de ser a linha .dossie-entrada
+  // no fim do #ativo e passou a ser o segmento "Dossiê" da faixa do ativo.
+  const entradaDossie = (page: Page) =>
+    page.locator(".tela-ativo nav.faixa-ativo a", { hasText: /^Dossiê$/ });
+
   test("#ativo: a entrada aparece quando temDossie e some quando não tem", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#ativo/HGLG11");                     // está no índice
-    await expect(page.locator(".tela-ativo .dossie-entrada")).toBeVisible();
-    await expect(page.locator(".tela-ativo .dossie-entrada")).toContainText("Dossiê");
-    const box = await page.locator(".tela-ativo .dossie-entrada").boundingBox();
+    await expect(entradaDossie(page)).toBeVisible();
+    await expect(entradaDossie(page)).toHaveAttribute("href", "#/dossie/HGLG11");
+    const box = await entradaDossie(page).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
     await page.goto("/#ativo/VOO");                        // fora do índice
-    await expect(page.locator(".tela-ativo .dossie-entrada")).toBeHidden();
+    await expect(page.locator(".tela-ativo .ticker-hero")).toContainText("VOO");
+    await expect(entradaDossie(page)).toHaveCount(0);
   });
 
   // 7a.CC (spec §5.5): o "←" do contexto do ativo volta à tela-membro de onde
@@ -317,7 +329,7 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
     await page.goto("/#alocacao");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
     await page.goto("/#ativo/HGLG11");
-    await page.locator(".tela-ativo .dossie-entrada").click();
+    await entradaDossie(page).click();
     await expect(page).toHaveURL(/#\/dossie\/HGLG11$/);
     await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible();
     await page.locator(".tela-dossie .breadcrumb button").click();
@@ -370,7 +382,8 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
   test("índice 404: nenhuma entrada em lugar nenhum", async ({ page }) => {
     await autenticar(page, { indice: "404" });
     await page.goto("/#ativo/HGLG11");
-    await expect(page.locator(".tela-ativo .dossie-entrada")).toBeHidden();
+    await expect(page.locator(".tela-ativo .ticker-hero")).toContainText("HGLG11");
+    await expect(entradaDossie(page)).toHaveCount(0);
     await page.goto("/#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
     await expect(page.locator(".rel-radar-card__ticker--link")).toHaveCount(0);
@@ -425,10 +438,11 @@ test.describe("7a.R.3.b Task 6 — responsivo, Modo Plantão e a11y", () => {
     // Olho tem o que dizer; aqui o servidor de teste responde "nunca rodou".
     const vigilia = await page.locator(".tela-dossie .dossie-vigilia").count();
     expect(vigilia).toBe(1);
-    // 7a.BY.4: a seção Retorno esperado (h2) entra depois da Vigília, sempre.
+    // 7a.BY.4 punha a seção Retorno esperado (h2) depois da Vigília; a 7a.CC.3
+    // a levou para a tela própria (#/dossie/:t/retorno). Aqui ela não existe.
     const retorno = await page.locator(".tela-dossie .dossie-retorno").count();
-    expect(retorno).toBe(1);
-    expect(niveis).toEqual(["H1", "H2", "H2", "H2", "H2", ...Array(entradas).fill("H3")]);
+    expect(retorno).toBe(0);
+    expect(niveis).toEqual(["H1", "H2", "H2", "H2", ...Array(entradas).fill("H3")]);
   });
 
   test("botão voltar tem alvo ≥44px e rótulo acessível", async ({ page }) => {

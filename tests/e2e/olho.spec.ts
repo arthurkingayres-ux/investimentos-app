@@ -214,9 +214,10 @@ test.describe("Olho: o dossiê", () => {
     await abrirOlho(page, { payload: p, hash: "#/dossie/EMPR3" });
     const v = page.getByTestId("dossie-vigilia");
     await expect(v).toBeVisible({ timeout: 10_000 });
-    // Ordem: tese, vigília, retorno esperado (7a.BY.4), linha do tempo.
+    // Ordem: tese, vigília, linha do tempo. (O retorno esperado, que a 7a.BY.4
+    // pôs entre a vigília e a linha do tempo, tem tela própria desde a 7a.CC.3.)
     const ordem = await page.locator(".dossie-corpo > section").evaluateAll((els) => els.map((e) => e.className));
-    expect(ordem.slice(0, 4)).toEqual(["dossie-tese", "dossie-vigilia", "dossie-retorno", "dossie-tl"]);
+    expect(ordem.slice(0, 3)).toEqual(["dossie-tese", "dossie-vigilia", "dossie-tl"]);
     const a = v.locator(".olho-alerta");
     await expect(a).toHaveCount(1);
     await expect(a.locator(".olho-alerta__grau")).toHaveText(/▲\s*Tese sob ameaça\s*12\/11 · Fato Relevante/);
@@ -287,7 +288,13 @@ test.describe("Olho: prova visual a 320 px, claro e Plantão", () => {
       await page.screenshot({ path: `test-results/olho-320-${tema ?? "claro"}.png`, fullPage: true });
       await page.evaluate(() => (location.hash = "#/dossie/EMPR3"));
       await expect(page.getByTestId("dossie-vigilia")).toBeVisible({ timeout: 10_000 });
-      await semTransbordo(page, ".tela-dossie");
+      // 7a.CC.3: a faixa do ativo rola por dentro a 320 px (spec 7a.CC §5.3,
+      // "Retorno esperado" não cabe); o que ela esconde está recortado, não
+      // transbordado. A prova de transbordo vale para o conteúdo do dossiê, e a
+      // caixa da faixa em si fica dentro da viewport.
+      await semTransbordo(page, ".tela-dossie .dossie-corpo");
+      const faixa = await page.locator(".tela-dossie nav.faixa-ativo").boundingBox();
+      expect(faixa!.x + faixa!.width).toBeLessThanOrEqual(320);
       await page.getByTestId("dossie-vigilia").screenshot({ path: `test-results/olho-dossie-320-${tema ?? "claro"}.png` });
     });
   }

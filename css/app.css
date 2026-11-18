@@ -3939,6 +3939,21 @@ button.ponte-degrau { cursor: pointer; }
   .faixa a { transition: background-color 220ms var(--ease), color 220ms var(--ease); }
 }
 
+/* 7a.CC.3 (spec §5.9): faixa do ativo, logo abaixo do .breadcrumb das telas
+   do contexto do ativo (Posição, Dossiê, Retorno esperado). Mesmo componente
+   da faixa de grupo; aqui sobe para perto do breadcrumb, que já traz a
+   hairline de baixo. */
+.faixa-ativo { margin: -8px 0 12px; }
+
+/* Troca de segmento dentro do ativo (§5.10): a tela entra pelo fade de troca
+   de tela (tabFade, 220ms), não pelo push. A classe vem do <main>
+   (trocaDeSegmento, js/app.js) e só neutraliza o deslocamento do push. Em
+   reduced-motion nada disto vale: o push já é zerado acima. */
+@media (prefers-reduced-motion: no-preference) {
+  main.troca-segmento .push-enter { transition: opacity 220ms var(--ease); }
+  main.troca-segmento .push-from-right { transform: none; }
+}
+
 /* Âncora interna nunca para atrás do cabeçalho fixo. --grupo-cab-h é medida
    por _ajustarFaixa() (js/navegacao.js); o valor daqui é só o de partida. */
 :root { --grupo-cab-h: 88px; }
@@ -5049,21 +5064,6 @@ body:has(.tab-bar) main {
   display: inline-flex; align-items: center; min-height: 44px; padding: 2px 0;
 }
 .dossie-fontes a:hover { text-decoration: underline; }
-
-/* Entrada no #ativo — idioma do antigo card do Relatório no Hoje, uma linha só (o dossiê não
-   tem "último mês" a anunciar; o que importa é o caminho). */
-.dossie-entrada {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin: 20px 0 0; padding: 14px 16px; min-height: 44px;
-  background: var(--surface); border: 1px solid var(--neutral-200);
-  border-radius: 14px; text-decoration: none; color: var(--ink);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .dossie-entrada { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
-}
-.dossie-entrada:active { transform: scale(.98); box-shadow: var(--shadow-pressed); }
-.dossie-entrada__rot { font-size: var(--num-md); font-weight: 600; color: var(--g-900); }
-.dossie-entrada__chevron { color: var(--g-700); font-size: 1.25rem; line-height: 1; }
 
 /* Ticker linkado no Relatório — mesma tipografia do texto, cor de link e alvo
    de toque. Não muda o .rel-selo ao lado. */

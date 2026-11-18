@@ -364,7 +364,8 @@ test.describe("7a.CC.1 — voltar por origem", () => {
     await irPara(page, "#alocacao");
     await expect(page.locator(".tela-alocacao")).toBeVisible();
     await irPara(page, "#ativo/HGLG11");
-    await page.locator(".tela-ativo .dossie-entrada").click();
+    // 7a.CC.3: a entrada no dossiê é o segmento da faixa do ativo.
+    await page.locator(".tela-ativo nav.faixa-ativo a", { hasText: /^Dossiê$/ }).click();
     await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible();
     await expect(barraAtiva(page)).toHaveAttribute("data-tab", "carteira");
     await botaoVoltar(page).click();

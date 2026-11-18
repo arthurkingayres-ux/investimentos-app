@@ -6,10 +6,14 @@ import { semTransbordo } from "./olho-comum";
 
 // 7a.BY.4 — o retorno esperado nas telas (spec 7a.BY §10 e §10.1).
 //
-// Três superfícies, só leitura: a seção "Retorno esperado" no dossiê (frase,
+// Três superfícies, só leitura: a seção "Retorno esperado" (frase,
 // régua do futuro, dispersão de um ano, método, datas, frase de honestidade e
 // "Ver a conta"), o texto secundário sob o ticker na resposta do Comitê em
 // #aportar e a linha "Régua do futuro" em #comite.
+//
+// 7a.CC.3 (spec 7a.CC §5.9): a seção saiu da rolagem do Dossiê e ganhou
+// endereço próprio, `#/dossie/:t/retorno` (tela `.tela-retorno`), intacta por
+// dentro. Os asserts de conteúdo são os mesmos; muda só o caminho.
 //
 // Fixture 100% SINTÉTICA (repo público): tests/fixtures/retorno.sintetico.json,
 // injetada no portfolio de teste decifrado e cifrada de novo na hora; os
@@ -83,16 +87,16 @@ async function abrirDossie(page: Page, ticker: string, o: Abrir = {}) {
   }, o.tema ?? null);
   await page.goto("/");
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
-  await page.evaluate((t) => { location.hash = `#/dossie/${t}`; }, ticker);
-  await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible({ timeout: 10_000 });
+  await page.evaluate((t) => { location.hash = `#/dossie/${t}/retorno`; }, ticker);
+  await expect(page.locator(SECAO)).toBeVisible({ timeout: 10_000 });
 }
 
-const SECAO = ".tela-dossie [data-testid='dossie-retorno']";
+const SECAO = ".tela-retorno [data-testid='dossie-retorno']";
 const sec = (page: Page) => page.locator(SECAO);
 const HONESTIDADE = "Estimativa. É a peça mais incerta do app; o placar dirá se ela ordena bem. Até lá, não prova nada.";
 const PROIBIDO = /vai render|barato|caro|\bcompre\b|—/i;
 
-test.describe("7a.BY.4 — dossiê, seção Retorno esperado", () => {
+test.describe("7a.BY.4 — tela Retorno esperado (#/dossie/:t/retorno)", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test("faixa normal: frase, régua, dispersão, método, datas e honestidade", async ({ page }) => {
@@ -280,7 +284,7 @@ test.describe("7a.BY.4 — dossiê, seção Retorno esperado", () => {
     await expect(sec(page).getByTestId("retorno-offline")).toHaveCount(0);
     await page.evaluate(() => { location.hash = "#/raiox"; });
     await context.setOffline(true);
-    await page.evaluate(() => { location.hash = "#/dossie/EMPR3"; });
+    await page.evaluate(() => { location.hash = "#/dossie/EMPR3/retorno"; });
     await expect(sec(page).getByTestId("retorno-offline")).toHaveText("Sem rede: estimativa de 10/11, a última que o aparelho guardou.");
     await context.setOffline(false);
   });

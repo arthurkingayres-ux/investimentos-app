@@ -6,8 +6,10 @@
 // passa a derivar `tab` (agora o id do grupo) por este mapa.
 //
 // Telas-membro são as que aparecem numa faixa. Telas de push (`#ativo/:t`,
-// `#/dossie/:t` e os cinco capítulos do Diagnóstico) não são membros: não têm
-// faixa, mostram o "←" e não entram na memória de tela por grupo.
+// `#/dossie/:t`, `#/dossie/:t/retorno` e os cinco capítulos do Diagnóstico) não
+// são membros: não têm faixa de grupo, mostram o "←" e não entram na memória
+// de tela por grupo. As três do contexto do ativo têm a faixa do ativo
+// (`segmentosDoAtivo`, spec 7a.CC §5.9).
 //
 // Memória e origem do "voltar" vivem só em estado Alpine (não persistem entre
 // recargas, não vão a localStorage) e saem no "Bloquear sessão"
@@ -67,11 +69,18 @@
     return location.hash || "#";
   }
 
+  // Rotas do contexto do ativo (§5.5 item 2, §5.9): Posição, Dossiê, Retorno.
+  const CONTEXTO_DO_ATIVO = ["ativo", "dossie", "dossie-retorno"];
+  function ehContextoDoAtivo(rota) {
+    return CONTEXTO_DO_ATIVO.includes(rota);
+  }
+
   window.navegacaoBloco = function navegacaoBloco() {
     const inicial = () => ({
       ultimaTelaDoGrupo: {}, // id do grupo → hash da última tela-membro visitada
       origemContexto: "", // hash da tela-membro de onde se entrou no ativo/dossiê
       ultimaTelaMembro: "", // hash da última tela-membro visitada
+      trocaDeSegmento: false, // a última troca de rota foi entre segmentos do mesmo ativo
     });
 
     return {
@@ -80,6 +89,43 @@
 
       grupoDaRota,
       grupoPorId,
+      ehContextoDoAtivo,
+
+      // Ticker do contexto do ativo na rota corrente; "" fora dele.
+      _tickerDoContexto() {
+        if (this.rota === "ativo") return this.tickerAtual || "";
+        if (this.rota === "dossie" || this.rota === "dossie-retorno") return this.dossieTicker || "";
+        return "";
+      },
+
+      // §5.9: o segmento Retorno esperado aparece quando o bloco de retorno
+      // seria renderizado. Medido em 18/11/2026: o predicado externo do bloco
+      // (`section.dossie-retorno`) era o do corpo do dossiê, sem condição
+      // própria; o estado "ausente" mostra "Retorno esperado indisponível
+      // hoje." e "sem_faixa" mostra o motivo.
+      // Relação entre os dois: a faixa decide ANTES de abrir o dossiê, então
+      // usa o que se sabe do índice (`temDossie(t)`); a tela do retorno
+      // renderiza o bloco quando o corpo do dossiê renderizaria (dossieAtual
+      // carregado, sem erro, sem carga em voo; index.html) e, até lá, mostra
+      // os mesmos estados de carga, erro e vazio da tela do Dossiê. Com o
+      // dossiê do índice carregando bem, os dois coincidem. Consequência hoje:
+      // a faixa tem três segmentos ou nenhum.
+      retornoNaFaixa(ticker) {
+        return this.temDossie(ticker);
+      },
+
+      // §5.9: segmentos do contexto do ativo, na ordem. Posição sempre; Dossiê
+      // se há dossiê; Retorno esperado pelo predicado acima. Um segmento só
+      // (sem dossiê) = a faixa não é renderizada (o index.html testa > 1).
+      segmentosDoAtivo(ticker) {
+        if (!ticker) return [];
+        const segs = [{ rota: "ativo", rotulo: "Posição", hash: "#ativo/" + ticker }];
+        if (this.temDossie(ticker)) segs.push({ rota: "dossie", rotulo: "Dossiê", hash: "#/dossie/" + ticker });
+        if (this.retornoNaFaixa(ticker)) {
+          segs.push({ rota: "dossie-retorno", rotulo: "Retorno esperado", hash: "#/dossie/" + ticker + "/retorno" });
+        }
+        return segs;
+      },
 
       ehMembro(rota) {
         return grupoDaRota(rota) !== null;
@@ -155,18 +201,21 @@
       // não `scrollIntoView`, que rolaria também o documento. Também publica a
       // altura do cabeçalho em `--grupo-cab-h` (scroll-margin das âncoras): 0
       // em tela de push, onde o cabeçalho de grupo está oculto.
+      // 7a.CC.3: vale também para a faixa do ativo (Retorno esperado não cabe
+      // em 320px); faixa oculta (display: none) mede 0 de largura e é ignorada.
       _ajustarFaixa() {
         const cab = document.querySelector(".grupo-cab");
         const h = cab ? cab.getBoundingClientRect().height : 0;
         document.documentElement.style.setProperty("--grupo-cab-h", Math.ceil(h) + "px");
-        if (!cab) return;
-        const faixa = cab.querySelector(".faixa");
-        const ativo = faixa && faixa.querySelector('[aria-current="page"]');
-        if (!ativo) return;
-        const f = faixa.getBoundingClientRect();
-        const a = ativo.getBoundingClientRect();
-        if (a.left < f.left) faixa.scrollLeft -= f.left - a.left;
-        else if (a.right > f.right) faixa.scrollLeft += a.right - f.right;
+        document.querySelectorAll(".faixa").forEach((faixa) => {
+          const ativo = faixa.querySelector('[aria-current="page"]');
+          if (!ativo) return;
+          const f = faixa.getBoundingClientRect();
+          if (!f.width) return;
+          const a = ativo.getBoundingClientRect();
+          if (a.left < f.left) faixa.scrollLeft -= f.left - a.left;
+          else if (a.right > f.right) faixa.scrollLeft += a.right - f.right;
+        });
       },
 
       // Chamado ao fim de cada `atualizarRota()` e quando a fase vira "raiox"
@@ -185,7 +234,7 @@
         // Push nunca grava memória de grupo. A origem do contexto do ativo é a
         // última tela-membro antes do PRIMEIRO push (ativo → dossiê não a
         // troca); vazia num deep link.
-        if ((this.rota === "ativo" || this.rota === "dossie") && !this.origemContexto) {
+        if (ehContextoDoAtivo(this.rota) && !this.origemContexto) {
           this.origemContexto = this.ultimaTelaMembro;
           // Deep link (sem origem): o "←" leva a Carteira › Ativos, então é a
           // Carteira que fica acesa (§5.5 item 3).
