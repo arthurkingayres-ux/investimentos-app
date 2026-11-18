@@ -73,7 +73,14 @@ async function abrir(page: Page, o: Abrir = {}) {
     localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
     if (tema) localStorage.setItem("tema", tema);
   }, o.tema ?? null);
-  await page.goto("/");
+  await page.goto("/#/raiox/reserva");
+  await expect(page.locator(".tela-reserva")).toBeVisible({ timeout: 10_000 });
+}
+
+// 7a.CC.2: reserva e conferência vivem em Raio-X › Reserva; o hero, o aporte e o
+// "Bloquear sessão" ficam no Hoje. Navegação no mesmo documento (sessão intacta).
+async function irAoHoje(page: Page) {
+  await page.evaluate(() => { location.hash = "#"; });
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
@@ -174,7 +181,8 @@ test.describe("Reserva: indisponível sem quebrar a tela", () => {
       await expect(page.getByTestId("reserva")).toContainText("Reserva");
       await expect(page.getByTestId("reserva")).toContainText("Fora da carteira de aposentadoria");
       await expect(page.getByTestId("reserva-fonte")).toHaveCount(0);
-      // O resto do Raio-X segue de pé.
+      // O resto do Raio-X (no Hoje) segue de pé.
+      await irAoHoje(page);
       await expect(page.locator("#hero-patrimonio")).toHaveText(/R\$/);
       await expect(page.locator(".aporte-bloco")).toBeVisible();
       expect(erros).toEqual([]);
@@ -196,15 +204,17 @@ test("nunca somada: o patrimônio do hero é idêntico com e sem reserva", async
   const outra = await ctx.newPage();
   await abrir(outra, { payload: payload((p) => { p.total = 99999.99; }) });
   await expect(outra.getByTestId("reserva-valor")).toHaveText(/R\$\s99\.999,99/, { timeout: 10_000 });
+  await irAoHoje(page);
+  await irAoHoje(outra);
   // Todas as facetas do hero, uma a uma, iguais nas duas páginas.
   for (let i = 0; i < 4; i++) {
     await page.locator(".fd").nth(i).click();
     await outra.locator(".fd").nth(i).click();
     await expect(page.locator("#hero-body .hero-face.on")).toHaveCount(1);
     await expect(outra.locator("#hero-body .hero-face.on")).toHaveCount(1);
-    expect(await outra.locator("#hero-body .hero-face.on").innerText()).toBe(
-      await page.locator("#hero-body .hero-face.on").innerText(),
-    );
+    // Poll: a 1ª faceta pode ainda estar no count-up ao entrar no Hoje.
+    await expect.poll(async () => (await outra.locator("#hero-body .hero-face.on").innerText())
+      === (await page.locator("#hero-body .hero-face.on").innerText())).toBe(true);
   }
   // De volta à faceta 0: o count-up já rodou nesta sessão, o valor sai inteiro.
   await page.locator(".fd").nth(0).click();
@@ -215,16 +225,16 @@ test("nunca somada: o patrimônio do hero é idêntico com e sem reserva", async
   await ctx.close();
 });
 
-test("fora do hero do patrimônio, logo abaixo dele, antes dos últimos 7 dias", async ({ page }) => {
+test("fora do hero do patrimônio: tem tela própria e o Hoje não a traz", async ({ page }) => {
   await abrir(page);
   const bloco = page.getByTestId("reserva");
   await expect(page.getByTestId("reserva-valor")).toHaveText(/R\$/, { timeout: 10_000 });
-  expect(await bloco.evaluate((el) => el.closest("#hero") === null && !el.querySelector("#hero"))).toBe(true);
-  const hero = (await page.locator("#hero").boundingBox())!;
-  const caixa = (await bloco.boundingBox())!;
-  expect(caixa.y).toBeGreaterThanOrEqual(hero.y + hero.height);
+  expect(await bloco.evaluate((el) => el.closest("#hero") === null && !el.querySelector("#hero")
+    && el.closest(".tela-reserva") !== null && el.closest(".raiox") === null)).toBe(true);
   // Não é controle: nenhum link, botão ou foco dentro do bloco.
   await expect(bloco.locator("a, button, [tabindex]")).toHaveCount(0);
+  await irAoHoje(page);
+  await expect(page.locator('.raiox [data-testid="reserva"]')).toHaveCount(0);
 });
 
 const dadosAlpine = (page: Page) =>
@@ -247,6 +257,7 @@ test("busca em voo durante o bloqueio: a resposta que chega depois não grava na
   });
   await abrir(page, { semRota: true });
   await pediu;
+  await irAoHoje(page);
   await page.locator(".btn-bloquear").click();
   soltar();
   // Dá tempo à resposta chegar e à decifra (PBKDF2) terminar.
@@ -274,6 +285,7 @@ test("ao voltar ao app, busca de novo: a leitura nova reavalia a marca de desatu
 test("bloquear a sessão apaga a reserva da memória", async ({ page }) => {
   await abrir(page);
   await expect(page.getByTestId("reserva-valor")).toHaveText(/R\$/, { timeout: 10_000 });
+  await irAoHoje(page);
   await page.locator(".btn-bloquear").click();
   const claro = await page.evaluate(() => {
     const raiz = document.querySelector("[x-data]") as any;

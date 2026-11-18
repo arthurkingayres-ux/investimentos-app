@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { irPelaFaixa } from "./faixa-comum";
 import path from "path";
 import fs from "fs";
 
@@ -300,10 +301,10 @@ test.describe("7a.AY.2 — a tela de um cenário", () => {
   });
 
   for (const [nome, corpo] of [["v2.28", PRE229], ["null", NULO]] as const) {
-    test(`10. payload ${nome}: 'Projeção indisponível hoje' e card ausente, sem erro`, async ({ page }) => {
+    test(`10. payload ${nome}: 'Projeção indisponível hoje' e sem resposta, sem erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
-      await expect(page.locator(".proj-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).projResposta())).toBeNull();
       await page.goto("/#/raiox/projecao");
       await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
       await expect(page.locator(".proj-ensaio")).toHaveCount(0);
@@ -614,11 +615,10 @@ test.describe("7a.AY.2 — capítulos e conta", () => {
     expect(r.ponto).toBe(r.ink);
   });
 
-  test("a rota não monta ECharts, e o card abre a tela", async ({ page }) => {
+  // 7a.CC.2: o card saiu do Hoje; a entrada é Análise › Projeção na faixa.
+  test("a rota não monta ECharts, e a faixa abre a tela", async ({ page }) => {
     await autenticar(page);
-    const card = page.locator(".proj-card-home");
-    await expect(card).toContainText("Projeção até os 65");
-    await card.click();
+    await irPelaFaixa(page, "analise", "#/raiox/projecao");
     await expect(page).toHaveURL(/#\/raiox\/projecao$/);
     await expect(page.locator(".proj-faixas__linha")).toHaveCount(3);
     expect(await page.locator(".tela-projecao canvas").count()).toBe(0);
@@ -644,7 +644,7 @@ test.describe("7a.AY.2 — robustez a payload parcial (board, iteração 1)", ()
     ["com decomposicao.rendimento_aportes nulo", "p.decomposicao.rendimento_aportes = null"],
     ["sem decomposicao.final", "delete p.decomposicao.final"],
   ] as const) {
-    test(`bloco ${nome}: 'Projeção indisponível hoje', card ausente, nenhum erro`, async ({ page }) => {
+    test(`bloco ${nome}: 'Projeção indisponível hoje', sem resposta, nenhum erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page);
       await abrirProjecao(page);
@@ -654,7 +654,7 @@ test.describe("7a.AY.2 — robustez a payload parcial (board, iteração 1)", ()
       }, mutacao);
       await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
       await expect(page.locator(".proj-ensaio")).toHaveCount(0);
-      await expect(page.locator(".proj-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).projResposta())).toBeNull();
       expect(erros).toEqual([]);
     });
   }
@@ -715,23 +715,26 @@ test.describe("7a.AY.2 — robustez a payload parcial (board, iteração 1)", ()
 
 // ── 7a.AY.2 (Task 10): getters e estados da projeção v2.29 (preservados).
 test.describe("7a.AY — getters e estados da projeção v2.29", () => {
-  test("v2.29: card da home diz 'Aos 65, cerca de R$ …'", async ({ page }) => {
+  // 7a.CC.2: a frase do card ("Aos 65, cerca de R$ …") saiu com o card; a
+  // mesma resposta, a mediana aos 65, é a abertura da tela.
+  test("v2.29: a abertura da tela diz 'Aos 65 você teria cerca de R$ …'", async ({ page }) => {
     await autenticar(page);
-    await expect(page.locator(".proj-card-home")).toBeVisible();
-    await expect(page.locator(".proj-card-home .rel-card-home__mes")).toHaveText(/^Aos 65, cerca de R\$ .+/);
+    await irPelaFaixa(page, "analise", "#/raiox/projecao");
+    await expect(page.locator(".proj-resposta__linha")).toHaveText("Aos 65 você teria cerca de");
+    await expect(page.locator(".proj-resposta__valores .proj-faixa")).toHaveText(/^R\$ .+/);
   });
 
-  test("v2.28 (tem cenarios, sem faixas): projecao nula, card ausente, rota indisponível", async ({ page }) => {
+  test("v2.28 (tem cenarios, sem faixas): projecao nula, sem resposta, rota indisponível", async ({ page }) => {
     await autenticar(page, PRE229);
     expect(await dados(page, "d.projecao")).toBeNull();
-    await expect(page.locator(".proj-card-home")).toBeHidden();
+    await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).projResposta())).toBeNull();
     await page.goto("/#/raiox/projecao");
     await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
   });
 
-  test("projecao null: card ausente e rota indisponível", async ({ page }) => {
+  test("projecao null: sem resposta e rota indisponível", async ({ page }) => {
     await autenticar(page, NULO);
-    await expect(page.locator(".proj-card-home")).toBeHidden();
+    await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).projResposta())).toBeNull();
     await page.goto("/#/raiox/projecao");
     await expect(page.locator(".tela-projecao")).toContainText("Projeção indisponível hoje");
   });
@@ -786,6 +789,6 @@ test.describe("7a.AY — getters e estados da projeção v2.29", () => {
   test("premissas vencidas continuam publicando o bloco", async ({ page }) => {
     await autenticar(page, VENCIDA);
     expect(await dados(page, "d.projecao.premissas_vencidas")).toBe(true);
-    await expect(page.locator(".proj-card-home")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).projResposta())).not.toBeNull();
   });
 });

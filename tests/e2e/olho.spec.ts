@@ -13,13 +13,16 @@ async function textoDaTela(page: Page, sel: string) {
 }
 
 test.describe("Olho: Raio-X", () => {
-  test("tese sob ameaça não examinada: UMA linha, glifo + texto, leva a #olho", async ({ page }) => {
+  // 7a.CC.2: a linha do Olho virou o item Vigília do "Pede atenção" (spec
+  // 7a.CC §5.6): o mesmo texto de olhoLinhaRaiox() com o glifo ▲; o "· ver"
+  // saiu, a linha inteira é o link e o "›" diz isso.
+  test("tese sob ameaça não examinada: UMA linha no Pede atenção, glifo + texto, leva a #olho", async ({ page }) => {
     const erros: string[] = [];
     await abrirOlho(page, { erros });
-    const linha = page.getByTestId("olho-raiox");
+    const linha = page.getByTestId("pede-atencao-vigilia");
     await expect(linha).toBeVisible({ timeout: 10_000 });
     await expect(linha).toHaveCount(1);
-    await expect(linha).toHaveText(/1 tese sob ameaça\s*· ver/);
+    await expect(linha).toHaveText(/^\s*▲\s*1 tese sob ameaça\s*›\s*$/);
     await expect(linha.locator(".olho-glifo")).toHaveAttribute("aria-hidden", "true");
     const caixa = await linha.boundingBox();
     expect(caixa!.height).toBeGreaterThanOrEqual(44);
@@ -32,7 +35,7 @@ test.describe("Olho: Raio-X", () => {
     expect(erros).toEqual([]);
   });
 
-  test("ameaça já examinada, ou só observar: a linha NÃO existe no DOM", async ({ page }) => {
+  test("ameaça já examinada, ou só observar: o item Vigília NÃO existe no DOM", async ({ page }) => {
     await abrirOlho(page, {
       payload: payload((p) => {
         p.alertas[0].examinado = true;
@@ -44,7 +47,7 @@ test.describe("Olho: Raio-X", () => {
     await expect(page.getByTestId("diag-indice-olho")).toContainText("nenhuma tese sob ameaça", { timeout: 10_000 });
     await page.evaluate(() => (location.hash = ""));
     await expect(page.locator(".raiox")).toBeVisible();
-    await expect(page.getByTestId("olho-raiox")).toHaveCount(0);
+    await expect(page.getByTestId("pede-atencao-vigilia")).toHaveCount(0);
   });
 });
 
@@ -274,9 +277,9 @@ test.describe("Olho: prova visual a 320 px, claro e Plantão", () => {
           p.fila = 2;
         }),
       });
-      await expect(page.getByTestId("olho-raiox")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByTestId("pede-atencao-vigilia")).toBeVisible({ timeout: 10_000 });
       await semTransbordo(page, ".raiox");
-      await page.getByTestId("olho-raiox").screenshot({ path: `test-results/olho-raiox-320-${tema ?? "claro"}.png` });
+      await page.getByTestId("pede-atencao-vigilia").screenshot({ path: `test-results/olho-raiox-320-${tema ?? "claro"}.png` });
       await page.evaluate(() => (location.hash = "#olho"));
       await expect(page.getByTestId("olho-estado")).toBeVisible();
       await page.getByTestId("olho-sem-efeito").click();

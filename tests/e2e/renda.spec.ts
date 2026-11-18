@@ -1,8 +1,9 @@
 import { test, expect, Page } from "@playwright/test";
+import { irPelaFaixa } from "./faixa-comum";
 import path from "path";
 import fs from "fs";
 
-// Fase 7a.BJ.2 — renda da carteira (#/raiox/renda) e o card da home. Fixtures
+// Fase 7a.BJ.2 — renda da carteira (#/raiox/renda) e a entrada pela faixa (7a.CC.2). Fixtures
 // 100% sintéticas (gerar_fixture.py::_renda_sintetica): idade 30, horizonte 95,
 // fonte inventada. Os valores esperados são lidos do PAYLOAD decifrado e
 // formatados pelo formatador da casa (window.formatBrl), nunca escritos à mão,
@@ -70,39 +71,32 @@ const renda = (page: Page) =>
 
 const norm = (s: string | null) => (s || "").replace(/\s+/g, " ").trim();
 
-test.describe("7a.BJ.2 — card na home", () => {
-  test("card logo abaixo da projeção: 'Renda da carteira' e 'Sua carteira já pagaria R$ X por mês'", async ({ page }) => {
+test.describe("7a.BJ.2 — entrada pela faixa", () => {
+  // 7a.CC.2: o card saiu do Hoje; a entrada é Retorno › Renda na faixa, e a
+  // frase do card ("Sua carteira já pagaria R$ X por mês") é a abertura da tela.
+  test("a faixa (Retorno › Renda) abre a tela, que diz quanto a carteira já pagaria por mês", async ({ page }) => {
     await autenticar(page);
     const { fmt } = await renda(page);
-    const card = page.locator(".renda-card-home");
-    await expect(card).toBeVisible();
-    await expect(card).toContainText("Renda da carteira");
-    expect(norm(await card.textContent())).toContain(norm(`Sua carteira já pagaria ${fmt.mensal} por mês`));
-    const vizinho = await page.evaluate(() => {
-      const p = document.querySelector(".proj-card-home");
-      let n = p && p.nextElementSibling;
-      while (n && n.tagName === "TEMPLATE") n = n.nextElementSibling;
-      return n ? n.className : null;
-    });
-    expect(vizinho).toContain("renda-card-home");
-    await card.click();
+    await irPelaFaixa(page, "retorno", "#/raiox/renda");
     await expect(page).toHaveURL(/#\/raiox\/renda$/);
     await expect(page.locator(".tela-renda .renda-ensaio")).toBeVisible();
+    await expect(page.locator(".renda-heroi")).toHaveText(fmt.mensal);
+    expect(norm(await page.locator(".renda-resposta").first().textContent())).toContain(norm(`${fmt.mensal} por mês`));
   });
 
-  test("renda zero: o card não promete renda inexistente", async ({ page }) => {
+  test("renda zero: a tela não promete renda inexistente", async ({ page }) => {
     await autenticar(page, ZERO);
-    const card = page.locator(".renda-card-home");
-    await expect(card).toBeVisible();
-    await expect(card).not.toContainText("já pagaria");
-    await expect(card).toContainText("ainda não sustenta renda");
+    await irPelaFaixa(page, "retorno", "#/raiox/renda");
+    await expect(page.locator(".renda-resposta--zero")).toContainText("ainda não sustenta renda");
+    // O herói ("sustentaria R$ X por mês") não existe com renda zero.
+    await expect(page.locator(".renda-heroi")).toHaveCount(0);
   });
 
   for (const [nome, corpo] of [["renda null", NULO], ["pré-v2.32", PRE232]] as const) {
-    test(`payload ${nome}: card ausente e a rota diz 'Renda indisponível hoje.', sem erro`, async ({ page }) => {
+    test(`payload ${nome}: bloco nulo e a rota diz 'Renda indisponível hoje.', sem erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
-      await expect(page.locator(".renda-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).renda)).toBeNull();
       await page.goto("/#/raiox/renda");
       await expect(page.locator(".tela-renda")).toContainText("Renda indisponível hoje.");
       await expect(page.locator(".tela-renda .renda-ensaio")).toHaveCount(0);
@@ -337,7 +331,7 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
     ["configurado não-booleano", "r.heranca = { ...r.heranca, pisos: r.heranca.pisos.map((p) => ({ ...p, configurado: 'sim' })) }"],
     ["sem o choque 0", "r.guardrails = r.guardrails.filter((g) => g.choque !== 0)"],
   ] as const) {
-    test(`bloco parcial (${nome}): indisponível, card ausente, nenhum erro`, async ({ page }) => {
+    test(`bloco parcial (${nome}): indisponível, bloco nulo, nenhum erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page);
       await page.evaluate((m) => {
@@ -346,7 +340,7 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
         new Function("r", m)(r);
         d.json = { ...d.json, renda: r };
       }, muta);
-      await expect(page.locator(".renda-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).renda)).toBeNull();
       await page.goto("/#/raiox/renda");
       await expect(page.locator(".tela-renda")).toContainText("Renda indisponível hoje.");
       expect(erros).toEqual([]);
@@ -371,11 +365,11 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
     expect(erros).toEqual([]);
   });
 
-  test("bloco parcial (sem heranca): indisponível, card ausente, nenhum erro", async ({ page }) => {
+  test("bloco parcial (sem heranca): indisponível, bloco nulo, nenhum erro", async ({ page }) => {
     const erros = coletarErros(page);
     await autenticar(page);
     await page.evaluate(() => { const d = (window as any).Alpine.$data(document.body); d.json = { ...d.json, renda: { ...d.json.renda, heranca: undefined } }; });
-    await expect(page.locator(".renda-card-home")).toBeHidden();
+    await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).renda)).toBeNull();
     await page.goto("/#/raiox/renda");
     await expect(page.locator(".tela-renda")).toContainText("Renda indisponível hoje.");
     expect(erros).toEqual([]);

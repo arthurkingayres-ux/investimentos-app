@@ -20,11 +20,12 @@
 (function () {
   "use strict";
 
-  // §5.1, verbatim. CC.2 acrescenta Raio-X › Reserva e Carteira › Ativos.
+  // §5.1, verbatim, com Raio-X › Reserva e Carteira › Ativos (CC.2).
   const GRUPOS = [
     { id: "raiox", rotulo: "Raio-X", telas: [
       { rota: "", hash: "#", rotulo: "Hoje" },
       { rota: "patrimonio", hash: "#/raiox/chart", rotulo: "Histórico" },
+      { rota: "reserva", hash: "#/raiox/reserva", rotulo: "Reserva" },
     ] },
     { id: "retorno", rotulo: "Retorno", telas: [
       { rota: "rentabilidade", hash: "#rentabilidade", rotulo: "Rentabilidade" },
@@ -34,6 +35,7 @@
     ] },
     { id: "carteira", rotulo: "Carteira", telas: [
       { rota: "alocacao", hash: "#alocacao", rotulo: "Alocação" },
+      { rota: "ativos", hash: "#/carteira/ativos", rotulo: "Ativos" },
       { rota: "olho", hash: "#olho", rotulo: "Vigília" },
     ] },
     { id: "analise", rotulo: "Análise", telas: [
@@ -87,6 +89,36 @@
       // ativo/dossiê preservam o grupo de origem e não passam por aqui.
       grupoPadraoDoPush() {
         return "analise";
+      },
+
+      // §5.6: "Pede atenção" no Hoje. Ordem fixa; só entra item cuja condição
+      // já existe (Olho, conferência, relatório não lido). Lista vazia = o bloco
+      // não existe. Lido pelo getter `pedeAtencao` de js/app.js (o spread do
+      // mixin avaliaria um getter daqui uma vez só).
+      pedeAtencaoItens() {
+        const itens = [];
+        const olho = this.olhoLinhaRaiox();
+        if (olho) itens.push({ chave: "vigilia", texto: olho, href: "#olho" });
+        if (this.conferenciaVisivel()) {
+          itens.push({ chave: "notas", texto: this.conferenciaContagemTexto(), href: "#/raiox/reserva" });
+        }
+        const rel = this.relUltimoMes;
+        if (rel && !this.mesLido(rel.mes)) {
+          itens.push({ chave: "relatorio", texto: "Relatório de " + window.formatMesAno(rel.mes) + " saiu", href: "#/raiox/relatorio" });
+        }
+        return itens;
+      },
+
+      // §5.8: todas as posições, `valor_mercado_brl` decrescente, empate por
+      // ticker crescente. Cópia: nunca reordena o payload. Ausente/vazio → [].
+      ativosOrdenados() {
+        const pos = this.json && Array.isArray(this.json.posicoes) ? this.json.posicoes : [];
+        const v = (p) => (typeof p.valor_mercado_brl === "number" ? p.valor_mercado_brl : 0);
+        return pos.slice().sort((a, b) => {
+          const d = v(b) - v(a);
+          if (d !== 0) return d;
+          return a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0;
+        });
       },
 
       _limparEstadoNavegacao() {
@@ -155,6 +187,9 @@
         // troca); vazia num deep link.
         if ((this.rota === "ativo" || this.rota === "dossie") && !this.origemContexto) {
           this.origemContexto = this.ultimaTelaMembro;
+          // Deep link (sem origem): o "←" leva a Carteira › Ativos, então é a
+          // Carteira que fica acesa (§5.5 item 3).
+          if (!this.origemContexto) this.tab = "carteira";
         }
       },
     };

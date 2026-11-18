@@ -125,18 +125,20 @@ test.describe("Hero de facetas (7a.S.5)", () => {
     await autenticar(page);
     const dots = page.locator(".hero-facets .fd");
     await expect(dots).toHaveCount(4);
+    // cada dot é rotulado e é um alvo de toque ≥44px. Medido ANTES do toque:
+    // o :active encolhe o hero por scale, e a medida no fim da transição de
+    // volta dava 43,99998 px sob carga da suíte inteira.
+    await expect(dots.nth(2)).toHaveAttribute("aria-label", /Faceta 3 de 4/);
+    const box = await dots.nth(2).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
     await dots.nth(2).click();
     await expect(page.locator("#hero-eyebrow")).toHaveText(HERO_EYEBROWS[2]);
     await expect(dots.nth(2)).toHaveClass(/on/);
     await expect(dots.nth(2)).toHaveAttribute("aria-current", "true");
     await expect(dots.nth(0)).not.toHaveClass(/on/);
     await expect(dots.nth(0)).not.toHaveAttribute("aria-current", "true");
-    // cada dot é rotulado e é um alvo de toque ≥44px.
-    await expect(dots.nth(2)).toHaveAttribute("aria-label", /Faceta 3 de 4/);
-    const box = await dots.nth(2).boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThanOrEqual(44);
-    expect(box!.height).toBeGreaterThanOrEqual(44);
   });
 
   test("tocar num facet-dot não navega (stopPropagation não borbulha pro hero)", async ({ page }) => {

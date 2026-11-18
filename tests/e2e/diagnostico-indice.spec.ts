@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { irPelaFaixa } from "./faixa-comum";
 import { fx, autenticar, abrirTela, coletarErros, norm, faceTexto, PROIBIDOS, medirForma, corDoToken, escalarValorFinal } from "./diag-comum";
 
 // Fase 7a.BR.2 — o índice do Diagnóstico (#/raiox/diagnostico, spec §6.2):
@@ -115,18 +116,17 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
     expect(erros).toEqual([]);
   });
 
-  test("o card da home não muda e abre o índice", async ({ page }) => {
+  // 7a.CC.2: o card saiu do Hoje; a entrada é Análise › Diagnóstico na faixa.
+  test("a faixa (Análise › Diagnóstico) abre o índice", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
-    const card = page.locator(".diag-card-home");
-    await expect(card).toHaveAttribute("href", "#/raiox/diagnostico");
-    await card.click();
+    await irPelaFaixa(page, "analise", "#/raiox/diagnostico");
     await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
     await expect(page.locator(`${TELA} .diag-indice`)).toBeVisible();
   });
 
-  test("linha 1 é a frase do card da home", async ({ page }) => {
+  test("linha 1 é a frase do risco (diagFraseRisco)", async ({ page }) => {
     await autenticar(page, PRINCIPAL);
-    const card = norm(await page.locator(".diag-card-home__texto").textContent());
+    const card = norm(await page.evaluate(() => (window as any).Alpine.$data(document.body).diagFraseRisco()));
     expect(card.length).toBeGreaterThan(0);
     await abrir(page);
     await expect(linha(page, 1).locator(".diag-indice__estado")).toHaveText(card.endsWith(".") ? card : card + ".");
@@ -207,7 +207,7 @@ test.describe("7a.BR.2 — índice do Diagnóstico", () => {
     test(`payload ${nome}: a linha 2 diz 'Indisponível hoje.' e continua tocável; as linhas 1, 3 e 4 seguem`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
-      const card = norm(await page.locator(".diag-card-home__texto").textContent());
+      const card = norm(await page.evaluate(() => (window as any).Alpine.$data(document.body).diagFraseRisco()));
       await abrir(page);
       await expect(page.locator(`${TELA} a.diag-indice__linha`)).toHaveCount(5);
       await expect(linha(page, 2).locator(".diag-indice__pergunta")).toHaveText("De onde veio o resultado");

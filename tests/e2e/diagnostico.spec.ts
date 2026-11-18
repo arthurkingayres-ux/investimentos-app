@@ -1,11 +1,12 @@
 import { test, expect, Page } from "@playwright/test";
+import { irPelaFaixa } from "./faixa-comum";
 import path from "path";
 import fs from "fs";
 import { medirLer, corDoToken, CONTA_ABRE, COMO_LER } from "./diag-comum";
 
 // Fase 7a.BQ.2 — Diagnóstico, capítulo 1 "Quanto risco
 // a carteira correu" (desde a 7a.BR.2 em #/raiox/diagnostico/risco; o
-// #/raiox/diagnostico virou o índice), e o card da home. Fixtures 100% sintéticas: o bloco
+// #/raiox/diagnostico virou o índice), e a entrada pela faixa (7a.CC.2). Fixtures 100% sintéticas: o bloco
 // `risco` sai de construir_bloco_risco sobre gerar_fixture.py::_ponte_risco.
 // Os valores esperados são lidos do payload decifrado e formatados pelos
 // formatadores da casa (diagPct1, diagAbs1, diagNum2, rent2MmmAa), salvo onde
@@ -93,60 +94,54 @@ async function escolherEscopo(page: Page, escopo: "Total" | "Brasil" | "EUA", mo
   if (moeda) await page.locator(`${TELA} [data-diag-moeda="${moeda}"]`).click();
 }
 
-test.describe("7a.BQ.2 — card na home", () => {
-  test("card logo abaixo da Renda: 'Diagnóstico da carteira' e a pior queda desde o início com a volta ao pico", async ({ page }) => {
+// 7a.CC.2: o card saiu do Hoje. A entrada é Análise › Diagnóstico na faixa, e
+// a frase do card é a linha 1 do índice (diagFraseRisco, com ponto final).
+async function linha1(page: Page) {
+  await irPelaFaixa(page, "analise", "#/raiox/diagnostico");
+  await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
+  return page.locator('.tela-diag-indice [data-testid="diag-indice-1"]');
+}
+
+test.describe("7a.BQ.2 — a frase do risco, pela faixa", () => {
+  test("a faixa abre o índice; a linha 1 diz a pior queda desde o início com a volta ao pico", async ({ page }) => {
     await autenticar(page);
     const w = await janela(page, "Total", "desde");
-    const card = page.locator(".diag-card-home");
-    await expect(card).toBeVisible();
-    await expect(card).toContainText("Diagnóstico da carteira");
-    const ano = "20" + w.ano;
-    expect(norm(await card.textContent())).toContain(
-      `Desde ${ano}, a pior queda foi de ${w.queda!.q}%, e a carteira voltou ao pico ${meses(w.queda!.mr)} depois do fundo`);
-    const vizinho = await page.evaluate(() => {
-      const p = document.querySelector(".renda-card-home");
-      let n = p && p.nextElementSibling;
-      while (n && n.tagName === "TEMPLATE") n = n.nextElementSibling;
-      return n ? n.className : null;
-    });
-    expect(vizinho).toContain("diag-card-home");
-    await card.click();
+    const l = await linha1(page);
     await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
-    await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
+    await expect(l.locator(".diag-indice__pergunta")).toHaveText("Quanto risco a carteira correu");
+    const ano = "20" + w.ano;
+    expect(norm(await l.locator(".diag-indice__estado").textContent())).toContain(
+      `Desde ${ano}, a pior queda foi de ${w.queda!.q}%, e a carteira voltou ao pico ${meses(w.queda!.mr)} depois do fundo`);
   });
 
-  test("ainda não recuperou: o card diz que a carteira ainda não voltou ao pico", async ({ page }) => {
+  test("ainda não recuperou: a linha 1 diz que a carteira ainda não voltou ao pico", async ({ page }) => {
     await autenticar(page, NAO_RECUPEROU);
-    const card = page.locator(".diag-card-home");
-    await expect(card).toBeVisible();
-    await expect(card).toContainText("e a carteira ainda não voltou ao pico");
-    await expect(card).not.toContainText("depois do fundo");
+    const estado = (await linha1(page)).locator(".diag-indice__estado");
+    await expect(estado).toContainText("e a carteira ainda não voltou ao pico");
+    await expect(estado).not.toContainText("depois do fundo");
   });
 
-  // Decisão do Dr. Arthur (06/11/2026): sem a janela Desde do Total o card
-  // FICA, sem número, com o motivo; é o único caminho até a tela.
-  test("sem a janela Desde do Total: o card fica, com o motivo no lugar do número, e abre a tela", async ({ page }) => {
+  // Decisão do Dr. Arthur (06/11/2026): sem a janela Desde do Total a frase
+  // fica, sem número, com o motivo, e a linha continua levando à tela.
+  test("sem a janela Desde do Total: a linha 1 fica, com o motivo no lugar do número, e abre a tela", async ({ page }) => {
     await autenticar(page, INDISPONIVEL);
     const motivo = await page.evaluate(() => {
       const w = window as any;
       return w.diagMotivoTexto(w.Alpine.$data(document.body).json.risco.escopos.Total.desde.indisponivel);
     });
     expect(motivo).toMatch(/^Falta a cotação de um ativo em [a-z]{3}\/\d{2}\.$/);
-    const card = page.locator(".diag-card-home");
-    await expect(card).toBeVisible();
-    await expect(card).toContainText("Diagnóstico da carteira");
-    await expect(card.locator(".diag-card-home__texto")).toHaveText(motivo);
-    await expect(card).not.toContainText("pior queda");
-    await card.click();
-    await expect(page).toHaveURL(/#\/raiox\/diagnostico$/);
-    await expect(page.locator(".tela-diag-indice .diag-indice")).toBeVisible();
+    const l = await linha1(page);
+    await expect(l.locator(".diag-indice__estado")).toHaveText(motivo);
+    await expect(l).not.toContainText("pior queda");
+    await l.click();
+    await expect(page).toHaveURL(/#\/raiox\/diagnostico\/risco$/);
   });
 
   for (const [nome, corpo] of [["risco null", NULO], ["pré-v2.35", PRE235]] as const) {
-    test(`payload ${nome}: card ausente e a rota diz 'Diagnóstico indisponível hoje.', sem botão nem erro`, async ({ page }) => {
+    test(`payload ${nome}: risco nulo e a rota diz 'Diagnóstico indisponível hoje.', sem botão nem erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page, corpo);
-      await expect(page.locator(".diag-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).risco)).toBeNull();
       await page.goto("/#/raiox/diagnostico/risco");
       await expect(page.locator(TELA)).toContainText("Diagnóstico indisponível hoje.");
       await expect(page.locator(`${TELA} .diag-ensaio`)).toHaveCount(0);
@@ -390,7 +385,7 @@ test.describe("7a.BQ.2 — estados (spec §6.3)", () => {
   });
 
   // Board 7a.BQ.2: o getter `risco` promete que bloco parcial cai em null
-  // ("indisponível hoje", card ausente), nunca em "undefined" ou NaN na tela.
+  // ("indisponível hoje", risco nulo), nunca em "undefined" ou NaN na tela.
   const TRUNCADOS: [string, string][] = [
     ["sem o escopo EUA_USD", "delete r.escopos.EUA_USD;"],
     ["queda sem meses_recuperacao", "delete r.escopos.Total.desde.queda.meses_recuperacao;"],
@@ -399,17 +394,17 @@ test.describe("7a.BQ.2 — estados (spec §6.3)", () => {
     ["motivo de indisponível vazio", "r.escopos.Total.desde.indisponivel = \"\";"],
   ];
   for (const [nome, mutacao] of TRUNCADOS) {
-    test(`bloco parcial (${nome}): indisponível, card ausente, nenhum erro`, async ({ page }) => {
+    test(`bloco parcial (${nome}): indisponível, risco nulo, nenhum erro`, async ({ page }) => {
       const erros = coletarErros(page);
       await autenticar(page);
-      await expect(page.locator(".diag-card-home")).toBeVisible();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).risco)).not.toBeNull();
       await page.evaluate((m) => {
         const d = (window as any).Alpine.$data(document.body);
         const r = JSON.parse(JSON.stringify(d.json.risco));
         new Function("r", m)(r);
         d.json = { ...d.json, risco: r };
       }, mutacao);
-      await expect(page.locator(".diag-card-home")).toBeHidden();
+      await expect.poll(() => page.evaluate(() => (window as any).Alpine.$data(document.body).risco)).toBeNull();
       await page.goto("/#/raiox/diagnostico/risco");
       await expect(page.locator(TELA)).toContainText("Diagnóstico indisponível hoje.");
       await expect(page.locator(`${TELA} .diag-ensaio`)).toHaveCount(0);

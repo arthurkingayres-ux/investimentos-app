@@ -103,7 +103,7 @@ test.describe("A Abertura — dissolve da PIN screen (Task 1)", () => {
 });
 
 test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
-  test("1ª abertura da sessão: stagger revela eyebrow→hero→7d→relcard nesta ordem, total < 800ms", async ({ page }) => {
+  test("1ª abertura da sessão: stagger revela eyebrow→hero→7d→último aporte nesta ordem, total < 800ms", async ({ page }) => {
     // MutationObserver dedicado por-grupo — registra ORDEM real (não posição
     // no array global, que mistura classes de todo o app) + timestamp, via
     // addInitScript (roda antes do Alpine montar qualquer coisa).
@@ -127,7 +127,9 @@ test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
       observarQuandoExistir(".grupo-cab .eyebrow", "eyebrow");
       observarQuandoExistir("#hero", "hero");
       observarQuandoExistir(".raiox-7d", "7d");
-      observarQuandoExistir(".rel-card-home", "relcard");
+      // 7a.CC.2: os cartões saíram do Hoje; o 4º grupo é o primeiro bloco
+      // depois dos "Últimos 7 dias", hoje o "Último aporte".
+      observarQuandoExistir(".raiox .aporte-bloco", "aporte");
     });
     await autoResumir(page);
 
@@ -140,8 +142,28 @@ test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
     const ordem: { label: string; t: number }[] = await page.evaluate(
       () => (window as any).__revelacaoOrdem,
     );
-    expect(ordem.map((o) => o.label)).toEqual(["eyebrow", "hero", "7d", "relcard"]);
+    expect(ordem.map((o) => o.label)).toEqual(["eyebrow", "hero", "7d", "aporte"]);
     expect(ordem[3].t - ordem[0].t).toBeLessThan(800);
+  });
+
+  test("o 4º grupo é o primeiro bloco existente depois dos 'Últimos 7 dias'", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).__quarto = null;
+      const tentar = () => {
+        const r7d = document.querySelector(".raiox .raiox-7d");
+        if (!r7d) { requestAnimationFrame(tentar); return; }
+        let el = r7d.nextElementSibling;
+        while (el && el.tagName === "TEMPLATE") el = el.nextElementSibling;
+        if (!el) { requestAnimationFrame(tentar); return; }
+        const obs = new MutationObserver(() => {
+          if (el!.classList.contains("abertura-reveal")) { (window as any).__quarto = el!.className; obs.disconnect(); }
+        });
+        obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+      };
+      tentar();
+    });
+    await autoResumir(page);
+    await expect.poll(() => page.evaluate(() => (window as any).__quarto), { timeout: 3000 }).toContain("aporte-bloco");
   });
 
   test("aberturaFeita já setado (sessão): home aparece direta, sem reveal em stagger", async ({ page }) => {

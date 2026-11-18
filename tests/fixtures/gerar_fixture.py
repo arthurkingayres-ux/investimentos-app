@@ -3053,6 +3053,29 @@ def gerar_portfolio_pesou_saiu() -> None:
         print(f"Fixture gerada: {alvo}")
 
 
+# 7a.CC.2 (Task CC2.3): a tela Carteira > Ativos ordena por valor de mercado
+# decrescente com desempate por ticker. A fixture base não tem dois valores
+# iguais; esta variante troca ``posicoes`` por tickers INVENTADOS (nada da
+# carteira real), com três empatados em 5000 (inseridos fora de ordem), um
+# maior, um menor e uma posição Cripto (é posição: aparece na lista). Gerar só
+# esta (a cifra não é determinística), nunca o main().
+def gerar_portfolio_ativos_empate() -> None:
+    base = PAYLOAD["posicoes"][0]
+    def pos(ticker: str, classe: str, moeda: str, valor: float) -> dict:
+        return {**base, "ticker": ticker, "classe": classe, "moeda": moeda,
+                "valor_mercado_brl": valor, "movimentos": [], "proventos": []}
+    posicoes = [pos("ZZZZ", "Ações", "BRL", 5000.0),
+                pos("BBBB11", "FIIs", "BRL", 5000.0),
+                pos("DDDD3", "Ações", "BRL", 9000.0),
+                pos("AAAA3", "Ações", "BRL", 5000.0),
+                pos("CCCC", "Cripto", "BRL", 120.0),
+                pos("EEEE", "Exterior", "USD", 700.0)]
+    payload = PAYLOAD | {"posicoes": posicoes}
+    alvo = OUT.parent / "portfolio_ativos_empate.test.json.enc"
+    alvo.write_text(encriptar_json(json.dumps(payload, ensure_ascii=False), PIN_TESTE), encoding="ascii")
+    print(f"Fixture gerada: {alvo}")
+
+
 # 7a.BD.2 (Task 6): payload antigo (sem ``ponte``, v2.29) — o estado que a tela
 # nova precisa distinguir ("Rentabilidade indisponível nesta versão dos dados").
 def gerar_portfolio_pre_v230() -> None:
@@ -3446,6 +3469,7 @@ def main() -> None:
     gerar_portfolio_selecao_variantes()    # 7a.BR.2 (Task 4)
     gerar_portfolio_atribuicao_variantes() # 7a.BS.2 (Task 6)
     gerar_portfolio_construcao_variantes() # 7a.BT.2 (Task 5)
+    gerar_portfolio_ativos_empate()        # 7a.CC.2 (Task CC2.3)
 
 
 if __name__ == "__main__":

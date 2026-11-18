@@ -66,12 +66,14 @@ const faixaAtiva = (page: Page) => page.locator('.grupo-cab nav [aria-current="p
 const MEMBROS: [string, string, string][] = [
   ["", "raiox", "Hoje"],
   ["#/raiox/chart", "raiox", "Histórico"],
+  ["#/raiox/reserva", "raiox", "Reserva"],
   ["#patrimonio", "raiox", "Histórico"],
   ["#rentabilidade", "retorno", "Rentabilidade"],
   ["#proventos", "retorno", "Proventos"],
   ["#/proventos/dy", "retorno", "DY"],
   ["#/raiox/renda", "retorno", "Renda"],
   ["#alocacao", "carteira", "Alocação"],
+  ["#/carteira/ativos", "carteira", "Ativos"],
   ["#politica", "carteira", "Alocação"],
   ["#olho", "carteira", "Vigília"],
   ["#/raiox/diagnostico", "analise", "Diagnóstico"],
@@ -82,11 +84,12 @@ const MEMBROS: [string, string, string][] = [
   ["#comite", "aportar", "Comitê"],
 ];
 
-// Push aberto direto (sem origem): ativo/dossiê acendem o Raio-X (fallback
-// interino da CC.1), capítulos do Diagnóstico acendem a Análise.
+// Push aberto direto (sem origem): ativo/dossiê acendem a Carteira (o "←"
+// leva a Carteira › Ativos, regra da CC.2), capítulos do Diagnóstico acendem a
+// Análise.
 const PUSHES: [string, string][] = [
-  ["#ativo/HGLG11", "raiox"],
-  ["#/dossie/HGLG11", "raiox"],
+  ["#ativo/HGLG11", "carteira"],
+  ["#/dossie/HGLG11", "carteira"],
   ["#/raiox/diagnostico/risco", "analise"],
   ["#/raiox/diagnostico/politica", "analise"],
   ["#/raiox/diagnostico/selecao", "analise"],
@@ -180,6 +183,14 @@ test.describe("7a.CC.1 — rótulos", () => {
     // Links reais (deep link preservado).
     const hrefs = await page.locator(".grupo-cab nav a").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
     expect(hrefs).toEqual(["#rentabilidade", "#proventos", "#/proventos/dy", "#/raiox/renda"]);
+  });
+
+  test("faixa de Carteira: Alocação, Ativos, Vigília, com links reais", async ({ page }) => {
+    await entrar(page, "#alocacao");
+    await expect(page.locator(".grupo-cab nav a")).toHaveText(["Alocação", "Ativos", "Vigília"]);
+    await expect(page.locator(".grupo-cab nav")).toHaveAttribute("aria-label", "Telas de Carteira");
+    const hrefs = await page.locator(".grupo-cab nav a").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+    expect(hrefs).toEqual(["#alocacao", "#/carteira/ativos", "#olho"]);
   });
 });
 
@@ -372,22 +383,26 @@ test.describe("7a.CC.1 — voltar por origem", () => {
   });
 });
 
-test.describe("7a.CC.1 — deep link interino (sem origem)", () => {
-  test("#ativo direto: ← cai no Hoje, com Raio-X aceso", async ({ page }) => {
+test.describe("7a.CC.2 — deep link sem origem (regra definitiva)", () => {
+  test("#ativo direto: ← cai em Carteira › Ativos, com Carteira acesa", async ({ page }) => {
     await entrar(page, "#ativo/HGLG11");
     await expect(page.locator(".tela-ativo")).toBeVisible();
+    await expect(barraAtiva(page)).toHaveAttribute("data-tab", "carteira");
     await botaoVoltar(page).click();
-    expect(await hashAgora(page)).toBe("");
-    await expect(page.locator(".raiox")).toBeVisible();
-    await expect(barraAtiva(page)).toHaveAttribute("data-tab", "raiox");
+    expect(await hashAgora(page)).toBe("#/carteira/ativos");
+    await expect(page.locator(".tela-ativos")).toBeVisible();
+    await expect(barraAtiva(page)).toHaveAttribute("data-tab", "carteira");
+    await expect(faixaAtiva(page)).toHaveText("Ativos");
   });
 
-  test("#/dossie direto: ← cai no #ativo do ticker", async ({ page }) => {
+  test("#/dossie direto: ← cai em Carteira › Ativos, com Carteira acesa", async ({ page }) => {
     await entrar(page, "#/dossie/HGLG11");
     await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible();
+    await expect(barraAtiva(page)).toHaveAttribute("data-tab", "carteira");
     await botaoVoltar(page).click();
-    expect(await hashAgora(page)).toBe("#ativo/HGLG11");
-    await expect(page.locator(".tela-ativo")).toBeVisible();
+    expect(await hashAgora(page)).toBe("#/carteira/ativos");
+    await expect(page.locator(".tela-ativos")).toBeVisible();
+    await expect(barraAtiva(page)).toHaveAttribute("data-tab", "carteira");
   });
 });
 
@@ -459,5 +474,21 @@ test.describe("7a.CC.1 — memória de grupo", () => {
     await expect(page.locator(".tab-bar")).toBeVisible({ timeout: 10_000 });
     await tocarGrupo(page, "retorno");
     expect(await hashAgora(page)).toBe("#rentabilidade");
+  });
+});
+
+test.describe("7a.CC.2 — Raio-X › Reserva", () => {
+  test("o Hoje não carrega reserva nem conferência; a faixa do Raio-X tem a Reserva", async ({ page }) => {
+    await entrar(page);
+    await expect(page.locator(".grupo-cab nav a")).toHaveText(["Hoje", "Histórico", "Reserva"]);
+    await expect(page.locator(".raiox")).toBeVisible();
+    await expect(page.locator('.raiox [data-testid="reserva"]')).toHaveCount(0);
+    await expect(page.locator('.raiox [data-testid="conferencia"]')).toHaveCount(0);
+  });
+  test("#/raiox/reserva mostra a tela com a seção da reserva", async ({ page }) => {
+    await entrar(page, "#/raiox/reserva");
+    await expect(page.locator(".tela-reserva")).toBeVisible();
+    await expect(page.locator('.tela-reserva [data-testid="reserva"]')).toHaveCount(1);
+    await expect(page.locator(".tela-reserva h1.sr-only")).toHaveText("Reserva");
   });
 });

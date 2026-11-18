@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import path from "path";
 import fs from "fs";
+import { irPelaFaixa } from "./faixa-comum";
 
 const F = (n: string) =>
   fs.readFileSync(path.join(__dirname, "../fixtures/" + n), "utf-8");
@@ -41,17 +42,23 @@ async function autenticar(page: Page) {
 // barreira que implica `relMes` populado. Usar APENAS nos testes que leem o
 // corpo; os estados loading/erro/vazio nunca o renderizam.
 async function abrirRelatorio(page: Page) {
-  await page.locator(".rel-card-home").click();
+  await irPelaFaixa(page, "analise", "#/raiox/relatorio");
   await expect(page.locator(".tela-relatorio")).toBeVisible();
   await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
 }
 
+// Ponto "não lido" de abril no seletor (maio, o último, fica lido ao abrir).
+async function dotAbrilNoSeletor(page: Page) {
+  await abrirRelatorio(page);
+  await page.locator(".rel-seletor__btn").click();
+  return page.locator(".rel-seletor__item", { hasText: "Abril 2026" }).locator(".rel-dot");
+}
+
 test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
-  test("card na home abre o relatório do último mês", async ({ page }) => {
+  // 7a.CC.2: o card saiu do Hoje; a entrada é Análise › Relatório na faixa.
+  test("a faixa (Análise › Relatório) abre o relatório do último mês", async ({ page }) => {
     await autenticar(page);
-    const card = page.locator(".rel-card-home");
-    await expect(card).toBeVisible();
-    await card.click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page).toHaveURL(/#\/raiox\/relatorio$/);
     await expect(page.locator(".tela-relatorio")).toBeVisible();
     // 7a.CC: o Relatório é tela-membro de Análise.
@@ -139,7 +146,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
     await expect(page.locator(".tela-relatorio .breadcrumb")).toContainText("Maio 2026");
   });
 
-  test("card oculto e mensagem calma quando não há relatórios (empty-safe)", async ({ page }) => {
+  test("sem relatórios: nenhum item de relatório no Pede atenção e mensagem calma (empty-safe)", async ({ page }) => {
     await page.route("**/portfolio.json.enc", (r) =>
       r.fulfill({ status: 200, body: PORTFOLIO, contentType: "text/plain" }));
     await page.route("**/relatorios_index.json.enc", (r) => r.fulfill({ status: 404, body: "" }));
@@ -149,7 +156,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
     });
     await page.goto("/");
     await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator(".rel-card-home")).toBeHidden();
+    await expect(page.getByTestId("pede-atencao-relatorio")).toHaveCount(0);
     await page.goto("/#/raiox/relatorio");
     await expect(page.locator(".rel-vazio")).toBeVisible();
     await expect(page.locator(".rel-vazio")).toContainText("Ainda não há relatórios");
@@ -183,7 +190,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   // barra. (Antes: botão "Voltar ao Raio-X" no cabeçalho.)
   test("sem voltar no cabeçalho; a barra (Raio-X) retorna ao Raio-X", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio")).toBeVisible();
     await expect(page.locator(".tela-relatorio").getByRole("button", { name: /^Voltar/ })).toHaveCount(0);
     await page.locator('.tab-bar a[data-tab="raiox"]').click();
@@ -205,7 +212,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   // ── 7a.S.9 Task 1: capa editorial (poster + veredito + seletor sem quebra) ──
   test("capa editorial: mês em poster (46px) + veredito derivado do artefato", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio")).toBeVisible();
 
     const poster = page.locator(".rel-poster");
@@ -236,7 +243,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   test("seletor de mês não quebra linha @320px (micro-atrito Fable)", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 844 });
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio")).toBeVisible();
     const btn = page.locator(".rel-seletor__btn");
     const whiteSpace = await btn.evaluate((el) => getComputedStyle(el).whiteSpace);
@@ -247,23 +254,25 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   });
 
   // ── 7a.S.9 Task 2: evento mensal — dot "não lido" ────────────────────────────
-  test("dot não-lido no card home; some após abrir o mês (relRead localStorage)", async ({ page }) => {
+  // 7a.CC.2: no Hoje, o "não lido" do último mês virou o item "Relatório de
+  // {mês} saiu" do Pede atenção (texto, não ponto); abrir o mês o tira.
+  test("não lido no Hoje: item do Pede atenção; some após abrir o mês (relRead localStorage)", async ({ page }) => {
     await autenticar(page);
-    const dot = page.locator(".rel-card-home .rel-dot");
-    await expect(dot).toBeVisible();
-    // a11y: significado textual, não só cor+pulse.
-    await expect(page.locator(".rel-card-home .sr-only")).toHaveText("não lido");
+    const item = page.getByTestId("pede-atencao-relatorio");
+    await expect(item).toBeVisible();
+    await expect(item).toContainText("Relatório de Maio 2026 saiu");
 
-    await page.locator(".rel-card-home").click();
+    await item.click();
     await expect(page.locator(".tela-relatorio")).toBeVisible();
+    await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
     await page.locator('.tab-bar a[data-tab="raiox"]').click(); // 7a.CC: membro, sem "←"
     await expect(page.locator(".raiox")).toBeVisible();
-    await expect(page.locator(".rel-card-home .rel-dot")).toBeHidden();
+    await expect(page.getByTestId("pede-atencao-relatorio")).toHaveCount(0);
   });
 
   test("dot não-lido no item do seletor; some por-mês ao abrir", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click(); // abre maio (último) → marca lido
+    await abrirRelatorio(page); // abre maio (último) → marca lido
     await expect(page.locator(".tela-relatorio")).toBeVisible();
     await page.locator(".rel-seletor__btn").click();
     const itemMaio = page.locator(".rel-seletor__item", { hasText: "Maio 2026" });
@@ -280,8 +289,11 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
 
   test("dot não-lido pulsa por padrão; prefers-reduced-motion desliga", async ({ page }) => {
     await autenticar(page);
-    const dot = page.locator(".rel-card-home .rel-dot");
+    // 7a.CC.2: o ponto vive no seletor de meses (o card do Hoje saiu).
+    const dot = await dotAbrilNoSeletor(page);
     await expect(dot).toBeVisible();
+    // a11y: significado textual, não só cor+pulse.
+    await expect(page.locator(".rel-seletor__item", { hasText: "Abril 2026" }).locator(".sr-only")).toHaveText("não lido");
     const animOn = await dot.evaluate((el) => getComputedStyle(el, "::after").animationName);
     expect(animOn).not.toBe("none");
   });
@@ -289,7 +301,7 @@ test.describe("Relatório Mensal — push screen (7a.Q.3)", () => {
   test("dot não-lido: prefers-reduced-motion desliga o pulse", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await autenticar(page);
-    const dot = page.locator(".rel-card-home .rel-dot");
+    const dot = await dotAbrilNoSeletor(page);
     await expect(dot).toBeVisible();
     const animOff = await dot.evaluate((el) => getComputedStyle(el, "::after").animationName);
     expect(animOff).toBe("none");

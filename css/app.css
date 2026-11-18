@@ -376,7 +376,7 @@ h1 {
   }
 }
 
-/* 7a.S.11 — reveal em stagger da home (eyebrow/hero/raiox-7d/rel-card-home),
+/* 7a.S.11 — reveal em stagger da home (eyebrow/hero/raiox-7d/1º bloco depois dos 7 dias),
    1×/sessão via iniciarAbertura() (js/app.js). As classes só são adicionadas
    pelo JS na 1ª abertura da sessão — nunca hardcoded no HTML — então um
    refresh/reduced-motion que pule a cerimônia nunca deixa nada preso em
@@ -1510,7 +1510,7 @@ footer.rodape code {
   white-space: nowrap;
 }
 
-/* Chamada do Dividend Yield (idioma de .rel-card-home) → push #s-dy. */
+/* Chamada do Dividend Yield (idioma do antigo card do Relatório no Hoje) → push #s-dy. */
 .dy-chamada {
   display: flex;
   align-items: center;
@@ -4000,6 +4000,47 @@ body:has(.tab-bar) main {
   gap: 0.85rem;
 }
 
+/* 7a.CC.2 — "Pede atenção" no Hoje (spec 7a.CC §5.6): lista de bordas finas,
+   família das linhas do índice do Diagnóstico (.diag-indice__linha), sem card.
+   Eyebrow na voz dos rótulos vizinhos ("Últimos 7 dias", "Último aporte").
+   A linha da Vigília mantém o --amber-700 da ameaça não examinada (o mesmo
+   da antiga linha do Olho); as outras ficam em --ink. Zero token novo. */
+.pede-atencao { margin: 0.75rem 0 0; }
+.pede-atencao__titulo {
+  margin: 0 0 0.25rem;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gray);
+}
+.pede-atencao__lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--neutral-200); }
+.pede-atencao__linha {
+  display: grid; grid-template-columns: minmax(0, 1fr) 1rem; column-gap: 10px; align-items: center;
+  min-height: 44px; padding: 10px 0; border-bottom: 1px solid var(--neutral-200);
+  font-size: 0.9375rem; line-height: 1.35; font-weight: 600; color: var(--ink);
+  text-decoration: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.pede-atencao__linha--vigilia { color: var(--amber-700); }
+.pede-atencao__texto { display: inline-flex; align-items: baseline; gap: 0.35rem; min-width: 0; font-variant-numeric: tabular-nums; }
+.pede-atencao__chevron { font-size: 1.125rem; line-height: 1; color: var(--gray); justify-self: end; }
+.pede-atencao__linha:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 7a.CC.2 — Carteira › Ativos (spec 7a.CC §5.8): lista de bordas finas, a
+   mesma família do "Pede atenção" e do índice do Diagnóstico, sem card.
+   Identificação à esquerda (bandeira, ticker, classe), valor à direita. O
+   ticker não encolhe nem quebra; a classe cede (reticências) antes do valor. */
+.ativos-lista { list-style: none; margin: 0.5rem 0 0; padding: 0; border-top: 1px solid var(--neutral-200); }
+.ativos-linha {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  min-height: 44px; padding: 10px 0; border-bottom: 1px solid var(--neutral-200);
+  font-size: 0.9375rem; line-height: 1.35; color: var(--ink);
+  text-decoration: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.ativos-id { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.ativos-ticker { font-weight: 600; white-space: nowrap; }
+.ativos-classe { font-size: 0.8125rem; color: var(--gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ativos-valor { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ativos-linha:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ativos-vazio { margin: 1rem 0; color: var(--gray); font-size: 0.9375rem; }
+
 .r7d-head {
   display: flex;
   justify-content: space-between;
@@ -4217,46 +4258,6 @@ body:has(.tab-bar) main {
 .r7d-movers .is-positive { color: var(--g-700); }
 .r7d-movers .is-negative { color: var(--red); }
 
-/* 7a.Q.3 — Relatório Mensal. 7a.AV.2: o card da projeção compartilha o
-   idioma por agrupamento de seletor, NÃO por reuso da classe raiz (reusar
-   .rel-card-home faria os locators do Relatório resolverem a 2 nós). */
-.rel-card-home,
-.proj-card-home,
-.renda-card-home,
-.diag-card-home {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  margin: 16px 0 0;
-  background: var(--surface);
-  border: 1px solid var(--neutral-200);
-  border-radius: 14px;
-  text-decoration: none;
-  color: var(--ink);
-  min-height: 44px;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .rel-card-home, .proj-card-home, .renda-card-home, .diag-card-home { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
-}
-/* 7a.S.2: mapeia .relcard do mockup. */
-.rel-card-home:active,
-.proj-card-home:active,
-.renda-card-home:active,
-.diag-card-home:active {
-  transform: scale(.98);
-  box-shadow: var(--shadow-pressed);
-}
-.rel-card-home__meta { display: flex; flex-direction: column; gap: 2px; }
-.rel-card-home__label {
-  font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.4px;
-  color: var(--gray);
-  /* 7a.S.9 Task 2: acomoda o dot "não lido" ao lado do texto. */
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.rel-card-home__mes { font-size: var(--num-md); font-weight: 600; color: var(--g-900); }
-.rel-card-home__chevron { font-size: 1.5rem; color: var(--g-700); line-height: 1; }
 
 /* 7a.AV.2 — Tela #/raiox/projecao. Ousadia num lugar só: os dois números da
    faixa (p10/p90 aos 65) são os maiores da tela, em mono. O resto é quieto:
@@ -4845,10 +4846,7 @@ body:has(.tab-bar) main {
 [data-theme="dark"] .chart-rent,
 [data-theme="dark"] .prov-chart-card,
 [data-theme="dark"] .ticker-hero,
-[data-theme="dark"] .rel-radar-card,
-[data-theme="dark"] .rel-card-home,
-[data-theme="dark"] .proj-card-home,
-[data-theme="dark"] .renda-card-home {
+[data-theme="dark"] .rel-radar-card {
   box-shadow: inset 0 1px 0 var(--card-topline), var(--card-shadow);
 }
 [data-theme="dark"] .aloca-cat {
@@ -5052,7 +5050,7 @@ body:has(.tab-bar) main {
 }
 .dossie-fontes a:hover { text-decoration: underline; }
 
-/* Entrada no #ativo — idioma do .rel-card-home, uma linha só (o dossiê não
+/* Entrada no #ativo — idioma do antigo card do Relatório no Hoje, uma linha só (o dossiê não
    tem "último mês" a anunciar; o que importa é o caminho). */
 .dossie-entrada {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -5083,7 +5081,6 @@ body:has(.tab-bar) main {
    abaixo do pico". Mono só nos três números da frase-resposta; o resto é a
    fonte do texto com tabular-nums. Cores só por token (flipam no Modo
    Plantão sozinhas), zero motion nova além dos toggles que já existem. */
-.diag-card-home__texto { font-size: 0.9375rem; line-height: 1.4; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 .diag-ensaio { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 .diag-ordinal { font-size: 0.8125rem; letter-spacing: 0.12em; color: var(--accent); margin: 1.25rem 0 0.25rem; }
@@ -5445,21 +5442,6 @@ body:has(.tab-bar) main {
    em grifo nem em borda lateral: o grifo do dossiê é do quebra_se. */
 .olho-glifo { display: inline-block; min-width: 1em; text-align: center; font-weight: 700; }
 
-/* Raio-X: uma linha, abaixo do link do histórico, só com ameaça pendente. */
-.olho-raiox {
-  display: flex; width: fit-content; align-items: center; gap: 0.35rem;
-  min-height: 44px; padding: 0.4rem 0.15rem;
-  font-size: 0.875rem; font-weight: 600; line-height: 1.3;
-  color: var(--amber-700); text-decoration: none;
-  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-}
-.olho-raiox__ver { font-weight: 500; }
-.olho-raiox__chevron { font-size: 1.05rem; line-height: 1; }
-.olho-raiox:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-@media (prefers-reduced-motion: no-preference) {
-  .olho-raiox { transition: transform var(--d1) var(--ease); }
-}
-.olho-raiox:active { transform: scale(.97); }
 
 /* Índice do Diagnóstico: a entrada do Olho, fora da lista numerada. */
 .diag-indice__olho {

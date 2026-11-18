@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { irPelaFaixa } from "./faixa-comum";
 import path from "path";
 import fs from "fs";
 
@@ -327,7 +328,7 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
 
   test("Relatório: ticker com dossiê vira link; sem dossiê fica texto", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
     // SMAL11 está no índice; HASH11 e KISU11 não.
     await expect(page.locator(".rel-radar-card__ticker--link")).toHaveCount(1);
@@ -340,7 +341,7 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
 
   test("Relatório → dossiê → voltar retorna ao Relatório", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".rel-card-home").click();
+    await irPelaFaixa(page, "analise", "#/raiox/relatorio");
     await expect(page.locator(".tela-relatorio .rel-corpo")).toBeVisible();
     await page.locator(".rel-radar-card__ticker--link").click();
     await expect(page).toHaveURL(/#\/dossie\/SMAL11$/);
@@ -350,9 +351,10 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
     await expect(page.locator(".tela-relatorio")).toBeVisible();
   });
 
-  test("deep-link sem origem: voltar cai no #ativo do próprio ticker", async ({ page }) => {
+  test("deep-link sem origem: voltar cai em Carteira › Ativos", async ({ page }) => {
     // 7a.CC: deep link de verdade (o hash é a 1ª navegação da página). Pelo
-    // `autenticar`, a home já teria sido vista e viraria a origem.
+    // `autenticar`, a home já teria sido vista e viraria a origem. 7a.CC.2:
+    // sem origem, o "←" do dossiê leva a Carteira › Ativos (antes: #ativo/T).
     await mockTudo(page);
     await page.addInitScript(() => {
       localStorage.setItem("pin", "123456");
@@ -361,7 +363,8 @@ test.describe("7a.R.3.b Task 5 — entradas e voltar", () => {
     await page.goto("/#/dossie/AMZN");
     await expect(page.locator(".tela-dossie .dossie-corpo")).toBeVisible({ timeout: 10_000 });
     await page.locator(".tela-dossie .breadcrumb button").click();
-    await expect(page).toHaveURL(/#ativo\/AMZN$/);
+    await expect(page).toHaveURL(/#\/carteira\/ativos$/);
+    await expect(page.locator(".tela-ativos")).toBeVisible();
   });
 
   test("índice 404: nenhuma entrada em lugar nenhum", async ({ page }) => {

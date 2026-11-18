@@ -14,10 +14,19 @@ const BLOCK_60_MS = 60 * 60 * 1000;
 const ABERTURA_MOTION = {
   dissolveMs: 550,       // --d3: opacity + scale da .pin-screen ao desbloquear
   dissolveRemoveMs: 620, // folga pós-transição antes de trocar `fase` (nó sai assentado)
-  staggerMs: [100, 250, 400, 550], // eyebrow, hero, raiox-7d, rel-card-home
+  staggerMs: [100, 250, 400, 550], // eyebrow, hero, raiox-7d, 1º bloco depois dos 7 dias
   breatheMs: 980,        // delta pill "respira" 1 ciclo, ao fim do stagger
 };
 window.aberturaMotion = ABERTURA_MOTION;
+
+// 4º grupo da Abertura: o primeiro elemento real depois de `.raiox-7d` dentro
+// do Hoje (pula <template> do Alpine). Hoje é o `.aporte-bloco`.
+function blocoDepoisDos7d(secao) {
+  let el = secao && secao.querySelector(".raiox-7d");
+  el = el && el.nextElementSibling;
+  while (el && el.tagName === "TEMPLATE") el = el.nextElementSibling;
+  return el || null;
+}
 
 // 7a.G.2 Pass 1 (colorize): cores resolvidas a partir dos tokens CSS em :root.
 // Lê via getComputedStyle pra que o JS consuma a mesma source-of-truth do CSS.
@@ -2035,6 +2044,16 @@ document.addEventListener("alpine:init", () => {
     get grupoAtual() {
       return this.ehMembro(this.rota) ? this.grupoPorId(this.tab) : null;
     },
+    // "Pede atenção" do Hoje (§5.6; itens em js/navegacao.js). Getter aqui
+    // pelo mesmo motivo do grupoAtual.
+    get pedeAtencao() {
+      return this.pedeAtencaoItens();
+    },
+    // Lista de Carteira › Ativos (§5.8): cópia de json.posicoes por valor de
+    // mercado decrescente, empate por ticker. Getter aqui pelo mesmo motivo.
+    get ativosLista() {
+      return this.ativosOrdenados();
+    },
     fase: "pin",
     rota: "",
     tab: "raiox",
@@ -2496,6 +2515,12 @@ document.addEventListener("alpine:init", () => {
         setTimeout(() => this.hidratarPatrimonio(), 0);
         return;
       }
+      if (path === "/carteira/ativos") {
+        // 7a.CC.2: lista plana das posições. Tela-membro de Carteira.
+        this.rota = "ativos";
+        this.tab = this.grupoDaRota(this.rota);
+        return;
+      }
       if (path === "/proventos/dy") {
         // 7a.S.7b: tela dedicada de Dividend Yield. 7a.CC: Retorno › DY.
         this.rota = "dy";
@@ -2552,6 +2577,15 @@ document.addEventListener("alpine:init", () => {
         this.rota = "olho";
         this.tab = this.grupoDaRota(this.rota);
         this.olhoCarregar();
+        return;
+      }
+      if (path === "raiox/reserva" || path === "/raiox/reserva") {
+        // 7a.CC.2: Raio-X › Reserva. A busca da reserva/conferência também vale
+        // aqui (além do desbloqueio e da volta ao app); emVoo evita duplicar.
+        this.rota = "reserva";
+        this.tab = this.grupoDaRota(this.rota);
+        this.reservaCarregar();
+        this.conferenciaCarregar();
         return;
       }
       if (path === "comite") {
@@ -2885,7 +2919,7 @@ document.addEventListener("alpine:init", () => {
     // x-init da `.raiox` — dispara 1× por transição de fase pin→raiox
     // (via submitPin OU tentarAutoResume, ambas montam esta subtree). "A
     // Abertura" (7a.S.11): reveal em stagger de 4 grupos (eyebrow/hero/7d/
-    // relcard) + breathe do delta pill ao fim, tocada só na 1ª vez da sessão
+    // 1º bloco depois dos 7 dias) + breathe do delta pill ao fim, tocada só na 1ª vez da sessão
     // (flag aberturaFeita em sessionStorage — mesmo padrão de
     // heroCountUpDone/heroFacetHintSeen). Reduced-motion ou sessão já servida
     // = sem efeito nenhum (grupos renderizam normais, sem classe alguma —
@@ -2913,7 +2947,9 @@ document.addEventListener("alpine:init", () => {
         document.querySelector(".grupo-cab .eyebrow"),
         document.getElementById("hero"),
         secao && secao.querySelector(".raiox-7d"),
-        secao && secao.querySelector(".rel-card-home"),
+        // 7a.CC.2: o 4º grupo é o primeiro bloco existente depois dos
+        // "Últimos 7 dias" (hoje o "Último aporte"); os cartões saíram do Hoje.
+        blocoDepoisDos7d(secao),
       ];
       grupos.forEach((el, i) => {
         if (!el) return;
@@ -3023,9 +3059,9 @@ document.addEventListener("alpine:init", () => {
     //      entrou nele (origemContexto, gravada por _registrarNavegacao); trocar
     //      de tela dentro do contexto não muda a origem. O grupo aceso volta a
     //      ser o dela, re-derivado por atualizarRota().
-    //   3. Sem origem (deep link direto no push) — fallback INTERINO da CC.1:
-    //      dossiê → #ativo do ticker; ativo → Hoje (Raio-X). A CC.2 troca para
-    //      Carteira › Ativos.
+    //   3. Sem origem (deep link direto no push) → Carteira › Ativos, com a
+    //      Carteira acesa (regra definitiva da CC.2, §5.5 item 3; o acendimento
+    //      do grupo é de _registrarNavegacao).
     // Sempre replaceState + atualizarRota(), nunca history.back(): num link
     // compartilhado aberto numa aba com histórico prévio, back sairia do PWA.
     voltar() {
@@ -3033,8 +3069,7 @@ document.addEventListener("alpine:init", () => {
       if (typeof this.rota === "string" && this.rota.startsWith("diag-")) {
         destino = "#/raiox/diagnostico";
       } else if (this.rota === "ativo" || this.rota === "dossie") {
-        destino = this.origemContexto
-          || (this.rota === "dossie" && this.dossieTicker ? "#ativo/" + this.dossieTicker : "");
+        destino = this.origemContexto || "#/carteira/ativos";
       }
       history.replaceState(null, "", destino && destino !== "#" ? destino : location.pathname);
       this.atualizarRota();
@@ -3230,7 +3265,7 @@ document.addEventListener("alpine:init", () => {
     // 7a.AY: bloco `projecao` v2.29 — UM cenário (premissas prospectivas por
     // classe), faixas por idade. Só é "disponível" com a forma completa: o
     // v2.28 (tem `cenarios`, não tem `faixas`) e `projecao: null` caem em null,
-    // e o card some e a rota diz "indisponível hoje" (como na 7a.AV/AW).
+    // e a rota diz "indisponível hoje" (como na 7a.AV/AW).
     // Board AY.2 (iteração 1): um bloco PARCIAL também cai em null — sem a
     // faixa da idade final, a decomposição, as duas listas do ponteiro ou a
     // fonte das premissas, o template estouraria TypeError (projResposta().p50)
@@ -3259,10 +3294,6 @@ document.addEventListener("alpine:init", () => {
     projResposta() {
       const f = this.projFinal();
       return f ? { p50: f.p50, p10: f.p10, p90: f.p90 } : null;
-    },
-    projCardTexto() {
-      const r = this.projResposta();
-      return r ? "Aos " + this.projecao.idade_final + ", cerca de " + this.formatBrlCompacto(r.p50) : "";
     },
     // Marcos do gráfico de faixas: 45, 55 e 65 até a idade final, e a idade
     // final SEMPRE (mesmo que deixe de ser 65); só os que ainda estão no futuro
@@ -3428,7 +3459,7 @@ document.addEventListener("alpine:init", () => {
     // 7a.BJ.2: bloco `renda` v2.32 — quanto a carteira sustenta de renda hoje,
     // no passado e na projeção (src/output/renda_bloco.py). Como na projeção,
     // só é "disponível" com a forma completa: payload < 2.32, `renda: null` ou
-    // bloco parcial caem em null (card some, rota diz "indisponível hoje"),
+    // bloco parcial caem em null (a rota diz "indisponível hoje"),
     // nunca em TypeError no template. Número tem de ser finito, não só presente.
     get renda() {
       const j = this.json, r = j && j.renda;
@@ -3453,12 +3484,6 @@ document.addEventListener("alpine:init", () => {
     },
     // Renda 0 por piso alto (spec §5.4): a frase do piso toma o lugar do herói.
     rendaZero() { const r = this.renda; return !!r && !(r.hoje.mensal > 0); },
-    rendaCardTexto() {
-      const r = this.renda;
-      if (!r) return "";
-      return this.rendaZero() ? "Com o piso atual, ainda não sustenta renda"
-        : "Sua carteira já pagaria " + this.formatBrlInteiro(r.hoje.mensal) + " por mês";
-    },
     // Chip de 12 meses (reais de cada época, spec §6 a): informa, não celebra.
     // O sinal vai em TEXTO (+/−); a cor do chip é neutra nos dois sentidos.
     rendaChip() {
@@ -3706,13 +3731,11 @@ document.addEventListener("alpine:init", () => {
         },
       };
     },
-    // Card da home (§8, item 5): a pior queda desde o início no Total e
-    // quanto ela levou para voltar, do fundo à recuperação. Sem a janela
-    // Desde do Total, o card FICA, sem número, com o motivo traduzido: ele é
-    // o único caminho até a tela, que segue funcionando em outra janela
-    // (decisão do Dr. Arthur, 06/11/2026, G3 com o Alfred). Some só quando a
-    // tela inteira está indisponível (`risco` ausente, nulo ou parcial).
-    diagCardTexto() {
+    // Frase da linha 1 do índice do Diagnóstico (era o card da home até a
+    // 7a.CC.2): a pior queda desde o início no Total e quanto ela levou para
+    // voltar, do fundo à recuperação. Sem a janela Desde do Total, o motivo
+    // traduzido toma o lugar do número (decisão do Dr. Arthur, 06/11/2026).
+    diagFraseRisco() {
       const r = this.risco;
       const j = r && r.escopos.Total.desde;
       if (!j) return "";
@@ -3739,7 +3762,7 @@ document.addEventListener("alpine:init", () => {
     // motivo no lugar da frase, e continua tocável.
     diagIndiceLinhas() {
       const fim = (t) => (t.endsWith(".") ? t : t + ".");
-      const card = this.risco ? this.diagCardTexto() : "";
+      const card = this.risco ? this.diagFraseRisco() : "";
       const s = this.selecao;
       const a = this.atribuicao;
       const c = this.construcao;

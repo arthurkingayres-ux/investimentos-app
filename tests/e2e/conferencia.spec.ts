@@ -76,10 +76,17 @@ async function abrir(page: Page, o: Abrir = {}) {
     localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
     if (tema) localStorage.setItem("tema", tema);
   }, o.tema ?? null);
-  await page.goto("/");
-  await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
+  await page.goto("/#/raiox/reserva");
+  await expect(page.locator(".tela-reserva")).toBeVisible({ timeout: 10_000 });
   // A reserva chega por outra busca: com ela pronta, a conferência já teve a vez dela.
   await expect(page.getByTestId("reserva-valor")).toHaveText(/R\$/, { timeout: 10_000 });
+}
+
+// 7a.CC.2: reserva e conferência vivem em Raio-X › Reserva; o hero, o aporte e o
+// "Bloquear sessão" ficam no Hoje. Navegação no mesmo documento (sessão intacta).
+async function irAoHoje(page: Page) {
+  await page.evaluate(() => { location.hash = "#"; });
+  await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
 }
 
 const texto = async (page: Page, sel: string) => (await page.locator(sel).innerText()).replace(/\s+/g, " ").trim();
@@ -211,6 +218,7 @@ test.describe("Notas pendentes: o bloco não aparece, e o resto da tela fica", (
       await expect(page.getByTestId("conferencia")).toHaveCount(0);
       // Reserva e patrimônio intactos.
       await expect(page.getByTestId("reserva-valor")).toHaveText(/R\$\s12\.345,67/);
+      await irAoHoje(page);
       await expect(page.locator("#hero-patrimonio")).toHaveText(/R\$/);
       await expect(page.locator(".aporte-bloco")).toBeVisible();
       expect(erros).toEqual([]);
@@ -263,12 +271,14 @@ test("nada é somado: o hero é idêntico com e sem conferência", async ({ page
   const outra = await ctx.newPage();
   await abrir(outra);
   await expect(outra.getByTestId("conferencia")).toBeVisible({ timeout: 10_000 });
+  await irAoHoje(page);
+  await irAoHoje(outra);
   for (let i = 0; i < 4; i++) {
     await page.locator(".fd").nth(i).click();
     await outra.locator(".fd").nth(i).click();
-    expect(await outra.locator("#hero-body .hero-face.on").innerText()).toBe(
-      await page.locator("#hero-body .hero-face.on").innerText(),
-    );
+    // Poll: a 1ª faceta pode ainda estar no count-up ao entrar no Hoje.
+    await expect.poll(async () => (await outra.locator("#hero-body .hero-face.on").innerText())
+      === (await page.locator("#hero-body .hero-face.on").innerText())).toBe(true);
   }
   await ctx.close();
 });
@@ -282,6 +292,7 @@ const dadosAlpine = (page: Page) =>
 test("bloquear a sessão apaga a conferência da memória e da tela", async ({ page }) => {
   await abrir(page);
   await expect(page.getByTestId("conferencia")).toBeVisible({ timeout: 10_000 });
+  await irAoHoje(page);
   await page.locator(".btn-bloquear").click();
   expect(await dadosAlpine(page)).toBeNull();
   await expect(page.getByTestId("conferencia")).toHaveCount(0);
@@ -300,6 +311,7 @@ test("busca em voo durante o bloqueio: a resposta que chega depois não grava na
   });
   await abrir(page, { semRota: true });
   await pediu;
+  await irAoHoje(page);
   await page.locator(".btn-bloquear").click();
   soltar();
   // A busca de antes do bloqueio termina (a resposta chegou e foi descartada).
