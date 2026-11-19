@@ -302,16 +302,17 @@ test.describe("7a.BJ.2 — como ele cresce, ano bom e ano ruim, herança", () =>
     await expect(n).toContainText("motivação, não plano de saque");
   });
 
-  test("links cruzados: a projeção aponta para a renda e a renda para a projeção", async ({ page }) => {
+  // 7a.CE: os links cruzados Projeção ↔ Renda saíram; cada uma tem seu lugar na
+  // faixa (Renda no Retorno, Projeção na Análise), e é por ali que se passa.
+  test("sem link cruzado: da projeção à renda e de volta, pela barra e pela faixa", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#/raiox/projecao");
-    const ida = page.locator(".tela-projecao a[href='#/raiox/renda']");
-    await expect(ida).toBeVisible();
-    await ida.click();
-    await expect(page).toHaveURL(/#\/raiox\/renda$/);
-    const volta = page.locator(".tela-renda a[href='#/raiox/projecao']");
-    await expect(volta).toBeVisible();
-    await volta.click();
+    await expect(page.locator(".tela-projecao .proj-ensaio")).toBeVisible();
+    await expect(page.locator(".tela-projecao a[href='#/raiox/renda']")).toHaveCount(0);
+    await irPelaFaixa(page, "retorno", "#/raiox/renda");
+    await expect(page.locator(".tela-renda .renda-ensaio")).toBeVisible();
+    await expect(page.locator(".tela-renda a[href='#/raiox/projecao']")).toHaveCount(0);
+    await irPelaFaixa(page, "analise", "#/raiox/projecao");
     await expect(page).toHaveURL(/#\/raiox\/projecao$/);
   });
 

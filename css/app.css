@@ -443,8 +443,7 @@ h1 {
    e virou um card de facetas — <div role="button"> que cicla 4 fatos
    read-only no tap/Enter/Space. O :active/:focus-visible que antes viviam em
    `.hero-link` migram pra `.hero` (é ela agora a superfície interativa). O
-   acesso ao histórico completo (#/raiox/chart) migrou pro affordance
-   discreto `.hero-chart-link`, logo abaixo do card (ver mais adiante). */
+   histórico completo (#/raiox/chart) se alcança pela faixa do Raio-X (7a.CE). */
 .hero {
   background: var(--g-900);
   border-radius: 18px;
@@ -478,32 +477,6 @@ h1 {
   outline-offset: 2px;
   border-radius: 18px;
 }
-
-.hero-chart-link {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  min-height: 44px;
-  margin-top: 0.35rem;
-  padding: 0.4rem 0.15rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--accent);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .hero-chart-link { transition: transform var(--d1) var(--ease); }
-}
-.hero-chart-link:active { transform: scale(.97); }
-.hero-chart-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 8px;
-}
-.hero-chart-link__chevron { font-size: 1rem; }
 
 .hero-label {
   font-size: 0.6875rem;
@@ -1510,57 +1483,6 @@ footer.rodape code {
   white-space: nowrap;
 }
 
-/* Chamada do Dividend Yield (idioma do antigo card do Relatório no Hoje) → push #s-dy. */
-.dy-chamada {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px;
-  margin: 22px 0 0;
-  background: var(--surface);
-  border: 1px solid var(--neutral-200);
-  border-radius: 18px;
-  text-decoration: none;
-  color: var(--ink);
-  box-shadow: var(--card-shadow);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .dy-chamada { transition: transform var(--d1) var(--ease), box-shadow var(--d1) ease; }
-}
-.dy-chamada:active {
-  transform: scale(.98);
-  box-shadow: var(--shadow-pressed);
-}
-.dy-chamada__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.dy-chamada__label {
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--gray);
-}
-.dy-chamada__valor {
-  font-size: var(--num-md);
-  font-weight: 700;
-  color: var(--g-900);
-  font-variant-numeric: tabular-nums;
-}
-.dy-chamada__desc {
-  font-size: 0.75rem;
-  color: var(--gray);
-}
-.dy-chamada__chevron {
-  font-size: 1.5rem;
-  color: var(--accent);
-  line-height: 1;
-  flex: 0 0 auto;
-}
-
 /* 7a.S.3 Task 3: nota "em curso" sob o chart de proventos — honestidade de
    dado (a última barra, ano/mês corrente, ainda está acumulando). Estilo
    caption discreto, no tom das legendas de gráfico da casa. */
@@ -2301,13 +2223,7 @@ footer.rodape code {
 }
 
 .erro-nao-encontrado p {
-  margin: 0 0 8px;
-}
-
-.erro-nao-encontrado a {
-  color: var(--g-700);
-  text-decoration: none;
-  font-weight: 500;
+  margin: 0;
 }
 
 /* ── Card-link (raio-x → tela detalhada) ──────────────────────────── */
@@ -4563,8 +4479,6 @@ body:has(.tab-bar) main {
 
 .renda-notas { margin: 2.5rem 0 0; padding-left: 1.1rem; color: var(--gray); font-size: 0.875rem; line-height: 1.5; }
 .renda-notas li + li { margin-top: 6px; }
-/* Link cruzado projeção ↔ renda: uma linha discreta, alvo de toque de 44 px. */
-.renda-link { display: flex; align-items: center; gap: 6px; min-height: 44px; margin: 1.75rem 0 0; color: var(--accent); font-size: 0.9375rem; text-decoration: none; }
 
 .rel-breadcrumb__mes {
   margin-left: auto; font-size: var(--num-sm); color: var(--gray);
@@ -4887,7 +4801,6 @@ body:has(.tab-bar) main {
    nos posters monumento. ─────────────────────────────────────────────────── */
 [data-theme="dark"] .card,
 [data-theme="dark"] .dy-row,
-[data-theme="dark"] .dy-chamada,
 [data-theme="dark"] .chart-rent,
 [data-theme="dark"] .prov-chart-card,
 [data-theme="dark"] .ticker-hero,

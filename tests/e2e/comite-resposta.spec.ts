@@ -187,6 +187,15 @@ test.describe("Comitê: a resposta no #aportar", () => {
     await expect(page.locator(".tela-comite")).toBeVisible();
   });
 
+  // 7a.CE: a variante genérica "Registros do Comitê" (sem contagem) saiu; o
+  // Comitê está na faixa do Aportar. Sem registros da rodada, não há link.
+  test("resposta sem registros da rodada: nenhum link de registros", async ({ page }) => {
+    await abrir(page, { resposta: resposta((r) => r.registros.forEach((x: any) => (x.criado_em = "2020-01-01T12:00:00Z"))) });
+    await expect(bloco(page)).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".comite-bloco")).toBeVisible();
+    await expect(page.locator(".comite-link-registros")).toHaveCount(0);
+  });
+
   test("nenhum verbo de ordem na voz do Comitê", async ({ page }) => {
     await abrir(page, { resposta: resposta() });
     await comValor(page, "5000");

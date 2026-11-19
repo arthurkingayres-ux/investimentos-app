@@ -670,11 +670,12 @@
       },
 
       // Os registros da mesma rodada da proposta (mesmo dia) dão a contagem.
+      // 7a.CE: sem registros da rodada não há link (o Comitê está na faixa do Aportar).
       comiteLinkRegistros() {
         const a = this.comiteAtual();
         const dia = a && typeof a.criado_em === "string" ? a.criado_em.slice(0, 10) : null;
         const n = dia ? this.comiteRegistros().filter((r) => String(r.criado_em || "").slice(0, 10) === dia).length : 0;
-        return n > 0 ? `Anotado para a revisão estrutural (${n})` : "Registros do Comitê";
+        return n > 0 ? `Anotado para a revisão estrutural (${n})` : "";
       },
 
       // 7a.BW.7: a linha lê `comite_placar` do payload da carteira (o backend

@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=100">
+  <link rel="stylesheet" href="css/app.css?v=101">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=41"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/comite.js?v=8"></script>
+  <script src="js/comite.js?v=9"></script>
   <script src="js/olho.js?v=1"></script>
   <script src="js/reserva.js?v=1"></script>
   <script src="js/conferencia.js?v=1"></script>
@@ -217,13 +217,9 @@
             <span>☞</span> toque no número
           </div>
         </div>
-        <a href="#/raiox/chart" class="hero-chart-link" aria-label="Ver histórico completo do patrimônio">
-          <span>Ver histórico</span>
-          <span class="hero-chart-link__chevron" aria-hidden="true">›</span>
-        </a>
 
         <!-- 7a.CC.2 — Pede atenção (spec 7a.CC §5.6, D1): logo abaixo do hero e
-             do "Ver histórico", antes dos "Últimos 7 dias". Lista de bordas finas
+             antes dos "Últimos 7 dias". Lista de bordas finas
              (família do índice do Diagnóstico), sem card; cada linha leva à tela
              do assunto. Ordem fixa: Vigília, Notas pendentes, Relatório novo.
              x-if: sem item o bloco não existe (nem título, nem espaço). -->
@@ -826,7 +822,6 @@
         <template x-if="!posicaoAtual">
           <div class="erro-nao-encontrado">
             <p>Ativo <strong x-text="tickerAtual"></strong> não encontrado na carteira.</p>
-            <a href="#alocacao">← Voltar para Alocação</a>
           </div>
         </template>
 
@@ -1025,18 +1020,6 @@
 
         <!-- 7a.E.18: lista a11y visualmente oculta com 12 botões focáveis -->
         <ul class="proventos-meses-a11y" id="proventosMesesA11y" role="list" aria-label="Meses dos últimos 12 meses"></ul>
-
-        <!-- 7a.S.7b: DY virou chamada (idioma do antigo card do Relatório no Hoje) → push #s-dy -->
-        <a class="dy-chamada" data-testid="dy-chamada" href="#/proventos/dy"
-           x-show="json?.dividend_yield"
-           aria-label="Ver detalhe do Dividend Yield da carteira">
-          <span class="dy-chamada__meta">
-            <span class="dy-chamada__label">Dividend Yield</span>
-            <span class="dy-chamada__valor" x-text="formatPctSemSinal(json?.dividend_yield?.total?.dy, 1)"></span>
-            <span class="dy-chamada__desc">Carteira · 12 meses — ver detalhe</span>
-          </span>
-          <span class="dy-chamada__chevron" aria-hidden="true">›</span>
-        </a>
 
         <h3 class="ativo-section-h" :class="{ filtrada: proventosToggle === 'mensal' && proventosMesSelecionado !== null }">
           <template x-if="proventosToggle === 'mensal' && proventosMesSelecionado !== null">
@@ -1539,8 +1522,6 @@
                 <p><span class="proj-num" x-text="projecao.trajetorias.toLocaleString('pt-BR')"></span> trajetórias simuladas, cada uma um cenário de <span x-text="projAnosTotal()"></span> anos.</p>
               </div></details>
 
-            <!-- 7a.BJ.2: link cruzado, discreto, para a renda (só com o bloco publicado). -->
-            <a class="renda-link" href="#/raiox/renda" x-show="renda" x-cloak>Quanto esta carteira pagaria de renda <span aria-hidden="true">›</span></a>
             <p class="proj-rodape" x-text="projecao.trajetorias.toLocaleString('pt-BR') + ' trajetórias · recalculada toda noite · projeção, não promessa'"></p>
           </article>
         </template>
@@ -1689,7 +1670,6 @@
               <li><strong>Você ainda aporta.</strong> Este número é motivação, não plano de saque.</li>
             </ul>
 
-            <a class="renda-link" href="#/raiox/projecao" x-show="projecao" x-cloak>Como o patrimônio chega aos 65 <span aria-hidden="true">›</span></a>
           </article>
         </template>
       </section>
@@ -2813,7 +2793,7 @@
               </template>
             </article>
           </template>
-          <template x-if="comiteResposta">
+          <template x-if="comiteResposta && comiteLinkRegistros()">
             <a class="comite-link-registros" href="#comite"><span x-text="comiteLinkRegistros()"></span> <span aria-hidden="true">›</span></a>
           </template>
         </section>

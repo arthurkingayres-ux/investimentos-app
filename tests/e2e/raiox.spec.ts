@@ -35,13 +35,12 @@ test.describe("Raio-X — cards e navegação", () => {
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
   });
 
-  test("affordance 'ver histórico' do hero clicável → #/raiox/chart", async ({ page }) => {
-    // 7a.I.5: link pro push child `#/raiox/chart`. 7a.S.5: o hero virou
-    // facet-cycling (tap cicla fatos); o acesso ao chart migrou pro
-    // affordance discreto `.hero-chart-link` (ver raiox-chart-push.spec.ts).
+  test("faixa 'Histórico' → #/raiox/chart", async ({ page }) => {
+    // 7a.I.5: `#/raiox/chart`. 7a.S.5: o hero virou facet-cycling. 7a.CE: o
+    // "Ver histórico" abaixo do hero saiu; entra-se pela faixa do Raio-X.
     await autenticar(page);
 
-    const chartLink = page.locator(".hero-chart-link");
+    const chartLink = page.locator(".grupo-cab nav a", { hasText: /^Histórico$/ });
     await expect(chartLink).toBeVisible();
     await chartLink.click();
     await expect(page).toHaveURL(/#\/raiox\/chart$/);

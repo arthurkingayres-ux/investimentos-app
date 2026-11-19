@@ -5,8 +5,8 @@ import { cifrar } from "./comite-comum";
 import { payload as olhoPayload, isoDiasAtras, semTransbordo } from "./olho-comum";
 
 // 7a.CC.2 Task CC2.2: o Hoje com "Pede atenção" (spec 7a.CC §5.6, D1). Lista de
-// bordas finas logo abaixo do hero e do "Ver histórico", antes dos "Últimos 7
-// dias". Três itens, ordem fixa, cada um com a condição que já existia:
+// bordas finas logo abaixo do hero, antes dos "Últimos 7 dias" (o "Ver
+// histórico" saiu na 7a.CE). Três itens, ordem fixa, cada um com a condição que já existia:
 //   Vigília          olhoLinhaRaiox()                         → #olho
 //   Notas pendentes  conferenciaVisivel()                     → #/raiox/reserva
 //   Relatório novo   relUltimoMes && !mesLido(relUltimoMes)   → #/raiox/relatorio
@@ -177,21 +177,21 @@ test.describe("Pede atenção: as três verdadeiras", () => {
   }
 
   // D1: o bloco ocupa o lugar onde a linha do Olho e as Notas pendentes
-  // estavam: logo abaixo do hero e do "Ver histórico", antes dos 7 dias.
-  test("posição (D1): depois do hero e do 'Ver histórico', antes dos 'Últimos 7 dias', no DOM e na tela", async ({ page }) => {
+  // estavam: logo abaixo do hero, antes dos 7 dias (o "Ver histórico" saiu na 7a.CE).
+  test("posição (D1): depois do hero, antes dos 'Últimos 7 dias', no DOM e na tela", async ({ page }) => {
     await abrir(page, TODAS);
     const ordem = await page.evaluate(() => {
       const b = document.querySelector('[data-testid="pede-atencao"]')!;
-      const link = document.querySelector(".raiox .hero-chart-link")!;
+      const hero = document.querySelector(".raiox .hero")!;
       const r7d = document.querySelector(".raiox .raiox-7d")!;
       const vazio = document.querySelector(".raiox .r7d-vazio")!;
       const segue = (a: Element, x: Element) => !!(a.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
-      return { depoisDoLink: segue(link, b), antesDos7d: segue(b, r7d) && segue(b, vazio) };
+      return { depoisDoHero: segue(hero, b), antesDos7d: segue(b, r7d) && segue(b, vazio) };
     });
-    expect(ordem).toEqual({ depoisDoLink: true, antesDos7d: true });
+    expect(ordem).toEqual({ depoisDoHero: true, antesDos7d: true });
     const caixa = (await bloco(page).boundingBox())!;
-    const link = (await page.locator(".raiox .hero-chart-link").boundingBox())!;
-    expect(caixa.y).toBeGreaterThanOrEqual(link.y + link.height);
+    const hero = (await page.locator(".raiox .hero").boundingBox())!;
+    expect(caixa.y).toBeGreaterThanOrEqual(hero.y + hero.height);
     const r7d = page.locator(".raiox .raiox-7d");
     await expect(r7d).toBeVisible();
     expect(caixa.y + caixa.height).toBeLessThanOrEqual((await r7d.boundingBox())!.y);

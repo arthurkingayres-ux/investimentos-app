@@ -276,7 +276,7 @@ O hero deixou de ser um `<a>` com uma única leitura (patrimônio) e um único d
 
 **Hint "☞ toque no número"** aparece 1×/sessão (`sessionStorage.heroFacetHintSeen`, mesmo padrão de `heroCountUpDone`) e some no 1º toque (`.hero-hint.gone`, opacity 0). `aria-hidden` (é reforço visual, não informação essencial — o `aria-label` do card já comunica a interação a quem usa leitor de tela).
 
-**Acesso ao histórico completo preservado.** O hero era a ÚNICA entrada pra `#/raiox/chart` (7a.I.5); virando facet-cycling, um affordance discreto e explícito assume esse papel — `.hero-chart-link`, um `<a>` de verdade (não um `<div>` fake), abaixo do card, com texto "Ver histórico" + chevron `›`, `aria-label`, e hit-area ≥44px (`min-height`). `raiox-chart-push.spec.ts`/`raiox.spec.ts` migraram pra clicar esse link; um teste de regressão explícito ("tap no hero NÃO navega") documenta a mudança de comportamento como intencional.
+**Acesso ao histórico completo.** O hero era a ÚNICA entrada pra `#/raiox/chart` (7a.I.5); virando facet-cycling, o link `.hero-chart-link` ("Ver histórico", abaixo do card) assumiu esse papel. Desde a 7a.CC.1 o Histórico é membro da faixa do Raio-X, e o link, que só a repetia, **saiu na 7a.CE**: `raiox-chart-push.spec.ts`/`raiox.spec.ts` entram pela faixa. Um teste de regressão explícito ("tap no hero NÃO navega") documenta o facet-cycling como intencional.
 
 ```css
 .hero { cursor: pointer; overflow: hidden; }      /* card vira controle interativo */
@@ -286,7 +286,6 @@ O hero deixou de ser um `<a>` com uma única leitura (patrimônio) e um único d
 .hero-face.on  { opacity: 1; transform: translateY(0); }
 .hero-face.out { opacity: 0; transform: translateY(-10px); }
 .fd { min-width: 44px; min-height: 44px; }         /* hit-area do facet-dot */
-.hero-chart-link { min-height: 44px; color: var(--accent); }
 ```
 
 O `.hero::before` consome `--hero-glow` (token S.1, transparente no light — inerte até S.12 dark) pela primeira vez; não é o gradiente decorativo banido pelo anti-pattern #8 (que continua vigente — sem gradiente LINEAR no background do card, só o radial glow reservado desde a fundação).
@@ -393,7 +392,7 @@ O mesmo componente `nav.faixa`, em variante `.faixa-ativo` (`margin: -8px 0 12px
 
 ### Pede atenção (Raio-X › Hoje)
 
-O único lugar do Hoje que aponta para outra tela por um motivo. Bloco `section.pede-atencao`, logo abaixo do hero e do "Ver histórico", antes dos "Últimos 7 dias": o alerta cabe no olhar de 5 segundos, sem rolar. O Hoje não tem cartões de entrada para outras telas: Relatório, Projeção, Renda e Diagnóstico se alcançam pela barra e pela faixa.
+O único lugar do Hoje que aponta para outra tela por um motivo. Bloco `section.pede-atencao`, logo abaixo do hero, antes dos "Últimos 7 dias": o alerta cabe no olhar de 5 segundos, sem rolar. O Hoje não tem cartões de entrada para outras telas: Relatório, Projeção, Renda e Diagnóstico se alcançam pela barra e pela faixa.
 
 - **Itens, ordem fixa**, cada um com a condição que já existe no app (getter `pedeAtencao` em `js/app.js`, itens montados por `pedeAtencaoItens()` em `js/navegacao.js`):
   1. **Vigília**: o texto de `olhoLinhaRaiox()` ("1 tese sob ameaça"), com o glifo ▲ (`.olho-glifo`, `aria-hidden`), só com tese sob ameaça que o reexame ainda não confrontou → `#olho`. Some quando o reexame acontece, nunca por toque.
@@ -641,16 +640,14 @@ novos substituem o que saiu:
   exibidas** (nunca um agregado independente), recalculado a cada
   `renderProventosGrafico()`: `"Total · 2021–2026"` no modo Anual,
   `"Total · 12 meses"` no Mensal — troca com o toggle.
-- **Chamada de Dividend Yield** (`.dy-chamada`, card de chamada com
-  chevron): mostra o DY trailing-12m da
-  carteira e leva à tela dedicada `#/proventos/dy` (tela-membro DY do grupo
-  Retorno desde a 7a.CC.1, também na faixa).
+- **Dividend Yield:** fica na tela dedicada `#/proventos/dy` (tela-membro DY
+  do grupo Retorno desde a 7a.CC.1), alcançada pela faixa. A chamada
+  `.dy-chamada` que ficava aqui saiu na 7a.CE: só repetia a faixa.
 
 ```css
 .prov-chart-card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px var(--g-900-07); }
 .prov-chart-card #proventos-grafico { background: none; box-shadow: none; padding: 0; margin: 0; }
 .prov-total { display: flex; justify-content: space-between; border-bottom: 1px solid var(--neutral-100); }
-.dy-chamada { display: flex; border: 1px solid var(--neutral-200); border-radius: 18px; box-shadow: var(--card-shadow); }
 ```
 
 **KPI scroll affordance (Task 4, spec 7a.S §9 — Fable: "3º KPI cortado a
@@ -667,7 +664,7 @@ fica inerte (sem scroll visível). Container ganha `tabindex="0"` +
 ### Dividend Yield dedicado — `#s-dy` (7a.S.7b, ranking 7a.BO.2)
 
 Tela-membro de Retorno (`#/proventos/dy`, item "DY" da faixa; 7a.CC.1,
-antes push), aberta também pela chamada de `#proventos`. Sem "←": volta-se
+antes push), alcançada só pela faixa (a chamada de `#proventos` saiu na 7a.CE). Sem "←": volta-se
 a Proventos pela faixa. O título "Dividend Yield" fica como `<h1>` `.sr-only`.
 
 - **Poster** (`.poster`, mono, `--num-poster-xl` 54px, cor `--accent`)
@@ -976,7 +973,7 @@ Primeiro consumidor real dos tokens `--d1`/`--d2`/`--d3`/`--ease`/`--ease-spring
 | Face que sai — remoção do DOM | 320ms (`setTimeout`, > `--d2` pra garantir que a transição de saída já terminou visualmente) | — | remoção imediata (sem espera) |
 | Facet-dot ativo (traço `::before`) | `--d2` `--ease-spring` | background + `scaleX` | sem transição |
 | Hint "☞ toque no número" some | `--d3` (`.55s`) ease | opacity | sem transição |
-| `.hero`/`.hero-chart-link` `:active` | `--d1` (`.14s`) `--ease` | transform + box-shadow | herda o guard geral de S.2 (`@media (prefers-reduced-motion: no-preference)`) |
+| `.hero` `:active` | `--d1` (`.14s`) `--ease` | transform + box-shadow | herda o guard geral de S.2 (`@media (prefers-reduced-motion: no-preference)`) |
 
 Toda a coreografia é gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell, `transitions.js`) — não um segundo `matchMedia` paralelo. Nenhuma trava a leitura: o usuário pode ciclar facetas e recarregar a página livremente sem re-disparar o count-up (ver seção "Hero de facetas" em Components).
 
@@ -1128,7 +1125,7 @@ Aplicações futuras e refactors NUNCA podem introduzir:
 /* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
                      .grifo (border-left 3px --accent, "uma por tela"; 7a.S.5 realiza em .r7d-movers)
                      .grifo--amber (border-left 3px --amber + --amber-bg/--amber-bd; 7a.S.9 realiza em .rel-secao--destaque, Apêndice B "Relatório = âmbar")
-                     .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total/.dy-chamada (#proventos) · .kpi-scroll-fade (KPI affordance)
+                     .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total (#proventos) · .kpi-scroll-fade (KPI affordance)
                      .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
                      .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
                      .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
@@ -1196,7 +1193,7 @@ Todo token que varia por tema ganha um 2º valor (ver tabela em "Tokens summary"
 
 ### Teal-como-luz treatments
 
-- **Card hairline**: `.card`, `.dy-row`, `.dy-chamada`, `.chart-rent`, `.prov-chart-card`, `.ticker-hero`, `.rel-radar-card`, `.aloca-cat`, `.kpi`, `.dy-champs` ganham `box-shadow: inset 0 1px 0 var(--card-topline), ...` — fio de luz no topo, profundidade sem gradiente (anti-pattern #8 preservado).
+- **Card hairline**: `.card`, `.dy-row`, `.chart-rent`, `.prov-chart-card`, `.ticker-hero`, `.rel-radar-card`, `.aloca-cat`, `.kpi`, `.dy-champs` ganham `box-shadow: inset 0 1px 0 var(--card-topline), ...` — fio de luz no topo, profundidade sem gradiente (anti-pattern #8 preservado).
 - **Tab indicator glow**: `.tab-bar-indicator` ganha `box-shadow: 0 0 14px rgba(52,211,153,.55)`.
 - **Poster text-shadow**: `.poster` (#s-dy) e `.rel-poster` (capa do Relatório) ganham `text-shadow: 0 0 38px rgba(52,211,153,.3)`.
 - **Sombras literais tintadas a --g-900** (fora do token `--card-shadow`/`--g-900-04/07`): `.toast`, `.tabela-wrap`, `.vazio`, `.card-link:hover/:focus-visible`, `.rel-seletor__lista` recebem `rgba(0,0,0,…)` — a versão tintada ficaria invisível contra o fundo quase-preto.
@@ -1297,7 +1294,7 @@ Tela `#/raiox/renda` (membro de Retorno desde a 7a.CC.1; antes push), irmã da p
 - **Pisos (`.renda-pisos`).** Relativos ao patrimônio de hoje (sem piso, metade, o patrimônio inteiro, e o configurado quando for outro). A linha configurada leva `aria-current="true"` e título em `--g-900`. Quando o piso configurado é um dos relativos, a linha de baixo ganha "· o seu piso" em `--accent`; quando é outro valor, o próprio rótulo é "O seu piso" (no `th`, `--g-900`, sem repetir o marcador; flag `rotuloDizSeuPiso`), a renda por mês fica na mesma linha, à direita, e o **montante do piso** vai na linha de baixo ("deixa ao menos R$ X aos 95"). Um rótulo com o montante não serve: "R$" e o número são ligados por espaço inseparável e não quebram.
 - **Estados.** `renda === null`, bloco parcial ou payload anterior à v2.32: a rota diz "Renda indisponível hoje.". Renda 0 por piso alto: a frase "Com o piso de herança atual, a carteira ainda não sustenta renda" toma o lugar do herói, chip e "De onde viria" saem, e a tabela de pisos continua.
 - **Entrada:** Retorno › Renda, na faixa. O Hoje não tem cartão da renda.
-- **Link cruzado (`.renda-link`).** Uma linha `--accent`, alvo de 44 px: no fim da projeção ("Quanto esta carteira pagaria de renda", só com o bloco publicado) e no fim da renda ("Como o patrimônio chega aos 65").
+- **Sem link cruzado.** O `.renda-link` (Projeção ↔ Renda) saiu na 7a.CE: Renda está na faixa do Retorno e Projeção na da Análise.
 
 ### Diagnóstico — capítulo 1, risco realizado (7a.BQ.2)
 

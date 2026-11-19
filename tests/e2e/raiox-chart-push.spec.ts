@@ -25,11 +25,11 @@ async function autenticar(page: Page) {
 }
 
 test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
-  test("tap no affordance 'ver histórico' empurra para chart full + tab raiox persiste", async ({ page }) => {
+  test("faixa 'Histórico' abre o chart full + tab raiox persiste", async ({ page }) => {
     // 7a.S.5: o hero virou facet-cycling (tap cicla 4 fatos, não navega mais).
-    // O acesso ao histórico completo migrou pro affordance discreto .hero-chart-link.
+    // 7a.CE: o "Ver histórico" abaixo do hero saiu; o Histórico é membro da faixa do Raio-X.
     await autenticar(page);
-    const chartLink = page.locator(".hero-chart-link");
+    const chartLink = page.locator(".grupo-cab nav a", { hasText: /^Histórico$/ });
     await expect(chartLink).toBeVisible();
     await chartLink.click();
     await expect(page).toHaveURL(/#\/raiox\/chart$/);
@@ -49,15 +49,6 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
     await expect(page.locator(".raiox")).toBeVisible();
   });
 
-  test("affordance 'ver histórico' tem touch target ≥44px e aria-label", async ({ page }) => {
-    await autenticar(page);
-    const chartLink = page.locator(".hero-chart-link");
-    await expect(chartLink).toHaveAttribute("aria-label", /.+/);
-    const box = await chartLink.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.height).toBeGreaterThanOrEqual(44);
-  });
-
   test("legacy #patrimonio redireciona para #/raiox/chart", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#patrimonio");
@@ -69,7 +60,7 @@ test.describe("Raio-X chart push (#/raiox/chart) — 7a.I.5", () => {
   // Hoje pela faixa. (Antes: botão Voltar.)
   test("do chart full a faixa (Hoje) retorna para Raio-X", async ({ page }) => {
     await autenticar(page);
-    await page.locator(".hero-chart-link").click();
+    await page.locator(".grupo-cab nav a", { hasText: /^Histórico$/ }).click();
     await expect(page.locator(".tela-patrimonio")).toBeVisible();
     await expect(page.locator(".tela-patrimonio").getByRole("button", { name: /^Voltar/ })).toHaveCount(0);
     await page.locator(".grupo-cab nav a", { hasText: /^Hoje$/ }).click();

@@ -17,23 +17,20 @@ async function autenticar(page: Page) {
 }
 
 // 7a.S.7b: o Dividend Yield saiu do topo de #proventos (bloco inline
-// removido) e virou tela dedicada #s-dy, aberta pela chamada
-// `[data-testid="dy-chamada"]`. Os 4 escopos (total/acao_br/fii/eua) seguem
-// os MESMOS dados — só reformatados como poster + 3 dy-row.
+// removido) e virou tela dedicada #s-dy. 7a.CE: a chamada `dy-chamada` em
+// #proventos saiu; o DY é membro da faixa do Retorno. Os 4 escopos
+// (total/acao_br/fii/eua) seguem os MESMOS dados — poster + 3 dy-row.
 
-test.describe("#proventos → chamada Dividend Yield", () => {
-  test("chamada mostra o DY da carteira e navega para #s-dy", async ({ page }) => {
+test.describe("#proventos → faixa DY", () => {
+  test("a faixa leva de Proventos ao DY, que mostra o DY da carteira", async ({ page }) => {
     await autenticar(page);
     await page.goto("/#proventos");
     await expect(page.locator(".tela-proventos")).toBeVisible({ timeout: 10_000 });
 
-    const chamada = page.getByTestId("dy-chamada");
-    await expect(chamada).toBeVisible();
-    await expect(chamada).toContainText("%");
-
-    await chamada.click();
+    await page.locator(".grupo-cab nav a", { hasText: /^DY$/ }).click();
     await expect(page).toHaveURL(/#\/proventos\/dy$/);
     await expect(page.locator(".tela-dy")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".tela-dy")).toContainText("%");
   });
 });
 
