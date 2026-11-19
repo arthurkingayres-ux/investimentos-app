@@ -2947,6 +2947,36 @@ button.ponte-degrau { cursor: pointer; }
   border-radius: 6px;
 }
 
+/* 7a.CD.3 — selo "a confirmar": provento que entrou antes do documento e ainda
+   espera a prova de fogo. Família do selo "Aluguel", mas em minúsculas (é frase,
+   não categoria) e em sans mesmo dentro das linhas mono dos 7 dias. Texto, nunca
+   cor sozinha; quebra de linha antes de empurrar o valor para fora a 320px. */
+.provento-a-confirmar {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: baseline;
+  background: rgba(26, 29, 28, 0.06);
+  color: var(--gray, #5b605a);
+  font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  padding: 1px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.r7d-lista .ticker { min-width: 0; overflow-wrap: anywhere; }
+
+/* 7a.CD.3 — nota da última prova de fogo, sob os KPIs de #proventos: uma linha
+   quieta, sem cartão, na voz das notas de dado (`.chart-partial-note`). */
+.prov-prova {
+  margin: 6px 2px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--gray);
+}
+
 /* Hint discreto abaixo do gráfico quando há mês selecionado. */
 .proventos-hint-limpar {
   font-size: 10px;  /* fora-da-escala: rótulo uppercase */
@@ -4920,7 +4950,8 @@ body:has(.tab-bar) main {
 [data-theme="dark"] .rel-selo--deteriorando {
   background: rgba(248, 113, 113, 0.14);
 }
-[data-theme="dark"] .provento-tipo-tag {
+[data-theme="dark"] .provento-tipo-tag,
+[data-theme="dark"] .provento-a-confirmar {
   background: rgba(255, 255, 255, 0.08);
 }
 

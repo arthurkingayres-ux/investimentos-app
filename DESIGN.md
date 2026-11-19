@@ -398,7 +398,8 @@ O único lugar do Hoje que aponta para outra tela por um motivo. Bloco `section.
 - **Itens, ordem fixa**, cada um com a condição que já existe no app (getter `pedeAtencao` em `js/app.js`, itens montados por `pedeAtencaoItens()` em `js/navegacao.js`):
   1. **Vigília**: o texto de `olhoLinhaRaiox()` ("1 tese sob ameaça"), com o glifo ▲ (`.olho-glifo`, `aria-hidden`), só com tese sob ameaça que o reexame ainda não confrontou → `#olho`. Some quando o reexame acontece, nunca por toque.
   2. **Notas pendentes**: a contagem de `conferenciaContagemTexto()` ("2 pendentes"), só com item na conferência → `#/raiox/reserva`.
-  3. **Relatório novo**: "Relatório de {mês} saiu" (`formatMesAno`), só quando o último mês ainda não foi aberto neste aparelho (`mesLido`) → `#/raiox/relatorio`. Abrir o mês o tira.
+  3. **Pedido do documento** (7a.CD.3): o texto de `json.proventos.pedir_documento`, que vem pronto do payload cifrado (nomeia a origem dos proventos, e este repo é público), só enquanto o pedido dos 45 dias vale → `#proventos`. Forma `--ink` normal: não é ameaça. Some quando o documento chega e o corte anda.
+  4. **Relatório novo**: "Relatório de {mês} saiu" (`formatMesAno`), só quando o último mês ainda não foi aberto neste aparelho (`mesLido`) → `#/raiox/relatorio`. Abrir o mês o tira.
 - **Sem item, o bloco não existe** (`x-if`): nem título, nem espaço reservado, nem "tudo em ordem".
 - **Forma:** lista de bordas finas, família das linhas do índice do Diagnóstico, sem card. Eyebrow "Pede atenção" na voz dos rótulos vizinhos ("Últimos 7 dias", "Último aporte": 11px, 600, uppercase, 0.08em, `--gray`). `ul` com hairline `--neutral-200` em cima e uma por linha embaixo; cada linha é um `<a>` de ≥ 44px, 0.9375rem peso 600 `--ink`, com "›" `--gray` à direita. A linha da Vigília é `--amber-700` (o token da ameaça não examinada). Foco pela regra unificada (`--accent`). Zero token novo, sem fonte, ícone nem duração nova, sem travessão.
 
@@ -865,6 +866,10 @@ Snackbar inferior com ação, flutuando acima da tab bar (`bottom: calc(var(--ta
 
 ### Tabela (movimentos / proventos)
 Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y interno em `.tabela-wrap`.
+
+### Selo "a confirmar" e a prova de fogo (7a.CD.3)
+- **`.provento-a-confirmar`**: na linha de provento com `provisorio: true` (lista "Proventos" dos 7 dias, ao lado do ticker; tabela "Proventos · últimos 12 meses" do ativo, na célula do Tipo). Família do selo "Aluguel" (`.provento-tipo-tag`: fundo de tinta 6%, `--gray`, raio 6px), mas em **minúsculas** e em sans mesmo dentro das linhas mono: é frase, não categoria. 0.6875rem/600. Texto, nunca cor sozinha; a 320px quebra para baixo do ticker em vez de empurrar o valor. O número não muda: o provisório conta em tudo.
+- **`.prov-prova`**: uma linha sob os KPIs de `#proventos`, 0.8125rem `--gray`, sem cartão. "Última prova de fogo em DD/MM/AAAA." (`formatDataIso`) ou, com `ultima_prova: null`, "Ainda sem prova de fogo.". Payload sem a chave: a linha não aparece.
 
 ---
 

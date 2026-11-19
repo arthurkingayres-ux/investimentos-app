@@ -358,7 +358,7 @@
               <ul>
                 <template x-for="(item, idx) in (json.ultimos_7d?.proventos || [])" :key="'p-' + item.ticker + '-' + item.tipo + '-' + idx">
                   <li>
-                    <span class="ticker" x-text="item.ticker"></span>
+                    <span class="ticker"><span x-text="item.ticker"></span><template x-if="item.provisorio === true"><span class="provento-a-confirmar" data-testid="provento-a-confirmar">a confirmar</span></template></span>
                     <span class="qty" x-text="abreviarTipoR7d(item.tipo)"></span>
                     <span class="valor" x-text="formatBrl(item.valor_brl)"></span>
                     <span class="flag" aria-hidden="true" x-text="item.bandeira"></span>
@@ -941,7 +941,7 @@
                       <tr>
                         <td x-text="pr.data_pagamento"></td>
                         <td class="num" x-text="formatBrl(pr.valor_liquido_brl)"></td>
-                        <td x-text="pr.tipo"></td>
+                        <td><span x-text="pr.tipo"></span><template x-if="pr.provisorio === true"><span class="provento-a-confirmar" data-testid="provento-a-confirmar">a confirmar</span></template></td>
                       </tr>
                     </template>
                   </tbody>
@@ -978,6 +978,12 @@
           </div>
           <span class="kpi-scroll-fade" aria-hidden="true"></span>
         </div>
+
+        <!-- 7a.CD.3: a data da prova de fogo (o documento conferiu os proventos
+             que entraram antes dele). Só com a chave no payload; null = sem prova. -->
+        <p class="prov-prova" data-testid="prov-prova"
+           x-show="json?.proventos && 'ultima_prova' in json.proventos"
+           x-text="json?.proventos?.ultima_prova ? 'Última prova de fogo em ' + formatDataIso(json.proventos.ultima_prova) + '.' : 'Ainda sem prova de fogo.'"></p>
 
         <div class="escopo-toggle" role="tablist" aria-label="Período">
           <button

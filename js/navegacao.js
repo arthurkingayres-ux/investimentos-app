@@ -148,6 +148,12 @@
         if (this.conferenciaVisivel()) {
           itens.push({ chave: "notas", texto: this.conferenciaContagemTexto(), href: "#/raiox/reserva" });
         }
+        // 7a.CD.3: o pedido do documento (45 dias sem prova de fogo). O texto vem do
+        // payload cifrado, porque nomeia a origem dos proventos; este repo é público.
+        const pedido = this.json?.proventos?.pedir_documento;
+        if (typeof pedido === "string" && pedido) {
+          itens.push({ chave: "extrato", texto: pedido, href: "#proventos" });
+        }
         const rel = this.relUltimoMes;
         if (rel && !this.mesLido(rel.mes)) {
           itens.push({ chave: "relatorio", texto: "Relatório de " + window.formatMesAno(rel.mes) + " saiu", href: "#/raiox/relatorio" });
