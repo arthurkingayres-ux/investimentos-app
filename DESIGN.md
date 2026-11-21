@@ -1,1531 +1,385 @@
 # Design
 
-> Sistema de design extraído de `css/app.css` (vanilla CSS, ~1500 linhas, mobile-first, max-width 520px raio-x / 720px telas detalhe). Formato baseado em Google Stitch DESIGN.md. Source of truth de tokens e componentes do PWA.
+Este arquivo é um **retrato do app como ele está hoje** — tokens, convenções e
+componentes lidos de `css/app.css`, `js/echarts-theme.js`, `js/transitions.js` e
+`index.html`. Serve para que um ajuste pontual saia coerente com o que existe,
+não para fixar gosto: qualquer fase pode mudar a identidade do app e reescrever
+este retrato.
+
+Vanilla CSS, mobile-first. Container: `max-width 520px` no Raio-X, `720px` nas
+telas de detalhe. Sem framework, sem biblioteca de motion, sem fonte embarcada.
 
 ---
 
-## Visual atmosphere
+## Atmosfera
 
-**Calmo, denso, médico.** Layout flat com hierarquia tipográfica clara, paleta teal-quente sobre warm-neutral (não cool gray, não pure white), sombras suavemente tintadas para a cor do brand, motion mínimo (pin shake + chevron rotation + estados `:active` pressionados de toque, 7a.S.2). Densidade calibrada por contexto: raio-X home é airy (blocos generosos, sem cards, ≤5 elementos por viewport); telas de drilldown (#ativo, #proventos) são densas (tabelas com tabular-nums, KPIs em grid 2-col ou 3-col).
-
-Variance baseline: **6.5/10** (assimetria pontual + tipografia Monument no hero + tab bar como elemento de identidade). Motion: **4.5/10** (cross-fade tabs + indicator slide + count-up hero + push slides; tudo gated por `prefers-reduced-motion`, sem GSAP/Framer). Density: **4/10 → 7/10** (varia por tela).
+Calmo, denso, médico. Layout plano com hierarquia tipográfica clara, teal quente
+sobre neutros quentes, sombras tintadas para o verde da marca, motion curto.
+A densidade varia por contexto: o Raio-X é arejado; as telas de drilldown são
+densas (tabelas com `tabular-nums`, KPIs em grid de 2 ou 3 colunas); os ensaios
+— projeção, renda, diagnóstico — são coluna única, com números no meio da prosa.
 
 ---
 
-## Color palette
+## Cor
 
-Teal-quente como protagonista, neutros warm como base. Saturação contida (<60%). Pure black banido (`--ink: #1a1d1c`). Pure white banido em superfícies grandes (`--neutral-50: #fafaf7`).
+Teal como protagonista, neutros quentes como base, saturação contida. Texto base
+`--ink: #1a1d1c`, fundo `--neutral-50: #fafaf7`.
 
-### Brand teal (gradient escala-9)
-- `--g-900: #064e3b` — Primary teal escuro. Hero gradient anchor, links, h1 em telas detalhe.
-- `--g-800: #065f46` — Primary teal médio-escuro. Política header text.
-- `--g-700: #047857` — Primary teal médio. Botões active, chip-xirr, ticker-vm, drift-neg.
-- `--g-600: #059669` — Primary teal médio-claro. Outline focus em row-link.
-- `--g-500: #10b981` — Primary teal claro. Outline focus btn-bloquear, gradient end aporte-pill.
-- `--g-400: #34d399` — Primary teal acento. Reservado.
+### Escala da marca
 
-### Accent
-- `--teal: #14b8a6` — Accent teal puro. Usado em hero radial highlight e outline focus de hero-link/política.
+| Token | Valor | Onde |
+|---|---|---|
+| `--g-900` | `#064e3b` | hero, links, h1 de telas de detalhe |
+| `--g-800` | `#065f46` | cabeçalho de política |
+| `--g-700` | `#047857` | botões ativos, chips, âncora do `--accent` |
+| `--g-600` | `#059669` | foco de `row-link` |
+| `--g-500` | `#10b981` | `--accent-2` |
+| `--teal` | `#14b8a6` | realce do hero, foco de hero-link |
 
-### Semantic
-- `--amber: #f59e0b` — Warning. Drift positivo. (Não é mais a cor de FII desde 7a.E.20.)
-- `--amber-light: #fbbf24` — Reserva (não em uso atual).
-- `--amber-700: #b45309` (dark `#fdba74`) — **Warning como TEXTO.** `--amber` puro não alcança 4,5:1 sobre `--neutral-50`; este é o degrau que alcança (4,80:1 no claro, 11,89:1 no Plantão, medidos na 7a.AD.2). Usado no selo "esta tese pede revisão" da tela do dossiê e na banda de aviso da 7a.S. Tem par no bloco `[data-theme="dark"]`, então é dark-ready sem override por seletor.
-- `--amber-900: #8a5a00` — Warning como texto sobre superfície âmbar clara.
-- `--red: #b91c1c` — Danger / perda. PIN error, chip.is-neg, lado-S, kpi-valor.is-neg, drift-neg.
+### Semânticos
 
-### Identidade — Paleta oficial de categorias (7a.E.20)
+`--amber #f59e0b` (atenção, drift positivo) · `--amber-700 #b45309` (atenção
+**como texto**: o âmbar puro não fecha 4,5:1 sobre `--neutral-50`; este degrau
+fecha) · `--amber-900 #8a5a00` (texto sobre superfície âmbar clara) ·
+`--red #b91c1c` (perda, erro).
 
-Cada categoria de ativo tem um token semântico em `:root` que é a **fonte única**. CSS, JS e o tema ECharts derivam dali (via `var(--cat-*)` no CSS e `getComputedStyle` no JS) — drift impossível por construção.
+Ação: `--sem-up` (= `--cat-acoes-br`, "abaixo do alvo") e `--sem-down`
+(= `--cat-fii`, "acima do alvo"), com tints `--sem-up-tint`/`--sem-down-tint` e
+`--sem-down-texto #8f5b16` quando o ocre precisa ser texto. `--faixa-ok #4f6b5d`
+é o "dentro da faixa", contido para não competir com os outros dois.
 
-| Categoria | Hex | Token semântico |
+### Categorias de ativo — `var(--cat-*)` é a fonte única
+
+| Categoria | Claro | Token |
 |---|---|---|
 | Ações BR | `#047857` | `--cat-acoes-br` |
 | EUA | `#1e6091` | `--cat-eua` |
 | FIIs | `#b8731f` | `--cat-fii` |
+| Renda Fixa BR | `#0e7490` | `--cat-renda-fixa-br` |
 | Cripto (ativo, não categoria) | `#6d4ea8` | `--cat-cripto` |
 
-Desde a 7a.BG.1 a cripto está **fora da carteira** e não é categoria da `#alocacao`. O token `--cat-cripto` permanece só para o ativo cripto nas posições e no dossiê (ponte `catCssVar`/`dossieCatStyle`); as 3 categorias de alocação são Ações BR, EUA e FIIs.
+CSS lê `var(--cat-*)`; JS lê a mesma propriedade por `getComputedStyle`; o tema
+do ECharts deriva o array `color` do mesmo lugar, via `readToken` em
+`js/echarts-theme.js`. Por isso não há hex de categoria fora do `:root` — a cor
+existe num lugar só e não pode divergir entre CSS, JS e gráfico.
+`identidade-visual.spec.ts` compara os três e falha se divergirem.
 
-Regras:
-- Hex hardcoded fora de `:root` para essas cores é proibido. Sempre `var(--cat-*)` em CSS ou `getComputedStyle(...).getPropertyValue('--cat-*')` em JS.
-- Tema ECharts `drarthur` deriva o array `color` via helper `readToken` (`js/echarts-theme.js`). Slots 0-3 são os tokens na ordem [Ações BR, EUA, FII, Cripto] (o slot Cripto serve a séries do ativo cripto, não a uma categoria de alocação); slots 4+ são tokens secundários.
-- Intensidade: cor aparece em **dot 8-12px** (`.classe-dot.dot-*`) e nas séries de gráfico do PWA. **Texto nunca é colorido por categoria** — hierarquia tipográfica carrega o peso.
-- **Theme-aware (7a.S.12):** cada `--cat-*` ganha um 2º valor sob `:root[data-theme="dark"]`, mais claro/saturado que o light (ex.: Ações BR `#047857` claro → `#34d399` dark) — legível como dot/série contra o fundo quase-preto. Ver "Modo Plantão" abaixo.
+A cor de categoria aparece em dot de 8–12px e nas séries de gráfico. **Texto não
+é colorido por categoria** — a hierarquia tipográfica carrega o peso, e isso
+mantém o contraste de leitura independente da paleta.
 
-### Bandeira de origem (7a.E.20)
+### Contraste e sinal — convenções de acessibilidade
 
-- Forma: emoji nativo `🇧🇷` / `🇺🇸`, classe global `.flag` (17px default, com overrides contextuais para hero/raio-x).
-- Posição: primeiro elemento da row de ativo (`.flag` antes do ticker).
-- Origem: campo `bandeira` no JSON, derivado de `moeda` no pipeline via `src/common/bandeira.py::bandeira_de_moeda` (schema v2.12 propaga em 5 shapes; v2.15 muda o caminho de política para `politica.categorias[].buckets[].ativos`).
-- Quando aparece: toda linha de ativo individual no PWA (#alocacao, #politica, #proventos drilldown, #aportar, card "último aporte", #ativo/:ticker header).
-- Quando não aparece: headers de **categoria** (Ações BR / EUA / FIIs) — bandeira é por ativo, não por categoria. Total agregado (`🌍 Total`) usa emoji distinto e fica preservado.
+- **Contraste AA.** `--ink` sobre `--neutral-50`/`--surface` fica ≥ 4,5:1 (texto
+  normal); `--gray`, `--accent`, `--red`, `--amber` e os `--cat-*` sobre
+  `--neutral-50` ficam ≥ 3:1 (texto grande, ícone, dot, série de gráfico). O
+  helper `contraste()` de `tests/e2e/comite-comum.ts` calcula a razão pela
+  fórmula de luminância relativa da WCAG, e oito specs o usam para travar a
+  régua — entre elas `modo-plantao.spec.ts`, `nav-grupos.spec.ts`,
+  `reserva.spec.ts` e as três do Comitê. Quando um token não fecha a razão como
+  texto, a saída é um degrau escurecido dedicado (`--amber-700`,
+  `--sem-down-texto`) ou um véu (`--etq-veu` + `--etq-texto`).
+- **Sinal usa forma + texto + cor.** Ganho e perda levam glifo (▲/▼), o valor
+  escrito e a cor; os selos de tese do dossiê e do Relatório levam ●/◐/▽ mais o
+  grau por extenso e a cor; a vigília usa ▲/◇/· do mesmo modo. A cor é o
+  terceiro sinal, nunca o único — é o que torna a tela legível em deuteranopia.
+  `dossie.spec.ts` trava os selos, e a ponte da rentabilidade faz o mesmo com o
+  "quem pesou".
+- **Alvo de toque ≥ 44px** em todo interativo. A altura vem de `padding` e de
+  `min-width`/`min-height`, não do `font-size` — por isso um facet-dot de 22×3px
+  mora dentro de um `<button>` de 44×44px, e um link em `--num-2xs` ainda tem
+  alvo cheio.
+- **Foco visível unificado:** `:focus-visible { outline: 2px solid var(--accent);
+  outline-offset: 2px; }`, uma regra para todos os controles.
+- **Desenho acompanhado de equivalente textual.** Gráficos em SVG inline levam
+  `role="img"` mais `aria-label` com os números; a cascata do diagnóstico é
+  `aria-hidden` e tem uma `table` em `.sr-only` com as mesmas linhas; listas
+  longas anunciam o resumo por `aria-live` numa linha `.sr-only`, não linha a
+  linha.
 
-### Neutrals (warm-tinted)
-- `--ink: #1a1d1c` — Primary text. Levemente tintado pra warm (não pure black).
-- `--gray: #5b605a` — Secondary text. Greenish-neutral pra harmonizar com teal (escurecido em 7a.G.2 Pass 1 para WCAG AA contrast).
-- `--neutral-50: #fafaf7` — Background body. Off-white quente, não pure white.
-- `--neutral-100: #f5f5f0` — Subtle dividers, hover states em política.
-- `--neutral-200: #e7e5de` — Card borders, separadores principais.
-- `--neutral-300: #d4d4d0` — Reserva (não em uso atual, exceto via transparency).
+### Superfícies e sombras
 
-### Shadows (tintadas)
-- `--card-shadow: 0 1px 2px rgba(6, 78, 59, 0.04), 0 4px 16px rgba(6, 78, 59, 0.07)` — Sombra padrão de cards. Tintada para `--g-900` (não preto cru).
-- Hero shadow: same as `--card-shadow` (pós-7a.G.2 distill — hero não tem mais sombra densa própria).
-- ~~Aporte-pill shadow: `0 2px 8px rgba(4, 120, 87, 0.25)`~~ — Removido em 7a.G.2 Pass 7 (quieter, sem shadow no aporte-pill).
-- Toast shadow: `0 6px 24px rgba(6, 78, 59, 0.18)` — Tintada para `--g-900`.
+`--surface #ffffff` (cards, inputs) · `--surface-2 #f3f3ec` (grifo, pill) ·
+`--neutral-100 #f5f5f0` (divisores, hover) · `--neutral-200 #e7e5de` (bordas de
+card) · `--neutral-300 #d4d4d0` (reserva) · `--faint #989e97` (eyebrow, caption).
 
-**Color strategy:** Restrained → Committed pontual. Neutros + 1 hue dominante (teal) carregam ~90% da superfície. Amber e red entram como semantic accent (≤10% do uso). Nunca mais de uma família de gray (warm-tinted, jamais cool gray).
-
-**Modo Plantão (dark OLED, 7a.S.12):** todo token acima que varia por tema (neutrals, ink/gray/faint, accent/accent-2, semânticos, `--cat-*`) ganha um valor dark sob `:root[data-theme="dark"]`. Ver seção dedicada "Modo Plantão" mais abaixo para o inventário completo, o mecanismo de toggle/persistência e o repaint dos gráficos ECharts.
+`--card-shadow: 0 1px 2px var(--g-900-04), 0 4px 16px var(--g-900-07)` — tintada
+para `--g-900`, não preta. `--shadow-pressed` é a sombra do estado tocado.
+Alphas nomeados: `--g-700-06`, `--g-700-12`, `--teal-14`, `--g-900-04`,
+`--g-900-07`.
 
 ---
 
-## Typography
+## Tipografia
 
-Sistema operacional fonts, sem custom font (zero JS overhead, zero FOIT). Hierarquia através de **scale + weight + uppercase letterspacing**, não através de famílias diferentes.
+Fontes do sistema, sem fonte embarcada: `-apple-system, "SF Pro Text",
+"Segoe UI", system-ui, sans-serif`. Mono por stack também (`--mono`:
+`ui-monospace, SF Mono, Cascadia Mono, JetBrains Mono, Menlo, Consolas`). A
+hierarquia vem de escala, peso e letterspacing em caixa alta. Pesos em uso: 400,
+500, 600, 700, 800.
 
-### Font stack
-```css
-font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-```
+Como o app não embarca fonte, a métrica muda por sistema operacional (Segoe no
+Windows, DejaVu ou Selawik no Linux, SF no iPhone). Layout que depende de largura
+de glifo precisa de folga; teste de forma que mede pixel pode passar local e
+falhar no CI.
 
-Renderização nativa por OS:
-- iOS / iPadOS / macOS: SF Pro
-- Windows: Segoe UI
-- Android (PWA installed): Roboto (via system-ui)
-- Linux: variável
+### Escala numérica `--num-*` — fonte única
 
-### Mono (números)
-**Tabular-nums universal.** Toda exibição de valor monetário, rentabilidade, data ou contagem usa `font-variant-numeric: tabular-nums` para alinhamento vertical em colunas. Mono (`--mono`) marca números de destaque e de identidade (o herói Monument, os pôsteres, os valores dos cards do Raio-X, selos e linhas de `#alocação`, o ranking de DY) e datas de linha do tempo. Número em prosa e em tabela de leitura fica na **fonte do texto**, com `tabular-nums`. Na tela da projeção a regra é estrita: mono só nos dois valores da frase-resposta (7a.AX). (A frase anterior, "nenhuma fonte mono separada", estava desatualizada desde o Monument.)
+Todo valor numérico (R$, %, contagem, ticker-pôster) referencia um destes sete
+tokens. Mudar um tamanho é editar o token.
 
-### Scale (rem-based, base 16px)
-
-**Escala numérica `--num-*` (7a.E.27 — FONTE ÚNICA).** Todo valor numérico
-(R$, %, contagem, ticker-poster) referencia um destes 7 tokens em `:root`;
-mudar um tamanho = editar o token, nunca um `font-size` inline. Rótulos/
-eyebrows uppercase têm tratamento próprio (ver Hierarchy rules) e ficam fora.
-
-| Token | px | Onde (exemplos) |
+| Token | px | Onde |
 |---|---|---|
-| `--num-poster` | 40px (2.5rem) | hero patrimônio (`.hero-valor` mono) |
-| `--num-xl` | 30px (1.875rem) | `.ticker-vm-grande`, `.rel-secao--manchete .rel-secao__titulo` |
-| `--num-lg` | 20px (1.25rem) | `.r7d-delta`, `.aporte-data` |
-| `--num-md` | 16px (1rem) | `.kpi-valor`, `.rent-metrica/periodo-valor` |
-| `--num-sm` | 15px (0.9375rem) | `.aloca-cat__rs-valor`, `.aporte-valor`, `.tabela-* td.num` |
-| `--num-xs` | 13px (0.8125rem) | `.aloca-cat__foot`, `.aloca-ativo__rs`, `.aloca-trilho__etq`, `.aloca-cripto`, benchmark rows |
-| `--num-2xs` | 10px (0.625rem) | `.aporte-compra-qty-sub` |
+| `--num-poster` | 40 | hero do patrimônio |
+| `--num-xl` | 30 | ticker grande, manchete do Relatório |
+| `--num-lg` | 20 | delta dos 7 dias, data do aporte |
+| `--num-md` | 16 | KPI, métrica de rentabilidade, % de classe |
+| `--num-sm` | 15 | valores de tabela, aporte, política |
+| `--num-xs` | 13 | percentual de ticker, drift, anotação numérica |
+| `--num-2xs` | 10 | anotação densa (DY por ativo, quantidade) |
 
-**Banda "monument display" (7a.S.1)** — posters de herói, degraus finos (razões <1.25), distinta da escada de dados acima:
+Banda de pôster, com degraus mais finos: `--num-poster-lg` 46px (capa do
+Relatório) e `--num-poster-xl` 54px (o DY da carteira).
 
-| Token | px | Onde (exemplos) |
-|---|---|---|
-| `--num-poster-lg` | 46px (2.875rem) | `.rel-poster` — capa editorial do Relatório (7a.S.9, 1º consumidor real do token) |
-| `--num-poster-xl` | 54px (3.375rem) | `.poster` — DY da carteira em `#s-dy` (7a.S.7b, 1º consumidor real do token) |
-
-Razões da escada de display (dados): poster/xl 1.33 · xl/lg 1.5 · lg/md 1.25 (todos ≥1.25).
-
-**Fora da escala (decisão consciente):** glifos de unidade que decoram um número
-poster são proporção tipográfica deliberada, não valores de display, e ficam hardcoded.
-Idem rótulos/eyebrows uppercase, inputs, badges/pills, ícones e chrome em `px`.
-
-Na banda de 10px essa política deixa de ser prosa e vira regra executável: toda
-declaração `font-size: 0.625rem` ou `font-size: 10px` precisa **ou** do token
-`--num-2xs`, **ou** de um marcador inline declarando o motivo, na mesma linha:
+**Marcador `fora-da-escala`.** Rótulos em caixa alta, inputs, badges, ícones e
+glifos de unidade não são valores de display e ficam fora da escala. Na banda de
+10px isso é verificado: toda declaração `font-size: 10px` ou `0.625rem` precisa
+**ou** do token `--num-2xs`, **ou** de um marcador na mesma linha dizendo o
+motivo —
 
 ```css
 font-size: 10px;  /* fora-da-escala: rótulo uppercase */
 ```
 
-Verificado por `tests/e2e/escala-tokens-lint.spec.ts`. O critério de decisão é
-único: *o seletor renderiza um número formatado?* (olhe o `x-text` no
-`index.html`; `tnum`/`tabular-nums` corrobora). Se sim, token. Se não, marcador.
+— e `tests/e2e/escala-tokens-lint.spec.ts` falha sem um dos dois. O critério de
+decisão é único: *o seletor renderiza um número formatado?* Se sim, token; se
+não, marcador. A banda é estreita de propósito: 11px e 13px coincidem com
+tamanhos de prosa e de controle sem relação com a escala numérica.
 
-A banda é estreita de propósito. 11px e 13px coincidem com tamanhos de prosa,
-chips e controles que não têm relação nenhuma com a escala numérica — ligá-los
-a `var(--num-xs)` faria a bandeira do Brasil em `.champ .flag` mudar de tamanho
-no dia em que o `--num-xs` mudasse. Um lint que grita em falso vinte vezes
-ensina todo mundo a calá-lo.
+### Números
 
-| Token de uso | Tamanho | Weight | Line-height | Letter-spacing | Onde |
-|---|---|---|---|---|---|
-| Hero valor | `--num-poster` 2.5rem (40px) mono | 800 | 1.05 | -0.025em | `.hero-valor` (2ª decl mono, raio-x enxuto pós-7a.I) |
-| Poster DY (`#s-dy`) | `--num-poster-xl` 3.375rem (54px) mono | 800 | 1 | -0.035em | `.poster` (7a.S.7b) |
-| Ticker hero VM | `--num-xl` 1.875rem (30px) mono | 800 | — | -0.025em | `.ticker-vm-grande` (7a.E.27: era 3rem drift de decl duplicada; consolidado) |
-| R$ categoria (#alocacao) | `--num-sm` 0.9375rem (15px) | 700 | — | — | `.aloca-cat__rs-valor` (cor `--cat`; guarda overflow 7 díg a 320px) |
-| Ticker hero h2 | 1.5rem (24px) | 700 | — | — | `.ticker-hero h2` |
-| Breadcrumb h1 | 1.375rem (22px) | 700 | — | — | `.breadcrumb h1` |
-| H1 home | 1.75rem (28px) | 700 | — | — | `h1` |
-| Aporte data | 1.125rem (18px) | 700 | — | -0.01em | `.aporte-data` |
-| Número-veredito (#rentabilidade) | `--num-poster` 2.5rem (40px) mono | 700 | 1.05 | -0.02em | `.rent2-grande` (7a.BD.2; ▲/▼ + sinal, cor do sinal) |
-| Rent linha inline | 0.9375rem (15px) | 400-700 | — | — | `.rent-linha-inline` |
-| Body padrão | 1rem (16px) | 400 | — | — | default |
-| Card título (uppercase) | 0.75rem (12px) | 600 | — | 0.08em | `.card-titulo`, `.hero-label` |
-| Tabela movimentos | 0.92rem (~15px) | 400 | — | — | `.tabela-movimentos` |
-| KPI label (uppercase) | 0.6875rem (11px) | 400 | — | 0.4px | `.kpi-label` |
-| KPI valor | 1rem (16px) | 600 | — | — | `.kpi-valor` |
-| Política ticker/nota | 0.9375rem (15px) | 600 | — | — | `.politica-ticker`, `.politica-nota` |
-| Política sub | 0.75rem (12px) | 400 | — | — | `.politica-categoria-sub` |
+`font-variant-numeric: tabular-nums` em toda exibição de valor, rentabilidade,
+data ou contagem — é o que alinha coluna. `--mono` marca número de destaque e de
+identidade: o hero, os pôsteres, os valores dos cards do Raio-X, os selos e as
+linhas da alocação, o ranking de DY, as datas da linha do tempo. Número em prosa
+ou em tabela de leitura fica na fonte do texto, com `tabular-nums`.
 
-### Hierarchy rules
-1. **Display headers** (1.75rem+): tight tracking (-0.01em a -0.5px), weight 700-800.
-2. **Section labels** (0.75rem-0.8125rem): uppercase + letter-spacing 0.08em + weight 600 + cor `--gray`.
-3. **Body** (0.875rem-1rem): weight 400-500, cor `--ink`, line-height padrão do browser.
-4. **Numbers**: SEMPRE `font-variant-numeric: tabular-nums`, weight 600-800 conforme densidade.
+**Dinheiro e percentual não são truncados nem reticenciados.** Valor em coluna
+estreita leva `nowrap` mais `tabular-nums`, e o rótulo ao lado cede espaço.
+Valor ausente rende `—` (com `aria-label` dizendo o quê), nunca `R$ 0,00`: zero
+é um número e mentiria.
 
-### Anti-patterns
-- ❌ Não usar Inter, Roboto Flex, Geist, Satoshi, ou qualquer custom font.
-- ❌ Não usar gradiente em texto. (Pré-7a.S.7b havia uma exceção única, `.proventos-ytd` — removida na reforma do topo de #proventos; sem exceções vigentes.)
-- ❌ Não usar serif em qualquer lugar.
-- ❌ Não usar mais de 3 weights no mesmo viewport (400, 600, 700/800 são as únicas combinações em uso).
+### Degraus de uso
+
+Hero mono 800, `line-height 1.05`, tracking `-0.025em` · h1 da home 1.75rem 700 ·
+breadcrumb 1.375rem 700 · corpo 1rem 400 · título de card em caixa alta 0.75rem
+600 tracking `0.08em` · `.eyebrow` 11px 800 tracking `0.2em` em `--faint` (a voz
+de abertura de tela) · rótulo de KPI 0.6875rem 400.
 
 ---
 
-## Spacing & layout
-
-### Container scale
-- **Raio-X home (`main`):** `max-width: 520px; padding: 1.5rem; margin: 0 auto;` — mobile-first, mas centraliza em telas largas.
-- **Telas detalhe (`.tela-detalhes`):** `max-width: 720px; padding: 16px 20px 80px;` — mais espaço para tabelas e KPI grids.
-- **Tela política (`.tela-politica`):** `padding: 0 16px 32px;` — full-width controlado por viewport.
-
-### Spacing scale (rem-based)
-- `0.1rem` (1.6px) — micro-gap em rent-suffix
-- `0.25rem` (4px) — text-row gap, padding mínimo
-- `0.4rem-0.5rem` (6.4-8px) — chip padding interno, gap entre elementos relacionados
-- `0.55rem-0.75rem` (~9-12px) — alocação line padding, section spacing
-- `1rem` (16px) — gap padrão entre cards
-- `1.125rem-1.5rem` (18-24px) — padding interno de cards e main
-- `2rem` (32px) — section break vertical
-- `3rem` (48px) — top padding pin-screen
-
-### Border radius
-- `8px` — small, tabela-wrap interno
-- `10-12px` — buttons, KPIs, política cards
-- `14px` — pin input/submit, chart-rent
-- `18px` — cards principais (raio-x), alocação cards, ticker-hero
-- `22px` — hero
-- `999px` — chips, pills, dots, toast (full pill)
-
-### Grid systems
-- **KPI 2-col:** `grid-template-columns: repeat(2, 1fr); gap: 10px;` — padrão.
-- **KPI 3-col:** override `.kpi-grid-3` para tela proventos.
-- **KPI stack 1-col:** override `.kpi-stack` para #patrimonio (com descrição abaixo).
-- **Aporte item:** `grid-template-columns: 1.3rem 1fr auto; gap: 0.6rem;` — bandeira + ticker + valor.
-- **Classe row:** `grid-template-columns: 14px 1fr auto 16px;` — dot + nome + pct + arrow.
-- **Política header:** grid 2-row 3-col com chevron span vertical.
-- **Rent benchmark:** `grid-template-columns: 2.5rem 1fr;`.
-
-### Mobile-first
-Todos os layouts assumem 320-375px de largura como ponto de partida. NÃO há breakpoint `md:` ou `lg:` — single-column sempre, com max-widths que centralizam em desktop. Touch targets ≥44px (botões PIN, btn-bloquear, ticker-row).
-
----
-
-## Components
-
-### Hero (raio-x)
-Card sólido `var(--g-900)` (teal escuro), sombra padrão de cards, sem gradient radial/linear. Conteúdo: label uppercase 0.6875rem, valor 2rem peso 700 com tabular-nums, delta-pill flat com tint `rgba(255,255,255,0.12)` (sem `backdrop-filter`), updated label 0.75rem opacity 0.6.
-
-```css
-.hero {
-  background: var(--g-900);
-  border-radius: 18px;
-  padding: 1.25rem 1.125rem 1.5rem;
-  color: #fff;
-  box-shadow: var(--card-shadow);
-}
-```
-
-Distill 7a.G.2 removeu o `radial-gradient + linear-gradient + ::after`, reduziu `.hero-valor` de 2.625rem peso 800 → 2rem peso 700, e tornou `.hero-delta` flat (sem glassmorphism). DESIGN.md ↔ implementação reconciliados (sem mais "hero metric template" banido).
-
-### Hero Monument (raio-x, 7a.I.2 · reconciliado em 7a.E.27)
-
-Variant tipográfica do hero dentro do shell de tab bar. Card sólido `--g-900` flat (sem gradient/glassmorphism — anti-pattern #8 vigente); a diferença vs hero padrão é só fonte mono + escala + tracking. Escolha de identidade ("Monument"), não decoração.
-
-Implementação real: **não** existe `.hero-valor-monument` nem `--hero-mono-size` (eram drift de doc — removidos aqui). O hero é a 2ª declaração de `.hero-valor`, que sobrescreve a base sans com a variante mono:
-
-```css
-.hero-valor {                  /* 2ª decl — Monument */
-  font-family: var(--mono);    /* ui-monospace stack — não custom font */
-  font-size: var(--num-poster); /* 2.5rem (40px) — 7a.E.27 */
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-}
-```
-
-Hero size = `--num-poster` (2.5rem), calibrada no raio-x enxuto pós-7a.I (cabe em 1-viewport sem sparkline/chips/CTA, removidos no enxuto). **7a.S.5 nota:** o hero-valor de TODAS as 4 facetas (ver seção seguinte) mantém `--num-poster` — o mockup de referência usa 38px (≈ o mesmo degrau), não o degrau maior `--num-poster-lg` (46px) cogitado como possibilidade em S.1; corrigido aqui pra refletir a implementação real.
-
-### Hero de facetas (raio-x, 7a.S.5)
-
-O hero deixou de ser um `<a>` com uma única leitura (patrimônio) e um único destino (clique → `#/raiox/chart`). Virou um **card de facetas**: `<div role="button" tabindex="0">` que cicla **4 fatos read-only**, todos derivados do `portfolio.json` já existente — nenhum campo novo de backend:
-
-1. **Patrimônio total** (`patrimonio.total_brl`) — faceta inicial, com o count-up 1×/sessão preservado.
-2. **Divisão Brasil · EUA** (`patrimonio.carteira_br_brl` / `patrimonio.eua_brl` sobre `patrimonio.carteira_brl`, campos diretos, não derivados; payload < v2.31 cai em `br_brl`/`total_brl`) — split visual: 2 colunas (bandeira + R$ + % da carteira) + barra proporcional 2 cores. Desde a 7a.BG.1 a divisão vale sobre a **carteira** (patrimônio sem a cripto): Brasil + EUA = 100 %, e o rodapé de reconciliação (ver "Rodapé de reconciliação da cripto") fica sob a barra.
-3. **Variação · 7 dias** (`patrimonio.variacao_semanal_brl`/`_pct`) — mesma métrica do antigo `.hero-delta`, agora com sua própria leitura em destaque (número grande + subtítulo).
-4. **Desde a origem** (`rentabilidade.Total.xirr_origem`, fallback `twr_origem` se o XIRR for `null`) — retorno anualizado acumulado desde o início da carteira.
-
-**Interação:** tap em qualquer ponto do card, `Enter`/`Space` com o card focado, ou tocar num facet-dot pulam pra faceta correspondente. `@click.stop`/`@keydown.stop` nos facet-dots impedem que o toque neles borbulhe pro `@click` do card (senão o dot avançaria a faceta duas vezes). O `aria-label` do card ("Patrimônio — toque para alternar a leitura") mais o `aria-live="polite"` em `#hero-body` tornam a troca anunciável a leitores de tela sem precisar reimplementar o padrão ARIA "tabs" completo (decisão deliberada: os dots são `<button>` nativos com `aria-current`/`aria-label` próprios, não `role="tab"` — esse role exigiria roving-tabindex + navegação por seta que não foi implementada, e um ARIA incompleto é pior que nenhum).
-
-**Facet-dots:** 4 traços de 22×3px (`::before` decorativo), mas o `<button>` que os contém tem hit-area 44×44px (`min-width`/`min-height`, ver a11y de toque) — o traço pequeno preserva a estética discreta do mockup sem violar touch target.
-
-**Transição em duas camadas** (mockup, valores extraídos): o eyebrow (`#hero-eyebrow`) esmaece (`opacity: 0`) por 150ms antes de trocar o texto; o corpo (`#hero-body`) troca via `.hero-face` — a face que sai ganha `.out` (`translateY(-10px)`, opacity 0, removida do DOM 320ms depois) enquanto a que entra começa em `translateY(10px)`/opacity 0 e anima pra `translateY(0)`/opacity 1 em `--d2` `--ease` (double-`requestAnimationFrame` força o navegador a computar o estado inicial antes de aplicar `.on`, senão a transição não dispara). Facet-dots usam `--ease-spring` só no `scaleX` do traço ativo. `prefers-reduced-motion: reduce` (via `window.drarthurNav.motion.reduced`, mesma fonte de verdade do resto do app shell) pula toda a coreografia — troca instantânea, sem RAF nem `setTimeout`.
-
-**Implementação: DOM imperativo, não `x-show`/`x-if`.** `_renderHeroFace(idx, opts)` cria/remove `.hero-face` diretamente via `document.createElement`/`innerHTML`, no mesmo racional de `ativarCountUpHero` (7a.I.6): a transição de duas camadas com remoção atrasada não mapeia bem pra `x-if` do Alpine sem arriscar nós duplicados em modo estrito de teste, e reatividade do Alpine no meio de uma animação RAF reverteria frames intermediários. `heroFacetAtivo` (estado Alpine) permanece single-source pros facet-dots (`x-for` reativo) — só o CONTEÚDO da faceta é imperativo, não o indicador de qual está ativa.
-
-**Count-up preservado, nunca re-disparado.** `ativarCountUpHero(el)` (assinatura estendida em 7a.S.5 pra aceitar um elemento explícito) é chamada toda vez que a faceta "Patrimônio total" é renderizada — inclusive ao voltar pra ela depois de ciclar. Ela mesma decide animar-ou-não via `sessionStorage.heroCountUpDone`: setado uma única vez, na 1ª renderização da sessão; toda visita subsequente (recarregar a página OU ciclar de volta pra faceta 0) cai no branch instantâneo (`el.textContent = formatBrl(...)`, sem RAF). **Gotcha descoberto pelo próprio teste TDD:** o nó antigo de `#hero-patrimonio` fica 320ms no DOM (transição de saída) enquanto um nó novo com o MESMO id é criado pra faceta seguinte — se o usuário ciclasse de volta pra faceta 0 dentro dessa janela, `getElementById` resolvia pro nó errado (o que está saindo, ainda alvo do RAF do 1º count-up em voo), revertendo o texto pro valor parcial. Corrigido de duas formas: (1) o id é removido do nó que está saindo no instante em que ele vira `.out`; (2) `ativarCountUpHero` recebe o elemento explícito (escopado ao nó que `_renderHeroFace` acabou de criar), nunca dependendo de uma busca global ambígua.
-
-**Hint "☞ toque no número"** aparece 1×/sessão (`sessionStorage.heroFacetHintSeen`, mesmo padrão de `heroCountUpDone`) e some no 1º toque (`.hero-hint.gone`, opacity 0). `aria-hidden` (é reforço visual, não informação essencial — o `aria-label` do card já comunica a interação a quem usa leitor de tela).
-
-**Acesso ao histórico completo.** O hero era a ÚNICA entrada pra `#/raiox/chart` (7a.I.5); virando facet-cycling, o link `.hero-chart-link` ("Ver histórico", abaixo do card) assumiu esse papel. Desde a 7a.CC.1 o Histórico é membro da faixa do Raio-X, e o link, que só a repetia, **saiu na 7a.CE**: `raiox-chart-push.spec.ts`/`raiox.spec.ts` entram pela faixa. Um teste de regressão explícito ("tap no hero NÃO navega") documenta o facet-cycling como intencional.
-
-```css
-.hero { cursor: pointer; overflow: hidden; }      /* card vira controle interativo */
-.hero::before { background: radial-gradient(90% 70% at 78% 4%, var(--hero-glow), transparent 62%); }
-.hero:active { transform: scale(.985); box-shadow: var(--shadow-pressed); }  /* migrado de .hero-link */
-.hero-face { position: absolute; inset: 0; opacity: 0; transform: translateY(10px); }
-.hero-face.on  { opacity: 1; transform: translateY(0); }
-.hero-face.out { opacity: 0; transform: translateY(-10px); }
-.fd { min-width: 44px; min-height: 44px; }         /* hit-area do facet-dot */
-```
-
-O `.hero::before` consome `--hero-glow` (token S.1, transparente no light — inerte até S.12 dark) pela primeira vez; não é o gradiente decorativo banido pelo anti-pattern #8 (que continua vigente — sem gradiente LINEAR no background do card, só o radial glow reservado desde a fundação).
-
-### Voz humana nos estados vazios (raio-x, 7a.S.5)
-
-Três estados que antes eram robóticos ou silenciosos ganharam frase curta e humana — a degradação graciosa (`x-show`) continua intacta, só o TEXTO mudou/apareceu:
-
-- `.aporte-vazio`: "Nenhum aporte registrado." → **"Nenhum aporte por aqui ainda."**
-- `.r7d-vazio` (novo): quando `ultimos_7d` existe (schema v2.13+) mas ainda não há dado suficiente (DB recém-bootstrapped, sem snapshot ≥7d e sem movimentos na janela) — **"Sem novidade por aqui nesta semana."** em vez do bloco simplesmente desaparecer sem explicação. Distinto do legado (schema < v2.13, `ultimos_7d` ausente) — aí nem esta mensagem aparece (`x-show="json.ultimos_7d && !ultimos7dVisivel()"`).
-- `.r7d-movers-vazio` (novo): semana ativa (headline + decomp + listas visíveis) mas sem cotação-base pra rankear movers — **"Sem destaque de mercado nesta semana."** no lugar do card, sem tocar o resto da semana.
-
-Tipograficamente espelham `.aporte-vazio` (0.875rem/0.8125rem, `--gray`, centralizado) — não competem visualmente com dado real.
-
-### Bloco "Últimos 7 dias" (raio-x, 7a.J.1)
-
-Seção entre hero e último-aporte que decompõe a variação patrimonial de 7 dias em três componentes contábeis: **aportes líquidos** (compras − vendas), **proventos** (dividendos + JCP + rendimentos), **mercado** (residual = delta − aportes − proventos). Identidade contábil garantida no backend (`_build_ultimos_7d`, schema v2.13): `delta_patrim_brl ≡ aportes_liq + proventos + mercado` (até 1 centavo).
-
-```css
-.r7d-head    { /* label small-caps 11px + delta mono 1.125rem 700 (--ink/--g-700/--red) */ }
-.r7d-row     { /* sans label gray + valor mono 0.9375rem colorido por sinal */ }
-.r7d-movers  { /* .grifo consagrado (7a.S.5): bg --surface-2 + border-left 3px --accent + radius 0 14px 14px 0 */ }
-.r7d-movers li { /* grid 0.9rem 1fr auto auto auto: ▲▼ · ticker · .flag · R$ · % */ }
-.r7d-lista li{ /* grid 1fr auto auto auto: ticker · qty · valor · .flag */ }
-```
-
-**Movers de mercado (7a.J.2.b).** Sub-bloco entre a decomposição 3-row e as listas Compras/Vendas/Proventos: lista as **top 3 altas + top 3 baixas por impacto em R$** na semana, "abrindo" a caixa-preta da linha **Mercado** (a única perna da decomposição que o Dr. Arthur não controla e mais quer entender). Cada linha: seta ▲/▼ · ticker · bandeira · impacto R$ com sinal (`formatBrlSigned`) · retorno % (`formatPct`). Ordenação visual: altas (impacto desc) seguidas das baixas (mais negativa primeiro), espelhando a ordem do array do backend (`ultimos_7d.variacao_mercado`, schema JSON v2.22). Cores pelos pares semânticos (`.is-positive`/`.is-negative` → `--g-700`/`--red`). **A11y:** direção codificada em três camadas (forma ▲/▼ + cor + sinal `+/−` no valor — nunca cor sozinha, regra `color-not-only`); seta ▲/▼ e ★ do título são `aria-hidden` (decorativos), o leitor de tela lê "PETR4 +R$ 920,00 +3,10%".
-
-**Grifo consagrado (7a.S.5).** `.r7d-movers` é o **único cartão com border-left** da tela Raio-X — a colocação canônica documentada desde S.1 (anti-pattern #14, Apêndice B da spec: "Raio-X = card Movers"), agora realizada. Antes: `border-left 3px solid var(--ink)` + `background: var(--neutral-50)` + `border-radius: 10px` (uniforme). Depois: `.grifo` (S.1) — `border-left 3px solid var(--accent)` + `background: var(--surface-2)` + `border-radius: 0 14px 14px 0` (assimétrico, "abrindo" visualmente pra direita). É o cartão de maior tensão informativa do bloco (o que o Dr. Arthur mais quer entender), coerente com a régua "grifo = UMA por tela, no ponto de maior tensão".
-
-**Pattern de render:** pure Alpine (sem helper JS externo). `x-show="ultimos7dVisivel()"` esconde o bloco quando schema é v<2.13 (sem `ultimos_7d`) ou quando DB recém-bootstrapped não tem snapshot ≥7d E listas vazias. Cada `.r7d-lista` aparece via `x-show` apenas quando array é não-vazio (semana calma fica só com headline + decomp). O `.r7d-movers` aparece via `x-show="(json.ultimos_7d?.variacao_mercado || []).length > 0"` (some quando não há snapshot-base 7d ou todos os impactos < 1 centavo). Sem ECharts (Monument text-only); sem motion individual (segue regra global do shell — entrada via `x-transition.opacity.duration.220ms` herdada da tab raio-x).
-
-**Tokens reusados (zero novo):** `--mono` (headline + valores), `--num-sm` (linhas movers/decomp), `--g-700` (sinais positivos), `--red` (sinais negativos), `--gray` (labels secundários), `--ink` (texto principal), `--neutral-50` (fundo do cartão movers), `--neutral-100/200` (borders), classe global `.flag` (bandeiras BR/EUA). Helper novo: `formatBrlSigned` (R$ com sinal explícito) em `js/format.js`.
-
-### Tab bar (Monument)
-
-Bottom nav fixa, **cinco grupos por extenso** (Raio-X · Retorno · Carteira · Análise · Aportar; 7a.CC.1, antes Raio-X · Rentabilidade · Alocação · Proventos · Aportar), text-only (sem ícones), indicator 2px no **topo** do grupo ativo que desliza via `transform translateX`. Single element (`.tab-bar-indicator`) compartilhado entre todos os grupos — não é pseudo `::before` por tab. Os links saem do mapa `GRUPOS` (`js/navegacao.js`, `x-for`); `data-tab` é o id do grupo (`raiox|retorno|carteira|analise|aportar`) e o toque leva à última tela visitada do grupo (no grupo já aceso, à primeira da faixa). As telas de cada grupo ficam na **faixa de telas** (seção abaixo).
-
-```css
-.tab-bar {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  height: calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--tab-bg);              /* 7a.S.4: frosted (era --tab-bar-bg opaco) */
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  border-top: 1px solid var(--tab-bar-border);
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  z-index: 100;
-}
-.tab-bar a {
-  font-size: 10.5px; font-weight: 600;    /* 7a.S.4: era 13px/0.02em, abreviado */
-  color: var(--faint);
-  letter-spacing: 0.01em;
-  min-height: 44px;
-  min-width: 0;                           /* evita grid blowout com rótulo longo */
-  padding: 0 2px;
-  text-align: center;
-}
-.tab-bar a[aria-current="page"] { color: var(--accent); font-weight: 700; }
-.tab-bar-indicator {
-  position: absolute; top: 0;
-  height: var(--tab-indicator-height);
-  background: var(--tab-active);
-  transform: translateX(var(--tab-indicator-x, 0px));
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);  /* 7a.S.4: NÃO tocado */
-}
-```
-
-**Tokens:** `--tab-bar-height: 56px`, `--tab-bg: rgba(250,250,247,.86)` (7a.S.4, frosted; `--tab-bar-bg: var(--neutral-50)` fica só como fallback histórico, não mais referenciado), `--tab-bar-border: var(--neutral-200)`, `--tab-active: var(--g-900)` (ainda usado pelo indicator), `--tab-indicator-height: 2px`. Cor/peso do label agora vêm de `--faint`/`--accent` (S.1), não mais de `--tab-inactive`.
-
-**Rótulos por extenso (7a.S.4):** as abreviações `raio-x/rent/aloca/prov/apt` (pré-7a.S) viraram `Raio-X/Rentabilidade/Alocação/Proventos/Aportar`. Risco medido: "Rentabilidade" (13 caracteres, palavra sem quebra) a 320px em 5 colunas (~64px/tab) — `min-width: 0` no item do grid + `padding: 0 2px` evitam o "grid blowout" (a track de `1fr` cresceria além da viewport com `min-width: auto` padrão). Verificado: 0 overflow horizontal a 320px (`tab-vozes.spec.ts`).
-
-**Persistência:** visível em todas as telas-membro dos 5 grupos e nas telas de push (`#ativo/:ticker`, `#/dossie/:ticker`, `#/dossie/:ticker/retorno`, os capítulos do Diagnóstico). Some apenas na PIN screen (gate de auth, antes do shell ser hidratado).
-
-**Anatomia visual:** indicador 2px no topo (não bottom-underline cliché Material/Bootstrap), peso 600 inativa / 700 ativa, color shift `--faint` → `--accent`. Sem badges, sem ícones, sem dot decorativo. Diferenciação carregada por peso + cor + tracking + indicator.
-
-### Cabeçalho de grupo e faixa de telas (7a.CC.1)
-
-O segundo nível da navegação. Um único `<header class="grupo-cab">`, primeiro filho de `<main>`, visível só em **tela-membro** de grupo (`x-show="grupoAtual"`); tela de push não o mostra.
-
-- **Cabeçalho:** `position: sticky; top: 0`, `padding-top: env(safe-area-inset-top)`, fundo `--tab-bg` + `backdrop-filter: blur(14px)` + hairline `--tab-bar-border` embaixo (o mesmo tratamento funcional da barra de baixo), sangrando até a borda de `<main>`. Linha do eyebrow com `min-height: 40px` em todo grupo: `.eyebrow` com o nome do grupo e, só no Hoje, o `.theme-toggle` no canto direito.
-- **Faixa (`nav.faixa`, `aria-label="Telas de {grupo}"`):** um `<a href>` real por tela, `aria-current="page"` na ativa. Item 14px, peso 600 `--gray`; ativo 700 `--accent` sobre pílula de raio 999px. A pílula é **opaca e pré-composta**: `background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--neutral-50)`. Translúcida, com o hero escuro rolando sob o cabeçalho, o contraste caía a ~3,4:1 no claro; opaca, fica em 4,63:1 (claro) e 8,77:1 (Plantão) com qualquer fundo. Alvo ≥ 44px de altura, `gap: 4px`, `padding: 0 12px`.
-- **Largura:** nunca quebra linha (`white-space: nowrap`); rola na horizontal dentro dela, sem barra visível (`scrollbar-width: none`), e a tela ativa é trazida para a área visível por `scrollLeft` (nunca `scrollIntoView`, que rolaria o documento). Retorno cabe inteiro em 375px e rola em 320px.
-- **Âncoras:** `main [id] { scroll-margin-top: calc(var(--grupo-cab-h) + 8px) }`; `--grupo-cab-h` é medida a cada troca de rota (0 em tela de push).
-- **Motion:** só cor e fundo da pílula, em 220ms, dentro de `prefers-reduced-motion: no-preference`.
-
-### Faixa do ativo (7a.CC.3)
-
-O mesmo componente `nav.faixa`, em variante `.faixa-ativo` (`margin: -8px 0 12px`), logo abaixo do `.breadcrumb` ("←" e ticker em `.eyebrow--accent`) das três telas de um ativo; não é o `.grupo-cab` (tela de push não o mostra). `aria-label="Telas de {ticker}"`, `<a href>` reais, `aria-current="page"` no segmento ativo, mesma pílula opaca e mesmo alvo de 44px.
-
-| Segmento | Hash | Aparece |
-|---|---|---|
-| Posição | `#ativo/:t` | sempre |
-| Dossiê | `#/dossie/:t` | `temDossie(t)` |
-| Retorno esperado | `#/dossie/:t/retorno` | `retornoNaFaixa(t)` = `temDossie(t)`, pelo índice, antes de abrir o dossiê. A tela mostra o bloco quando o corpo do dossiê renderizaria (dossiê carregado, sem erro), como antes da 7a.CC, incluindo "indisponível hoje" e "motivo"; até lá, os estados carregando, erro e vazio do Dossiê (mesmas classes `.dossie-*` e textos). Os dois coincidem quando o dossiê carrega (medido 18/11/2026) |
-
-- **Um segmento só, sem faixa** (`x-if` com `segmentosDoAtivo(t).length > 1`): nem espaço reservado.
-- **Motion:** trocar de segmento é `tabFade` (220ms, opacidade; classe `troca-segmento` no `<main>` zera o deslocamento do `push-enter`), nunca push, e não altera a origem do "←". Entrar no ativo a partir de uma lista continua sendo push.
-- **Cabeçalho por segmento:** o `<h1 class="eyebrow eyebrow--accent">` do Dossiê é "Dossiê de {ticker}" e o do Retorno esperado é "Retorno esperado de {ticker}"; o prefixo é `sr-only` e o ticker fica visível, porque o nome do segmento já está na faixa.
-- **Saiu:** a linha `.dossie-entrada` ("por que eu tenho isso?") do fim do `#ativo` e o CSS dela. O Retorno esperado saiu da rolagem do Dossiê.
-
-### Pede atenção (Raio-X › Hoje)
-
-O único lugar do Hoje que aponta para outra tela por um motivo. Bloco `section.pede-atencao`, logo abaixo do hero, antes dos "Últimos 7 dias": o alerta cabe no olhar de 5 segundos, sem rolar. O Hoje não tem cartões de entrada para outras telas: Relatório, Projeção, Renda e Diagnóstico se alcançam pela barra e pela faixa.
-
-- **Itens, ordem fixa**, cada um com a condição que já existe no app (getter `pedeAtencao` em `js/app.js`, itens montados por `pedeAtencaoItens()` em `js/navegacao.js`):
-  1. **Vigília**: o texto de `olhoLinhaRaiox()` ("1 tese sob ameaça"), com o glifo ▲ (`.olho-glifo`, `aria-hidden`), só com tese sob ameaça que o reexame ainda não confrontou → `#olho`. Some quando o reexame acontece, nunca por toque.
-  2. **Notas pendentes**: a contagem de `conferenciaContagemTexto()` ("2 pendentes"), só com item na conferência → `#/raiox/reserva`.
-  3. **Pedido do documento** (7a.CD.3): o texto de `json.proventos.pedir_documento`, que vem pronto do payload cifrado (nomeia a origem dos proventos, e este repo é público), só enquanto o pedido dos 45 dias vale → `#proventos`. Forma `--ink` normal: não é ameaça. Some quando o documento chega e o corte anda.
-  4. **Relatório novo**: "Relatório de {mês} saiu" (`formatMesAno`), só quando o último mês ainda não foi aberto neste aparelho (`mesLido`) → `#/raiox/relatorio`. Abrir o mês o tira.
-- **Sem item, o bloco não existe** (`x-if`): nem título, nem espaço reservado, nem "tudo em ordem".
-- **Forma:** lista de bordas finas, família das linhas do índice do Diagnóstico, sem card. Eyebrow "Pede atenção" na voz dos rótulos vizinhos ("Últimos 7 dias", "Último aporte": 11px, 600, uppercase, 0.08em, `--gray`). `ul` com hairline `--neutral-200` em cima e uma por linha embaixo; cada linha é um `<a>` de ≥ 44px, 0.9375rem peso 600 `--ink`, com "›" `--gray` à direita. A linha da Vigília é `--amber-700` (o token da ameaça não examinada). Foco pela regra unificada (`--accent`). Zero token novo, sem fonte, ícone nem duração nova, sem travessão.
-
-### Voz única de abertura de tela — `.eyebrow` (7a.S.4)
-
-Antes da 7a.S.4, cada tela abria com um `<h1>` grande e inconsistente (tamanhos/pesos/cores variando tela a tela — ex. `.raiox > h1` já tinha virado um eyebrow ad-hoc 13px/600/.08em/`--gray` só naquela tela, enquanto `.breadcrumb h1` das demais era 22px/700/`--g-900`). A 7a.S.4 consolida tudo em `.eyebrow` (definido em S.1, inerte até aqui):
-
-```css
-.eyebrow {
-  font-size: 11px; font-weight: 800; letter-spacing: 0.2em;
-  text-transform: uppercase; color: var(--faint);
-  margin: 0;
-}
-.eyebrow--accent { color: var(--accent); }  /* 7a.S.4: variante das push screens */
-```
-
-**Mapeamento por tela (desde a 7a.CC.1):**
-- **Telas-membro de grupo** (as 13 da faixa: Hoje, Histórico, Rentabilidade, Proventos, DY, Renda, Alocação, Vigília, Diagnóstico, Projeção, Relatório, Sugestão, Comitê) — o eyebrow visível é o **do grupo**, no `.grupo-cab` (`.eyebrow`, cor `--faint`). A tela não tem cabeçalho próprio visível: o título dela fica como `<h1 class="sr-only">` (mantém `aria-labelledby` e a hierarquia para leitor de tela), sem botão voltar. O Relatório é a exceção parcial: mantém `<header class="breadcrumb rel-breadcrumb">` só pelo seletor de mês. O **hero-poster do patrimônio** no Hoje permanece intocado.
-- **Telas de push** (`#ativo/:ticker`, `#/dossie/:ticker`, `#/dossie/:ticker/retorno` e os cinco capítulos do Diagnóstico) — `.breadcrumb` com botão "←" e `.eyebrow--accent` (cor `--accent` em vez de `--faint`), sinalizando "você entrou mais fundo" sem reintroduzir peso/tamanho de h1. Sem cabeçalho de grupo. Nas três telas do ativo, o breadcrumb leva o **ticker** visível e o h1 é por segmento (7a.CC.3): `#ativo` mostra só o ticker; o Dossiê lê "Dossiê de {ticker}" e o Retorno esperado "Retorno esperado de {ticker}" (prefixo `sr-only`). Logo abaixo vem a faixa do ativo (ver "Faixa do ativo").
-
-Nenhuma tela usa `<h1>` visível, exceto a PIN screen (`<h1>Carteira</h1>`, fora do shell autenticado — não é uma "tela" no sentido de navegação por tab/push).
-
-### Card (padrão)
-Branco sobre warm-neutral, border 1px tintada, shadow sutil tintada para teal.
-
-```css
-.card {
-  background: #fff;
-  border: 1px solid var(--neutral-200);
-  border-radius: 18px;
-  padding: 1.125rem 1.125rem 1.25rem;
-  margin-top: 1rem;
-  box-shadow: var(--card-shadow);
-}
-```
-Variantes: `.card.proventos` (gradient warm green→amber background), `.card-link` (clicável; feedback de toque `:active scale(.99)`, 7a.S.2 — substitui o hover translateY).
-
-### Chip (rentabilidade XIRR/TWR)
-Pill compacto com background tintado para a métrica.
-
-```css
-.chip-xirr { background: rgba(4, 120, 87, 0.12); color: var(--g-700); }
-.chip-twr  { background: rgba(20, 184, 166, 0.14); color: #0d7377; }
-.chip.is-neg::before { content: "▼ "; }   /* indicador de sinal usa forma + cor */
-```
-
-### Lado pill (Buy/Sell em tabela movimentos)
-Pequeno square pill cor sólida com letra única.
-
-```css
-.lado-B { color: #fff; background: var(--g-700); }   /* Buy = teal */
-.lado-S { color: #fff; background: var(--red); }     /* Sell = red */
-```
-
-### Trilha alocação (progress bar com target)
-Barra horizontal com preenchimento + marker vertical de alvo.
-
-```css
-.aloc-trilha     { height: 0.625rem; border-radius: 999px; background: var(--neutral-100); }
-.aloc-preenchimento { transition: width 300ms ease; }
-.aloc-alvo       { width: 2px; background: var(--ink); opacity: 0.62; top: -3px; bottom: -3px; }
-```
-
-### Aloca unificada (7a.E.31)
-`#alocacao` é **uma única lista de cards de categoria colapsáveis** — sem
-segmented Atual/Alvo (removido), sem accordion de seção. A tela consolida
-política alvo + estado atual lado a lado. Sem cabeçalho próprio visível
-(7a.CC.1): o nome está na faixa do grupo Carteira e o `<h1>Alocação</h1>` fica
-`.sr-only`; o topo não repete patrimônio total, que já é o hero do #raiox.
-
-**Anatomia do card (`.aloca-cat`, `--cat` via `catStyleVar(nome)` inline):**
-- **Header-resumo sempre visível** (`.aloca-cat__head`, `<button>`): dot
-  `--cat` · nome (1.08rem 800) · `.aloca-cat__rs-valor` (R$ da categoria,
-  mono `--num-sm` cor `--cat`) + chevron `▸/▾`. `aria-expanded` +
-  `aria-controls` apontando o corpo.
-- **Trilho** (`.aloca-trilho`, 7a.BK.1): cápsula de 22px em três zonas, sem
-  escala nem marca de alvo. Abaixo em `--sem-up-tint`, na faixa em
-  `--faixa-ok-tint`, acima em `--sem-down-tint`; as bordas da zona central vêm
-  por style (`--na-ini`/`--na-fim`, de `alocTrilho`). Uma etiqueta na cor da
-  categoria (`.aloca-trilho__etq`, largura fixa `--etq-w`) mostra o peso atual
-  e mora dentro da cápsula. Decorativo (`aria-hidden`). Ver "Faixa de
-  tolerância" abaixo.
-- **Foot** (`.aloca-cat__foot`, `flex-wrap`): o estado em palavra
-  (`.aloca-cat__estado--<estado>`: "Pedindo aporte" / "Na faixa" / "Acima da
-  faixa" / "Sem alvo", "—" sem dado) à esquerda, na cor do estado; "alvo X% ·
-  faixa A% a B%" (`.aloca-cat__faixa`) à direita. A 320px quebra em duas linhas.
-- **Corpo** (`.aloca-cat__body`, `x-show` por `catAberta[nome]`): o acordeão
-  agrupado por estado (`.aloca-grupos`, ver abaixo).
-
-**Colapso:** todas as categorias **começam fechadas** (`catAberta: {}`
-vazio). Estado **não-persistente** (reseta no reload), preservado em memória
-Alpine ao trocar de aba. Ordem dos cards por **alvo decrescente**
-(`categoriasAlocacaoOrdenadas`). Chevron rotation 150ms ease,
-`prefers-reduced-motion: reduce` → `transition: none`.
-
-**DY do ativo em `#alocação` — removido (7a.E.34):** a 7a.E.32.b tinha posto
-`DY x%` como sufixo cinza do ticker na linha de ativo. Depois de conviver com
-ela, o número poluía a leitura de uma tela que é sobre **peso × drift × R$**, e
-foi removido. A linha volta a ser `ticker → sub-linha`. O DY continua onde a
-decisão é sobre o ativo em si: no card KPI de `#ativo` e no ranking de `#s-dy`.
-
-**DY do ativo — card KPI (`#ativo`, 7a.E.33):** o mesmo dado
-(`dividend_yield.por_ativo` via `dyAtivo`) ganha um 7º card na `.kpi-grid` da
-ficha do ativo, **depois do XIRR** — ponte com a seção "Proventos · últimos 12
-meses" logo abaixo. Aqui o rótulo é por-extenso **`Dividend Yield`** (não o `DY`
-compacto do `#alocacao`): a `.kpi-grid` já rotula cada célula, então não há
-ambiguidade com peso de carteira. 7 itens numa grade 2-col ⇒ o card cai sozinho
-na última linha, célula vizinha vazia — **por design, zero CSS novo**. Fallback
-`—` idêntico (`aria-label="sem dividend yield"`). Paridade travada nas **duas**
-superfícies visuais que restam (`#s-dy`, `#ativo`): mesma fonte, mesmo
-`round(dy,4)` do backend, nunca divergem.
-
-**Held off-policy (`fora_do_alvo`, schema v2.20) e quarentena:** vão para o
-grupo "Sem alvo" do acordeão, como etiqueta apagada com o motivo ("a zerar" /
-"quarentena"; a quarentena tem precedência se os dois valem).
-
-**Regra de cor (identidade × semântica):**
-- **Identidade** (`--cat-*`): dot, R$ do header e a etiqueta do trilho. Nada mais.
-- **Semântica** (fixa): "pedindo aporte" em `--sem-up`/`--sem-up-tint`; "acima"
-  em `--sem-down-tint` e, como texto, `--sem-down-texto`; "na faixa" em
-  `--faixa-ok`/`--faixa-ok-tint`. O estado está sempre em palavra; a cor só
-  reforça.
-
-**Naming:** "Passivo" / "Picks" na UI (`ALOC_NOME_CESTA`); o backend mantém
-`bucket.tipo: "passive" | "picks"`.
-
-**Princípio de overflow:** dinheiro/percentual nunca é truncado nem
-reticenciado — só rótulos textuais. O R$ do header (`.aloca-cat__rs-valor`,
-`--num-sm` + `tabular-nums` + `white-space: nowrap`) permanece íntegro até
-7 dígitos a 320px.
-
-```css
-.aloca-cat__rs-valor { font-size: var(--num-sm); font-family: var(--mono); color: var(--cat); }
-.aloca-cat__estado--abaixo   { color: var(--sem-up); }
-.aloca-cat__estado--acima    { color: var(--sem-down-texto); }
-.aloca-cat__estado--na_faixa { color: var(--faixa-ok); }
-```
-
-### Faixa de tolerância (7a.BK.1)
-A faixa de composição 100% da 7a.S.8 (`.compo`) saiu. `#alocacao` abre
-respondendo "cada categoria, e cada ativo, está dentro ou fora da faixa
-aceitável?": uma frase-resumo (`.aloca-frase`, texto comum, some quando não há
-categoria classificável) e o grifo (`.aloca-grifo`, abaixo), depois os cards.
-A regra mora nas funções puras de topo de `app.js` (`alocFaixa`, `alocTrilho`,
-`alocFraseResumo`, `alocAgruparAtivos`, `alocRsCurto`).
-
-**Trilho em três tons.** A cápsula não tem escala: só diz em que zona o peso
-atual cai. A etiqueta é presa duas vezes: `alocTrilho` a limita a 5%–95% da
-janela (`--etq-x`), e o CSS segura a meia largura dela
-(`left: clamp(var(--etq-w)/2, --etq-x, 100% − var(--etq-w)/2)`), para que a
-etiqueta de borda não vaze a cápsula a 320px. Sob
-`prefers-reduced-motion: no-preference` a etiqueta anda com
-`transition: left var(--d2) var(--ease)`; sob `reduce`, sem transição.
-
-**Tokens da faixa** (par no `:root[data-theme="dark"]`):
-- `--faixa-ok` / `--faixa-ok-tint`: verde-acinzentado contido para "na
-  faixa", que não compete com o teal de "pedindo aporte" nem com o ocre de
-  "acima".
-- `--sem-down-texto`: o ocre de `--sem-down` escurecido, só para TEXTO de
-  estado no claro (o ocre puro não fecha AA como texto). No escuro resolve
-  para `--sem-down`.
-- `--etq-veu` / `--etq-texto`: no claro, um véu escuro sobre `--cat` e texto
-  branco (o ocre do FII puro não fecha AA com branco); no escuro, sem véu e
-  texto `--neutral-50` sobre o `--cat` claro.
-
-**Acordeão agrupado por estado.** Dentro do card aberto, de cima para baixo: a
-linha das cestas (`.aloca-cestas`, só com 2+ cestas), "Pedindo aporte" + a
-contagem, "Acima da faixa" + "ficam sem aporte", "Na faixa" + a contagem,
-"Sem alvo" + "não recebem aporte". Grupo vazio não aparece. Cabeçalhos
-(`h2.aloca-grupo__head`) em `--ink` 600. O que pede atenção vem em linhas
-(`a.aloca-ativo`, ≥44px, fundo `--sem-up-tint` / `--sem-down-tint`, R$ à
-direita, que desce para uma segunda linha a 320px); o que está bem vem
-compacto, em etiquetas em fluxo (`a.aloca-etq`, `--faixa-ok-tint`). "Sem
-alvo" é a etiqueta apagada (`.aloca-etq--apagada`: tracejado `--faint`,
-opacidade .9, texto ainda AA). Linha cujo R$ arredonda a zero não mostra o
-trecho do valor. Todo ativo é link para `#ativo/<ticker>`.
-
-```css
-.aloca-trilho { height: 22px; border-radius: 999px; overflow: hidden; }
-.aloca-trilho__na { background: var(--faixa-ok-tint); }
-.aloca-trilho__etq { width: var(--etq-w); transform: translate(-50%, -50%);
-  background: linear-gradient(var(--etq-veu), var(--etq-veu)), var(--cat); color: var(--etq-texto); }
-.aloca-grupo--pedindo .aloca-ativo { background: var(--sem-up-tint); }
-.aloca-etq { background: var(--faixa-ok-tint); }
-```
-
-### Rodapé de reconciliação da cripto (7a.BG.1)
-
-Toda divisão percentual exibida vale sobre a **carteira** (patrimônio sem a
-cripto). Para as partes fecharem com o número do topo, e a cripto não sumir
-da vista, a divisão ganha **uma linha** sob ela: `+ R$ X em cripto, fora da
-divisão`. Dois lugares: sob a `.hero-splitbar` da faceta "Divisão Brasil ·
-EUA" (`.hero-split-cripto`) e na `#alocacao`, logo depois da lista de
-categorias (`.aloca-cripto`, 7a.BK.1). Fonte única do texto:
-`rodapeCriptoTexto()` em `app.js`.
-
-- **Condição:** `patrimonio.carteira_brl` presente (payload v2.31+) **e**
-  `cripto_brl > 0`. Num payload antigo a divisão ainda inclui a cripto, e o
-  rodapé a contaria duas vezes; por isso some, não cai em fallback.
-- **Valor com centavos** (`formatBrl`, 2 casas), igual aos R$ do split:
-  Brasil + EUA + cripto fecha ao centavo com o patrimônio da faceta 1.
-- **Voz secundária, sem cor nova.** No hero escuro, a mesma do `.pct`
-  (branco 62 %, 12px); na tela clara, `--gray` (`--faint` não fecha
-  AA para um valor a ler). Alinhado à esquerda, `tabular-nums`, sem ícone,
-  sem borda: é nota de rodapé, não chamada.
-- **Na `#alocacao`, `x-if` (não `x-show`):** a ausência é testada pela
-  contagem de nós (`[data-testid="cripto-rodape"]`).
-
-`.hero-splitbar--com-rodape` existe porque, sem ela, o rodapé colide com os
-facet-dots logo abaixo: com o rodapé a barra sobe 6px (`margin-top` de
-`1rem` para `0.625rem`) e o rodapé cola nela (`0.375rem`), de modo que a
-faceta cabe no mesmo `.hero-body` das outras (altura mínima fixa, sem salto
-ao trocar de faceta) e o rodapé não encosta nos facet-dots. Não "reconciliar"
-estes valores com os de outra faceta sem rever a colisão.
-
-```css
-.hero-splitbar--com-rodape { margin-top: 0.625rem; }   /* barra sobe 6px quando há rodapé */
-.hero-split-cripto {
-  margin: 0.375rem 0 0;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: rgba(255, 255, 255, 0.62);
-  font-variant-numeric: tabular-nums;
-}
-.aloca-cripto { margin: 12px 0 0; font-size: var(--num-xs); color: var(--gray); }
-```
-
-### Proventos — linha-razão + chamada DY + KPI scroll affordance (7a.S.7b)
-
-O topo de `#proventos` perdeu o poster de total e o bloco `.dy-bloco`
-inline (4 escopos de Dividend Yield mostrados ali). A tela agora abre
-direto no `.eyebrow` + `.escopo-toggle` (Anual/Mensal); dois elementos
-novos substituem o que saiu:
-
-- **Linha-razão** (`.prov-total`, dentro do MESMO cartão do chart —
-  `.prov-chart-card` unifica o chrome do card, evitando card-dentro-de-
-  card; o `#proventos-grafico` interno fica "achatado" só ali). Rótulo
-  (`.pt-lbl`) + valor mono (`.pt-val`) = **soma exata das barras
-  exibidas** (nunca um agregado independente), recalculado a cada
-  `renderProventosGrafico()`: `"Total · 2021–2026"` no modo Anual,
-  `"Total · 12 meses"` no Mensal — troca com o toggle.
-- **Dividend Yield:** fica na tela dedicada `#/proventos/dy` (tela-membro DY
-  do grupo Retorno desde a 7a.CC.1), alcançada pela faixa. A chamada
-  `.dy-chamada` que ficava aqui saiu na 7a.CE: só repetia a faixa.
-
-```css
-.prov-chart-card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 2px 6px var(--g-900-07); }
-.prov-chart-card #proventos-grafico { background: none; box-shadow: none; padding: 0; margin: 0; }
-.prov-total { display: flex; justify-content: space-between; border-bottom: 1px solid var(--neutral-100); }
-```
-
-**KPI scroll affordance (Task 4, spec 7a.S §9 — Fable: "3º KPI cortado a
-320px").** Substitui o wrap-to-1-col de 7a.G.2 finding #3: `.kpi-grid-3`
-vira flex row com `overflow-x: auto` contido no wrapper
-`.kpi-scrollwrap` (nunca a página — guard testado em
-`responsive-narrow.spec.ts`), `scroll-snap-type: x proximity` por card,
-e um `.kpi-scroll-fade` (`linear-gradient(to right, transparent,
-var(--neutral-50))`, `pointer-events: none`) sinalizando que há mais
-conteúdo. Em viewports largos os 3 cards cabem inteiros e o overflow
-fica inerte (sem scroll visível). Container ganha `tabindex="0"` +
-`role="group"` para alcance via teclado.
-
-### Dividend Yield dedicado — `#s-dy` (7a.S.7b, ranking 7a.BO.2)
-
-Tela-membro de Retorno (`#/proventos/dy`, item "DY" da faixa; 7a.CC.1,
-antes push), alcançada só pela faixa (a chamada de `#proventos` saiu na 7a.CE). Sem "←": volta-se
-a Proventos pela faixa. O título "Dividend Yield" fica como `<h1>` `.sr-only`.
-
-- **Poster** (`.poster`, mono, `--num-poster-xl` 54px, cor `--accent`)
-  = `dividend_yield.total.dy` da carteira + caption `.poster-cap`
-  (trailing-12m, "renda recebida ÷ valor de mercado").
-- **3 linhas por classe** (`.dy-row`, ordem FII → Ação BR → EUA·USD):
-  barra (`.barw i`) proporcional ao maior dy entre as 3, valor mono
-  (`.yv`). Clique seleciona (`.dy-row.on`, borda + anel `--accent-soft`)
-  e troca qual classe o ranking abaixo mostra — default é a de
-  **maior dy** entre as 3 (não hardcoded). Legenda "toque para o
-  ranking"; `aria-label` da linha termina em "— ver o ranking".
-- **Ranking completo da classe** (7a.BO.2, schema v2.33 — substituiu o
-  pódio top-3 da 7a.S.7b). Bandeja `.dy-champs` (`--surface-2` —
-  **não** é o `.grifo`), cabeçalho "Ranking · <classe>" | "maior yield ·
-  12m" (sem `★`; em 320px a legenda desce inteira, nunca parte).
-  Consome `dividend_yield.ranking.{acao_br,fii,eua}`: **todos** os
-  ativos vivos da classe, na ordem do payload (DY desc, provento desc,
-  ticker). `<ol class="dy-rank">` com `.champ` compacto (filete 1px
-  `--neutral-200` entre itens) = posição + bandeira + ticker + dy
-  (`--accent`) + barra de 3px proporcional ao maior DY **da classe** +
-  valor de mercado na moeda nativa (BRL ou USD, sem FX). Posição em
-  `--accent` só no top-3 (`.champ.top .rk`); do 4º em diante, `--faint`.
-  Ticker de `por_ativo_parcial` ganha, abaixo dele, o selo
-  `posição < 12 meses` (`.kpi-nota-parcial`, o mesmo de `#ativo`).
-- **Sem dividend yield em 12 meses** — os itens de `dy: null` num
-  `<ul>` separado, com `<h3 id="dy-sem-h">` ligado por
-  `aria-labelledby`, por ticker, `—` no lugar do DY, sem barra e sem
-  posição; `valor: null` (sem cotação) rende `—`, nunca `R$ 0,00`.
-  Subgrupo vazio sai do DOM (`x-if`). Rodapé ganha "— = sem provento no
-  período ou sem número confiável".
-- **Estados vazios:** 0 com DY e ≥1 sem → "Nenhum ativo desta classe
-  pagou provento nos últimos 12 meses.", seguido do subgrupo; 0 itens →
-  "Nenhum ativo nesta classe."
-- **Leitura de tela:** o `aria-live` mora num `<p class="sr-only">` que
-  anuncia só o cabeçalho ("Ranking Ação BR, 12 ativos com dividend
-  yield, 3 sem."), nunca as linhas.
-- **Payload sem `ranking`** (< 2.33): "Nenhum ativo nesta classe.", sem
-  fallback. O `campeoes` da 2.23–2.33 e o fallback para ele saíram na
-  7a.BO.3/BO.4 (schema 2.34).
-
-```css
-.poster { font-family: var(--mono); font-weight: 800; font-size: var(--num-poster-xl); color: var(--accent); }
-.dy-row { border: 1px solid var(--neutral-200); border-radius: 14px; box-shadow: var(--card-shadow); }
-.dy-row.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--card-shadow); }
-.dy-champs { background: var(--surface-2); border-radius: 14px; }
-.champ + .champ { border-top: 1px solid var(--neutral-200); }
-.champ.top .rk { color: var(--accent); }
-.champ-bar .bw { height: 3px; }
-```
-
-### Aportar — simulador vivo (7a.S.10)
-
-`#aportar` era o executor de política puro da 7a.H.1 (input + cards
-recebedores, sem coreografia). A 7a.S.10 o transforma num **laboratório
-vivo** que ensina *por que* o plano é o que é — **aditivo**: o cálculo
-cap-5/zero-sobra/gap de `js/aportar.js` (`window.aporteCalculo.calcularAporte`)
-permanece **intocado** (até a 7a.AU, que estendeu `calcularAporte` com
-`opcoes.mercado` e `sobra`); toda a nova camada vive em `app.js`/`index.html`/
-`app.css`.
-
-**Single source of truth do valor:** `aporteValor` (string, o mesmo
-`x-model` do `.aporte-input` de texto pré-existente) é a ÚNICA fonte —
-chips e scrubber escrevem nela via `aporteSetValor(v, animar)`/`aporteAdd(delta)`
-e chamam `recalcularAporte(animar)`, exatamente como o
-`@input.debounce.150ms` já fazia. Digitar, tocar um chip ou arrastar o
-scrubber convergem no mesmo estado; nenhum dos três tem uma cópia própria
-do valor.
-
-- **Pré-carga (`.aporte-cap`)** — legenda acima dos chips, `aporteApcapHtml()`
-  lê `json.ultimo_aporte` ("Seu último aporte foi **R$ X**, em D de mês —
-  toque para repetir"); sem dado, cai num convite genérico. Novo formatter
-  `window.formatDataExtenso` (`js/format.js`) — parse por **regex**, não
-  `new Date(iso)`: uma data-only ISO ("2026-04-20") vira meia-noite UTC, que
-  em America/Sao_Paulo (UTC-3) volta pro dia anterior no horário local
-  (`getDate()` retornaria 19, não 20). Regex evita o fuso inteiramente.
-- **Chips rápidos (`.aporte-chips`)** — `.aporte-chip--hero` "Repetir · R$ X"
-  (`x-show` só quando há último aporte) + `+ 5.000`/`+ 10.000` (`aporteAdd`)
-  + `zerar` (`aporteSetValor(0, true)`). Reusa `:active { transform: scale(.93) }`
-  (S.2); `--accent`-bordered no hero-chip.
-- **Scrubber "E se fosse mais?" (`.aporte-scrub-wrap`)** — 0–20.000, passo
-  100. Implementado como `<input type="range">` **nativo** (transparente,
-  `position:absolute; inset:0`) sobreposto a um trilho decorativo
-  (`.aporte-scrub-fill`/`.aporte-scrub-knob`, gradient `--accent`→`--accent-2`) —
-  decisão deliberada de acessibilidade sobre o padrão do mockup (2 `<div>`
-  com math manual de drag): o `<input>` nativo dá teclado (setas/Home/End)
-  e `aria-valuenow`/`min`/`max` de graça, sem reimplementar nada disso.
-  `@input` chama `aporteSetValor(valor, animar=false)` — arrasto nunca
-  anima (paridade com o mockup: `setAp(v, true)` só nos chips).
-- **Poster de valor** — em vez de um `.apval` separado (duplicaria o
-  display), o `.aporte-input` existente assumiu a escala tipográfica
-  poster (`--num-poster-lg`, token já reservado em S.1) + `--mono`.
-  Continua editável — sem redundância visual entre "número grande" e
-  "campo de texto".
-- **Plano se monta** — ao mudar o valor, `_aporteAnimarPlano(animar)`
-  (chamada via `$nextTick` ao fim de `recalcularAporte`) toca:
-  - **Stagger reveal** dos `.aporte-card` (`.aporte-card--in`, ~110ms +
-    30ms de base por categoria, 1x por categoria via o Set
-    `_aporteRevelados` — reseta quando o valor volta a 0, espelhando o
-    mockup `wrap.innerHTML=""` quando V≤0). `prefers-reduced-motion`:
-    a classe é aplicada no MESMO tick, sem `setTimeout`, e a regra de
-    transição fica dentro de `@media (prefers-reduced-motion: no-preference)`
-    — o card salta direto pro estado final sem qualquer intervalo.
-  - **Count-up de cotas** (`.aporte-compra-qty`) via
-    `window.drarthurNav.applyCountUp` — **dono exclusivo do `textContent`**
-    desse nó (SEM `x-text`; o valor final vem de `data-cotas`/
-    `data-cotas-frac`, atributos reativos via `:data-*`). Mesmo racional
-    do `#hero-patrimonio` (`ativarCountUpHero`): `aporteCategoriasRecebedoras`
-    é reatribuído por inteiro a cada recálculo, então um `x-text` reativo
-    nesse nó disputaria com o RAF e reverteria o frame no meio da animação.
-    `animar=false` (digitação/scrubber) escreve o valor final direto —
-    só os chips tocam a animação.
-  - **Tag "abaixo · aportar" → "fecha o gap"** (`aporteCatTagTexto(cat)`) —
-    só reescreve a leitura quando `cat.tag === "subexposta"` (o cálculo
-    invariante já diferencia subexposta/balanceado). Usa `atualPct`/`posPct`
-    já devolvidos por `calcularAporte` **contra o alvo RAW** (ver abaixo),
-    nunca `alvoPct` (arredondado). "no alvo"/"" passam direto.
-  - **Grifo do plano (`.aporte-grifo`, `.grifo` de S.1 — Apêndice B "Aportar
-    = box do plano", ÚNICO grifo desta tela)** — `aporteGrifoHtml()` narra
-    "Com **R$ X** você fecha **N%** do caminho de volta ao alvo" (ou "o gap
-    fecha inteiro" quando `N% ≥ 100`), seguido da nota de sobra: "Zero
-    sobra" quando não sobra nada; senão, "Sobram R$ Y, que ficam para o
-    próximo aporte" (7a.AU). `N%` = fração do
-    gap ORIGINAL fechada pela categoria subexposta com **menor** progresso
-    relativo (`deltaPct / (alvoRaw − atualPct)`, capado em 1) — a que
-    "trava" o caminho quando há mais de uma categoria recebedora. Estado
-    balanceado (nenhuma categoria subexposta) narra só o valor, sem "%".
-  - **Precisão RAW na math narrativa (CRB #1, Confiança nos Números)** — o
-    card de `aportar.js` carrega `alvoPct` **arredondado** (`Math.round`,
-    para a trilha DISPLAY "alvo 30%"). Grifo e tag **nunca** misturam esse
-    inteiro com os floats raw (`atualPct`/`posPct`/`deltaPct`): para um
-    `peso_alvo` não-redondo (0.304 → `alvoPct` 30 vs raw 30,4) a mistura
-    desviaria o "% do caminho" em até ~0,5pp e poderia flipar
-    **prematuramente** para "fecha o gap"/"gap fecha inteiro". O helper
-    `_aporteAlvoRawPct(nome)` recupera `peso_alvo × 100` de
-    `json.politica.categorias` (mesma origem que `aportar.js` usa p/ montar
-    o card, casada por nome; fallback ao arredondado só se a categoria
-    sumir do payload). `aportar.js` permanece intocado (até a 7a.AU, que o
-    estendeu com `opcoes.mercado`) — a correção é 100% na camada narrativa.
-    A trilha DISPLAY continua arredondada por design.
-- **Nota zero-write (`.aporte-nota`)** — **NÃO** é o `.grifo` (distinção
-  deliberada: o grifo é o box do plano; a nota é texto simples) —
-  `aporteNotaTexto()` diz "O plano prioriza as categorias abaixo do alvo,
-  equal-weight nos picks — zero sobra" quando `aporteSobra === 0`, e omite
-  o sufixo quando há sobra (já narrada no grifo acima, 7a.AU) + `.writes`
-  "Simulação pura: nada é enviado, nada é gravado." **Sempre visível**,
-  independente do valor.
-- **Cross-screen (`#alocação` → `#aportar`, Task 4)** — um `.grifo`
-  (`.aloca-grifo`) em `#alocação`, entre a frase-resumo e `.aloca-lista`,
-  nomeia as categorias **abaixo da faixa** (7a.BK.1; o nome entra por
-  `x-text`, nunca como HTML): "Próximo aporte vai para {categorias}
-  **Simular aporte ›**". Tocar/Enter/Space seta `_aportePresetPendente` (bridge de
-  estado, NÃO um parâmetro de URL — evita tocar no parser de hash/query
-  do router ou na faixa S.8) com o valor do **último aporte** (mesmo do
-  hero-chip "Repetir" — sugestão de ponto de partida familiar, não um
-  "aporte ideal" recalculado) e navega `location.hash = "#aportar"`;
-  `hidratarAportar()` consome o preset ANTES de tentar restaurar o valor
-  persistido em `localStorage` (o tap explícito tem prioridade).
-
-```css
-.aporte-input { font-family: var(--mono); font-size: var(--num-poster-lg); }
-.aporte-chip--hero { border-color: var(--accent); color: var(--accent); }
-.aporte-card { opacity: 0; transform: translateY(10px); }
-.aporte-card--in { opacity: 1; transform: translateY(0); }
-.aporte-scrub-input { position: absolute; inset: 0; opacity: 0; }
-.aporte-grifo, .aloca-grifo { /* .grifo base (S.1) — surface-2 + border-left accent */ }
-```
-
-### Aporte por mercado (7a.AU)
-
-Seletor `.aporte-mercado-toggle` (Tudo/Brasil/EUA) reusa `.escopo-toggle`
-com o padrão a11y de `#proventos` (`role="tab"` + `aria-selected`),
-posicionado ANTES do campo de valor. Mercado é a CATEGORIA da política, não
-moeda: INTR/XP são USD mas ficam em "Ações BR", logo caem em Brasil. Modo
-não persistido: volta a Tudo em toda entrada na tela (inclusive no preset
-do grifo de `#alocação`) e no lock (`_limparEstadoAporte()`). Sobra
-declarada em qualquer modo. Nos modos restritos, `.aporte-nota-mercado`
-(`x-if`, some do DOM em Tudo) avisa que o plano cobre só aquela parte.
-Aceito: em ~305px de largura útil os três botões quebram em duas linhas,
-igual ao `.escopo-toggle` de `#rentabilidade`.
-
-### PIN screen
-Input central grande (2rem text + tabular-nums + letter-spacing 0.5rem) + botão full-width primary teal.
-
-### Toast
-Fixed top com safe-area-inset, gradient verde, border-radius 999px (pill), pointer-events none.
-
-### Aviso de nova versão — snackbar (`.update-snackbar`)
-
-Snackbar inferior com ação, flutuando acima da tab bar (`bottom: calc(var(--tab-bar-height) + safe-area + 12px)`, `z-index: 95`), centralizado por `margin:auto` (NÃO `transform` — o transform fica livre pra entrada `translateY(8px→0)`). Superfície teal sólida `var(--g-900)` (linguagem "superfície importante" do hero/KPI), pílula `999px`, sem `border-left` (proibição impeccable). Copy sem travessão: **"Nova versão disponível"** + ação **"Recarregar"** + fechar `✕` (`aria-label="Dispensar aviso"`); ícone `↻` decorativo (`aria-hidden`).
-
-- **Surge** via evento window `sw:update-available` (`js/sw-update.js`, dono do ciclo do SW) → estado Alpine `atualizacaoDisponivel`. Dispensável na sessão; reaparece no próximo boot (o worker segue em espera).
-- **Motion:** entrada `opacity` + `translateY` em `--d2`/`--ease` (sem overshoot), via classes `.us-enter`/`.us-enter-start`/`.us-enter-end` (espelha `.push-enter`). A transição vive só em `@media (prefers-reduced-motion: no-preference)` → reduced-motion = instantâneo.
-- **Dark (Modo Plantão):** `--g-900` flipa p/ teal-claro → o snackbar entra na lista **"seg.on dark ink"** (texto/ícone/botões viram `#04130c`); sombra tintada e o chip da ação `Recarregar` ganham override dedicado. Contraste AA nos dois temas.
-- **Ação "Recarregar":** peso 700 + chip translúcido, herdando a tinta da superfície (que flipa por tema) em vez de `--accent-2` — `--accent-2` seria quase invisível sobre o teal-claro do dark. Alvos ≥44×44px; `:focus-visible` com `--accent`.
-- **A11y:** `role="status"` + `aria-live="polite"` anuncia ao surgir; ação e fechar são `<button>` reais.
-
-### Tabela (movimentos / proventos)
-Sticky `<th>`, `tabular-nums`, font 0.875rem, max-height 320px com scroll-y interno em `.tabela-wrap`.
-
-### Selo "a confirmar" e a prova de fogo (7a.CD.3)
-- **`.provento-a-confirmar`**: na linha de provento com `provisorio: true` (lista "Proventos" dos 7 dias, ao lado do ticker; tabela "Proventos · últimos 12 meses" do ativo, na célula do Tipo). Família do selo "Aluguel" (`.provento-tipo-tag`: fundo de tinta 6%, `--gray`, raio 6px), mas em **minúsculas** e em sans mesmo dentro das linhas mono: é frase, não categoria. 0.6875rem/600. Texto, nunca cor sozinha; a 320px quebra para baixo do ticker em vez de empurrar o valor. O número não muda: o provisório conta em tudo.
-- **`.prov-prova`**: uma linha sob os KPIs de `#proventos`, 0.8125rem `--gray`, sem cartão. "Última prova de fogo em DD/MM/AAAA." (`formatDataIso`) ou, com `ultima_prova: null`, "Ainda sem prova de fogo.". Payload sem a chave: a linha não aparece.
+## Espaço, raio e grid
+
+Escala de espaço, em rem: `0.25` (gap de linha) · `0.4–0.5` (padding de chip) ·
+`0.55–0.75` (linha de alocação, espaço de seção) · `1` (gap entre cards) ·
+`1.125–1.5` (padding interno de card e do `main`) · `2` (quebra de seção) ·
+`3` (topo da tela de acesso).
+
+Raio: `8` (interno de tabela) · `10–12` (botões, KPIs) · `14` (input e submit do
+acesso, card de gráfico) · `18` (cards principais) · `22` (hero) · `999`
+(chips, pills, dots, toast).
+
+Grids em uso: KPI de 2 colunas (padrão), de 3 (proventos) e empilhado
+(patrimônio); item de aporte `1.3rem 1fr auto`; linha de classe
+`14px 1fr auto 16px`; benchmark `2.5rem 1fr`.
+
+Mobile-first sem breakpoint: coluna única sempre, 320–375px como ponto de
+partida, `max-width` centralizando em telas largas. 320px é a largura de
+conferência.
 
 ---
 
 ## Motion
 
-**Filosofia: motion serve função, nunca decora.** Sem GSAP. Sem Framer. Sem perpetual loops. Sem auto-play.
+Motion serve função. Sem biblioteca, sem loop perpétuo, sem auto-play.
 
-### Animações ativas
-1. **PIN shake** (420ms cubic-bezier) — feedback de erro de senha. `@media (prefers-reduced-motion: no-preference)` envelopa o keyframe (default off em quem prefere).
-2. **Chevron rotation** (150ms ease) em política accordion. Respeita `prefers-reduced-motion: reduce` (transition: none).
-3. **Toque — estados `:active` pressionados (7a.S.2)** — todo interativo responde ao toque com escala sutil + `--shadow-pressed` (só `transform`/`box-shadow`; envelopado em `@media (prefers-reduced-motion: no-preference)`). Escalas por tipo: iconbtn .88 · hero .985 · card .988 · relcard .98 · tab .9 · chip .93 · seg .96 · back translateX(-3px) · row .99. `-webkit-tap-highlight-color: transparent` global. Substitui o lift **hover-only** (invisível no celular) por feedback de toque.
-4. **Aloc-preenchimento** — width transition 300ms ease quando a barra se atualiza.
-5. **Toast fade** — controlado por JS (não CSS), enter/exit suave.
+**Contrato de tokens:** `--ease cubic-bezier(.16,1,.3,1)` (curva base) ·
+`--ease-spring cubic-bezier(.34,1.28,.44,1)` (overshoot sutil: dots do acesso,
+indicator, facet-dots) · durações `--d1 .14s`, `--d2 .3s`, `--d3 .55s`.
 
-### Curvas
-- Padrão: `ease` ou `cubic-bezier(0.16, 1, 0.3, 1)` (ease-out)
-- PIN shake: `cubic-bezier(0.36, 0.07, 0.19, 0.97)` (decelerada com pequeno overshoot)
+**Contrato de navegação**, exposto em `window.drarthurNav.motion`
+(`js/transitions.js`) e reconstruído quando `prefers-reduced-motion` muda:
+cross-fade de tela 220ms · slide do indicator da tab 220ms · count-up do hero
+700ms (uma vez por sessão) · push de entrada em tela de ativo ou dossiê 280ms.
 
-### Hardware acceleration
-- Animar APENAS `transform` e `opacity`. Width em `.aloc-preenchimento` é exceção pontual (barra horizontal, sem reflow).
-- Nunca animar `top`, `left`, `height`, `padding`, `margin`.
+**Animar `transform` e `opacity`.** São as duas propriedades que o compositor
+resolve sem recalcular layout. Propriedade de layout — `top`, `left`, `right`,
+`bottom`, `height`, `padding`, `margin` — provoca reflow a cada frame e trava o
+scroll no celular; a largura da barra de preenchimento da alocação é a exceção
+pontual (barra horizontal isolada, sem reflow em volta).
+`tests/e2e/toque.spec.ts` lê o `transition-property` dos estados `:active` e
+falha se aparecer uma propriedade de layout ali.
 
-### prefers-reduced-motion
-Respeitado em PIN shake (envelope `@media`), chevron (override transition: none) e nos **estados `:active` pressionados (7a.S.2)** — cada regra de toque tem sua transição envelopada em `@media (prefers-reduced-motion: no-preference)`, então o feedback vira instantâneo (sem animar) para quem prefere reduzir. Demais transitions são curtas o suficiente (≤300ms) para não causar problema.
+**`prefers-reduced-motion: reduce` zera o motion**, com dupla blindagem: a regra
+CSS vive dentro de `@media (prefers-reduced-motion: no-preference)` e o JS checa
+`window.drarthurNav.motion.reduced` antes de orquestrar. As transições que
+sobram são ≤ 300ms.
 
-### Motion em gráficos (ECharts, Fase 7a.E.19)
+**Animações em uso:** shake do acesso errado (420ms) · rotação de chevron no
+accordion (150ms) · estados `:active` pressionados em todo interativo (escala
+sutil mais `--shadow-pressed`, só `transform`/`box-shadow`;
+`-webkit-tap-highlight-color: transparent` global) · preenchimento da trilha de
+alocação (300ms) · fade do toast · a cerimônia de abertura (dissolve da tela de
+acesso em 550ms, revelação da home em quatro grupos a 100/250/400/550ms, e um
+ciclo único de "respiro" no delta do hero, que o próprio JS remove no
+`animationend`). A abertura roda uma vez por sessão, com flag em
+`sessionStorage`. `window.aberturaMotion` expõe esses tempos para os testes.
 
-Gráficos do PWA usam motion calibrada — mais expressiva que o resto do app, mas dentro de "calmo médico" (sem celebrar, sem bounce, sem stagger pesado):
+**Chegada escalonada de cards de tela** tem orçamento de ≤ 110ms por passo
+(`.aporte-card`/`.plan-cat`); é um canal distinto do stagger de barras de
+gráfico, que fica em 30ms para não atrasar a leitura do dado.
 
-1. **Entrada (1º render):** 600ms cubic-out. Lines: path drawing L→R. Bars: growth from baseline com stagger 30ms por barra.
-2. **Hover:** 100ms. Tooltip fade-in. Point ring 1.0 → 1.1. Bars não-hover opacity 1.0 → 0.85.
-3. **Mode transition:** 400ms cubic-out. `setOption` merge → morph automático (datasets + eixos animados juntos).
-4. **Drilldown selection:** 200ms cubic-out. Fade não-selecionadas opacity 1.0 → 0.55 (proventos modo Mensal).
+### Gráficos
 
-Todas as 4 regras zeram via `prefers-reduced-motion: reduce`. Single source of truth: `js/echarts-theme.js` exporta `window.drarthurChart.motionConfig` (rebuilds on MediaQueryList change).
+ECharts com tema `drarthur` (`js/echarts-theme.js`), que lê todos os tokens do
+`:root` por `getComputedStyle`. Entrada em 600ms `cubicOut` (linha desenhada da
+esquerda para a direita; barras crescendo da base com 30ms de stagger) · hover
+100ms · troca de modo 400ms · seleção de drilldown 200ms. As quatro zeram em
+`reduced-motion`. Fonte única: `window.drarthurChart.motionConfig`.
 
-### Higiene de dataviz (Fase 7a.S.3)
+Quatro tratamentos de leitura, com helpers em `js/app.js` e travados por
+`dataviz-higiene.spec.ts`: símbolo só no último ponto (círculo vazado mais
+rótulo, no lugar de um colar de contas ao longo da linha) · eixo Y ancorado nos
+dados no gráfico de patrimônio, com folga de ~12% abaixo e ~14% acima e
+linha-zero tracejada só quando o intervalo cruza zero · barra do período em curso
+hachurada (`decal` diagonal mais nota abaixo), porque o bucket ainda acumula ·
+scrubber de `dataZoom` reduzido a um trilho de 8px na cor da marca, sem a
+miniatura dos dados e sem bolha de valor durante o arraste.
 
-4 tratamentos elevam os 3 gráficos ECharts (rentabilidade/patrimônio/proventos) de classe sem tocar tema/motion/tooltip acima. Implementados em `js/app.js` via 3 helpers puros no escopo do módulo (`criarMarkPointUltimo`, `calcularEixoYAncorado`, `criarDataZoomInstrumento`) + a constante `DECAL_PARCIAL`.
-
-1. **Símbolo só no último ponto.** A série principal (Portfólio em rentabilidade, Patrimônio em patrimônio) usa `showSymbol:false` — sem "colar de contas" ao longo da linha — e ganha um único `markPoint` no ponto mais recente: círculo vazado (`symbol:'circle'`, fundo branco, borda na cor da série) + rótulo do valor acima (`label.position:'top'`). Isso NÃO é o markPoint celebratório banido pelo anti-pattern #20 — sem estrela, sem balão, sem glow; é um marcador discreto de leitura, com label em cor sóbria (`--ink`/cor da série). Benchmarks e a linha "Aporte acum." nunca recebem markPoint (`showSymbol:false` sem exceção), com **uma exceção nomeada** (7a.BG.2): a curva "Mesma carteira, só com índices" da #rentabilidade recebe o marcador **subordinado** (mesmo círculo vazado, borda e rótulo `--gray`, peso 600, 6 px, contra `--ink`, 700, 8 px da carteira), via `criarMarkPointUltimo(..., {posicao, peso, tamanho})`. "Aporte acum." segue sem. Em rentabilidade, o listener `datazoom` da 7a.L.1 recomputa o markPoint a cada reancoramento (`criarMarkPointUltimo(novaP, ...)`) — o marcador sempre aponta para o último ponto **visível** da janela, não fica preso no índice da janela anterior.
-2. **Eixo Y ancorado nos dados** (equity de patrimônio, não em rentabilidade/proventos). `calcularEixoYAncorado(...arrays)` computa `min`/`max` do range combinado de todas as séries visíveis com folga ~12% abaixo / ~14% acima (`lo = menor − span·0.12`, `hi = maior + span·0.14` — mesma fórmula do mockup Monument), em vez de `min:0`. Uma linha-zero tracejada (`markLine`, `--gray` opacity 0.5) só aparece quando o range cruza zero (`min < 0 < max`). Rentabilidade mantém seu próprio comportamento (eixo % sem min forçado, ver reancoramento L.1 abaixo); proventos (barras) fica **fora** deste tratamento — segue zero-anchored (padrão ECharts sem `min` explícito), porque barra parcial (tratamento 3) já comunica honestidade de dado por outra via.
-3. **Barra parcial hachurada** (proventos). A última barra de cada série — o ano corrente em Anual, o mês corrente em Mensal — é por construção o bucket ainda acumulando: ganha `itemStyle.decal` (padrão diagonal `DECAL_PARCIAL`, `rotation: Math.PI/4`, cor translúcida sobre o fill) + `opacity:0.65`, e o card exibe uma nota abaixo do gráfico (`#proventosNotaParcial`, `.chart-partial-note`) com o texto `"<rótulo> em curso — hachura · toque numa barra para ler"`. A "última barra do array" é sempre tratada como parcial — decisão estrutural (não compara contra `new Date()` real), robusta independente do dia em que o app é aberto. O decal é atributo do **dado**, não do estado de interação: persiste mesmo quando o drilldown (7a.E.18) seleciona/desseleciona barras — só a `opacity` responde à seleção.
-4. **Scrubber-instrumento** (`dataZoom` em rentabilidade e patrimônio). `criarDataZoomInstrumento(dc)` substitui o `dataZoom` default "pesado" por um trilho fino (`height:8`) cor da marca (`fillerColor`/`backgroundColor` via tokens `--g-700-12`/`--g-700-06`), alças em círculo simples (`handleIcon:'circle'`, sem o ícone-ampulheta default), e remove o chrome que compete com o conteúdo: `dataBackground`/`selectedDataBackground` (silhueta em miniatura dos dados) ocultos via `opacity:0`, `showDetail:false` (sem bolha de valor bruto durante o drag), `brushSelect:false`. `minValueSpan:1` é só uma guarda mínima (não deixa o zoom colapsar a 1 ponto). **Deferido:** o overlay HTML custom do mockup (`.zoomtrack` com ticks de ano fixos + bolha de mês flutuando sobre a alça arrastada) não foi portado — exigiria reescrever o listener de `datazoom` da 7a.L.1 e arriscaria quebrar o reancoramento period-relative. O restyle nativo do `dataZoom` entrega o essencial (trilho fino + cor da marca + alças limpas) sem esse risco; a fidelidade extra (ticks/bolha) fica como follow-up caso o Dr. Arthur queira reabrir.
-
-### Motion de navegação (app shell, Fase 7a.I.6)
-
-App shell tem 5 animações calibradas dentro do mesmo orçamento de "calmo médico" — sem slide cliché iOS, sem swoosh:
-
-| Animação | Duração | Curva | Property | Reduced-motion |
-|---|---|---|---|---|
-| Cross-fade de tela (troca de grupo, de tela na faixa e de segmento na faixa do ativo; `tabFade`) | 220ms | cubic-bezier(0.16,1,0.3,1) | opacity | zera |
-| Tab indicator slide | 220ms | cubic-bezier(0.16,1,0.3,1) | transform translateX | zera |
-| Hero count-up (Raio-X) | 700ms | cubic-out via RAF | textContent | reveal instantâneo; flag em sessionStorage limita a 1×/sessão |
-| Push (entrada em #ativo e #/dossie, vindo de uma lista; capítulos do Diagnóstico; trocar de segmento NÃO é push) | 280ms | cubic-bezier(0.16,1,0.3,1) | transform translateX + opacity | zera |
-| Segmented Aloca (Atual/Alvo) | — | — | — | LEGADO: removido em 7a.E.31 (vista única); config `segmented` em transitions.js sem uso |
-
-7a.CC.1: as telas que eram push e viraram membro de grupo (Histórico, DY, Projeção, Renda, Diagnóstico índice, Relatório, Comitê, Vigília) trocaram o `push-enter` pelo cross-fade `tabFade` (`x-transition:enter.opacity.duration.220ms`). A pílula da faixa só anima cor e fundo, em 220ms.
-
-**Single source of truth:** `js/transitions.js` exporta `window.drarthurNav.motion` (objeto `{tabFade, tabIndicator, countUp, push, segmented, easing, reduced}`); rebuild automático ao alternar `prefers-reduced-motion`. Espelha o padrão de `window.drarthurChart.motionConfig`. O helper `window.drarthurNav.applyCountUp(el, target, formatter)` faz o RAF do hero respeitando o flag `reduced`.
-
-### Reveal stagger de app-shell (distinto do stagger de chart)
-
-Orçamento de motion **separado** do stagger de barras de dataviz (anti-pattern #23, que escopa 30ms/50ms a CHART/ECharts). O *reveal stagger de app-shell* é a chegada escalonada de **cards de tela** (não elementos de gráfico) — comunica "o plano/a home se monta peça por peça", uma dramaturgia deliberada, não atraso de leitura de dado. Orçamento sancionado: **≤ 110ms por passo**, sempre `prefers-reduced-motion`-gated (a classe de reveal é aplicada no mesmo tick, sem `setTimeout`, e a transição vive dentro de `@media (prefers-reduced-motion: no-preference)`). Consumidores atuais: `.aporte-card`/`.plan-cat` (7a.S.10, 110ms/passo + 30ms de base, via `_aporteAnimarPlano`) e A Abertura (7a.S.11, 100–550ms, PIN → home). Se um novo reveal precisar de passo > 110ms, documentar a exceção aqui.
-
-### A Abertura — cerimônia PIN → home (Fase 7a.S.11)
-
-O ritual diário do produto (desbloqueio → home) vira **cena única**, orquestrada em `js/app.js` (`submitPin` + `iniciarAbertura`, x-init da `.raiox`) e `css/app.css`. Três movimentos, sempre nesta ordem:
-
-1. **Dissolve da PIN screen** — no `submitPin` bem-sucedido, `.pin-screen` ganha `.pin-dissolve` (opacity 1→0 + `scale(1.05)`, `--d3`/550ms) ANTES de `fase` virar `"raiox"`; a troca de fase só ocorre ~620ms depois (folga pós-transição, nó sai assentado — mesmo racional do 320ms de saída do `.hero-face`, 7a.S.5).
-2. **Reveal em stagger da home** — 4 grupos (`.grupo-cab .eyebrow`, o eyebrow "Raio-X" do cabeçalho de grupo desde a 7a.CC.1 → `#hero` → `.raiox-7d` → o primeiro bloco existente depois de `.raiox-7d`, hoje o `.aporte-bloco`) entram em **100 / 250 / 400 / 550ms** (opacity 0→1 + `translateY(12px)→0`, `--d3`/`--ease`). **Exceção documentada** ao orçamento "reveal stagger de app-shell" (≤110ms/passo, seção acima): aqui o passo é ~150ms — sancionado porque é uma cerimônia de UMA vez por sessão (não uma tela revisitada a cada navegação, como `.aporte-card`/`.plan-cat`), e o hero de facetas (7a.S.5) já materializa com o count-up existente (`ativarCountUpHero`, 1×/sessão via `heroCountUpDone` — a cerimônia não re-dispara, só orquestra o momento em que o card do hero fica visível ao redor dele).
-3. **Delta pill "respira"** — ao fim (~980ms), `.hero-delta` ganha `.abertura-breathe`: UM ciclo de `scale(1→1.045→1)` (`animation-iteration-count: 1`, `--d3`/550ms), removido pelo próprio JS no `animationend`. Não é decoração permanente nem loop.
-
-**Trigger e 1×/sessão:** `iniciarAbertura()` é o `x-init` da própria `.raiox` — dispara sempre que a fase vira `"raiox"`, seja via `submitPin` (PIN digitado) OU `tentarAutoResume` (sessão deslizante ≤7d, silencioso). A flag `aberturaFeita` (sessionStorage, mesmo padrão de `heroCountUpDone`/`heroFacetHintSeen`) garante que só a 1ª abertura da sessão toca a cena — refresh/re-navegação dentro da mesma aba mostra a home direto, sem reveal.
-
-**Reduced-motion:** `prefers-reduced-motion: reduce` zera os 3 movimentos — sem dissolve (fase troca instantânea, comportamento pré-7a.S.11), sem stagger (grupos renderizam com opacity 1 desde o início — a classe de reveal nunca é sequer adicionada), sem breathe. A checagem é em JS (`window.drarthurNav.motion.reduced`), e as regras CSS (`.pin-dissolve`/`.abertura-reveal`/`.abertura-breathe`) também vivem inteiras dentro de `@media (prefers-reduced-motion: no-preference)` — dupla blindagem, mesmo padrão de `.pin-screen.is-shaking`.
-
-**Sem celebração, sem loop** (anti-pattern #11): o breathe é um ciclo único que se autorremove; não há confetti/glow/badge. É uma cerimônia calma, não uma recompensa.
-
-**Ground-truth de testes:** `window.aberturaMotion` (`js/app.js`) expõe `{dissolveMs: 550, dissolveRemoveMs: 620, staggerMs: [100,250,400,550], breatheMs: 980}` — mesmo racional de `window.drarthurNav.motion` (7a.I.6), porém **standalone**: não estende o contrato de motion do app shell (`nav-reduced-motion.spec.ts` continua validando só `tabFade`/`tabIndicator`/`countUp`/`push`/`segmented`, intocado).
-
-**Keypad/dots — N/A:** o mockup "Monument v1 refino" desenha a Abertura com um keypad numérico + dots de PIN preenchendo um a um. O app real usa `.pin-input` (campo de texto único, `type=tel` com `pattern=\d{6}`) — não há keypad/dots para reconstruir; o PIN em si é 100% reusado do fluxo existente (`pin-flow.spec.ts` continua sendo a fonte de verdade da autenticação). A cerimônia começa no MOMENTO do submit bem-sucedido, não na digitação dígito-a-dígito.
-
-### Contrato de refino — tokens de motion (7a.S.1)
-
-O Refresh Monument introduz um contrato de motion em `:root`, **aditivo** ao de navegação acima (que permanece 220/280/700ms, ground-truth em `transitions.js` e validado por `nav-reduced-motion.spec.ts`):
-
-| Token | Valor | Papel |
-|---|---|---|
-| `--ease` | `cubic-bezier(.16,1,.3,1)` | curva base (= literal antes inline; migrado a `var(--ease)` no CSS) |
-| `--ease-spring` | `cubic-bezier(.34,1.28,.44,1)` | overshoot sutil: dots do PIN, indicator, facet-dots |
-| `--d1` / `--d2` / `--d3` | `.14s` / `.3s` / `.55s` | três durações do motion NOVO de S.2–S.12 |
-
-Regra: motion novo referencia estes tokens; o contrato de nav não é remapeado (durações não coincidem — reconciliação por adição, não substituição, spec §11).
-
-### Hero de facetas — motion (Fase 7a.S.5)
-
-Primeiro consumidor real dos tokens `--d1`/`--d2`/`--d3`/`--ease`/`--ease-spring` reservados em S.1 (até aqui, inertes):
-
-| Elemento | Duração/curva | Property | Reduced-motion |
-|---|---|---|---|
-| Eyebrow (`#hero-eyebrow`) esmaece antes de trocar o texto | 150ms fixo (`setTimeout`) + `--d2` na volta | opacity | pula o `setTimeout`, troca o texto direto |
-| Face entra/sai (`.hero-face`) | `--d2` (`.3s`) `--ease` | opacity + `transform: translateY` (±10px) | `.out` some sem transição, `.on` aplica direto |
-| Face que sai — remoção do DOM | 320ms (`setTimeout`, > `--d2` pra garantir que a transição de saída já terminou visualmente) | — | remoção imediata (sem espera) |
-| Facet-dot ativo (traço `::before`) | `--d2` `--ease-spring` | background + `scaleX` | sem transição |
-| Hint "☞ toque no número" some | `--d3` (`.55s`) ease | opacity | sem transição |
-| `.hero` `:active` | `--d1` (`.14s`) `--ease` | transform + box-shadow | herda o guard geral de S.2 (`@media (prefers-reduced-motion: no-preference)`) |
-
-Toda a coreografia é gated por `window.drarthurNav.motion.reduced` (mesma fonte de verdade do resto do app shell, `transitions.js`) — não um segundo `matchMedia` paralelo. Nenhuma trava a leitura: o usuário pode ciclar facetas e recarregar a página livremente sem re-disparar o count-up (ver seção "Hero de facetas" em Components).
-
-### #rentabilidade — a ponte (Fase 7a.BD.2)
-
-Substituiu, inteira, a tela anterior (gráfico multi-benchmark da 7a.E.25, card "Período" da 7a.L.2, os três `.rent-grupo` Ano/12m/Origem e o pulse `.live` do subtítulo da 7a.S.6). A tela é um **instrumento de rebalanceamento**, olhado com calma poucas vezes por ano, e responde duas perguntas, nessa ordem: **estou ganhando dos índices?** e **se não, por quê?** Spec: `docs/superpowers/specs/2026-10-21-fase-7a-bd-rentabilidade-ponte-design.md` no repo principal.
-
-**A régua.** "A mesma carteira, só com índices": em cada mês, cada ativo pesa o que pesou de fato na carteira (peso de Dietz) e rende o índice da sua classe (Ações BR → Ibovespa, FIIs → IFIX, EUA → S&P 500 com dividendos; a cripto está fora da carteira desde a 7a.BG.1 e não entra na régua). **ETFs passivos da política** (toda cesta `passive` do `config/alocacao.yaml`) entram no composto **com o próprio retorno**: contribuição zero por construção e nenhuma linha na ponte; o que eles fazem de diferente do índice da classe é desenho da política, não seleção. A diferença carteira − composto mede só a seleção dentro de cada classe. A Renda fixa, só com passivos, entra no composto sem linha.
-
-**Estrutura (de cima para baixo, ordem fixa):**
-1. `.escopo-toggle` Total · Brasil · EUA (+ `.moeda-toggle` BRL/USD só em EUA): o seletor lidera.
-2. `.rent2-janelas` (`role=group`): 12 meses (padrão ao abrir) · 3 anos · 5 anos · Desde 2019, em **2 × 2** (`flex: 1 1 calc(50% - 3px)`; de 320 a 412 px as quatro nunca cabem numa linha, e o wrap livre deixava "Desde …" órfão). Selecionado = `aria-pressed` com borda `--ink` + anel `--accent-soft`. Quando o escopo começa depois de jan/19, o botão e a frase dizem "Desde {mmm/aa do início}".
-3. `figure.rent2-grafico`: subtítulo `.chart-rent-subtitulo` ("Cresceu desde {âncora} · até {fim}"; arrastado: "Período livre · de {âncora} a {fim} ({n} meses)"), `#chart-rent2.chart-rent` com duas séries e legenda HTML (`.rent2-legenda`, traço cheio e tracejado).
-4. `.rent2-veredito`: frase (1rem 600, `text-wrap: balance`), número `.rent2-grande` (mono, `--num-poster`, ▲/▼ + sinal, ±0,0 em `--ink`) com unidade "ponto(s) ao ano" ou "no período", e os dois retornos em `dl.rent2-pares`.
-5. `section.ponte` "De onde vem a diferença": waterfall horizontal (abaixo).
-6. `.grifo.ponte-pesou` "Quem pesou": **o único grifo da tela**. Logo abaixo, o link `a.rent-grifo-sel` (7a.BR.2) "Isso é habilidade ou sorte? Ver no Diagnóstico ›", que abre `#/raiox/diagnostico/selecao`: só texto em `--accent`, 0.875rem peso 600, `min-height: 44px`, sem caixa nem borda (não é um segundo grifo: o painel continua sendo o único), com o "›" colado na última palavra e `focus-visible` com anel `--accent`. Não traz número: a confiança só existe nas três janelas fixas.
-7. `.rent2-reais` "Em reais, na janela" ("Em dólares" em EUA-USD): Entrou na carteira · Ganho, com proventos · Em {fim}, em `dl` de três linhas (rótulo à esquerda, valor à direita), valores inteiros sem abreviar, fonte do texto com `tabular-nums`.
-8. `details.rent2-detalhes`, fechado por padrão (summary com "›" em `--gray` que gira 90° ao abrir, como no rascunho aprovado): "Índices, um a um" e "Duas réguas da carteira" (A carteira (TWR) = o número de "Sua carteira" do topo; Seu dinheiro (XIRR) da janela), em `.proj-tabela`, mais o aviso de rentabilidade passada. Entre a tabela e o aviso, `p.rent-aporte-frase` (7a.BR.2): "Nesta janela, o momento dos aportes {somou|tirou} X ponto(s) ao ano." em `--ink` 0.875rem, sem destaque (o número já está nas duas réguas logo acima); segue a janela escolhida, inclusive a arrastada, e some quando o XIRR da janela não existe.
-
-**O gráfico.** ECharts `line`, eixo de categoria mensal. "Sua carteira" `--g-700` 2,5 px sólida com `criarMarkPointUltimo` (rótulo em `--ink`); "Mesma carteira, só com índices" `--gray` 1,8 px tracejada `[5,5]`; sem área, sem símbolos. **Número no fim das duas curvas** (7a.BG.2, `rent2MarcadoresFim`): cada uma tem o seu markPoint no último ponto desenhado (`ultimoIndiceValido`; no corte por buraco, o rótulo segue a curva cortada). O da carteira é o protagonista (`--ink`, 700, 8 px); o dos índices é subordinado (`--gray`, 600, 6 px). Regra de posição **sem limiar**: o maior dos dois valores finais leva `label.position: "top"` e o menor `"bottom"`, **sempre**, e não só quando estão próximos (uma regra sem limiar não tem fronteira que falhe; nenhum rótulo se esconde); empate, a carteira em cima. O `aria-label` do gráfico (`role="img"`) diz os dois números: `Sua carteira e a mesma carteira só com índices, {subtitulo}. Sua carteira {X}; só com índices {Y}.`, das mesmas curvas desenhadas (`rent2TextosFim`, sem `dc`, para o placeholder de degradação sobreviver). A descrição automática do ECharts fica desligada (`aria.enabled: false`): ela sobrescrevia esse aria-label ao abrir a tela. Três ajustes da conferência visual (7a.BG.2, medidos pelas caixas de texto do zrender em `rentabilidade-numero-indices.spec.ts`): (1) **folga do eixo y embaixo só quando o rótulo `bottom` precisa** (`rent2FolgaEixoY`, `yAxis.boundaryGap` dinâmico): com a janela terminando no mínimo, o rótulo caía 16 px abaixo do chão do grid, na faixa dos mmm/aa; fora desse caso a folga é 0 e o eixo não muda; (2) **contorno na cor de `--surface`** (`textBorderWidth: 3`) nos dois rótulos, porque o de baixo fica no caminho da própria curva quando ela sobe íngreme até o fim; (3) `grid.right` 20 → 28, porque o rótulo é centrado no último ponto e um "−17,6%" com contorno passava 1 px da borda do canvas. As duas curvas reancoram no início da janela (Π(1+r) − 1 a partir da âncora, as duas em 0 ali: a regra da 7a.L.1, agora para as duas linhas). O trilho é `criarDataZoomInstrumento(dc)` por valor, `minValueSpan: 1`: arrasto livre de 1 mês em diante. Uma única função, `ponteJanela` (espelho JS da referência Python, com teste cruzado), alimenta número, ponte, quem pesou, reais e detalhes, para botão e arrasto. A série termina no último fim de mês fechado.
-
-**A ponte (waterfall).** "Só com índices" (sub "mesmos pesos, mês a mês") → uma linha por classe com escolha ativa (Total: Ações BR, FIIs, EUA; Brasil: Ações BR, FIIs; EUA: Picks, Fora da política atual) → "Sua carteira", com um filete `--neutral-200` acima, como linha de soma. Linha sem peso na janela não aparece.
-- Grid do degrau `minmax(0,116px) minmax(0,1fr) auto` (92 px no rótulo abaixo de 360 px), `min-height: 44px`; rótulo com ponto 8 px `--cat-*` (Picks e Fora: `--cat-eua`) + sub "vs {índice}" em `--num-xs` `--gray`; valor mono `--num-sm` 600, `nowrap`.
-- **Totais em barra cheia neutra** (spec §8): "Só com índices" e "Sua carteira" ocupam o trilho inteiro, as duas do mesmo tamanho, sem eixo truncado nem marca de corte; quem diz o retorno é o valor escrito ao lado. (Um eixo truncado nos totais fazia 18,7% contra 19,7% parecer muitas vezes mais.) Só os degraus flutuantes ficam num eixo comum entre si, sobre {ind, acumulados, sua} com 12% de folga. `.ponte-trilho` tem `overflow: hidden`, que prende a guia e as barras dentro do trilho.
-- Barras por `transform: translateX() scaleX()` (`transform-origin: left`), nunca `left/width`; a guia tracejada entre degraus é uma caixa da largura do trilho com `border-left` 1 px dashed, deslocada por `translateX`.
-- Cor nunca sozinha: ≥ +0,05 `--g-700` com "▲ +"; ≤ −0,05 `--red` com "▼ −" (nunca o ocre `--sem-down`, que é FII); neutro: barra `--gray` de 2 px e "±0,0" em `--gray`. Totais: "Só com índices" `--gray`, "Sua carteira" `--ink`.
-- Cada linha é `<button aria-pressed>` com `aria-label` falado; selecionada = fundo `--surface-2` + `inset 0 0 0 1px var(--neutral-200)`. Abre na linha que mais tirou; a escolha do usuário fica enquanto a linha existir no escopo.
-- Fecho exibido: a 1 casa, "Só com índices" e "Sua carteira" pelo arredondamento simples e só as linhas absorvem o ajuste (`arredondarFechando` com total `sua − ind` exibidos, spec §4.4); o número do topo é `sua − ind` exibidos.
-- Tabela equivalente `table.ponte-tabela` dentro de um `div.sr-only` (a tabela não encolhe a 1 px e vazaria rolagem horizontal).
-
-**Quem pesou.** Frase ("**{Linha}** somaram **{v} ponto(s)** ao ano contra o {índice}.", com concordância por linha) e, abaixo, **todos** os ativos da linha, em até três grupos: `Tiraram pontos`, `Somaram pontos` e `Andaram junto` (singular com 1 ativo: `Tirou`, `Somou`, `Andou`). O grupo sai do valor **exibido** (pós `arredondarFechando`), nunca do bruto; "junto" é o que exibe ±0,0. Ordem: o grupo do sinal da linha primeiro; linha neutra, o de maior subtotal (empate: tiraram; na prática os subtotais sempre empatam, pois a soma exibida fecha em 0, e `Tiraram pontos` vem primeiro); "junto" sempre por último; grupo vazio não aparece. Cada cabeçalho é `{título} · N ativos` (`--ink` 600 0.875rem, o trecho `· N ativos` em `--gray` 500) com o **subtotal** do grupo em mono, na cor do sinal, na coluna dos valores (o de "junto" não tem); a 320px o cabeçalho quebra e nada trunca. Filete `--neutral-200` 1px acima de cada grupo a partir do 2º; sem cartão nem borda lateral. Dentro do grupo, por **contribuição** decrescente (empate pelo ticker), ticker literal em 500 e valor mono; ticker que não está em `json.posicoes` leva, depois dele, a etiqueta apagada **"saiu da carteira"** (`.ponte-pesou-saiu`: tracejado `--faint`, texto `--gray` 600 0.75rem, sem alvo de toque) — sem mudar grupo, ordem nem valor; o rebate nunca a leva, e com `posicoes` ausente ou vazio ninguém a leva; a 320px ela desce para baixo do ticker, alinhada à esquerda; os subtotais fecham com a linha exibida. **Nada recolhido:** sem "ver mais", sem grupo fechado, sem "Outros". O anúncio (`rent2-anuncio-pesou`) lê a frase e, por grupo, só título, contagem e subtotal; **nenhum ticker**. Linha neutra também lista os ativos. ETFs passivos nunca aparecem. Informa, não recomenda.
-
-**Estados.**
-- Janela mais longa que o histórico do escopo: botão `aria-disabled="true"` (não `disabled`: segue focável e tocável), opacidade .45; tocar mostra o motivo em `.rent2-motivo` ("Histórico começa em {mmm/aa}.") e não muda a janela.
-- Janela fixa que não existe no escopo novo (ex.: Desde em EUA → Total): volta a 12 meses com o motivo à vista.
-- Arrasto que termina numa janela indisponível (mês sem cotação ou sem índice): na soltura (settle de 150 ms) volta à última janela válida e mostra o motivo; durante o movimento o número fica no último valor válido. Os motivos do backend viram texto ("Falta a cotação de um ativo em {mmm/aa}.", "O IFIX não tem dado em {mmm/aa}."), nunca o id interno.
-- Janela < 12 meses: tudo vira "no período" (número, pares, ponte, quem pesou, detalhes).
-- Payload sem o bloco `ponte` (schema < v2.30): `.rent2-indisponivel` "Rentabilidade indisponível nesta versão dos dados" + botão "Recarregar"; nunca desenha a tela anterior.
-- Payload v2.30+ com `ponte: null` (o builder do backend falhou na publicação): "A conta da rentabilidade não foi publicada nesta atualização.", sem "Recarregar" (recarregar não resolve).
-- Falha ao montar a ponte no front (exceção em `hidratarRentabilidade`, ex. classe nova no payload): estado próprio, "Não foi possível montar a rentabilidade agora." + "Recarregar"; o erro vai ao console e o app segue destravado.
-
-**Motion.** Troca por botão anima barras e linhas (`--d2`, `--ease`; ECharts pelo `motionConfig`). Durante o arrasto, zero animação: `.tela-rentabilidade.is-arrastando` zera a transição das barras e da guia, e os números trocam o texto direto, sem count-up. Tudo dentro de `@media (prefers-reduced-motion: no-preference)`.
-
-**a11y.** Duas regiões `p.sr-only aria-live="polite"` (`rent2-anuncio`, `rent2-anuncio-pesou`) escritas só fora do arrasto e no settle; os blocos visuais não são live. Alvos ≥ 44 px (janelas, degraus, summary). Modo Plantão: só tokens, nada de hex no componente; o ECharts relê `dc.tokens`.
-
-**Escopo APP-WIDE do `.escopo-toggle` (7a.S.6, vigente):** é a classe única de segmented-control do app, usada aqui (Total/Brasil/EUA) e em `#proventos` (Anual/Mensal). A ênfase da seleção (600/700 + anel `--accent-soft`) é linguagem única deliberada:
-
-```css
-.escopo-toggle button        { font-weight: 600; }
-.escopo-toggle button.active {
-  font-weight: 700;
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-```
-
-`.moeda-toggle` (BRL/USD, secundário, só em EUA) preserva a hierarquia "escopo > moeda".
+Tooltip é HTML custom (`drarthurChart.tooltipFormatterAxis`) sobre `--surface`
+com borda `--neutral-200`, acompanhando o tema.
 
 ---
 
-## Anti-patterns banidos
+## Modo Plantão (tema escuro)
 
-Aplicações futuras e refactors NUNCA podem introduzir:
+Tema escuro para uso real em plantão e madrugada: OLED quente, teal como luz.
+Toggle manual e persistido, default claro. O bloco é aditivo — nada da versão
+clara foi tocado.
 
-1. **Pure black** (`#000000`). Use `--ink: #1a1d1c` no light. **Modo Plantão (7a.S.12) também não usa preto puro** — `--neutral-50` dark é `#040906` (quase-preto, warm-tinted), nunca `#000`.
-2. **Pure white** em backgrounds amplos. Use `--neutral-50` ou `--neutral-100`. Branco puro só em elementos pequenos (cards, inputs).
-3. **Cool gray** (azul/violeta tintado). Toda escala neutral é warm-tinted.
-4. **Inter, Roboto, Geist, Satoshi** ou qualquer custom font. System fonts são suficientes.
-5. **Glassmorphism decorativo.** Banido em todo o app. (Exceção pré-7a.G.2 do `hero-delta` foi removida na distill — chip agora é flat tint rgba sem `backdrop-filter`.) Sem exceções vigentes; qualquer reintrodução exige justificativa explícita em PR.
-6. **Gradient text decorativo.** Nenhum `background-clip: text` em uso. (A única exceção histórica, `.proventos-ytd`, foi removida em 7a.S.7b junto com o poster de total do topo de #proventos.)
-7. **AI-purple/blue glow shadow.** Toda sombra é tintada para teal `--g-900`.
-8. **Hero metric template** (big number + label + supporting stats + gradient accent). Hero do app pós-7a.G.2 distill é card sólido `var(--g-900)` flat: label uppercase, valor 2rem peso 700, delta-pill flat. Sem gradients, sem `::after`, sem glassmorphism — explicitamente NÃO o template SaaS genérico.
-9. **3-equal-cards horizontal grid.** O app não tem isso. Se feature row for necessária, usar zig-zag ou stack vertical.
-10. **Cards-inside-cards-inside-cards.** Nesting máximo é 2: `.card > .conteúdo`. Política accordion é `.politica-card > .politica-ativos > .politica-ativo` mas os filhos não são cards visualmente (sem border, sem shadow, só padding).
-11. **Animação celebratória** (confetti, glow, badge unlock, ECharts markPoints decorativos como estrelas/balões). Banido por design principle (calma sob qualquer condição de mercado).
-12. **Bouncing chevron / scroll arrow** em hero. Banido — assume que o usuário sabe scrollar.
-13. **Custom mouse cursor.** Banido — quebra acessibilidade e perf.
-14. **Side-stripe borders decorativas.** `border-left` como enfeite genérico em card/alert é banido. **EXCEÇÃO CONSAGRADA (7a.S §5.4) — o grifo do assessor:** `.grifo` = `border-left: 3px solid var(--accent)` + radius `0 14px 14px 0` + fundo `var(--surface-2)`, **UMA por tela**, no ponto de maior tensão informativa. Variante `.grifo--amber` (`border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`) reservada ao box "NÃO funcionando" do Relatório — cor distinta para que os dois grifos **nunca** leiam como o mesmo sinal. Colocações canônicas (Apêndice B da spec): **Raio-X = card Movers (realizado em 7a.S.5 — `.r7d-movers`)** · **Alocação = callout "abaixo do alvo" (realizado em 7a.S.10 — `.aloca-grifo`, deep-link p/ `#aportar` com preset)** · Proventos = leitura de run-rate · **Aportar = box do plano (realizado em 7a.S.10 — `.aporte-grifo`, "fecha N% do caminho..."; sobra declarada em qualquer modo desde a 7a.AU)** · Relatório = âmbar "NÃO funcionando" · **Dossiê = `quebra_se` da tese (realizado em 7a.R.3.b — `.dossie-grifo`)** · **Projeção = "Esta taxa olha para frente, não para trás" (7a.AY.2 — `.grifo.proj-grifo`, no capítulo 3, depois da tabela por classe e do "ver a conta": as premissas são projeções de mercado para 10 a 15 anos, não o passado da carteira, com a comparação americana, 6,7% no histórico longo contra a premissa lida do payload; substituiu o grifo da 7a.AW.2, "por que as duas medidas do histórico discordam", que saiu com as quatro leituras)** · **Rentabilidade = "quem pesou" da ponte (7a.BD.2 — `.grifo.ponte-pesou`: os ativos que mais somaram ou tiraram dentro da linha tocada).**
-15. **Emoji em UI text.** Não usado. Bandeiras (🇧🇷, 🇺🇸) são ícone funcional, não decoração — são exceção legítima.
-16. **Tema default ECharts** (paleta azul/amarelo/vermelho cliché). Sempre usar tema `'drarthur'` (`js/echarts-theme.js`).
-17. **Gradient fill em series area** de chart ECharts. Linhas sólidas (ou dashed para aporte cumulativo / benchmark) sem fill decorativo. Sem exceção vigente: a das faixas de incerteza dos leques de projeção (7a.AV.2 → 7a.AW.2) **saiu com os leques na 7a.AX**, quando a projeção passou a desenhar a incerteza em HTML/CSS (gráfico de faixas), sem área de ECharts.
-18. **3D charts.** O PWA é 2D plano, mobile-first.
-19. **Animação bounce / elastic / scale > 1.1** em gráficos. Apenas `cubicOut` / `cubicInOut`, durações ≤600ms.
-20. **markPoint celebratório** (estrelas, balões, glow pulsante) em gráficos. O markPoint de "símbolo no último ponto" (7a.S.3, `criarMarkPointUltimo`) é a exceção deliberadamente compliant: círculo vazado + label sóbrio, sem estrela/balão/glow — instrumento de leitura, não celebração.
-21. **Tooltip default ECharts** com border colorida acompanhando a série. Tooltip do app sempre `var(--surface)` (branco no light, `#0c1510` no dark, 7a.S.12) + border `--neutral-200` (custom HTML via `drarthurChart.tooltipFormatterAxis`).
-22. **Legend toggle persistente em mobile.** Em viewport `< 360px`, legenda escondida ou inline minimal.
-23. **Stagger > 50ms entre barras de CHART/dataviz.** Default em barras (ECharts) é 30ms — a regra escopa dataviz, onde stagger longo faz o gráfico "montar devagar" e atrasa a leitura do dado. **NÃO** se aplica ao *reveal stagger de app-shell* (chegada de cards de tela) — orçamento de motion distinto e sancionado (ver Motion → "Reveal stagger de app-shell"): `.plan-cat`/`.aporte-card` (7a.S.10, 110ms/passo) e A Abertura (7a.S.11, 100–550ms), todos reduced-motion-gated.
-24. **Tab bar com ícones decorativos** (lucide/feather/emoji). Monument é text-only — peso 600 inativa / 700 ativa + letter-spacing + indicator 2px topo carregam a diferenciação. Se feedback de usabilidade vier, fallback documentado é hairline SVG monoline 1.5px; até lá, banido.
-25. **Bottom-underline cliché** em tab ativa (linha grossa colorida abaixo do label, padrão Material/Bootstrap). O app usa indicator 2px no **topo** da tab — escolha estética + reduz competição visual com border-top da própria tab bar.
+- Botão `.theme-toggle` (☽/☀, glifo `aria-hidden`, `aria-label` descritivo e
+  `aria-pressed`) na linha do eyebrow do cabeçalho de grupo, só na tela Hoje.
+- `alternarTema()` inverte `this.tema`, grava `data-theme` no `<html>`, persiste
+  em `localStorage` e chama `window.drarthurChart.reregister()`.
+- O boot lê `localStorage.tema` e **não** consulta `prefers-color-scheme`: o tema
+  é escolha explícita do usuário, e o sistema em escuro não muda o app sozinho.
+  `_aplicarTema` também atualiza `<meta name="theme-color">` (`#064e3b` claro,
+  `#03110a` escuro).
+- Um boot que já nasce escuro precisa de `reregister()` dentro do `init()`: o
+  tema do ECharts é registrado no `<head>`, antes de `data-theme` existir.
 
----
+Valores do bloco `:root[data-theme="dark"]`: superfícies `--neutral-50 #040906`,
+`--neutral-100 #0c1510`, `--neutral-200 #1c2b23`, `--neutral-300 #14211a`,
+`--surface #0c1510`, `--surface-2 #101d16` · texto `--ink #f1efe4`,
+`--gray #8fa598`, `--faint #5d7065` · acento `--accent #34d399`,
+`--accent-2 #6ee7b7`, `--accent-soft rgba(52,211,153,.12)`,
+`--hero-glow rgba(52,211,153,.2)` · semânticos `--red #f87171`,
+`--amber #fbbf24`, `--amber-700 #fdba74` · categorias `--cat-eua #5aa7dc`,
+`--cat-acoes-br #34d399`, `--cat-fii #e0a24a`, `--cat-cripto #b294e8`,
+`--cat-renda-fixa-br #22d3ee`.
 
-## Accessibility
+Tratamentos de "teal como luz": fio de luz no topo dos cards
+(`inset 0 1px 0 var(--card-topline)`), brilho no indicator da tab, `text-shadow`
+nos pôsteres, e sombras em preto onde a versão tintada ficaria invisível contra o
+fundo quase preto. Componente cujo fundo clareia no escuro recebe tinta escura no
+texto (`#04130c`) — branco sobre fundo claro não fecharia AA. O hero continua
+escuro nos dois temas (`#03110a` direto).
 
-- Touch targets ≥44px em interativos (PIN, btn-bloquear, `.aloca-cat__head`).
-- Contrast WCAG AA (a paleta foi escolhida com isso em mente; verificar antes de mudar tokens).
-- Foco visível **unificado (7a.S.2)**: `:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }` — uma regra para todos os controles (substitui as cores divergentes `--teal`/`--g-500`/`--g-600` anteriores). `--accent` = teal âncora (#047857) no light; vira luz no dark (S.12).
-- Sinal positivo/negativo usa **forma + texto + cor** (▲/▼ + valor + cor), nunca cor sozinha. Daltonismo (deuteranopia) coberto.
-- **Modo Plantão (7a.S.12) — contraste dark verificado**: `--ink` sobre `--neutral-50`/`--surface` ≥ 4.5:1 (texto normal); `--gray`/`--accent`/`--red`/`--amber`/`--cat-*` sobre `--neutral-50` ≥ 3:1 (texto grande/uso gráfico). Fórmula WCAG relative-luminance + Playwright spec `modo-plantao.spec.ts` (Task 3) trava a régua.
-- `prefers-reduced-motion: reduce` honored em PIN shake e chevron.
-- `.sr-only` utility presente para texto screen-reader-only.
-- `[x-cloak] { display: none !important; }` previne flash of unstyled content do Alpine.
+`--sem-up`/`--sem-down` são `var()` de `--cat-*` e herdam o valor escuro na
+cascata; só os tints literais em rgba precisam de override próprio.
+
+**Detalhe de autoria:** um `*/` acidental dentro de um comentário CSS fecha o
+comentário cedo e transforma o texto seguinte em CSS solto, corrompendo a
+declaração de baixo — já custou um override de token que não se aplicava.
 
 ---
 
-## Tokens summary (TLDR)
+## Componentes
 
-```css
-/* Brand teal */     --g-900 #064e3b  --g-800 #065f46  --g-700 #047857
-                     --g-600 #059669  --g-500 #10b981  --g-400 #34d399
-                     --teal  #14b8a6
-/* Semantic */       --amber #f59e0b  --amber-light #fbbf24  --red #b91c1c
-/* Text */           --ink   #1a1d1c  --gray   #5b605a
-/* Surfaces */       --neutral-50 #fafaf7  --neutral-100 #f5f5f0
-                     --neutral-200 #e7e5de  --neutral-300 #d4d4d0
-/* Shadow */         --card-shadow: tinted to --g-900
+**Shell e navegação** — `.tab-bar` com os cinco grupos, texto sem ícone, peso 600
+inativo e 700 ativo, indicator de 2px no **topo** da tab, fundo `--tab-bg`
+translúcido, `--tab-bar-height 56px`, safe-area honrada ·
+`.grupo-cab`/`.grupo-cab__linha`/`.faixa` — cabeçalho de grupo fixo com a faixa
+de telas do grupo, a ativa em pílula opaca de raio 999px, rolagem horizontal sem
+barra e sem quebra de linha, posicionada por `scrollLeft` · `.faixa-ativo` — a
+mesma faixa nas três telas de um ativo, abaixo do `.breadcrumb` (o "←" e o
+ticker em `.eyebrow--accent`) · `.eyebrow` — a voz de abertura de tela.
 
-/* Cores semânticas adicionais (7a.G.2) */
-/* Blues   */        --blue-500 #0284c7  --blue-700 #1d4ed8
-/* Purple  */        --purple-500 #a855f7
-/* Reds    */        --red-50 #fef2f2  --red-200 #fecaca  --red-800 #991b1b
-/* Ambers  */        --amber-700 #b45309  --amber-900 #8a5a00
-/* Teal    */        --teal-700 #0d7377
+**Raio-X** — `.hero`, card sólido `var(--g-900)` com rótulo em caixa alta, valor
+em `--num-poster` mono e delta em pill plana; quatro facetas cicláveis por toque,
+`Enter`/`Space` ou facet-dot, com count-up uma vez por sessão · `.raiox-7d`, o
+bloco "Últimos 7 dias", com decomposição de três linhas e as listas de compras,
+vendas e proventos · `.r7d-movers`, as três maiores altas e baixas por impacto
+em R$ na semana, com grifo · `.pede-atencao`, lista de bordas finas com o que
+pede ação hoje (vigília, relatório novo, notas pendentes), sem card e sem
+contagem animada · `.aporte-bloco`, o último aporte.
 
-/* Alphas nomeados (7a.G.2) */
-/* Greens  */        --g-700-06 rgba(4,120,87,0.06)  --g-700-12 rgba(4,120,87,0.12)
-/* Teal    */        --teal-14  rgba(20,184,166,0.14)
-/* G-900   */        --g-900-04 rgba(6,78,59,0.04)
-                     --g-900-07 rgba(6,78,59,0.07)
+**Alocação e aporte** — `.aloca-cat`, accordion por categoria (dot, nome, R$ em
+mono na cor da categoria, chevron, `aria-expanded`/`aria-controls`) ·
+`.aloca-trilho`, barra de progresso com alvo e etiqueta · faixa de tolerância com
+os três estados (abaixo, na faixa, acima) · `.aloca-grifo`, deep-link para o
+aporte com preset · `.aporte-chips`/`.aporte-scrub`/`.aporte-input`, o simulador
+vivo, com `<input type=range>` real (que traz `aria-valuenow` de graça) e o valor
+em `--num-poster-lg` mono · `.aporte-grifo`, o plano em uma frase · seleção de
+mercado.
 
-/* Mono (Monument) */ --mono ui-monospace, SF Mono, Cascadia Mono, JetBrains Mono, Menlo, Consolas
-                      --hero-mono-size 3.25rem  --hero-mono-tracking -0.025em
+**Retorno** — `.chip` XIRR/TWR · `.rent2-grande`, o número-veredito em
+`--num-poster` mono com ▲/▼ e cor do sinal · a ponte da rentabilidade, com
+`.grifo.ponte-pesou` listando quem somou e quem tirou dentro da linha tocada ·
+`.prov-total` e a nota de barra parcial em proventos ·
+`.poster`/`.dy-row`/`.dy-champs`, a tela de DY, com pôster de 54px e ranking por
+ativo · `.kpi-scroll-fade`, a dica de que a faixa de KPIs rola.
 
-/* Tab bar */        --tab-bar-height 56px  --tab-bar-bg var(--neutral-50) (histórico, não referenciado pós-7a.S.4)
-                     --tab-bar-border var(--neutral-200)  --tab-active var(--g-900)
-                     --tab-inactive var(--gray) (histórico)  --tab-indicator-height 2px
-                     /* 7a.S.4: label usa --faint (inativa)/--accent+700 (ativa); fundo frosted --tab-bg */
+**Ensaios** — `.diag-ensaio` e família (`.diag-frase`, `.diag-mono`,
+`.diag-janela`, `.diag-grafico`, `.diag-conta`, `.diag-indice__*`) nos cinco
+capítulos do diagnóstico, com réguas (`.sel-regua`, `.cons-regua`) e cascata
+(`.pol-cascata`) · `.proj-ensaio` e família (`.proj-cap`, `.proj-faixas`,
+`.proj-decomp`, `.proj-ponteiro`, `.proj-tabela`, `.proj-conta`) na projeção ·
+`.renda-ensaio` e família (`.renda-tabela`, `.renda-grafico`, `.renda-origem`,
+`.renda-pisos`) na renda da carteira. Os gráficos desses três são SVG inline com
+`viewBox 0 0 100 100`, `preserveAspectRatio="none"` e traço
+`vector-effect: non-scaling-stroke`.
 
-/* Class dots */     EUA #1e6091  FIIs #b8731f  Renda Fixa BR #0e7490  Ações BR #047857  Cripto #6d4ea8
+**Relatório e dossiê** — `.rel-poster`/`.rel-veredito-linha`/`.rel-dot` na capa
+editorial e no seletor de meses · `.rel-selo`, com glifo, texto e cor ·
+`.grifo--amber` no box do que não funcionou · `.dossie-grifo` no "quebra se" da
+tese · `.dossie-pede-revisao` quando a tese pede revisão ·
+`section.dossie-vigilia`, entre a tese e a linha do tempo.
 
-/* Refresh Monument (7a.S.1) — valores LIGHT (default); bloco dark = 7a.S.12 */
-/* Motion   */       --ease cubic-bezier(.16,1,.3,1)  --ease-spring cubic-bezier(.34,1.28,.44,1)
-                     --d1 .14s  --d2 .3s  --d3 .55s
-/* Monument num */   --num-poster-lg 46px (2.875rem)  --num-poster-xl 54px (3.375rem)
-/* Semantic */       --accent var(--g-700)  --accent-2 var(--g-500)  --accent-soft rgba(4,120,87,.09)
-                     --surface #ffffff  --surface-2 #f3f3ec  --faint #989e97  --hero-glow transparent
-                     --card-topline transparent  --pill #f3f3ec  --tab-bg rgba(250,250,247,.86)
-                     --amber-bg #fbf3e3  --amber-bd #eeddb8
-                     --shadow-pressed 0 1px 2px rgba(6,78,59,.06), 0 3px 10px -4px rgba(6,78,59,.14)
-/* Componentes */    .eyebrow (11px/800/.2em/upper/--faint; 7a.S.4 = voz única de abertura de tela) .eyebrow--accent (cor --accent, push screens)
-                     .grifo (border-left 3px --accent, "uma por tela"; 7a.S.5 realiza em .r7d-movers)
-                     .grifo--amber (border-left 3px --amber + --amber-bg/--amber-bd; 7a.S.9 realiza em .rel-secao--destaque, Apêndice B "Relatório = âmbar")
-                     .poster/.dy-row/.dy-champs (#s-dy, 7a.S.7b) · .prov-total (#proventos) · .kpi-scroll-fade (KPI affordance)
-                     .rel-poster/.rel-veredito-linha/.rel-dot (capa editorial + evento mensal do Relatório, 7a.S.9)
-                     .aporte-chips/.aporte-scrub/.aporte-card--in/.aporte-grifo (simulador vivo #aportar, 7a.S.10) · .aloca-grifo (cross-screen #alocação→#aportar)
-                     .pin-dissolve/.abertura-reveal(-in)/.abertura-breathe (A Abertura — cerimônia PIN→home, 7a.S.11)
-                     .theme-toggle (☽/☀ Modo Plantão, na linha do eyebrow do .grupo-cab, só no Hoje — 7a.S.12/7a.CC.1, ver seção dedicada abaixo)
-                     .grupo-cab/.grupo-cab__linha/.faixa (cabeçalho de grupo e faixa de telas, 7a.CC.1 — ver seção dedicada acima)
-                     .pede-atencao/.pede-atencao__titulo/.pede-atencao__lista/.pede-atencao__linha (Pede atenção do Hoje, 7a.CC.2 — ver seção dedicada acima)
-                     .renda-ensaio/.renda-tabela/.renda-grafico/.renda-origem/.renda-pisos (Renda da carteira #/raiox/renda, 7a.BJ.2 — ver seção dedicada abaixo)
-                     .diag-ensaio/.diag-frase/.diag-mono/.diag-pares/.diag-par/.diag-janela/.diag-grafico/.diag-conta (Diagnóstico, capítulo 1 #/raiox/diagnostico/risco, 7a.BQ.2 — ver seção dedicada abaixo)
-                     .diag-indice__* (índice #/raiox/diagnostico), .sel-*/.sel-regua (capítulo 3, a régua da confiança), .apor-* (capítulo 4), .pol-* (capítulo 2 da 7a.BS.2, a cascata), .cons-* (capítulo 5 da 7a.BT.2, a régua dupla), .diag-janela--herda (janelas com font: inherit), .rent-grifo-sel/.rent-aporte-frase (Rentabilidade) — 7a.BR.2, ver seção dedicada abaixo
-                     .proj-ensaio/.proj-cap/.proj-faixas/.proj-decomp/.proj-ponteiro/.proj-tabela/.proj-conta (Projeção como ensaio #/raiox/projecao, 7a.AW.2, forma refeita na 7a.AX, um cenário na 7a.AY — ver seção dedicada abaixo)
+**Vigília e reserva** — `.tela-olho`, com cabeçalho de estado da rodada e os
+graus em forma mais texto · a reserva de emergência, que fica **fora** do hero e
+não é somada a número nenhum da carteira · o bloco de notas pendentes.
 
-/* Modo Plantão (7a.S.12) — bloco :root[data-theme="dark"], warm OLED, teal-como-luz */
-/* Surfaces */       --neutral-50 #040906  --neutral-100 #0c1510  --neutral-200 #1c2b23  --neutral-300 #14211a
-                     --surface #0c1510  --surface-2 #101d16
-/* Texto   */        --ink #f1efe4  --gray #8fa598  --faint #5d7065
-/* Accent  */        --accent #34d399  --accent-2 #6ee7b7  --accent-soft rgba(52,211,153,.12)  --hero-glow rgba(52,211,153,.2)
-/* Legado  */        --g-900 #6ee7b7  --g-700 #34d399  --g-500 #6ee7b7  --teal-700 #5eead4 (headings/links/positivos pré-7a.E.23; .hero/.pin-submit têm override dedicado)
-/* Semantic*/        --red #f87171  --amber #fbbf24  --amber-700 #fdba74  --amber-bg #1b1608  --amber-bd #3a2f12
-                     --pill #12201a  --card-topline rgba(255,255,255,.045)  --tab-bg rgba(6,12,9,.84)
-                     --shadow-pressed 0 1px 2px rgba(0,0,0,.5), 0 5px 14px -6px rgba(0,0,0,.6)
-/* Categorias */     --cat-eua #5aa7dc  --cat-acoes-br #34d399  --cat-fii #e0a24a  --cat-cripto #b294e8  --cat-renda-fixa-br #22d3ee
-
-/* Container */      max-width 520px (raio-x) / 720px (telas detalhe)
-/* Padding base */   1.5rem (main) / 1.125rem (cards)
-/* Radius scale */   8 / 12 / 14 / 18 / 22 / 999
-
-/* Font */           system stack — -apple-system, "SF Pro Text", "Segoe UI"
-/* Mono */           font-variant-numeric: tabular-nums (sem font separada)
-/* Weights */        400, 500, 600, 700, 800
-
-/* Motion */         pin-shake 420ms · chevron 150ms · :active toque (scale, 7a.S.2) · fill 300ms
-/* prefers-reduced-motion: reduce */ respected
-```
+**Comuns** — `.card` (aninhamento de no máximo dois níveis) · `.grifo`
+(`border-left: 3px solid var(--accent)`, raio `0 14px 14px 0`, fundo
+`--surface-2`), um por tela, no ponto de maior tensão informativa, com a variante
+`--amber` reservada ao Relatório para que os dois não leiam como o mesmo sinal ·
+`.chip` · `.lado-B`/`.lado-S` · `.tabela-movimentos` e `.tabela-wrap` ·
+`.classe-dot` · `.flag` (🇧🇷/🇺🇸, ícone funcional por ativo, não por categoria) ·
+`.provento-tipo-tag` e `.provento-a-confirmar` · `.update-snackbar`, com
+`role="status"` e ação "Recarregar" · `.toast` · `.pin-screen` com `.pin-input`
+(campo único, `type=tel`, seis dígitos) · `.sr-only` ·
+`[x-cloak] { display: none !important; }`, que evita o flash de conteúdo sem
+estilo do Alpine.
 
 ---
 
-## Modo Plantão — dark OLED (Fase 7a.S.12, FECHA a umbrella 7a.S)
-
-Tema escuro para uso real (plantão, madrugada, sala escura): **warm OLED, teal-como-luz**. Toggle manual + persistido, **default light**. Bloco 100% ADITIVO — nenhuma regra light foi tocada; todo o sistema pré-existente (S.1–S.11) continua funcionando idêntico.
-
-### Toggle, persistência, boot
-
-- `<button class="theme-toggle">` (☽/☀, glifo `aria-hidden`) na linha do eyebrow do `.grupo-cab`, à direita, só no Hoje (`x-show="rota === ''"`; 7a.CC.1, antes dentro de `.raiox`) — `aria-label="Alternar tema (claro/plantão)"` + `:aria-pressed="tema === 'dark'"`.
-- `alternarTema()` (`js/app.js`): flip `this.tema` → `document.documentElement.setAttribute('data-theme', tema)` (via `_aplicarTema`) → `localStorage.setItem('tema', tema)` → `window.drarthurChart.reregister()`.
-- Boot (`init()`, ANTES de `tentarAutoResume()`): `this.tema = localStorage.getItem('tema') === 'dark' ? 'dark' : 'light'` — **NUNCA lê `prefers-color-scheme`** (spec §5.5: só o Dr. Arthur decide, manual + persistido; SO em dark não muda nada sem o toggle).
-- `_aplicarTema` também atualiza `<meta name="theme-color">` (`#064e3b` light / `#03110a` dark) — chrome do navegador/status bar acompanha o tema.
-- O toggle só aparece no Hoje (`x-show="rota === ''"`) — no instante do clique nenhuma tela de chart pode estar ativa, por construção. `alternarTema()` não re-hidrata chart nenhum: a próxima entrada em `#rentabilidade`/`#/raiox/chart`/`#proventos` já dispara `hidratarX()` (dispose+init incondicional a cada navegação) lendo os tokens recém-reregistrados — zero flash de cor antiga, porque o chart nunca fica "vivo e desatualizado" (ou não existe ainda, ou é reconstruído do zero a cada entrada na tela).
-
-### Bloco `:root[data-theme="dark"]` — remap completo
-
-Todo token que varia por tema ganha um 2º valor (ver tabela em "Tokens summary" acima). Categorias de tokens:
-- **Surfaces**: `--neutral-50..300`, `--surface` (novo em 7a.S.12 — tokeniza os antigos `background:#fff/white` hardcoded de ~20 componentes: `.card`, `.aloca-cat`, `.dy-row`, `.chart-rent` etc.), `--surface-2`.
-- **Texto**: `--ink`/`--gray`/`--faint`.
-- **Accent (teal vira luz)**: `--accent`/`--accent-2`/`--accent-soft`/`--hero-glow`.
-- **Brand teal legado**: `--g-900`/`--g-700`/`--g-500`/`--teal-700` + alphas (`--g-700-06/-12`, `--teal-14`, `--g-900-04/-07`) — tokens pré-7a.E.23 ainda referenciados diretamente por ~20 seletores (headings, "positivo" indicators, chips). Remapeados para a MESMA família cromática do `--accent` no dark.
-- **Semânticos**: `--red`, `--amber`/`--amber-700`, `--amber-bg`/`-bd`, `--pill`, `--card-topline`, `--tab-bg`, `--shadow-pressed`, `--red-50/-200/-800` (usados só por `.erro-nao-encontrado`, 100% token-based).
-- **Categorias** (`--cat-*`): mais claras/saturadas que o light — legíveis como dot/série contra o fundo quase-preto (mantém a regra "texto nunca colorido por categoria", 7a.E.20).
-
-**Aliased-token trap**: `--accent`/`--accent-2` são declarados como `var(--g-700)`/`var(--g-500)` no LIGHT — no dark ambos são sobrescritos DIRETO (não dependem do flip de `--g-700`/`--g-500`, embora estes TAMBÉM sejam sobrescritos, por consistência com os ~20 seletores legados que os referenciam sem passar por `--accent`). `--sem-up`/`--sem-down` (aliases de `--cat-acoes-br`/`--cat-fii`) NÃO precisam de override próprio — CSS custom properties resolvem `var()` no ponto de uso (computed-value time), então herdam o valor dark de `--cat-*` automaticamente via cascata; só os tints literais (`--sem-up-tint`/`--sem-down-tint`, rgba hardcoded) precisam de override direto.
-
-**Component-level overrides** (fora do bloco `:root`, sob `[data-theme="dark"] .seletor`):
-- `.hero` — fica um card "monumento" escuro nos DOIS temas (`background: #03110a` direto), independente do flip de `--g-900` (que vira claro para servir de heading/link em outros lugares).
-- **"seg.on dark ink"** — `.pin-submit`, `.aporte-pill`, `.toast`, `.escopo-toggle button.active`, `.moeda-toggle button.active`, `.lado-B`, `.lado-S` ganham `color: #04130c` (tinta escura) — seus fundos derivam de `--g-700`/`--g-900`/`--red`/`--cat-*`, que viram claros no dark; texto branco sobre um fundo agora claro falharia AA. Um único valor de tinta, mesma convenção do mockup (`.seg.on`). A etiqueta do trilho da `#alocacao` resolve o mesmo problema por token (`--etq-texto`, ver "Faixa de tolerância").
-- `.champ-bar .bw` (trilho da barrinha #s-dy) → `background: var(--neutral-50)` — "afunda" no fundo da página (groove), distinto do `--surface-2` do card em volta.
-
-### Teal-como-luz treatments
-
-- **Card hairline**: `.card`, `.dy-row`, `.chart-rent`, `.prov-chart-card`, `.ticker-hero`, `.rel-radar-card`, `.aloca-cat`, `.kpi`, `.dy-champs` ganham `box-shadow: inset 0 1px 0 var(--card-topline), ...` — fio de luz no topo, profundidade sem gradiente (anti-pattern #8 preservado).
-- **Tab indicator glow**: `.tab-bar-indicator` ganha `box-shadow: 0 0 14px rgba(52,211,153,.55)`.
-- **Poster text-shadow**: `.poster` (#s-dy) e `.rel-poster` (capa do Relatório) ganham `text-shadow: 0 0 38px rgba(52,211,153,.3)`.
-- **Sombras literais tintadas a --g-900** (fora do token `--card-shadow`/`--g-900-04/07`): `.toast`, `.tabela-wrap`, `.vazio`, `.card-link:hover/:focus-visible`, `.rel-seletor__lista` recebem `rgba(0,0,0,…)` — a versão tintada ficaria invisível contra o fundo quase-preto.
-- **Polish de badges/tints** (não é correção de contraste de texto — o texto já lê via tokens): `.chip.is-neg`, `.rel-selo--intacta`, `.rel-selo--deteriorando`, `.provento-tipo-tag` ganham tints ligeiramente mais claros/visíveis no dark.
-
-### Repaint dos gráficos ECharts (o ponto técnico)
-
-O tema `'drarthur'` do ECharts (`js/echarts-theme.js`) e o `tooltipBase` são registrados **uma vez** no load, lendo os tokens via `getComputedStyle` — sem re-leitura, ficariam presos nos valores LIGHT mesmo depois do toggle. Mecanismo:
-- `tokens` é um objeto **único e estável** (`var tokens = {}`, nunca substituído — só mutado in-place por `refreshTokens()`). Consumidores guardam `dc = window.drarthurChart` e leem `dc.tokens.x` no momento de montar cada chart — como o objeto nunca troca de referência, qualquer `dc` obtido ANTES ou DEPOIS de um `reregister()` sempre reflete os valores atuais.
-- `window.drarthurChart.reregister()` — chamado por `alternarTema()` e, desde a 7a.AV.2, também uma vez por `init()` no boot frio em Modo Plantão (ver parágrafo abaixo): `refreshTokens()` (re-lê todos os tokens do `:root` corrente) → `echarts.registerTheme('drarthur', buildTheme())` (novo objeto de tema com as cores frescas) → `window.drarthurChart.tooltipBase = buildTooltipBase()` (novo tooltip, `backgroundColor: tokens.surface` + `box-shadow` theme-aware via `tooltipShadow()`, que lê `data-theme` diretamente).
-- `tokens.surface` (novo, lê `--surface`) — o tooltip do ECharts era hardcoded `#fff`; agora acompanha o tema.
-- **Verificado**: a reancoragem das duas curvas e a ponte de `#rentabilidade` (7a.BD.2) sobrevivem a um repaint — como `hidratarRentabilidade()` sempre faz dispose+init completo a cada entrada na rota, o dataZoom e a vista são reconstruídos do zero lendo os dados atuais, sem estado stale.
-- **Gotcha de autoria (achado nesta sub-fase)**: um comentário CSS contendo a sequência literal `*/` no meio do texto (ex. `/* ...(--g-*/--teal-700)... */`) fecha o comentário PREMATURAMENTE — todo o texto entre esse `*/` acidental e o próximo `*/` real vira CSS "solto" (não-comentário), corrompendo o parse da declaração seguinte. Causou um bug real: `--g-900` não recebia o override dark (ficava preso no valor light) enquanto `--g-700`/`--g-500`, declarados 1-2 linhas depois na mesma regra, funcionavam normalmente. Lição: nunca escrever `--algo-*/` ou qualquer `*/` não-intencional dentro de um comentário CSS.
-- **Boot frio direto em Plantão (achado na 7a.AV.2, `js/app.js::init()`)**: `echarts-theme.js` roda no `<head>`, ANTES de `init()` aplicar `data-theme="dark"` — um boot que já nasce com `localStorage.tema === "dark"` (ex.: abrir o app numa sub-rota via link direto, sem passar pelo toggle) montava o 1º chart com os tokens CLAROS (grade `--neutral-200` quase branca sobre o fundo OLED). O toggle (`alternarTema()`) sempre chamou `reregister()`, mas nada cobria o boot direto — só o **flip manual** disparava a releitura. Corrigido chamando `window.drarthurChart.reregister()` dentro do próprio `init()`, uma única vez, quando `this.tema === "dark"` logo após `_aplicarTema`. **Qualquer chart novo que leia `dc.tokens` herda a correção de graça** (o objeto `tokens` já está correto antes do primeiro `hidratarX()`) — a lição é que o boot frio é um terceiro caminho de entrada nos tokens do ECharts, distinto do load inicial (sempre light) e do toggle, e um futuro reregister-only-on-toggle reintroduziria exatamente este bug.
-
-### Contraste WCAG AA (verificado)
-
-`--ink` sobre `--neutral-50`/`--surface` ≥ 4.5:1 (texto normal). `--gray`/`--accent`/`--red`/`--amber`/`--cat-*` sobre `--neutral-50` ≥ 3:1 (texto grande, ícones, uso gráfico dot/série). Fórmula de luminância relativa (WCAG) + trava em Playwright (`tests/e2e/modo-plantao.spec.ts`, Task 3).
-
-### Testes e screenshots
-
-`tests/e2e/modo-plantao.spec.ts` — 4 tasks: (1) toggle flip/persist/boot (ignora `prefers-color-scheme`) + bloco dark resolve; (2) repaint dos charts (rentabilidade/patrimônio/proventos, markPoint + tooltip mudam de cor pós-toggle, a reancoragem sobrevive); (3) treatments teal-como-luz + contraste AA; (4) screenshots `page.screenshot()` (não MCP) capturando raiox/rentabilidade/alocação/proventos/#s-dy/relatório/aportar nos DOIS temas, salvos em `tests/screenshots/modo-plantao-*-{light,dark}.png` (commitados, mesma convenção dos screenshots pré-existentes de `#aportar`).
-
----
-
-## Relatório Mensal (7a.Q.3) — componentes
-
-Tela-membro de Análise `#/raiox/relatorio` (7a.CC.1, antes push) reusa a casca `.tela-detalhes`; o `.rel-breadcrumb` fica só pelo seletor de mês, sem "←" (o título "Relatório" é `<h1>` `.sr-only`). **Zero token novo** — toda a tela é composta de tokens existentes (`--num-*`, `--sem-*`, `--cat-*`/class dots, `--ink`, `--neutral-*`, `--gray`, `--g-*`, `--mono`, `--red`, `--amber*`, `.kpi`, `.flag`, `.grifo--amber`):
-
-- **Entrada:** Análise › Relatório, na faixa. No Hoje, o mês ainda não lido aparece como o item "Relatório de {mês} saiu" do Pede atenção.
-- `.rel-secao` / `.rel-secao__titulo` / `.rel-prosa` — seções de prosa (título `--num-lg`/`--g-900`; corpo `--ink`, max 68ch, prosa escapada antes de linkificar `[n]`). `.rel-secao--manchete` (§leitura_mes — título `--num-xl`) e `.rel-secao--destaque` (§nao_funcionando — layout: borda-esquerda arredondada + padding/gap; peso por hierarquia, **calma, sem vermelho gritante**). Desde 7a.S.9 a *cor* de `.rel-secao--destaque` vem inteira de `.grifo--amber` (abaixo) — a classe de layout não carrega mais `--sem-down` própria.
-- `.rel-selo` (+ `--intacta` cinza / `--pressao` `--sem-down` âmbar / `--deteriorando` `--red`) — veredito de tese por ticker. **Forma (glyph `aria-hidden` ●/◐/▽) + texto + cor**, nunca cor sozinha (deuteranopia coberta). Pílula mono (`--mono`, `--num-xs`, peso 700) de raio total, `padding: 3px 10px`, fundo em tint do tom e texto na cor cheia do tom.
-- `.rel-kpis` reusa `.kpi` para os mini-cards do dossiê (performance/decomposição/renda). `.rel-radar` / `.rel-concentracao` / `.rel-evidencias` / `.rel-prestacao` — listas. `.rel-seletor` — dropdown de meses (botão + itens ≥44px). `.rel-loading`/`.rel-erro`/`.rel-vazio` — estados mutuamente exclusivos (skeleton com `prefers-reduced-motion: reduce` honored; degradação graciosa).
-
-### Capa editorial + evento mensal (7a.S.9)
-
-- **Capa editorial** — `.rel-capa` no header (abaixo do `.rel-breadcrumb` com o seletor de mês; desde a 7a.CC.1 sem "←" nem eyebrow próprio): `.rel-poster` mostra o mês do artefato como poster de 2 linhas (mês / ano, `--num-poster-lg` 46px mono `--accent`, via `formatMesAno(relMes.mes)` partido em `relPosterMes`/`relPosterAno`) + `.rel-veredito-linha` logo abaixo ("Veredito do mês: …", `--num-sm`/`--surface-2`). **Sem fabricar dado**: o artefato `relatorio_mensal_v1` não tem campo `veredito`/`headline`/`resumo` (ver `validar_artefato` no repo principal) — o getter `relVeredito` deriva a **1ª frase literal** da seção `leitura_mes` ("Leitura do mês", o panorama narrativo já escrito pelo motor `/relatorio-mensal`) via `_primeiraFrase`; só o rótulo "Veredito do mês:" é UI, o texto é 100% do artefato. `.rel-seletor__btn` ganha `white-space: nowrap` (corrige o micro-atrito Fable §3 — "Maio 2026 ▾" não quebra em 2 linhas @320px); dropdown inalterado.
-- **Evento mensal — dot "não lido"** — `.rel-dot` (7px, `var(--amber)`) em cada `.rel-seletor__item` cujo mês ainda não foi aberto; no Hoje, o último mês não lido é o item "Relatório de {mês} saiu" do Pede atenção. Estado 100% client-side: `relRead` (Alpine state, espelhado em `localStorage.relRead`) é um mapa `{'YYYY-MM': true}`; `mesLido(mes)` lê, `_marcarMesLido(mes)` grava e é chamado dentro de `carregarRelatorioMes` no sucesso — abrir um mês marca ele lido: o dot some do seletor e, se era o último mês, o item sai do Pede atenção, sem backend/schema. **A11y**: dot é `aria-hidden` + par `.sr-only` "não lido" (textual, não só cor+pulse). **Motion**: `.rel-dot::after` anima um anel via `transform: scale`/`opacity` (nunca `box-shadow` com `rgba()` ad-hoc — zero cor hardcoded fora de `:root`); a animação só existe dentro de `@media (prefers-reduced-motion: no-preference)`, então reduced-motion vira um dot estático (o `::after` fica parado sobre o próprio dot, mesma cor/tamanho).
-- **Grifo âmbar consagrado** — `classeSecao('nao_funcionando')` retorna `"rel-secao--destaque grifo--amber"`: o box ganha `.grifo--amber` (S.1: `border-left: 3px solid var(--amber)` + `--amber-bg`/`--amber-bd`), a colocação canônica do Apêndice B ("Relatório = âmbar", variante distinta do `.grifo` accent — nunca leem como o mesmo sinal). Os selos de veredito dentro do box (ex.: SMAL11/KISU11) são preservados intactos.
-
-### Tela do dossiê de empresa (7a.R.3.b)
-
-Push screen `#/dossie/<TICKER>` — a memória viva de cada posição (tese + arco de 2 anos), segmento **Dossiê** da faixa do ativo (7a.CC.3; a linha `.dossie-entrada` do fim do `#ativo` saiu, e o Retorno esperado ganhou o endereço `#/dossie/<TICKER>/retorno`), e também do ticker linkado no radar/prestação do Relatório ("sob pressão contra o quê?") e da Vigília. **Zero token novo**: a tela inteira se compõe de `--num-*`, `--cat-*`, `--g-*`, `--ink`/`--gray`/`--faint`, `--amber-700` (só no selo da 7a.AD.2, ver abaixo), `--neutral-*`, `--mono`, `.flag`, `.grifo`, `.rel-selo`, `.rel-prosa`. Não é um segundo `#ativo` (spec §6.1): zero preço, zero DY, zero KPI vivo, zero delta colorido.
-
-- **Ponte de vocabulário de categoria.** O dossiê carrega o vocabulário do BACKEND (o bootstrap copia `posicoes_view.classe`: `Ação BR`/`Exterior`/`FII`/`Cripto`/`Renda Fixa BR`), que **não** é o vocabulário da política lido por `catCssVar` (`Ações BR`/`EUA`/…). `dossieCatStyle()` traduz os dois casos divergentes antes de delegar. Sem essa ponte o dot cairia no fallback `--g-700` e **toda** categoria ficaria teal — falha silenciosa, travada por teste. `catCssVar` não foi alterada: ela é do `#alocação`.
-- **`numeros_reportados` é lista de definição, não grid de KPI.** Desvio consciente da regra geral `number-tabular`: são **citações congeladas na data-base da fonte**, frequentemente frases inteiras ("física 4,09% (de 4,20%) — em queda"), não escalares vivos. Rótulo derivado da chave (underscore→espaço, uppercase, 11px `--gray`) sobre o valor em prosa sans `--ink`; sem `tnum`, sem mono, sem cor semântica. Stack 1-col a 390px **e** a 320px — não há grid para quebrar.
-- **Selo "esta tese pede revisão" (7a.AD.2)** — `.dossie-pede-revisao`, fecha o bloco da tese. É **estado derivado**, não campo: aparece quando existe entrada de timeline com `confronto_tese.estado === "disparado"` datada **depois** de `tese.revisada_em`, e some sozinho quando o Dr. Arthur revisa a tese. Fica **fora do `.grifo`** de propósito — a tela já gastou seu único grifo no `quebra_se` (anti-pattern #14), e o selo não pode competir com ele: aquele é um cartão com border-left accent, este é uma linha de texto. A11y em **forma + texto** (glifo `⟳` `aria-hidden` + a frase real, que é o que o leitor de tela lê), nunca cor sozinha. **Desvio consciente da spec §5**, que prescrevia `--num-2xs` + `--gray`: implementado em `--num-xs` + `--amber-700` pela regra já vigente nesta tela (logo abaixo) — uma frase a ler não cabe em 10px, e o que distingue o selo é a **cor**, não o tamanho. Contraste medido: 4,80:1 claro, 11,89:1 Plantão.
-- **Linha de frescor em `--num-xs`, não `--num-2xs`.** É uma frase a ler, e 10px cai abaixo do piso de legibilidade de corpo em mobile; a voz secundária vem de `--faint`, não do tamanho. A cláusula de verificação leve é **aditiva e condicional**: 28 dos 39 dossiês reais têm `ultima_verificacao_leve: null`, então um "sem verificação leve" apareceria na maioria das telas e leria como defeito, quando é o estado normal.
-- **Fontes mantêm `--num-2xs` com alvo de 44px.** Reconciliação entre a voz tipográfica pedida pela spec §5.4 e a WCAG 2.5.5: a altura vem do `padding` do `<a>`, não do `font-size`.
-- **O arco fica aberto.** Nada é colapsável na timeline. O advisor Fable propôs colapsar as entradas antigas; a escolha explícita do Dr. Arthur foi manter o arco inteiro visível — com 3 a 5 entradas o scroll **é** a leitura, e o mini-mapa já resolve a orientação.
-- **Mini-mapa: um glifo por entrada, rótulo de ano só na primeira do ano.** 12 dos 39 dossiês reais têm mais de uma entrada no mesmo ano (KNRI11 tem três em 2026) e "2026 2026 2026" gagueja sem informar. O `.dossie-arco__ano` reserva a linha mesmo vazio (`display:block` + `min-height:1em`), senão o glifo sobe ~11px e desalinha a fileira. O par `.sr-only` segue nomeando o ano de **todas** as entradas — o rótulo visual pode omitir, a leitura auditiva não pode perder a ancoragem temporal.
-- **Sub-linha do cabeçalho não repete o ticker.** Em 29 dos 39 dossiês reais `nome` **é** o próprio ticker (o bootstrap não tinha razão social a copiar); nesses casos `dossieSubtitulo` deixa só a categoria, em vez de estampar "KNRI11 · FII" logo sob o "KNRI11" em corpo grande.
-- **Estados com classes próprias, não as do Relatório.** `.dossie-loading`/`.dossie-skeleton`/`.dossie-erro`/`.dossie-vazio` espelham `.rel-*` por **seletor agrupado** no CSS (fonte única de estilo), mas nunca reusam a classe no DOM: um segundo `.rel-erro`/`.rel-vazio` faz os locators sem escopo de `relatorio-mensal.spec.ts` resolverem a 2 elementos (strict mode). Regressão real, pega e travada por teste.
-- **Índice fora do caminho crítico do boot.** `carregarIndiceDossies()` é disparado **sem `await`** no auto-resume e no `submitPin`: nada da primeira pintura depende dele (as duas superfícies que o consomem são reativas e acendem quando ele chega), e cada decifra custa uma derivação PBKDF2 de **600k iterações** — aguardá-lo empurrava a hidratação dos gráficos o bastante para quebrar o teste de tooltip do `#patrimonio`. Chamadas concorrentes compartilham a promise em voo (`_dossieIndicePromise`) para não pagar a derivação duas vezes.
-
-### Projeção patrimonial (7a.AV.2) — SUPERADA pela 7a.AW.2
-
-> **Superada em 26/09/2026.** A tela descrita nesta seção (gráfico único `.proj-chart`, listas `.proj-sens`/`.proj-estresse`, tabela `.proj-aporte` com marco, premissas por classe) foi substituída pelo ensaio em capítulos da seção seguinte, "Projeção — ensaio (7a.AW)". O texto abaixo fica como registro das decisões que a 7a.AV.2 mediu. O que continua valendo: a limpeza no lock e a lição das fontes do sistema. **[Carimbo 7a.AX, 26/09/2026: a limpeza no lock deixou de continuar valendo — ver o carimbo no próprio bullet, abaixo.]**
-
-Tela `#/raiox/projecao` (membro de Análise desde a 7a.CC.1; antes push) — a resposta a "quanto vou ter aos 65?", derivada da simulação Monte Carlo que o pipeline recalcula toda noite (semente fixa, milhares de trajetórias) a partir de `config/projecao.yaml`. Alcançada por Análise › Projeção, na faixa (o Hoje não tem cartão da projeção).
-
-- **Ousadia num lugar só.** A linha-resposta (`.proj-resposta`) é o único elemento em destaque da tela: "Aos 65, entre **R$ X** e **R$ Y**" com os dois números da faixa em `--num-xl`/mono/700, seguido de uma sub-linha quieta com o valor central e "em reais de hoje". O resto da tela é deliberadamente calmo — listas sem card (`.proj-sens`, `.proj-estresse`), tabelas densas sem borda decorativa — para que a atenção não compita com a resposta.
-- **~~Gráfico em leque, zero dataZoom~~ (superado pela 7a.AW.2).** O gráfico único `.proj-chart` (leque + curva histórica tracejada + `markLine` do marco de formação) saiu. O leque virou dois pequenos múltiplos, um por âncora, no capítulo 5; as medianas dos quatro cenários foram para o gráfico-mapa do capítulo 4; o marco saiu junto com o aporte de dois períodos. Ver "Projeção — ensaio (7a.AW)".
-- **"E se" e "Cenários hipotéticos" — duas listas, dois registros.** `.proj-sens` é sensibilidade contínua (aporte/retorno/prazo, um delta em R$ por linha, seta▲/▼ + cor + texto — nunca cor sozinha); `.proj-estresse` é estresse nomeado (recessão, crise setorial etc., cada item com nome + descrição em prosa + o par valor-central/delta). Os dois reusam `.proj-num`/`.proj-delta`/`.proj-pos`/`.proj-neg`, nunca duplicam o par cor+glifo.
-- **Tabela de aporte transposta e sem centavos (G3, 25/09/2026 — decidido sem escalar).** `.proj-aporte` cruza linhas (histórico 12m / estimativa do Dr. Arthur / usado) × colunas (até o marco / depois do marco); o histórico é um número só e ocupa as duas colunas por `colspan` em vez de repeti-lo ou dizer "igual" (que se leria como "a estimativa é igual ao histórico"). `formatBrlInteiro` (sem centavos) e a transposição em si são resposta a uma medição, não preferência: a versão não-transposta media 253px de conteúdo numérico numa coluna de 232px a 320px de viewport — a "a centavos" da spec §3.4 é contrato do **payload** (que segue com centavos; só a apresentação arredonda). Célula sem estimativa mostra "não informada" (`.proj-sem-valor`), nunca `—` isolado, que colidiria com o "—" de ausência de dado em outras telas.
-- **Premissas por classe com as casas decimais da premissa aprovada, não um padrão de tela.** `.proj-classes` lista peso-alvo (0 casas), retorno real (2 casas) e volatilidade (1 casa) por classe de ativo — **as casas não são estéticas**: são as que preservam o dígito significativo dos quatro pares aprovados na spec (ex. volatilidade 9,5% teria virado "10%" a 0 casas, cruzando um limiar de inteiro; achado material do G3, corrigido antes do fechamento da Task 11). Cada linha abre um `<details class="proj-fonte">` (resumo = nome da classe, corpo = fonte + período) para a citação verbatim — sem gastar largura permanente numa nota ao lado do número.
-- **Rodapé de método, três linhas quietas.** Número de trajetórias simuladas (com separador de milhar `toLocaleString('pt-BR')`) + "semente fixa · recalculada toda noite"; o aviso de que os retornos são brutos de impostos e custos ("o viés é para cima"); e a frase de fechamento "Projeção, não promessa. As premissas acima definem a curva." — a única linha da tela que não é dado, e por isso não usa `.proj-num`.
-- **Fontes do sistema ⇒ métrica por SO (hotfix 7a.AV.2, 25/09/2026).** O app não embarca fonte: o texto sai em Segoe/Consolas no Windows, DejaVu no Linux e SF no iPhone, com larguras e alturas diferentes. Duas consequências nesta tela, ambas pegas pelo CI Linux depois de passar no Windows. (1) A **legenda do leque é HTML** (`.proj-legenda`, logo abaixo de `.proj-chart`: traço sólido `--g-700` = "Mediana", traço tracejado 6/4 `--gray` = a série histórica, que só aparece quando o payload traz `historico`; o nome vem de `projNomeHist()`, fonte única com a série do gráfico), não mais `legend` do ECharts — a geometria da legenda no canvas dependia da métrica da fonte e no Linux "Mediana" saiu no topo do gráfico. Os traços são `aria-hidden`; o resultado por extenso continua no `aria-label` do gráfico. O nome do eixo X segue no canvas porque ticks e nome são medidos com a mesma fonte (distância por `nameGap`, não por largura). (2) As **tabelas de premissas mantêm ≥12 px de folga a 320 px** na largura mínima de conteúdo, na fonte do sistema **e** com uma fonte larga forçada (Verdana/DejaVu Sans) — o teste mede `min-content`, porque `scrollWidth` numa tabela `width:100%` só diz "coube", nunca quanto sobrou. A folga veio de padding horizontal 2px, cabeçalho a 0.6875rem e rótulo de linha a 0.8125rem; nenhum número, casa decimal ou cabeçalho mudou.
-- **Zero token novo.** Toda a tela se compõe de `--num-*`, `--mono`, `--ink`/`--gray`/`--g-700`/`--g-900`/`--red`, `--neutral-*` — mesma disciplina das telas de push anteriores (dossiê, relatório).
-- **Limpeza no lock.** `echartsProj`/`resizeObserverProj` seguem o mesmo padrão dos outros três gráficos ECharts do app (`_descartarProj()`, chamado no lock e a cada re-entrada na rota): dispose incondicional, nunca estado vivo sobrevivendo à saída da tela. **[Carimbo 7a.AX, 26/09/2026: a projeção deixou de ter ECharts; não há mais gráfico dela a limpar no lock.]**
-
-### Projeção — ensaio (7a.AW, forma refeita na 7a.AX, um cenário na 7a.AY)
-
-Tela `#/raiox/projecao` (membro de Análise), um **ensaio em capítulos**: coluna única, sem cards, a separação é tipográfica e espacial. Desde a 7a.AY.2 a tela mostra **um** cenário, com premissas prospectivas por classe (payload v2.29); as quatro leituras da 7a.AW (dois históricos e dois de mercado) saíram, e os retornos históricos vivem só no `#rentabilidade`.
-
-- **Abertura (`.proj-resposta`).** "Aos 65 você teria cerca de **R$ X**, em reais de hoje." e, na linha de baixo, "Em 8 de cada 10 cenários, entre **R$ A** e **R$ B**." X = p50 (`--num-xl`), A e B = p10 e p90 (`--num-lg`, `.proj-resposta__intervalo`). ", em reais de hoje." volta ao corpo do texto e a frase `em reais de hoje.` é inteira (`.proj-resposta__inteiro`, sem quebra): a 320 px ela desce junta, nunca parte "em | reais".
-- **Capítulo (`.proj-cap`, 6 na tela).** Gramática única: ordinal (`.proj-cap__ordinal`, pequeno, `--accent`, tipografia de título e **nunca** `--num-*`) → título → número-tema (`.proj-cap__tema`, fonte do texto, `--num-lg`, 700, tabular) → texto → "ver a conta" (`details.proj-conta`, fechado por padrão). Os capítulos 4, 5 e 6 não têm número-tema.
-- **Capítulo 3, "Quanto a carteira deve render".** Tema = a taxa central real, já líquida. Tabela por classe `.proj-tabela--classes`: **um `tbody.proj-classe` por classe**, o rótulo em linha própria e os quatro números embaixo (peso · retorno real · desconto · líquido), colunas alinhadas ao `thead`. Cinco colunas lado a lado não cabiam a 320 px com folga entre os cabeçalhos. Real e líquido com 1 casa; o desconto **exibido** é a diferença dos dois já arredondados (`projTabelaClasses`), para `real − desconto = líquido` fechar no que se lê; o exato e a composição (taxa dos fundos, retenção americana) ficam no "ver a conta". Depois: a linha de fonte (`.proj-fonte-linha`, renderizada de `premissas.fonte`, nunca hardcodada), a nota `--gray` de premissas vencidas, e o grifo.
-- **Gráfico de faixas (`.proj-faixas`, capítulo 4).** Uma linha por **marco de idade** (45, 55, 65; marco que já passou sai): rótulo "Aos N", o desenho (`role="img"`, `aria-label` com os cinco percentis), os valores escritos **em linha própria, fora do `role="img"`**. Traço p10–p90, barra p25–p75, ponto na mediana. Eixo de R$ 0 ao teto redondo do maior p90 desenhado (`projFaixas`, `projEixoTeto`): a faixa se abre com o tempo na mesma escala. Legenda uma vez, em texto. Sem ECharts.
-- **De onde vem o valor (`.proj-decomp`, capítulo 4).** A frase determinística ("na taxa de X constante, sem sorteio") e o "praticamente" sempre visíveis; uma barra 100% (patrimônio de hoje crescido `--ink` · aportes `--g-700` · rendimento dos aportes `--gray`) e a tabela `.proj-tabela--decomp` como legenda. Só parcelas positivas entram na barra.
-- **Ponteiro (`.proj-ponteiro`, capítulo 5).** Um bloco por alavanca (duas sensibilidades, depois até quatro estresses com descrição em cinza; Real forte e Proventos fora da carteira saem quando o dado não os sustenta) e uma linha `.proj-ponteiro__efeito`: "mediana R$ X" à esquerda, Δ à direita (sinal em texto, seta `aria-hidden`, cor). A 320 px a mediana quebra em duas linhas e o Δ fica na primeira; a guarda é a **folga** (≥ 8 px), não o transbordo.
-- **"Ver a conta" final (`.proj-conta--final`).** Os cinco percentis nos marcos (células sem "R$ ", a unidade fica na frase acima: com ela as três colunas não cabiam a 320 px; cabeçalhos `N anos` sem quebra; **um `tbody.proj-percentil` por percentil**, o rótulo em linha própria e os três valores embaixo, como a tabela por classe: com o rótulo como 1ª coluna a largura mínima passava de 232 px na DejaVu do CI Linux), a correlação entre as classes como **lista de pares** (`.proj-tabela--correl`; a matriz 6 × 6 não cabe a 320 px) e o número de trajetórias.
-- **Largura.** `.proj-ensaio` é grid `minmax(0, 1fr)`. O teste de 320 e 390 px confere cada nó contra o retângulo do próprio bloco (abertura, seis capítulos e a conta final), não só a rolagem.
-- **Copy (travado por teste).** Sem travessão; frases de até 40 palavras; nenhum verbo de ação de investimento ("aporte mais", "compre", "venda", "invista mais"; imperativo de navegação, como "veja o cenário", é permitido); nada de TWR, XIRR, "âncora" ou "quatro leituras".
-- **Estados.** `projecao === null` ou payload anterior à v2.29: a rota diz "Projeção indisponível hoje".
-- **Plantão.** Faixas, pontos e barra de decomposição leem os tokens do tema por CSS puro. Verificado visualmente a 390 e 320 px, claro e Plantão, com a fixture sintética (7a.AY.2).
-- **Tipografia.** Mono só nos **três** valores da frase-resposta (`.proj-faixa`: p50, p10, p90). `.proj-num` é fonte do texto, `tabular-nums`, 600, corpo herdado. Unidades e conectivos no corpo do número que ligam, 400, `--gray`. Na linha da faixa, A e o "e" formam um grupo sem quebra: a 320 px a quebra cai depois do "e".
-
-### Renda da carteira — ensaio (7a.BJ.2)
-
-Tela `#/raiox/renda` (membro de Retorno desde a 7a.CC.1; antes push), irmã da projeção e da mesma família: coluna única, sem cards, separação tipográfica e espacial, zero motion novo. Responde "quanto a carteira já paga por mês, e como isso cresce". Consome o bloco `renda` do payload **v2.32**. Classes próprias `renda-*` (os testes da projeção têm locators globais `.proj-*`; reusar a classe faria colidir).
-
-- **Herói (`.renda-resposta`).** "Se você parasse de trabalhar hoje, sua carteira sustentaria" / **R$ X** (`.renda-heroi`, `--num-xl`, mono, `--g-900`: o **único mono da tela**, travado por teste) "por mês" / "R$ Y por ano, em reais de hoje." Valores em reais inteiros (`formatBrlInteiro`).
-- **Chip de 12 meses (`.renda-chip`).** Borda `--neutral-200`, texto `--ink` nos dois sentidos: informa, não celebra (sem verde no positivo, sem vermelho no negativo). O sinal vai em texto (`+` / `−`), arredondando o **módulo** (o `Math.round` do JS é assimétrico em .5). Some com histórico < 12 meses.
-- **De onde viria (`.renda-origem`).** Barra de dois segmentos no idioma da decomposição da projeção (proventos `--g-700`, vendas `--gray`) + uma linha por origem com a marca da cor (a cor nunca é o único sinal: o rótulo está na linha). Proventos cobrem a renda: uma linha só, segmento 100%, e a frase do excedente.
-- **Tabelas de leitura (`.renda-tabela`).** Um `tbody` por item: `tr.renda-linha` com rótulo à esquerda e valor à direita na **mesma** linha (`padding-left: 12px`; só o número é `nowrap`, e "por mês" desce de linha quando falta espaço: com o `td` inteiro `nowrap` a tabela de pisos passava da coluna na DejaVu do CI), e `tr.renda-linha__sub` em cinza embaixo (faixa 8 em 10, carteira em R$, piso). A 320 px o teste confere a **folga ≥ 8 px** entre rótulo e valor em toda linha e que nada passa da **coluna** do ensaio (não da tela, cujo padding escondia 5 px), nas variantes normal, zero e cobrem, com a fonte do sistema e com a larga forçada, e com os valores da fixture e ×100 (5 a 8 dígitos). Rótulos curtos de propósito ("Se subir 20%"), porque o longo quebrava em duas linhas a 320 px.
-- **Gráfico (`.renda-grafico`).** SVG inline, `viewBox 0 0 100 100` esticado com `preserveAspectRatio="none"` e traço `vector-effect: non-scaling-stroke`; passado em linha cheia `--ink` (reais de cada época), mediana tracejada `--g-700` e faixa p10–p90 em `--g-700` a 16% de opacidade, **chapada** (incerteza, não enfeite: o anti-pattern 17 bane o gradiente). O marcador de hoje é HTML posicionado em %, para não se deformar. `role="img"` com resumo no `aria-label`; a tabela "Se você parasse aos…" é a leitura acessível. Eixo em texto: ano inicial (some quando "hoje" fica a menos de 18% do começo), "hoje", "aos 65".
-- **Pisos (`.renda-pisos`).** Relativos ao patrimônio de hoje (sem piso, metade, o patrimônio inteiro, e o configurado quando for outro). A linha configurada leva `aria-current="true"` e título em `--g-900`. Quando o piso configurado é um dos relativos, a linha de baixo ganha "· o seu piso" em `--accent`; quando é outro valor, o próprio rótulo é "O seu piso" (no `th`, `--g-900`, sem repetir o marcador; flag `rotuloDizSeuPiso`), a renda por mês fica na mesma linha, à direita, e o **montante do piso** vai na linha de baixo ("deixa ao menos R$ X aos 95"). Um rótulo com o montante não serve: "R$" e o número são ligados por espaço inseparável e não quebram.
-- **Estados.** `renda === null`, bloco parcial ou payload anterior à v2.32: a rota diz "Renda indisponível hoje.". Renda 0 por piso alto: a frase "Com o piso de herança atual, a carteira ainda não sustenta renda" toma o lugar do herói, chip e "De onde viria" saem, e a tabela de pisos continua.
-- **Entrada:** Retorno › Renda, na faixa. O Hoje não tem cartão da renda.
-- **Sem link cruzado.** O `.renda-link` (Projeção ↔ Renda) saiu na 7a.CE: Renda está na faixa do Retorno e Projeção na da Análise.
-
-### Diagnóstico — capítulo 1, risco realizado (7a.BQ.2)
-
-Push screen `#/raiox/diagnostico/risco` (era `#/raiox/diagnostico` até a 7a.BR.2, que pôs ali o índice; o "←" volta ao índice), irmã da renda e da projeção, mesma família ensaio: coluna única (`.diag-ensaio`, `minmax(0, 1fr)`), sem cards, zero motion nova além do `:active` dos toggles (sob `prefers-reduced-motion: no-preference`). Classes próprias `diag-*`; os toggles reusam `.escopo-toggle`/`.moeda-toggle` com atributos próprios (`data-diag-escopo`, `data-diag-moeda`) e `aria-pressed`, e a seção fica **depois** da Rentabilidade no DOM, para os locators `.escopo-toggle button` com `.first()` de outras specs seguirem resolvendo a da Rentabilidade. Ousadia num lugar só: o gráfico.
-
-- **Abertura.** `.diag-ordinal` "1" (`--accent`, o mesmo da projeção) e `.diag-titulo` "Quanto risco a carteira correu" (`--g-900`).
-- **Janelas (`.diag-janela`).** Três botões numa linha (`flex: 1 1 auto` com `min-width: max-content`, 44 px: com base 0, "Desde mmm/aa" vazava da borda do botão a 320 px, achado na verificação visual e travado por e2e que mede o texto dentro de cada botão; abaixo de 360 px ficam mais compactos e, sem espaço, o último desce para a linha inteira), no idioma de `.rent2-janela`: pressionada com borda `--ink` e anel `--accent-soft`; indisponível com `aria-disabled` a 45%, continua tocável para dizer o motivo em `.diag-motivo` (`aria-live`). "Desde" segue a regra da Rentabilidade: "Desde 2019" quando o escopo nasce no começo do histórico, senão "Desde {mmm/aa}" da âncora.
-- **Frase-resposta (`.diag-frase`).** 17 px, peso 500; os três números em destaque (`.diag-mono`, `--g-900`) são o **único mono da tela**, travado por teste; a unidade ("ao ano", "pontos") fica ao lado na fonte do texto, como na projeção e na renda (o mono sobre "11,7% ao ano" inteiro lia como código na prosa, crítica 7a.BQ.2). Abaixo, `.diag-ate` em `--gray`: "até {mmm/aa} · N meses".
-- **Três números (`.diag-pares`).** `dl` com `.diag-par` em flex `space-between`, rótulo à esquerda e valor `tabular-nums` à direita; o nome técnico entre parênteses em `.diag-dt-nome` (`--gray`). Pior queda em `--red` com ▼ (forma, texto e cor). A linha do Sharpe é um segundo `dd` (`.diag-par__linha`, largura inteira, `--gray`). Valor que é frase (histórico curto) usa `.diag-par--texto` e desce de linha. A 320 e 390 px o teste confere **folga ≥ 8 px** entre `dt` e `dd` e que nada passa da coluna, com a fonte do sistema e a larga.
-- **Gráfico "Quanto abaixo do pico" (`.diag-grafico`).** SVG inline, `viewBox 0 0 100 100` com `preserveAspectRatio="none"` e traço não-escalável, no idioma do gráfico da renda: zero no topo (linha `--gray`), linha `--ink`, área **chapada** `--neutral-200` entre a linha e o zero (fato, não incerteza: sem gradiente), guia tracejada num múltiplo redondo abaixo da pior queda com o rótulo em `--gray`, e "0%" no mesmo idioma sobre a linha do zero. O fundo é um círculo vazado HTML (borda `--red`, miolo `--neutral-50`), com o rótulo "−Q% em {mmm/aa}" embaixo em `--red`; tiques `--ink` no pico e na recuperação. Rótulo do fundo com **ancoragem proporcional** (`left: x%` + `translateX(-x%)`): no começo cresce para a direita, no fim para a esquerda, e nunca passa da coluna (a regra de metades vazava a 320 px na fonte larga). `role="img"` com o pior ponto no `aria-label`; a frase da queda é a leitura acessível. Sem queda na janela: o gráfico some e a frase diz isso.
-- **Texto (`.diag-texto`).** Frase da queda e a de hoje em `--ink`. A nota da medição mensal foi absorvida pela seção "Como ler esta conta" na 7a.BU.1.
-- **Ver a conta (`.diag-conta`).** `details` fechado, `summary` de 44 px com "›" que gira ao abrir; tabela de três colunas `tabular-nums` (Sua carteira × Só com índices), CDI do período e definições. É o único lugar onde a tela diz "desvio-padrão"; a face não diz "TWR", "XIRR", "drawdown" nem traz travessão (o "—" de valor ausente só no `dd` do Sharpe, quando ele não existe: em dólar, sem o CDI da janela ou com oscilação zero), travado por teste.
-- **Estados.** `risco === null`, bloco parcial ou payload anterior à v2.35: a rota diz "Diagnóstico indisponível hoje.", sem botão. Escopo sem nenhuma janela válida: o motivo traduzido (`.diag-sem-janela`) no lugar da frase, sem números nem gráfico.
-- **Entrada:** Análise › Diagnóstico, na faixa. A frase do risco desde o início (`diagFraseRisco()`) é a linha 1 do índice; sem a janela Desde do Total, o motivo traduzido toma o lugar do número.
-
-### Diagnóstico, índice e capítulos 3 e 4 (7a.BR.2; renumerados na 7a.BS.2)
-
-Três push screens novas, na mesma família ensaio do capítulo 1 (`.diag-ensaio`, coluna única, sem cards, só tokens, zero motion nova além do `:active` dos toggles que já existiam). O conteúdo de cada uma só monta na própria rota (`x-if` com a rota), para a ponte do capítulo 4 não ser calculada fora dele e os seletores do capítulo 1 não enxergarem o markup novo. As seções ficam **depois** da Rentabilidade no DOM, pela mesma razão do capítulo 1 (locators `.escopo-toggle button` com `.first()`). Na face não aparecem travessão, "TWR", "XIRR", "Information Ratio", "tracking error" nem "estatística t": só em "Ver a conta", travado por teste.
-
-- **Índice (`#/raiox/diagnostico`).** `.diag-indice__titulo` "A carteira está indo bem?" no idioma de `.diag-titulo`, `.diag-indice__instrucao` em `--gray`. A lista é um `ol.diag-indice__lista` dentro de `nav`, com borda fina `--neutral-200` no topo e entre linhas. Cada linha é um `a.diag-indice__linha` em grid `1.75rem minmax(0, 1fr) 1rem` (ordinal · corpo · chevron), `min-height: 44px` e 16 px de respiro vertical: `.diag-indice__ordinal` em `--accent` 700 `tabular-nums`, `.diag-indice__pergunta` 1rem 700 `--g-900`, `.diag-indice__estado` 0.875rem `--ink` (frase, não número em destaque) e `.diag-indice__chevron` "›" em `--gray`. `focus-visible` com anel `--accent`. Desde a 7a.BT.2 são cinco linhas (1 risco, 2 de onde veio o resultado, 3 picks, 4 aportes, 5 como a carteira está montada) e a instrução diz "Cinco perguntas, lidas nesta ordem."; a quinta linha não cabe na primeira tela a 375 × 812 (medido: termina em 903 px), então a lista desce, sem texto cortado; a exceção abaixo passou para a linha 3. A linha sem dado mantém a mesma forma, com o motivo no lugar do estado, e segue sendo link. Exceção da linha 3, a dos picks (decisão de 06/11/2026, pós-consulta ao Alfred): a classe com o desde indisponível é nomeada no próprio estado ("{classe} sem dado hoje"), nunca somada às inconclusivas; as outras linhas seguem com o motivo traduzido. `.diag-indice__nota` em `--gray` fecha a lista.
-- **Janelas dos capítulos 3 e 4 (`.diag-janela.diag-janela--herda`).** O botão do capítulo 1 com `font: inherit` (controle novo herda a fonte do texto) e tamanho e peso devolvidos depois: 0.8125rem 600, 700 quando pressionado, 0.75rem abaixo de 360 px. Os toggles de escopo e moeda do capítulo 4 (`.apor-escopos`, `.apor-moedas`) reusam `.escopo-toggle`/`.moeda-toggle` com `data-apor-escopo`/`data-apor-moeda` e `font: inherit`.
-- **Capítulo 3, seções por classe (`.sel-classe`).** Borda fina no topo, uma por classe na ordem Ações BR, FIIs, EUA. Cabeçalho `.sel-classe__cab` 1.125rem 700 em flex com quebra: `.sel-ponto` 8 px na cor da categoria (`--cat-acoes-br`, `--cat-fii`, `--cat-eua`; princípio 6), o nome e `.sel-classe__indice` "× {índice}" em `--gray` peso 500. `.sel-frase` 0.9375rem `--ink` com os números em `strong` 700 **`--ink`**, não `--g-900`: no Plantão o `--g-900` vira menta e pintava "atrás" na cor do ganho (crítica 7a.BR.2, travado no teste do Plantão; o capítulo 4 usa a mesma regra em `.apor-frase strong`). `.sel-grau` com o rótulo do grau em `strong`; `.sel-linha` em `--gray` 0.8125rem com os anos para afirmar, os meses e, quando os sinais discordam, a terceira frase, separados por espaço via `span ~ span::before`. `.sel-motivo` toma o lugar da frase e da régua quando a janela da classe é indisponível; `.sel-fundos` é a linha cinza dos fundos fora da política. A nota cinza do capítulo (`.sel-nota`) e a pergunta (`.sel-pergunta`) saíram na 7a.BU.1, absorvidas por "Como ler esta conta".
-- **A régua da confiança (`figure.sel-regua`), o elemento memorável da tela.** SVG inline `viewBox 0 0 300 36` com `width: 100%` e altura proporcional, sem `preserveAspectRatio="none"` (o ponto continua redondo em qualquer largura). O eixo vai de `t = −3` (x 12) a `t = +3` (x 288), 46 unidades por ponto de `t`, com zero em x 150:
-  - `.sel-regua__faixa`: `rect` de x 104 a 196 (|t| < 1, onde a sorte explica o resultado), chapado em `--neutral-200`, cantos de 3, sem gradiente (é fato, não incerteza);
-  - `.sel-regua__eixo`: a linha horizontal em `--gray` 1 px;
-  - `.sel-regua__traco`: traços em ±1 (mais altos, nas bordas da faixa: o primeiro traço depois dela é o indício) e ±2 (mais baixos: o consistente), em `--gray` 1 px;
-  - `.sel-regua__zero`: o zero, o traço mais alto e mais forte, em `--ink` 1.5 px;
-  - `.sel-regua__ponto`: círculo de raio 6 em `--ink` com aro de 3 px na cor do fundo (`--neutral-50`, que flipa no Plantão), para o ponto não se fundir ao zero quando `t` fica perto dele. O `cx` sai de `t` e fica **preso às pontas** quando |t| > 3 (12 ou 288);
-  - todos os traços com `vector-effect: non-scaling-stroke`;
-  - `.sel-regua__rotulos`: "atrás do índice" à esquerda e "à frente" à direita, em `--gray` 0.75rem, `aria-hidden`, com margem lateral de 4% para alinhar às pontas do eixo.
-  **Sem cor de ganho ou perda:** o grau não é mérito, e a régua só tem tinta e neutros. `role="img"` com `aria-label` que diz o grau e o lado. Com grau `curto` a régua some (a frase dos números fica). A 320 e 390 px o teste confere que a régua cabe na coluna e tem mais de 200 px. Exemplo da fixture sintética (desde o início): Ações BR com t de 0,21 põe o ponto pouco à direita do zero, dentro da faixa, com `aria-label` "Régua da confiança: inconclusivo, à frente do IBOV.".
-- **Ver a conta do capítulo 3 (`.sel-tabela`).** Uma `diag-tabela` por janela, com `caption.sel-tabela__titulo` ("3 anos", "5 anos", "Desde o início") e uma coluna por classe; células com `padding-left: 10px`. A verificação visual achou "−1,0%" encostado no valor vizinho a 320 px (6 px) quando o padding era 6: o e2e mede a folga entre os textos de células vizinhas (≥ 8 px).
-- **Capítulo 4 (`.apor-*`).** A frase-resposta reusa `.diag-frase` (`.apor-frase`, destaque em `strong` `--ink`) e `.diag-ate`; os dois números ("A carteira", "O seu dinheiro") reusam `dl.diag-pares`/`.diag-par` com a linha cinza em `.diag-par__linha`, e a regra de folga ≥ 8 px entre `dt` e `dd` vale aqui também. a explicação e a nota (`.apor-explica`, `.apor-nota`) saíram na 7a.BU.1, absorvidas por "Como ler esta conta"; "Ver a conta" reusa `.diag-conta`/`.diag-tabela`.
-- **Estados.** Bloco ausente: um `p.placeholder` ("Confiança da seleção indisponível hoje.", "O momento dos aportes indisponível hoje."), sem botão. Janela indisponível no capítulo 4: `aria-disabled` e o motivo em `.diag-motivo` (`aria-live`), a regra do capítulo 1.
-- **Plantão.** Tudo por token. Verificado visualmente a 320 e 390 px, claro e Plantão, com a fixture sintética (7a.BJ.2).
-
-### Diagnóstico, capítulo 2 "De onde veio o resultado" (7a.BS.2)
-
-Push screen `#/raiox/diagnostico/politica`, na família ensaio (`.diag-ensaio.pol-ensaio`, coluna única, sem cards, só tokens). Como as demais, o conteúdo só monta na própria rota (`x-if`). A ousadia fica num lugar só: a cascata, no idioma do waterfall da Rentabilidade (`.ponte-*`), com a diferença de que as linhas **não são botões** e nada se move (sem transição nem animação; nenhuma motion nova).
-
-- **Texto.** `.pol-pergunta` 0.9375rem `--ink`; `.pol-frase` (sobre `.diag-frase`) com os números em `strong` 700 **`--ink` sem mono**, a mesma regra dos capítulos 3 e 4 (ajuste da 7a.BS.2: a primeira versão pôs mono e destoava). `.pol-cinza` 0.8125rem `--gray` para o contrafactual (`.pol-contrafactual`, sempre visível), a política registrada (`.pol-registrada`, some sem data) e a linha do dólar. A nota de honestidade (`.pol-nota`) saiu na 7a.BU.1, absorvida por "Como ler esta conta".
-- **A cascata (`.pol-cascata`, `aria-hidden`).** Coluna flex de linhas `.pol-linha` em grid `minmax(0, 116px) minmax(0, 1fr) auto` (rótulo, trilho, valor), `min-height: 40px`; `.pol-unidade` acima diz a unidade. Tipos pela modificadora: `--total` (nome 700; "A política" e "Sua carteira"; a última leva um filete `--neutral-200` acima), `--grupo` (cabeçalho com o subtotal na coluna dos valores, o rótulo ocupa rótulo e trilho, filete acima) e `--degrau` (recuado, nome 500). O rótulo (`.pol-rotulo`) leva `.pol-nome`; desde a 7a.BU.1 a legenda `.pol-sub` (`--gray`, `--num-xs`) é filha direta de `.pol-linha`, na segunda linha do grid (ver abaixo); o ponto `.pol-ponto` de 8 px usa a cor da categoria: `--cat-acoes-br`, `--cat-fii`, `--cat-eua` e `--cat-renda-fixa-br` (que já existe no claro e no Plantão).
-- **O trilho (`.pol-trilho`, 28 px, `overflow: hidden`).** Os **totais** são barra cheia a partir da guia: `.pol-barra--neutra` (`--gray`) para a política e a mesma carteira só com índices, `.pol-barra--sua` (`--ink`) só para "Sua carteira". Os **degraus flutuam** num eixo comum: `.pol-barra` posicionada e escalada (`transform-origin: left center`) sobre `.pol-guia`, a linha tracejada `--neutral-200` do zero. `--pos` em `--g-700`, `--neg` em `--red`, `--neutro` (fio fino) em `--gray` para o efeito arredondado a zero. A cor dá o **sinal**, não mérito.
-- **O valor (`.pol-valor`).** `--mono` `--num-sm` 600, `tabular-nums`, 700 em total e grupo, alinhado à direita; **▲/▼ com sinal explícito** e a classe `is-pos` (`--g-700`), `is-neg` (`--red`) ou `is-neutro` (`--gray`). Totais em `--ink`.
-- **O fecho.** Os números exibidos fecham a 1 casa por `arredondarFechando`, como na ponte: os três totais pelo arredondamento simples, as linhas absorvem o ajuste. No desvio toda categoria do alvo aparece sempre (esconder uma quebraria o fecho exibido); nas escolhas, classe sem peso na janela não aparece.
-- **Tabela equivalente.** A cascata é `aria-hidden`; a leitura de tela vai pela `table` em `sr-only` (`data-testid="pol-tabela"`) com as mesmas linhas.
-- **O dólar (`.pol-dolar`).** `h3.diag-subtitulo`, a frase em `.diag-texto.pol-dolar__frase` e a linha cinza; a seção some com o dólar nulo.
-- **"Ver a conta" (`details.diag-conta`, fechado).** Uma tabela por janela (`.pol-conta-tabela` sobre `.diag-tabela`; `caption.pol-conta-tabela__titulo` 0.8125rem 700; células com `padding-left: 6px`, 0.8125rem), `.pol-conta-rotulo` para o nome da janela nas notas de janela indisponível, e `ul.pol-fontes` (0.8125rem `--gray`) com as fontes dos fundos. Os nomes técnicos moram só aqui.
-- **320 px.** Abaixo de 360 px o rótulo cede (`minmax(0, 108px)`, gap 8, padding 6; a ponte usa 92 px); o teste confere a cascata dentro da coluna e folga de pelo menos 8 px entre rótulo e valor.
-- **Estados.** Bloco ausente: `p.placeholder` "De onde veio o resultado: indisponível hoje.", sem botão. Janela indisponível: `aria-disabled` e o motivo em `.diag-motivo` (`aria-live`), com `.diag-sem-janela` quando nenhuma serve.
-- **Plantão e cache.** Tudo por token, claro e Plantão. `CACHE_VERSION` do service worker sobe para **v103** (o shell cacheado esconderia a tela nova).
-
-### Diagnóstico, capítulo 5 "Como a carteira está montada" (7a.BT.2)
-
-Push screen `#/raiox/diagnostico/construcao`, na família ensaio (`.diag-ensaio.cons-ensaio`, coluna única, sem cards, só tokens). O conteúdo só monta na própria rota (`x-if`). A ousadia fica num lugar só: **a régua dupla "pesou × somou à oscilação"**. O conteúdo não tem transição nem animação própria (a tela entra com o `push-enter` de toda push screen).
-
-- **Texto.** `.pol-pergunta` abre o capítulo. As três frases-resposta (concentração, oscilação e custo) são `.diag-frase.cons-frase` com os números em `strong` 700 **`--ink` sem mono**, a regra dos capítulos 2 a 4; `.diag-ate` em `--gray` sob as duas primeiras. As duas linhas do custo (o que fica fora, com a mesma ressalva para a política quando parte dos pesos-alvo não tem taxa registrada; corretagem e imposto retido ainda fora do banco) são `.pol-cinza`.
-- **As listas (`ol.cons-lista`).** A dos 10 maiores (aberta) e a dos 5 ativos de maior efeito na oscilação: `.cons-item` flex com borda fina `--neutral-200`, `.cons-ponto` 8 px na cor do token da categoria, `.cons-ticker` e o valor à direita (`.cons-peso`, ou `.cons-ativo-vals` com "pesou W%" em `--gray` e "somou R%"/"reduziu R%" 700 `--ink`), `tabular-nums`, sem barra. A linha quebra inteira (`flex-wrap`): o ticker nunca encolhe abaixo do próprio texto, e a 320 px (coluna de ~232 px) os valores descem para a linha de baixo, à direita.
-- **A régua dupla (`.cons-regua`).** Uma linha por classe, na ordem Ações BR, FIIs, EUA, Renda Fixa BR: `.cons-nome` (ponto + nome, 600) e, abaixo, dois `.cons-trilho-linha` com o trilho (`.cons-trilho`, 6 px) e o valor numa coluna de largura fixa (`.cons-valor`, 7.75rem; 6.75rem abaixo de 360 px) para os trilhos alinharem na mesma escala de 0 a 100%. Em cima, **"pesou"**: `.cons-barra--pesou` em `--neutral-200` chapado, número em `--gray`. Embaixo, **"somou"**: `.cons-barra--somou` em `--ink`, número 700 `--ink`. Parte negativa: trilho vazio e "reduziu R%" em `--ink`; acima de 100%, a barra enche e o número diz o valor. **Nem `--g-700` nem `--red`**: oscilação não é ganho nem perda (o ponto de Ações BR usa o token da categoria, de mesmo valor que `--g-700`, e fica fora dessa regra). Cada linha é `role="img"` com `aria-label` ("FIIs: pesou 15,3%, somou 4,1% da oscilação", números sintéticos), e a `table` em `sr-only` (`data-testid="cons-tabela"`) repete a régua. Fecho exibido a 1 casa por `arredondarFechando` nas duas colunas: os pesos somam 100,0 e as partes também.
-- **Janelas.** `.diag-janela.diag-janela--herda` (3 anos · 5 anos · Desde o início), abrindo em Desde, com `aria-disabled`, o motivo em `.diag-motivo` e a volta Desde → 5 anos → 3 anos. Histórico curto: o trilho "pesou" fica; o "somou", a frase-resposta e a lista dos 5 dão lugar a "Histórico curto para medir a oscilação.".
-- **"Ver a conta" (fechado).** Notas `.diag-conta__nota` com o inverso do índice de Herfindahl e a parte da variância; uma `table.diag-tabela` de correlação por janela (6 pares, 2 casas ou "histórico curto"); a tabela dos fundos (taxa ao ano a 2 casas e peso) e `ul.pol-fontes` com a fonte de cada taxa; a cripto quando houver. Os nomes técnicos moram só aqui.
-- **Estados.** Bloco ausente, parcial ou payload < 2.38: `p.placeholder` "Como a carteira está montada: indisponível hoje.". `risco` nulo: "A oscilação por classe está indisponível hoje.", concentração e custo seguem.
-- **Plantão e cache.** Tudo por token, claro e Plantão. `CACHE_VERSION` do service worker sobe para **v108**.
-
-### Diagnóstico, "Como ler esta conta" (7a.BU.1)
-
-Cada capítulo do Diagnóstico tem uma seção `section.diag-ler` (`data-testid="<pfx>-ler"`, `pfx` ∈ `diag`, `pol`, `sel`, `apor`), **aberta por padrão**, depois do bloco de resultado e antes do "Ver a conta". Ela absorveu as notas cinza `.diag-nota` (cap. 1), `.pol-nota` (cap. 2), `.sel-pergunta`/`.sel-nota` (cap. 3) e `.apor-explica`/`.apor-nota` (cap. 4), que saíram.
-
-- **Tipografia.** `h3.diag-subtitulo` "Como ler esta conta"; subtítulos `h4.diag-ler__sub` (0.9375rem, peso 700, `--ink`, sem caixa-alta); corpo `.diag-texto`; listas `.diag-ler__lista`; números num `dl.diag-ler__nums` com `dt` igual ao rótulo da face e `dd` **empilhado** (não usa `.diag-pares`, então o teste de folga dt/dd lê 999); termos-chave em `<dfn>` peso 600, sem cor nem mono. Todo o texto em `--ink`, inclusive "O que … não diz". Sem card, fundo, borda, ícone ou tooltip.
-- **Texto estático.** Nenhum número dinâmico, ticker ou fato da carteira (repo público): exemplos pela direção ou com número inventado dito como inventado. Os termos técnicos proibidos na face continuam proibidos aqui; os nomes técnicos ficam no "Ver a conta", que abre com "Os nomes técnicos e as fórmulas, para conferir."
-- **Cascata do cap. 2.** Totais e cabeçalhos de grupo ganharam uma legenda `.pol-sub` de até ~45 caracteres, filha direta de `.pol-linha` na segunda linha do grid (`grid-column: 1 / -1`), fora de `.pol-rotulo`: o teste de folga a 320 px continua medindo só o nome contra o valor. A legenda também entra no `th` da tabela `sr-only`.
-- **Índice.** Parágrafo `.diag-indice__caminho` ("O caminho."), em `--ink`, que liga as cinco perguntas.
-
-### O Olho, a vigília dos fatos das empresas (7a.BX.4)
-
-Três superfícies de **leitura**, nenhuma ação (spec 7a.BX §13.1, D1). **Zero token novo**: tudo sai de `--amber-700`, `--ink`, `--gray`, `--g-900`, `--accent`, `--neutral-200`, `--mono` e `--num-xs`. Mixin `js/olho.js` (molde do `comite.js`): a busca de `./olho` roda no desbloqueio, sem await, e ao entrar na rota; o claro vive só em memória e sai no "Bloquear sessão".
-
-- **Gravidade em forma + texto, nunca só cor.** ▲ tese sob ameaça, ◇ observar, · sem efeito; glifo `aria-hidden` ao lado do grau por extenso. Não colidem com os do veredito do dossiê (◐ ▽ ●). `--amber-700` só onde há ameaça ainda não examinada: o título do grupo, a linha do grau e o "aguarda o reexame". Examinado volta a `--gray`, peso 400.
-- **Raio-X › Hoje: o item Vigília do Pede atenção.** Só com tese sob ameaça não examinada ("▲ 1 tese sob ameaça ›"), em `--amber-700`, ≥ 44 px. Sem banner, card nem contagem animada. Sem ameaça o item não existe. Some quando o reexame do Relatório confronta a tese, nunca por toque. Forma do bloco na seção "Pede atenção".
-- **Rota `#olho` (`.tela-olho`), Carteira › Vigília (tela-membro desde a 7a.CC.1; antes push child do Raio-X).** Ajuda em `--gray`; cabeçalho de estado `.olho-estado__rodada` ("Última vigília seg dd/mm · N ativos · N documentos lidos", `tabular-nums`; números e datas da tela, nunca daqui); `ul.olho-fontes` com "CVM ok · fnet ok · EDGAR ok" em `--gray`, separados por `li + li::before "·"`. Fonte fora (`.is-fora`) vira frase em linha inteira, em `--amber-700` ("fnet sem resposta nesta semana: N FIIs sem vigília"). Depois, os grupos por grau, ameaça antes de observar, e a linha recolhida dos sem efeito (`button[aria-expanded]`, chevron que gira 90°, lista por ativo com o ticker em mono linkado ao dossiê).
-- **Um alerta é uma nota de interconsulta** (achado, fonte, conduta a decidir), hairline entre alertas, sem card: meta (ticker em mono `--accent` com alvo de 44 px por margem negativa, data e categoria em `--gray`), título do documento como link sublinhado em `--neutral-200` para a fonte oficial (nova aba, `noopener`), motivo em `--ink` até 62ch, e o trecho em **citação tipográfica**: aspas curvas, recuo de 1.1rem e aspa pendurada (`text-indent: -0.42em`), itálico `--gray`. **Nem grifo nem borda lateral:** o único grifo do dossiê segue sendo o `quebra_se`.
-- **Dossiê, `section.dossie-vigilia`.** Entre a tese e a linha do tempo (é contra a tese que cada documento foi lido), h2 "Vigília". Rodapé em `--gray`, não `--faint` (é frase a ler e precisa de contraste): "Vigiado desde dd/mm · última vigília dd/mm · N documentos lidos sem efeito". Fora do universo: "Fora da vigília: ETF não tem fato de empresa." Payload anterior à BX.4 (sem `vigiados`): ETF sem seção, vigiado ainda mostra o que houver.
-- **Índice do Diagnóstico, `a.diag-indice__olho`.** Entrada permanente **fora** da lista numerada (não é uma das cinco perguntas), na grade `corpo · chevron` das linhas, com o estado da vigília na linha de baixo.
-- **Estados.** Carregando, erro (frase + "Tentar de novo" de 44 px), nunca rodou ("A primeira vigília roda na segunda dd/mm"), sem novidade, fonte fora, fila, falha de leitura, atrasada (> 10 dias, aviso em `--amber-700` peso 600, também no índice), offline (cópia do service worker, cabeçalho `x-olho-cache`, com a data em que foi guardada), examinado ("examinado no Relatório de dd/mm").
-- **Contagens com espaço não separável** entre número e palavra: a verificação visual a 320 px achou "· 5" no fim de uma linha e "ativos" na seguinte.
-- **Servidor de teste.** O arquivo `olho` na raiz responde "KV sem a chave" ao `python -m http.server` da suíte; em produção o Worker responde `/olho` antes dos assets. Por isso todo dossiê da suíte mostra a Vigília em "nunca rodou".
-- **Plantão.** Tudo por token. Verificado a 320 px, claro e Plantão, em `#olho`, no dossiê e no Raio-X, sem transbordo.
-
-## Frase de acesso — envelope local (Fase 7a.W.3.a)
-
-O app trata o segredo que decifra os payloads como **string opaca**. Isso é o que
-permitiu trocar o PIN de 6 dígitos por uma frase de 6 palavras sem dois códigos, dois
-formatos nem duas branches: `encriptar_json(json_str, pin: str)` sempre aceitou
-qualquer string, dos dois lados.
-
-- `segredo` (em memória, nunca no `localStorage`) = o que decifra os payloads.
-- `pin` (no `localStorage`, em claro) = os 6 dígitos digitados **neste aparelho**, que
-  só abrem o envelope.
-- `localStorage.envelope` = o segredo cifrado sob o PIN local, mesmas primitivas do
-  payload (PBKDF2-600k + AES-256-GCM).
-
-**O envelope sobrevive ao lock, e isso é desenho.** `limparSessao()` remove `pin`,
-`pinTimestamp` e `atualizadoEm`; o envelope fica. É ciphertext em repouso, inútil sem
-o PIN, e sua persistência é o que separa "trancar a sessão" (pede o PIN de novo) de
-"desparear o aparelho" (pede a frase de novo). Travado por teste em
-`lock-higiene.spec.ts`.
-
-**O que o envelope NÃO faz:** não melhora nada contra roubo do aparelho. O PIN local
-fica em claro no `localStorage` (é o que faz o auto-resume de 7 dias funcionar sem
-pedir nada) e o envelope mora ao lado. O aparelho é o **perímetro de confiança**, por
-decisão consciente.
-
-### Custo do unlock — MEDIDO (30/07/2026), regra de decisão da spec §7.2
-
-Duas derivações PBKDF2 por unlock em vez de uma. Medido com **CPU 4× throttle**
-(aproximação de celular; não é o aparelho real do Dr. Arthur):
-
-| Cenário | Tempo |
-|---|---|
-| Unlock em aparelho virgem (decifra payload + cria envelope) | **1379 ms** |
-| Unlock com envelope (abre envelope + decifra payload) — o caso do dia a dia | **1976 ms** |
-
-A régua da spec era: `< 3 s` ⇒ manter 600k no envelope; `≥ 3 s` ⇒ baixar **as do
-envelope** (nunca as do payload) para 100k. **1976 ms < 3 s ⇒ mantido em 600k**, com
-uma constante só e uma primitiva só. Se um aparelho real medir acima de 3 s, a saída
-autorizada é `PBKDF2_ITERATIONS_ENVELOPE` separada em `crypto.js` — nunca um ajuste
-global, que afetaria o payload publicado.
-
-### A tela de cadastro da frase (7a.W.3.b)
-
-Cerimônia **sóbria**, vista uma vez por aparelho: a gravidade comunica que aquela
-frase importa. Estratégia **Restrained** (o default do produto), **zero cor nova, zero
-token novo** — o peso vem de espaço e tipografia, no mesmo eixo da `.pin-screen`
-(`padding-top: 3rem`), para as duas telas de entrada do app pousarem no mesmo lugar.
-**Sem card e sem container**, de propósito: a cerimônia é a página, não uma caixa nela.
-
-Cena que forçou o tema: *em casa, à noite, sentado, com a frase na mão ou na cabeça,
-uma vez só neste aparelho, com atenção inteira*. Âncoras: página de rosto de livro,
-recibo de cartório, o hero Monument do próprio app.
-
-**Rejeitados por reflexo de categoria:** cadeado, escudo, terminal escuro, mono-verde.
-"Tela de segurança" convergiria nisso sozinha, e é exatamente o que esta fase não quer.
-
-**Campo único de texto, não seis caixinhas.** Caixinhas viram OTP, brigam com colar e
-forçam navegação entre campos no teclado do celular. O campo é **visível** (não
-`type=password`), porque ele precisa conferir as palavras.
-
-**`autocapitalize` / `autocorrect` / `spellcheck` desligados** — este é o detalhe que
-mais provavelmente arruinaria o fluxo se esquecido: o corretor do celular destrói
-palavras diceware em silêncio. Travado por teste.
-
-**Duas etapas, e a segunda só em aparelho virgem:** as palavras e, depois, a escolha do
-PIN local. Aparelho que já tem PIN guardado reusa o existente e digita só as palavras.
-
-**Dois motivos, duas vozes:** `virgem` ("PRIMEIRO ACESSO NESTE APARELHO" / "Sua frase
-de acesso") e `republicado` ("A CARTEIRA FOI REPUBLICADA" / "Uma frase nova"). O
-segundo **nunca acusa o PIN**: o PIN local está certo, quem mudou foi o segredo.
-
-**Erro genérico por construção.** A única validação possível é tentar decifrar o
-payload de verdade — não há lista de palavras embarcada, e não dá para saber qual
-palavra errou, nem deve. Erro de rede tem estado próprio, distinto de frase errada:
-confundir os dois mandaria ele reconferir palavras que estão certas.
-
-Verificado ao vivo (Playwright MCP): 390×844 claro e 320×640 Modo Plantão, as duas
-etapas e os dois motivos, alvos de 49px e 48px (≥44), **zero overflow horizontal** a
-320px.
-
-### Raio-X › Reserva: a reserva (7a.BZ.2)
-
-A reserva de emergência, lida todo dia pelo Open Finance, **não é carteira**: fica fora do hero, nunca é somada a número nenhum da tela e não entra em alocação, rentabilidade nem projeção. Mixin `js/reserva.js`, rota `GET /reserva` do Worker (KV, chave `reserva`), SW rede-primeiro como o `/olho`. **Zero token novo.**
-
-- **Lugar:** tela-membro Raio-X › Reserva (`#/raiox/reserva`), primeiro bloco. Visível ao abrir a tela, sem toque. O Hoje não traz a reserva.
-- **Forma:** linha de razão entre duas hairlines `--neutral-200`, sem card, sem grifo, sem link. Título "Reserva" à esquerda (0.9375rem, 600, `--ink`) e o valor à direita (`--mono`, `--num-md`, 700, `--ink`: não é o teal do patrimônio). Abaixo, em 0.75rem `--gray`: "Fora da carteira de aposentadoria" e "Lida em dd/mm pelo Open Finance".
-- **Desatualizada** (status do item fora de `UPDATED`, execução fora de `SUCCESS`, banco sem data ou com mais de 48 h, ou leitura com mais de 48 h): a linha da fonte vira "Desatualizada: lida em dd/mm pelo Open Finance", em `--amber-700` peso 600. O valor continua à vista, com a data.
-- **Aplicação sem saldo:** uma linha a mais, em `--amber-700`: "N aplicações vieram sem saldo e ficaram fora da soma."
-- **Indisponível** (sem frase, erro de rede, KV sem a chave, versão desconhecida, nenhuma posição): o valor vira "indisponível" em `--gray`, a fonte some, o resto da tela fica.
-- **Rebusca ao voltar ao app** (`visibilitychange`): a marca de 48 h não fica parada num PWA aberto por dias.
-- **O código é público e não nomeia a instituição.** O stub `reserva` na raiz responde "KV sem a chave" ao servidor da suíte.
-
-### Raio-X › Reserva: as notas pendentes (7a.BZ.3)
-
-A conferência diária, pelo Open Finance, do que a corretora mostra e ainda não veio por nota. Mixin `js/conferencia.js`, rota `GET /conferencia` do Worker (KV, chave `conferencia`), SW rede-primeiro como a `/reserva`. **Zero token novo.** Nada é somado nem muda número nenhum da tela.
-
-- **Lugar:** na tela Raio-X › Reserva, logo abaixo da reserva. Fecha com a hairline de baixo; a de cima é a da reserva. No Hoje, com item, o alerta é o item "Notas pendentes" do Pede atenção, que leva a esta tela.
-- **Só existe com item:** `x-if`. Lista vazia, sem payload, `cifra: null`, erro ou payload fora da forma (um item malformado derruba o payload inteiro): o nó não existe e nenhum espaço fica reservado.
-- **Forma:** título "Notas pendentes" à esquerda (0.9375rem, 600, `--ink`) e a contagem à direita (`--mono`, `--num-md`, 700, `--ink`), com "N pendentes" em `.sr-only`. Abaixo, em 0.75rem `--gray`: "A corretora mostra operações que ainda não vieram por nota." Lista `<ul>` sem marcador, um item por linha em 0.8125rem `--ink`: operação "dd/mm/aaaa · TICKER · Compra|Venda", posição "TICKER · posição diferente do banco", data e ticker em `--mono`, na ordem do payload.
-- **Rodapé:** "Conferida em dd/mm pelo Open Finance"; com `lido_em` a mais de 48 h, "Desatualizada: conferida em dd/mm pelo Open Finance" em `--amber-700` 600, como a reserva.
-- **O código é público e não nomeia a corretora nem o banco.** Stub `conferencia` na raiz, como o da reserva.
-
-## Frescor do hero — publicação → fechamento (Fase 7a.AE.3)
-
-O slot `.hero-updated`, no canto direito do `.hero-meta`, **mudou de assunto**. Ele
-mostrava `formatDataHora(json.atualizado_em)` — o carimbo de **publicação**, com hora
-(`19 ago · 00:27`). Agora mostra `frescorTexto()`: de quando é o **fechamento de
-pregão** que a tela está exibindo, sem hora.
-
-- `Fechamento de 18/08` quando todos os tickers têm a mesma data.
-- `Fechamentos de 17/08–18/08` quando o escopo carrega datas mistas — e a divergência
-  **não** é ruído a esconder: ela é a assinatura da degradação por ticker.
-- Payload sem o bloco (pré-v2.26), ou com `min`/`max` nulos, degrada para o carimbo.
-  Hero mudo seria pior que o rótulo antigo.
-
-**Por que a mudança:** numa noite ruim o app dizia "19 ago · 00:27" enquanto exibia o
-fechamento de 17/08. Não era ausência de informação — era um sinal de frescor **errado**
-ocupando o lugar, e o slot de frescor é o primeiro lugar onde o olho procura.
-
-**O toast NÃO mudou, e isso é decisão, não resquício.** `avaliarAtualizacao` continua
-usando `atualizado_em`, porque ele anuncia um **evento** ("a carteira foi republicada
-agora"), e sobre um evento o carimbo de publicação é a data correta. O que mudou é que
-ele deixou de ser o **único** sinal de frescor e deixou de ser lido como se fosse a data
-do preço.
-
-**`.hero-meta` ganhou `flex-wrap: wrap` e `gap: 0 0.5rem`, e o motivo é medido.** O
-container é flex row com `space-between`, então o eyebrow e este slot dividem a mesma
-linha — e o texto novo tem ~2× o comprimento do carimbo que substituiu. Medição antes do
-conserto: a **360px** a folga entre os dois caía para **3,4px**, e a **320px** para
-**zero** (label 99,9px + slot 136,1px = 236,0px, exatamente a largura do container). Não
-estourava, mas dois textos distintos encostados leem como um só, e um caractere a mais
-transbordaria. As duas regras são **inertes a 390px** (o `space-between` já dá 33,4px);
-elas só agem onde já estava quebrado, e valem igualmente para o texto crescendo por
-dynamic type. Travado por teste (`raiox-frescor.spec.ts`, folga mínima de 8px em
-390/360/320), provado vermelho à mão.
-
-**Contraste:** `#fff` a `opacity: 0.6` sobre `--g-900` = **4,58:1**, e **idêntico nos
-dois temas** — o card do hero é escuro no claro e no Plantão.
-
-**Drift observado e NÃO corrigido (fora do escopo desta sub-fase):** a 320px o
-`.hero-valor` transborda o próprio container com um valor de 6 dígitos (292px de texto
-em 236px de caixa). Medido com e sem a regra nova: **idêntico nos dois casos**, logo
-pré-existente. O card tem `overflow: hidden` e a página não ganha scroll horizontal.
-
-Verificado ao vivo (Playwright MCP, fixture sintética): 390px e 320px, claro **e** Modo
-Plantão. A 390px o slot fica na mesma linha do eyebrow; a 320px desce para a linha de
-baixo, cada texto em uma linha, sem truncar e sem overflow horizontal do documento.
+## Tela de acesso
+
+A frase de acesso decifra os payloads e vive só em memória, nunca em
+`localStorage`. O aparelho guarda um envelope local cifrado com um PIN de seis
+dígitos, e errar o PIN dá uma mensagem diferente de ter a frase errada — a
+segunda não acusa o PIN, porque o PIN está certo e quem mudou foi a frase. As
+iterações de PBKDF2 do envelope local são um parâmetro separado em
+`js/crypto.js`, distinto do usado no payload.
