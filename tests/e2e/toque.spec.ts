@@ -98,9 +98,10 @@ test.describe("Toque — :active pressionado (7a.S.2 Task 2)", () => {
   }) => {
     await autenticar(page);
     const result = await page.evaluate(() => {
-      // Animar propriedade de layout obriga o browser a recalcular layout a cada
-      // frame (reflow): no celular isso trava o scroll durante o toque. transform
-      // e box-shadow o compositor resolve sozinho, e sao o que o app usa aqui.
+      // Animar propriedade de layout obriga o browser a recalcular layout a
+      // cada frame (reflow), e no celular isso custa no meio do toque. transform
+      // e opacity o compositor resolve sem reflow nem repaint; box-shadow
+      // repinta, mas não afeta layout. Sao as que o app usa aqui.
       // Regex ancorada no início da declaração (após ';' ou início) para não dar
       // falso-positivo em border-left/padding-left/line-height/etc. (CRB S.2 general-swe).
       const layoutRe = /(^|;)\s*(top|left|right|bottom|height|padding|margin)\s*:/;

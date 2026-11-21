@@ -200,6 +200,43 @@ test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
 });
 
 test.describe("A Abertura — reduced-motion e 1x/sessao (Task 3)", () => {
+  // Função, não gosto: a classe .abertura-breathe tem de SAIR no animationend.
+  // Se ficar presa, o .hero-delta permanece em scale(1.045) para sempre. A
+  // janela em que ela está presente é curta (~550ms) e abre ~980ms após o
+  // mount — polling externo pode saltar por cima dela, então um
+  // MutationObserver DENTRO da página captura add → remove e só expomos o
+  // estado final, que é estável. Não assertamos duração nem iteration-count:
+  // esses são a escolha estética do ciclo, e saíram na 7a.CG.2.
+  test("a classe do respiro é adicionada e depois removida pelo JS", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).__breathe = null;
+      const tentar = () => {
+        const el = document.querySelector(".hero-delta");
+        if (!el) { requestAnimationFrame(tentar); return; }
+        const obs = new MutationObserver(() => {
+          if (el.classList.contains("abertura-breathe")) {
+            (window as any).__breathe = { added: true, removedAfter: false };
+          } else if ((window as any).__breathe && (window as any).__breathe.added) {
+            (window as any).__breathe.removedAfter = true;
+          }
+        });
+        obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+      };
+      tentar();
+    });
+    await autoResumir(page);
+
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).__breathe?.removedAfter === true), {
+        timeout: 3000,
+      })
+      .toBe(true);
+
+    const breathe = await page.evaluate(() => (window as any).__breathe);
+    expect(breathe.added).toBe(true);
+    expect(breathe.removedAfter).toBe(true);
+  });
+
   test("prefers-reduced-motion: sem stagger, sem breathe — home pronta direto", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();

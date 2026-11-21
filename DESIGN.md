@@ -75,11 +75,12 @@ mantém o contraste de leitura independente da paleta.
   normal); `--gray`, `--accent`, `--red`, `--amber` e os `--cat-*` sobre
   `--neutral-50` ficam ≥ 3:1 (texto grande, ícone, dot, série de gráfico). O
   helper `contraste()` de `tests/e2e/comite-comum.ts` calcula a razão pela
-  fórmula de luminância relativa da WCAG, e oito specs o usam para travar a
-  régua — entre elas `modo-plantao.spec.ts`, `nav-grupos.spec.ts`,
-  `reserva.spec.ts` e as três do Comitê. Quando um token não fecha a razão como
-  texto, a saída é um degrau escurecido dedicado (`--amber-700`,
-  `--sem-down-texto`) ou um véu (`--etq-veu` + `--etq-texto`).
+  fórmula de luminância relativa da WCAG; **cinco specs** o importam
+  (`comite-registros`, `comite-resposta`, `conferencia`, `reserva`,
+  `retorno-esperado`), e `modo-plantao.spec.ts` trava os dois temas com uma
+  implementação local da mesma fórmula. Token que não fecha a razão como texto
+  ganha um degrau escurecido dedicado (`--amber-700`, `--sem-down-texto`) ou um
+  véu (`--etq-veu` + `--etq-texto`).
 - **Sinal usa forma + texto + cor.** Ganho e perda levam glifo (▲/▼), o valor
   escrito e a cor; os selos de tese do dossiê e do Relatório levam ●/◐/▽ mais o
   grau por extenso e a cor; a vigília usa ▲/◇/· do mesmo modo. A cor é o
@@ -313,8 +314,8 @@ translúcido, `--tab-bar-height 56px`, safe-area honrada ·
 `.grupo-cab`/`.grupo-cab__linha`/`.faixa` — cabeçalho de grupo fixo com a faixa
 de telas do grupo, a ativa em pílula opaca de raio 999px, rolagem horizontal sem
 barra e sem quebra de linha, posicionada por `scrollLeft` · `.faixa-ativo` — a
-mesma faixa nas três telas de um ativo, abaixo do `.breadcrumb` (o "←" e o
-ticker em `.eyebrow--accent`) · `.eyebrow` — a voz de abertura de tela.
+mesma faixa nas três telas de um ativo, sob o `.breadcrumb` ("←" + ticker em
+`.eyebrow--accent`) · `.eyebrow` — a voz de abertura de tela.
 
 **Raio-X** — `.hero`, card sólido `var(--g-900)` com rótulo em caixa alta, valor
 em `--num-poster` mono e delta em pill plana; quatro facetas cicláveis por toque,
@@ -344,10 +345,10 @@ ativo · `.kpi-scroll-fade`, a dica de que a faixa de KPIs rola.
 **Ensaios** — `.diag-ensaio` e família (`.diag-frase`, `.diag-mono`,
 `.diag-janela`, `.diag-grafico`, `.diag-conta`, `.diag-indice__*`) nos cinco
 capítulos do diagnóstico, com réguas (`.sel-regua`, `.cons-regua`) e cascata
-(`.pol-cascata`) · `.proj-ensaio` e família (`.proj-cap`, `.proj-faixas`,
-`.proj-decomp`, `.proj-ponteiro`, `.proj-tabela`, `.proj-conta`) na projeção ·
-`.renda-ensaio` e família (`.renda-tabela`, `.renda-grafico`, `.renda-origem`,
-`.renda-pisos`) na renda da carteira. Os gráficos desses três são SVG inline com
+(`.pol-cascata`) · `.proj-*` na projeção (`.proj-cap`, `.proj-faixas`,
+`.proj-decomp`, `.proj-ponteiro`, `.proj-tabela`, `.proj-conta`) · `.renda-*` na
+renda da carteira (`.renda-tabela`, `.renda-grafico`, `.renda-origem`,
+`.renda-pisos`). Os gráficos desses três são SVG inline com
 `viewBox 0 0 100 100`, `preserveAspectRatio="none"` e traço
 `vector-effect: non-scaling-stroke`.
 
@@ -369,7 +370,7 @@ não é somada a número nenhum da carteira · o bloco de notas pendentes.
 `.classe-dot` · `.flag` (🇧🇷/🇺🇸, ícone funcional por ativo, não por categoria) ·
 `.provento-tipo-tag` e `.provento-a-confirmar` · `.update-snackbar`, com
 `role="status"` e ação "Recarregar" · `.toast` · `.pin-screen` com `.pin-input`
-(campo único, `type=tel`, seis dígitos) · `.sr-only` ·
+(campo único, `type=tel`, numérico) · `.sr-only` ·
 `[x-cloak] { display: none !important; }`, que evita o flash de conteúdo sem
 estilo do Alpine.
 
@@ -378,8 +379,8 @@ estilo do Alpine.
 ## Tela de acesso
 
 A frase de acesso decifra os payloads e vive só em memória, nunca em
-`localStorage`. O aparelho guarda um envelope local cifrado com um PIN de seis
-dígitos, e errar o PIN dá uma mensagem diferente de ter a frase errada — a
-segunda não acusa o PIN, porque o PIN está certo e quem mudou foi a frase. As
-iterações de PBKDF2 do envelope local são um parâmetro separado em
-`js/crypto.js`, distinto do usado no payload.
+`localStorage`. O aparelho guarda um envelope local cifrado com um PIN, e errar
+o PIN dá uma mensagem diferente de ter a frase errada — a segunda não acusa o
+PIN, porque o PIN está certo e quem mudou foi a frase. As iterações de PBKDF2 do
+envelope local são um parâmetro separado em `js/crypto.js`, distinto do usado no
+payload.

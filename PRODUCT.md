@@ -37,10 +37,10 @@ partir de um documento. Offline-first: o service worker serve o shell e o últim
 payload conhecido, então uma abertura sem rede mostra os números da última
 publicação.
 
-O acesso é por **frase de 6 palavras**, que decifra os payloads e vive só em
-memória. O aparelho guarda um envelope local cifrado com um PIN de 6 dígitos,
-para não precisar digitar a frase toda vez; a sessão desliza por 7 dias. Nada de
-biometria — luva cirúrgica não desbloqueia nada.
+O acesso é por uma **frase**, que decifra os payloads e vive só em memória. O
+aparelho guarda um envelope local cifrado com um PIN, para não precisar digitar
+a frase toda vez; a sessão desliza por 7 dias. Nada de biometria — luva
+cirúrgica não desbloqueia nada.
 
 Navegação em dois níveis: cinco grupos na barra de baixo (Raio-X · Retorno ·
 Carteira · Análise · Aportar) e, em cada grupo, uma faixa com as telas dele. As
