@@ -8,11 +8,11 @@
 // resíduo de arredondamento absorvido por pick fracionário (EUA) quando
 // existir, senão +1 cota no top-priority.
 //
-// Fonte de verdade: docs/superpowers/specs/2026-05-14-fase-7a-h1-aportar-design.md
-// (seções 4 e 8).
+// Fonte de verdade (repo principal, não este):
+// docs/superpowers/specs/2026-05-14-fase-7a-h1-aportar-design.md (seções 4 e 8).
 //
-// 7a.AU: opcoes.mercado restringe o plano a uma categoria-mercado; ver
-// docs/superpowers/specs/2026-09-24-fase-7a-au-aporte-por-mercado-design.md.
+// 7a.AU: opcoes.mercado restringe o plano a uma categoria-mercado; ver, no
+// repo principal, docs/superpowers/specs/2026-09-24-fase-7a-au-aporte-por-mercado-design.md.
 
 (function () {
   "use strict";
