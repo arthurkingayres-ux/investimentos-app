@@ -78,7 +78,8 @@ mantém o contraste de leitura independente da paleta.
   fórmula de luminância relativa da WCAG; **cinco specs** o importam
   (`comite-registros`, `comite-resposta`, `conferencia`, `reserva`,
   `retorno-esperado`), e `modo-plantao.spec.ts` trava os dois temas com uma
-  implementação local da mesma fórmula. Token que não fecha a razão como texto
+  `function contrast` local, da mesma fórmula. Token que não fecha a razão como
+  texto
   ganha um degrau escurecido dedicado (`--amber-700`, `--sem-down-texto`) ou um
   véu (`--etq-veu` + `--etq-texto`).
 - **Sinal usa forma + texto + cor.** Ganho e perda levam glifo (▲/▼), o valor
@@ -238,16 +239,17 @@ ciclo único de "respiro" no delta do hero, que o próprio JS remove no
 `sessionStorage`. `window.aberturaMotion` expõe esses tempos para os testes.
 
 **Chegada escalonada de cards de tela** tem orçamento de ≤ 110ms por passo
-(`.aporte-card`/`.plan-cat`); é um canal distinto do stagger de barras de
-gráfico, que fica em 30ms para não atrasar a leitura do dado.
+(`.aporte-card`/`.plan-cat`) — canal distinto do stagger de barras de gráfico,
+que fica em 30ms para não atrasar a leitura do dado.
 
 ### Gráficos
 
 ECharts com tema `drarthur` (`js/echarts-theme.js`), que lê todos os tokens do
-`:root` por `getComputedStyle`. Entrada em 600ms `cubicOut` (linha desenhada da
-esquerda para a direita; barras crescendo da base com 30ms de stagger) · hover
-100ms · troca de modo 400ms · seleção de drilldown 200ms. As quatro zeram em
-`reduced-motion`. Fonte única: `window.drarthurChart.motionConfig`.
+`:root` por `getComputedStyle`. O `motionConfig` vivo tem três números: 600ms
+`cubicOut` na entrada (linha desenhada da esquerda para a direita, barras
+crescendo da base), 30ms de stagger por barra e 400ms na atualização — o morph
+de quando o `setOption` troca de modo ou de janela. Em `reduced-motion` os três
+viram 0. Fonte única: `window.drarthurChart.motionConfig`.
 
 Quatro tratamentos de leitura, com helpers em `js/app.js` e travados por
 `dataviz-higiene.spec.ts`: símbolo só no último ponto (círculo vazado mais
@@ -280,15 +282,12 @@ clara foi tocado.
 - Um boot que já nasce escuro precisa de `reregister()` dentro do `init()`: o
   tema do ECharts é registrado no `<head>`, antes de `data-theme` existir.
 
-Valores do bloco `:root[data-theme="dark"]`: superfícies `--neutral-50 #040906`,
-`--neutral-100 #0c1510`, `--neutral-200 #1c2b23`, `--neutral-300 #14211a`,
-`--surface #0c1510`, `--surface-2 #101d16` · texto `--ink #f1efe4`,
-`--gray #8fa598`, `--faint #5d7065` · acento `--accent #34d399`,
-`--accent-2 #6ee7b7`, `--accent-soft rgba(52,211,153,.12)`,
-`--hero-glow rgba(52,211,153,.2)` · semânticos `--red #f87171`,
-`--amber #fbbf24`, `--amber-700 #fdba74` · categorias `--cat-eua #5aa7dc`,
-`--cat-acoes-br #34d399`, `--cat-fii #e0a24a`, `--cat-cripto #b294e8`,
-`--cat-renda-fixa-br #22d3ee`.
+O bloco `:root[data-theme="dark"]` dá um segundo valor a todo token que varia
+por tema — superfícies, texto, acento, semânticos e os `--cat-*`. Âncoras:
+`--neutral-50 #040906` (o quase-preto quente, não `#000`), `--surface #0c1510`,
+`--ink #f1efe4`, `--accent #34d399`. Os `--cat-*` ficam mais claros e saturados
+que no claro, para ler como dot e como série contra o fundo escuro. O bloco no
+CSS é a lista completa.
 
 Tratamentos de "teal como luz": fio de luz no topo dos cards
 (`inset 0 1px 0 var(--card-topline)`), brilho no indicator da tab, `text-shadow`
@@ -381,6 +380,5 @@ estilo do Alpine.
 A frase de acesso decifra os payloads e vive só em memória, nunca em
 `localStorage`. O aparelho guarda um envelope local cifrado com um PIN, e errar
 o PIN dá uma mensagem diferente de ter a frase errada — a segunda não acusa o
-PIN, porque o PIN está certo e quem mudou foi a frase. As iterações de PBKDF2 do
-envelope local são um parâmetro separado em `js/crypto.js`, distinto do usado no
-payload.
+PIN, porque o PIN está certo e quem mudou foi a frase. `js/crypto.js` tem uma
+única constante `PBKDF2_ITERATIONS` (600.000), usada nas duas derivações.
