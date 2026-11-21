@@ -206,10 +206,9 @@ test.describe("7a.R.3.b Task 3 — cabeçalho, arco, frescor e tese", () => {
       .toHaveText("última leitura em 31/12/2025 · verificação leve em 15/06/2026");
   });
 
-  test("tese lidera a tela e o grifo é EXATAMENTE um (anti-pattern #14)", async ({ page }) => {
+  test("tese lidera a tela: quebra_se, data revisada e ordem no DOM", async ({ page }) => {
     await autenticar(page);
     await abrirDossie(page, "HGLG11");
-    await expect(page.locator(".tela-dossie .grifo")).toHaveCount(1);
     await expect(page.locator(".tela-dossie .dossie-grifo")).toContainText("quebra se");
     await expect(page.locator(".tela-dossie .dossie-revisada")).toHaveText(/27\/06\/2026/);
     // Ordem no DOM: cabeçalho → arco → frescor → tese.

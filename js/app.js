@@ -1876,9 +1876,9 @@ function rent2Vazio() {
 
 // 7a.S.3 Task 1: "símbolo só no último ponto" — a série principal (linha)
 // não desenha marcador em cada ponto ("colar de contas"); só o ponto mais
-// recente ganha um marcador discreto (círculo vazado, não celebratório —
-// DESIGN.md anti-pattern #20) + rótulo do valor acima. Usa markPoint em vez
-// de per-point symbol callback: mais simples de recomputar a cada zoom
+// recente ganha um marcador discreto (círculo vazado, instrumento de leitura,
+// não celebração) + rótulo do valor acima. Usa markPoint em vez de per-point
+// symbol callback: mais simples de recomputar a cada zoom
 // (L.1 já reancora a série; aqui só recalculamos coord+label do markPoint).
 // Benchmarks não recebem markPoint, com uma exceção nomeada (7a.BG.2): a
 // curva "Mesma carteira, só com índices" da #rentabilidade ganha o marcador
@@ -2964,9 +2964,9 @@ document.addEventListener("alpine:init", () => {
         el.classList.add("abertura-reveal");
         setTimeout(() => el.classList.add("abertura-reveal-in"), ABERTURA_MOTION.staggerMs[i]);
       });
-      // Delta pill "respira" 1 ciclo ao fim (nunca loop — anti-pattern #11:
-      // sem celebração). A classe é removida pelo próprio JS no animationend
-      // (não fica presa; CSS já garante animation-iteration-count: 1).
+      // Delta pill "respira" 1 ciclo ao fim (nunca loop, sem celebração). A
+      // classe é removida pelo próprio JS no animationend (não fica presa;
+      // CSS já garante animation-iteration-count: 1).
       setTimeout(() => {
         const delta = secao && secao.querySelector(".hero-delta");
         if (delta) {
@@ -4787,7 +4787,7 @@ document.addEventListener("alpine:init", () => {
 
       // 7a.S.3 Task 3: a última barra do array é sempre o bucket em curso
       // (ano corrente em Anual, mês corrente em Mensal) — honestidade de
-      // dado, independente da data real do sistema (ver DESIGN.md).
+      // dado, independente da data real do sistema.
       const ultimoIdx = valores.length - 1;
 
       // barData: aplica fade + destaque quando há seleção, e hachura na

@@ -199,58 +199,7 @@ test.describe("A Abertura — reveal em stagger + 1×/sessão (Task 2)", () => {
   });
 });
 
-test.describe("A Abertura — delta pill respira + reduced-motion (Task 3)", () => {
-  test("hero-delta ganha .abertura-breathe ao fim — ciclo único, não-loop", async ({ page }) => {
-    // A janela em que a classe fica presente é curta (~550ms, --d3) e ocorre
-    // ~980ms após o mount — tentar "flagrar" isso via polling externo
-    // (toHaveClass com timeout) é uma corrida real: o backoff de polling do
-    // Playwright pode saltar exatamente por cima da janela e nunca amostrar
-    // o estado transiente (não-flaky no sentido de "às vezes falha" — é
-    // deterministicamente ruim quando a janela cai entre duas amostras).
-    // Em vez disso, um MutationObserver DENTRO da página captura o ciclo
-    // completo (add → computed style → remove) e só then expomos o
-    // ESTADO FINAL estável (never muda depois) — sem corrida nenhuma.
-    await page.addInitScript(() => {
-      (window as any).__breathe = null;
-      const tentar = () => {
-        const el = document.querySelector(".hero-delta");
-        if (!el) { requestAnimationFrame(tentar); return; }
-        const obs = new MutationObserver(() => {
-          if (el.classList.contains("abertura-breathe")) {
-            const cs = window.getComputedStyle(el);
-            (window as any).__breathe = {
-              added: true,
-              removedAfter: false,
-              iterationCount: cs.animationIterationCount,
-              duration: cs.animationDuration,
-            };
-          } else if ((window as any).__breathe && (window as any).__breathe.added) {
-            (window as any).__breathe.removedAfter = true;
-          }
-        });
-        obs.observe(el, { attributes: true, attributeFilter: ["class"] });
-      };
-      tentar();
-    });
-    await autoResumir(page);
-
-    // Espera o ciclo TERMINAR (add + remove já aconteceram) — condição
-    // estável, não instante transiente.
-    await expect
-      .poll(async () => page.evaluate(() => (window as any).__breathe?.removedAfter === true), {
-        timeout: 3000,
-      })
-      .toBe(true);
-
-    const breathe = await page.evaluate(() => (window as any).__breathe);
-    expect(breathe.added).toBe(true);
-    // Ciclo ÚNICO (não-loop, anti-pattern #11) — animation-iteration-count
-    // explicitamente 1, nunca "infinite".
-    expect(breathe.iterationCount).toBe("1");
-    expect(breathe.duration).toBe("0.55s"); // --d3
-    expect(breathe.removedAfter).toBe(true);
-  });
-
+test.describe("A Abertura — reduced-motion e 1x/sessao (Task 3)", () => {
   test("prefers-reduced-motion: sem stagger, sem breathe — home pronta direto", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();

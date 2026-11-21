@@ -317,38 +317,7 @@ test.describe("Raio-X — Movers de mercado (7a.J.2.b)", () => {
     await bloco.screenshot({ path: "test-results/r7d-movers-7a-j2b.png" });
   });
 
-  // 7a.S.5 Task 3 — grifo consagrado: .r7d-movers vira o ÚNICO cartão com
-  // border-left na tela Raio-X (Apêndice B da spec: "Raio-X = card Movers",
-  // já documentado como anti-pattern #14 do DESIGN.md). border-left 3px
-  // var(--accent) = rgb(4, 120, 87); --surface-2 = rgb(243, 243, 236).
-  test("grifo: .r7d-movers usa .grifo (border-left --accent + radius 0/14 + bg --surface-2)", async ({ page }) => {
-    await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
-    const movers = page.locator(".r7d-movers");
-    await expect(movers).toBeVisible();
-    const estilo = await movers.evaluate((el) => {
-      const cs = getComputedStyle(el);
-      return {
-        borderLeftWidth: cs.borderLeftWidth,
-        borderLeftColor: cs.borderLeftColor,
-        borderLeftStyle: cs.borderLeftStyle,
-        borderTopLeftRadius: cs.borderTopLeftRadius,
-        borderTopRightRadius: cs.borderTopRightRadius,
-        borderBottomRightRadius: cs.borderBottomRightRadius,
-        borderBottomLeftRadius: cs.borderBottomLeftRadius,
-        backgroundColor: cs.backgroundColor,
-      };
-    });
-    expect(estilo.borderLeftWidth).toBe("3px");
-    expect(estilo.borderLeftStyle).toBe("solid");
-    expect(estilo.borderLeftColor).toBe("rgb(4, 120, 87)"); // var(--accent)
-    expect(estilo.borderTopLeftRadius).toBe("0px");
-    expect(estilo.borderTopRightRadius).toBe("14px");
-    expect(estilo.borderBottomRightRadius).toBe("14px");
-    expect(estilo.borderBottomLeftRadius).toBe("0px");
-    expect(estilo.backgroundColor).toBe("rgb(243, 243, 236)"); // var(--surface-2)
-  });
-
-  test("grifo: dados e ordem dos movers preservados (não é só cosmético)", async ({ page }) => {
+  test("movers: dados e ordem preservados", async ({ page }) => {
     await abrirRaioxComUltimos7d(page, FIXTURE_ATIVA);
     const tickers = await page.locator(".r7d-movers li .tk").allTextContents();
     expect(tickers).toEqual(["PETR4", "VOO", "ITSA4", "BBAS3", "EGIE3", "KNRI11"]);

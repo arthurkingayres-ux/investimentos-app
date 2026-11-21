@@ -1,5 +1,5 @@
 // Tema 'drarthur' para ECharts — Fase 7a.E.19
-// Aplica tokens do DESIGN.md. Source of truth para paleta, eixos, motion.
+// Lê os tokens do :root. Fonte única de paleta, eixos e motion dos gráficos.
 // Requer echarts global carregado antes (echarts.min.js).
 
 (function () {

@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=101">
+  <link rel="stylesheet" href="css/app.css?v=102">
   <script src="js/vendor/echarts.min.js?v=40"></script>
-  <script src="js/echarts-theme.js?v=41"></script>
+  <script src="js/echarts-theme.js?v=42"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
@@ -21,7 +21,7 @@
   <script src="js/conferencia.js?v=1"></script>
   <script src="js/retorno.js?v=2"></script>
   <script src="js/navegacao.js?v=7"></script>
-  <script src="js/app.js?v=109"></script>
+  <script src="js/app.js?v=110"></script>
   <script defer src="js/vendor/alpine.min.js?v=40"></script>
   <script src="js/sw-update.js?v=2"></script>
 </head>
@@ -1383,9 +1383,9 @@
                     O rendimento composto que resulta é a taxa deste capítulo, <span class="proj-num" x-text="projFmtTaxa(projecao.taxa_central.taxa)"></span>.</p>
                 </div></details>
 
-              <!-- O único grifo da tela (anti-pattern #14; colocação canônica desta
-                   tela desde a 7a.AY). O 6,7% é número fixo de fonte (DMS
-                   1900–2021); o da premissa vem do payload. -->
+              <!-- O único grifo da tela (colocação canônica desta tela desde
+                   a 7a.AY). O 6,7% é número fixo de fonte (DMS 1900–2021);
+                   o da premissa vem do payload. -->
               <aside class="grifo proj-grifo">
                 <h3 class="proj-grifo__titulo">Esta taxa olha para frente, não para trás</h3>
                 <p>As premissas são projeções de mercado para os próximos 10 a 15 anos, feitas a partir dos preços de hoje. Não são o passado da sua carteira.</p>
@@ -3295,7 +3295,7 @@
             <!-- 4. TESE — lidera a tela: é a invariante compartilhada pelos
                  dois caminhos de chegada ("por que eu tenho isso?" e "sob
                  pressão contra o quê?"). O grifo accent no `quebra_se` é a
-                 ÚNICA ocorrência da tela (anti-pattern #14). -->
+                 ÚNICA ocorrência da tela. -->
             <section class="dossie-tese">
               <h2 class="dossie-h">Tese</h2>
               <div class="rel-prosa" x-text="dossieAtual.tese?.resumo"></div>
@@ -3312,9 +3312,9 @@
               <p class="dossie-revisada" x-show="dossieAtual.tese?.revisada_em" x-cloak
                 x-text="'Tese revisada em ' + formatDataIso(dossieAtual.tese?.revisada_em)"></p>
               <!-- Selo DERIVADO (7a.AD.2): fora do `.grifo` de propósito — a
-                   tela já gastou seu único grifo no `quebra_se` (anti-pattern
-                   #14) e o selo não pode competir com ele. Fecha o bloco da
-                   tese porque é a leitura FINAL dela: "esta aqui envelheceu".
+                   tela já gastou seu único grifo no `quebra_se` e o selo não
+                   pode competir com ele. Fecha o bloco da tese porque é a
+                   leitura FINAL dela: "esta aqui envelheceu".
                    A11y em forma + TEXTO: o glifo é decorativo, o texto é real
                    e é o que o leitor de tela lê — nunca cor sozinha. -->
               <p class="dossie-pede-revisao" x-show="dossiePedeRevisao" x-cloak>

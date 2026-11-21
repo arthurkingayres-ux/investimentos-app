@@ -393,8 +393,8 @@ h1 {
   }
 
   /* Delta pill "respira" ao fim da abertura — UM ciclo (animation-iteration-
-     count 1, nunca infinite): cerimônia, não celebração (anti-pattern #11). A
-     classe é removida no fim pelo próprio JS (animationend). */
+     count 1, nunca infinite): cerimônia, não celebração. A classe é removida
+     no fim pelo próprio JS (animationend). */
   @keyframes abertura-breathe {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.045); }
@@ -456,8 +456,8 @@ h1 {
   -webkit-tap-highlight-color: transparent;
 }
 /* Radial glow via --hero-glow (S.1): transparente no light (inerte), acende
-   no dark (S.12). Não é gradiente decorativo banido (anti-pattern #8) — é o
-   mesmo token já reservado desde a fundação, só agora consumido. */
+   no dark (S.12). É o mesmo token reservado desde a fundação, só agora
+   consumido — não um gradiente decorativo novo. */
 .hero::before {
   content: "";
   position: absolute;
@@ -577,7 +577,7 @@ h1 {
    (R$ 1.234.567,89, mono): a 375 px o split tem 291 px e o texto a --num-md
    mede 136 px, que só cabe em coluna de 137,5 px com gap 1rem; --num-lg (170 px)
    não cabe. A 320 px (split 236 px) só --num-xs (110 px) cabe, com gap 0,75rem.
-   nowrap: dinheiro nunca quebra, trunca nem reticencia (DESIGN.md). */
+   nowrap: dinheiro não quebra, trunca nem reticencia — valor cortado mente. */
 .hero-split {
   display: flex;
   gap: 1rem;
@@ -1019,7 +1019,7 @@ h1 {
   background: var(--g-700);
   color: #fff;
   letter-spacing: -0.01em;
-  /* REMOVIDO: linear-gradient, box-shadow elevada (anti-celebratório, PRODUCT.md) */
+  /* Sem linear-gradient nem box-shadow elevada: o app informa, não celebra. */
 }
 
 .aporte-item {
@@ -4129,8 +4129,7 @@ body:has(.tab-bar) main {
    carrega a direção para leitores de tela.
    7a.S.5 Task 3: consagra o `.grifo` (S.1) aqui — .r7d-movers é o cartão de
    maior tensão informativa do Raio-X (Apêndice B da spec: "Raio-X = card
-   Movers"; já documentado como anti-pattern #14 do DESIGN.md). Antes
-   `border-left 3px --ink` + `--neutral-50`; agora `border-left 3px
+   Movers"). Antes `border-left 3px --ink` + `--neutral-50`; agora `border-left 3px
    var(--accent)` + radius assimétrico `0 14px 14px 0` + `--surface-2`. */
 .r7d-movers {
   margin-top: 0.2rem;
@@ -4459,7 +4458,7 @@ body:has(.tab-bar) main {
 /* Gráfico SVG inline (sem ECharts, família "ensaio"). viewBox 0..100 esticado
    na caixa; o traço não escala (vector-effect) e o marcador de hoje é HTML,
    para não se deformar. A faixa 8 em 10 é a incerteza da projeção, chapada,
-   sem gradiente (DESIGN.md, anti-pattern 17). */
+   sem gradiente. */
 .renda-grafico { margin: 1rem 0 0.25rem; }
 .renda-grafico__teto { margin: 0 0 4px; font-size: 0.75rem; color: var(--gray); font-variant-numeric: tabular-nums; }
 .renda-grafico__area { position: relative; height: 160px; }
@@ -4688,8 +4687,8 @@ body:has(.tab-bar) main {
    7a.S. Bloco 100% ADITIVO: nenhuma regra acima é tocada — light continua
    sendo o default bit-a-bit idêntico. Ativado via `[data-theme="dark"]` na
    raiz (`document.documentElement`), toggle manual + persistência
-   (js/app.js `alternarTema()`/boot) — NUNCA `prefers-color-scheme`. Ver
-   DESIGN.md "Modo Plantão" para o inventário completo + racional.
+   (js/app.js `alternarTema()`/boot) — NUNCA `prefers-color-scheme`.
+   O bloco abaixo remapeia todo token que varia por tema.
    ============================================================================ */
 
 :root[data-theme="dark"] {
@@ -4796,9 +4795,9 @@ body:has(.tab-bar) main {
   background: var(--neutral-50);
 }
 
-/* ── Teal-como-luz: hairline superior nos cards (profundidade sem gradiente,
-   anti-pattern #8 preservado) + glow no indicator da tab ativa + text-shadow
-   nos posters monumento. ─────────────────────────────────────────────────── */
+/* ── Teal-como-luz: hairline superior nos cards (profundidade sem gradiente)
+   + glow no indicator da tab ativa + text-shadow nos posters monumento.
+   ───────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] .card,
 [data-theme="dark"] .dy-row,
 [data-theme="dark"] .chart-rent,
