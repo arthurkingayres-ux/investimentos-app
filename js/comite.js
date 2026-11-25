@@ -85,165 +85,6 @@
   // reprovação na conferência, e o resumo do acordeão não pode dizer que são.
   const SEM_CONFERENCIA = new Set(["SAIDA_AUSENTE", "SAIDA_INVALIDA", "VALIDADOR_FALHOU"]);
 
-  const TIPO_REGISTRO = {
-    pergunta: "Pergunta para você",
-    observacao_politica: "Observação de política",
-    reforco: "Reforço",
-  };
-
-  // Ajuste pós-BW.6 (08/11): o Comitê cita cada evidência pelo caminho do
-  // número no envelope (ex.: diagnostico.selecao.classes.acoes_br.janelas.3a.t).
-  // O caminho continua no dado (o validador e a conferência o leem); a tela
-  // mostra o rótulo em português: a métrica primeiro, o contexto entre
-  // parênteses, na mesma ordem e quantidade. Caminho com segmento que o mapa
-  // não conhece cai num rótulo legível (sublinhado vira espaço), nunca some.
-  // Texto livre (com espaço) passa como veio.
-  // Chaves de topo do envelope (src/comite/envelope.py) e os blocos do
-  // Diagnóstico, que o Comitê às vezes cita sem o prefixo `contexto.`.
-  const EVID_RAIZ = new Set([
-    "versao", "modo", "pedido", "regra", "patrimonio_brl", "patrimonio_pos_brl", "elegiveis",
-    "excluidos", "contexto", "idade_fontes", "avisos", "grifo_dado_velho", "tabela_custos_medida_em",
-    "anteriores", "diagnostico", "risco", "selecao", "atribuicao", "construcao", "fx_usd_brl",
-    "ordens_avenue_no_mes", "dividend_yield", "estado_mes",
-  ]);
-  const EVID_ESTRUTURA = new Set(["contexto", "diagnostico", "escopos", "classes", "janelas", "categorias"]);
-  const EVID_CONTEXTO = {
-    risco: "risco",
-    selecao: "seleção",
-    atribuicao: "atribuição",
-    construcao: "construção",
-    elegiveis: "elegíveis",
-    excluidos: "excluídos",
-    regra: "regra",
-    proposta: "proposta",
-    pedido: "pedido",
-    idade_fontes: "idade das fontes",
-    estado_mes: "mês corrente",
-    anteriores: "rodadas anteriores",
-    registros: "registros",
-    propostas: "propostas",
-    tese: "tese",
-    custo: "custo",
-    concentracao: "concentração",
-    queda: "queda",
-    curva: "curva",
-    indices: "índices",
-    fontes: "fontes",
-    Brasil: "Brasil",
-    Total: "carteira toda",
-    EUA_BRL: "EUA em reais",
-    EUA_USD: "EUA em dólar",
-    acoes_br: "Ações BR",
-    eua: "EUA",
-    fiis: "FIIs",
-    renda_fixa: "renda fixa",
-    "3a": "3 anos",
-    "5a": "5 anos",
-    "12m": "12 meses",
-    desde: "desde o início",
-  };
-  const EVID_METRICA = {
-    excesso_aa: "excesso sobre o CDI ao ano",
-    excesso_medio_aa: "excesso médio ao ano",
-    retorno_aa: "retorno ao ano",
-    cdi_aa: "CDI ao ano",
-    volatilidade_aa: "volatilidade ao ano",
-    sharpe: "índice de Sharpe",
-    sortino: "índice de Sortino",
-    queda_maxima: "queda máxima",
-    meses_queda: "meses em queda",
-    meses_recuperacao: "meses até recuperar",
-    recuperacao: "recuperação",
-    n_meses: "meses na amostra",
-    historico_curto: "histórico curto",
-    diferenca_aa: "diferença sobre o índice ao ano",
-    picks_aa: "retorno das escolhas ao ano",
-    indice_aa: "retorno do índice ao ano",
-    desvio_aa: "desvio ao ano",
-    t: "estatística t",
-    anos_para_afirmar: "anos para afirmar",
-    grau: "grau de evidência",
-    razao: "razão",
-    sinais_divergem: "sinais divergentes",
-    desvio: "desvio da política",
-    escolhas: "efeito das escolhas",
-    dolar: "efeito do dólar",
-    carteira: "carteira",
-    carteira_sem_dolar: "carteira sem o dólar",
-    politica: "política",
-    so_indices: "só os índices",
-    n_efetivo: "número efetivo de ativos",
-    n_ativos: "número de ativos",
-    top5: "peso dos 5 maiores",
-    top10: "peso dos 10 maiores",
-    ter_carteira: "taxa de administração da carteira",
-    ter_politica: "taxa de administração da política",
-    reais_ano: "custo em reais por ano",
-    correlacoes: "correlações",
-    gap: "distância até o alvo",
-    gap_brl: "distância até o alvo em reais",
-    peso_atual: "peso atual",
-    peso_alvo: "peso-alvo",
-    teto_faixa: "teto da faixa",
-    preco_brl: "preço em reais",
-    tese_quebrada: "tese quebrada",
-    veredito: "veredito da tese",
-    quebra_se: "condição de quebra da tese",
-    quebra_atingido: "condição de quebra atingida",
-    idade_confronto_dias: "dias desde o último confronto",
-    valor_brl: "valor em reais",
-    remetido_usd: "já remetido em dólar",
-    taxa: "câmbio",
-    fx_usd_brl: "câmbio dólar/real",
-    ordens_avenue_no_mes: "ordens na Avenue no mês",
-    usd_ja_remetido: "dólar já remetido",
-    dividend_yield: "dividend yield",
-    patrimonio_brl: "patrimônio",
-    patrimonio_pos_brl: "patrimônio depois do aporte",
-    posicoes_ate: "posições até",
-    ultima_ingestao: "última ingestão",
-    dias_sem_ingestao: "dias sem ingestão",
-    precos_em: "data dos preços",
-    grifo_dado_velho: "dado velho",
-  };
-
-  const legivel = (seg) => seg.replace(/_/g, " ").trim();
-  const PAR_CLASSES = /^[a-z_]+\|[a-z_]+$/;
-  const CAMINHO = /^[A-Za-z_][A-Za-z0-9_|]*(?:\.[A-Za-z0-9_|]+|\[\d+\])+$/;
-
-  function evidenciaLegivel(e) {
-    if (typeof e !== "string") return "";
-    const bruto = e.trim();
-    // Só caminho: começa por letra e é feito de segmentos de palavra ligados
-    // por ponto (ou índice [n]). O resto é texto livre e passa intacto:
-    // "12.5%" ou "0.85x" não podem perder o inteiro (board BW.6.1), e o
-    // primeiro segmento tem de ser chave do envelope: "v1.2.3" é texto.
-    if (!CAMINHO.test(bruto) || !EVID_RAIZ.has(bruto.split(/[.[]/)[0])) return bruto;
-    const segs = bruto.split(/[.[\]]+/).filter((s) => s && !/^\d+$/.test(s) && !EVID_ESTRUTURA.has(s));
-    if (!segs.length) return bruto;
-    const nomeCtx = (s) => {
-      if (Object.prototype.hasOwnProperty.call(EVID_CONTEXTO, s)) return EVID_CONTEXTO[s];
-      if (PAR_CLASSES.test(s)) return s.split("|").map((c) => EVID_CONTEXTO[c] || legivel(c)).join(" × ");
-      if (/^[A-Z0-9]{4,7}$/.test(s)) return s; // ticker, como veio
-      return legivel(s);
-    };
-    const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-    const ehCtx = (x) => tem(EVID_CONTEXTO, x) || PAR_CLASSES.test(x) || /^[A-Z0-9]{4,7}$/.test(x);
-    // A métrica é o último segmento conhecido como métrica; sem nenhum, o
-    // último segmento que não é contexto (par de classes, ticker) vira a
-    // métrica pelo rótulo legível. O resto, na ordem, é o contexto.
-    let im = -1;
-    for (let i = segs.length - 1; i >= 0 && im < 0; i--) if (tem(EVID_METRICA, segs[i])) im = i;
-    if (im < 0 && !ehCtx(segs[segs.length - 1])) im = segs.length - 1;
-    const metrica = im >= 0 ? (EVID_METRICA[segs[im]] || legivel(segs[im])) : null;
-    const ctx = segs.filter((_, i) => i !== im).map(nomeCtx).filter(Boolean);
-    if (!metrica) {
-      const t = ctx.join(", ");
-      return t.charAt(0).toUpperCase() + t.slice(1);
-    }
-    const cab = metrica.charAt(0).toUpperCase() + metrica.slice(1);
-    return ctx.length ? `${cab} (${ctx.join(", ")})` : cab;
-  }
 
   const LADO_RISCO = {
     mais_risco: "Mais risco que a regra",
@@ -252,6 +93,32 @@
   };
 
   const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  // 7a.CH.2: o cartão da aba Comitê escreve a prestação de contas por extenso
+  // ("novembro de 2027") na seção dos relatórios anuais, e abreviada no cartão.
+  const MESES_LONGOS = [
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+  ];
+
+  // `desde` é "YYYY-MM": o mês mais ANTIGO do livro — `src/comite/placar.py`
+  // olha qualquer linha, inclusive a rodada de registros do dia 12, não só a
+  // primeira proposta pronta (que é o que `n_propostas` conta). Uma leitura só,
+  // usada pelo Placar e pela prestação: duas cópias do mesmo regex divergem no
+  // dia em que o contrato mudar. Formato errado ou ausente ⇒ null, e a tela
+  // mostra "—" em vez de inventar mês (sem fonte = dado falso).
+  function lerDesde(desde) {
+    const m = typeof desde === "string" ? /^(\d{4})-(\d{2})$/.exec(desde) : null;
+    if (!m) return null;
+    const mes = Number(m[2]);
+    if (!(mes >= 1 && mes <= 12)) return null;
+    return { mes: mes - 1, ano: Number(m[1]) };
+  }
+
+  // A prestação de contas é anual: mesmo mês, ano + 1 (spec 7a.CH §5.4, D7).
+  function prestacao(desde) {
+    const d = lerDesde(desde);
+    return d ? { mes: d.mes, ano: d.ano + 1 } : null;
+  }
 
   const TEXTO = {
     enviando: "Enviando o pedido…",
@@ -981,30 +848,57 @@
         return [...(a.avisos || []), ...((a.comite && a.comite.avisos) || [])].filter((x) => typeof x === "string" && x);
       },
 
-      comiteRegistros() {
-        const rs = (this.comiteResposta && this.comiteResposta.registros) || [];
-        return [...rs].sort((x, y) => (Date.parse(y.criado_em) || 0) - (Date.parse(x.criado_em) || 0));
-      },
+      // 7a.CH.2: `comiteRegistros`, `comiteTipoRegistro` e `comiteEvidencia`
+      // saíram com a lista da tela (e com elas o mapa de tipos e todo o
+      // aglomerado de leitura de evidências). `comiteResposta.registros`
+      // continua no payload e no livro: a prestação anual (fase 5) o lê de
+      // novo, e o código apagado está no histórico do git.
 
-      comiteTipoRegistro(tipo) {
-        return TIPO_REGISTRO[tipo] || "Registro";
-      },
-
-      comiteEvidencia(e) {
-        return evidenciaLegivel(e);
-      },
-
-      // 7a.BW.7: a linha lê `comite_placar` do payload da carteira (o backend
-      // conta no livro). Payload antigo, sem a chave: linha vazia, sem cair na
-      // contagem do KV. "comparavel" (inalcançável nesta fase) usa a mesma linha.
-      comitePlacar() {
+      // 7a.CH.2: o cartão da aba Comitê. Os três números vêm todos de
+      // `json.comite_placar` (o backend conta no livro); nenhum é fixo no
+      // código, e payload antigo sem a chave mostra "—" em vez de número
+      // inventado. Substitui a linha única `comitePlacar()` da 7a.BW.7.
+      _comitePlacarDado() {
         const p = this.json && this.json.comite_placar;
-        if (!p || !Number.isFinite(p.n_propostas)) return "";
-        const n = p.n_propostas;
-        const m = typeof p.desde === "string" ? /^(\d{4})-(\d{2})$/.exec(p.desde) : null;
-        const mes = m ? MESES[Number(m[2]) - 1] : null;
-        const desde = mes ? ` desde ${mes}/${m[1]}` : "";
-        return `histórico curto · ${n} ${n === 1 ? "proposta" : "propostas"}${desde}`;
+        return p && Number.isFinite(p.n_propostas) ? p : null;
+      },
+
+      comitePropostasNoLivro() {
+        const p = this._comitePlacarDado();
+        return p ? String(p.n_propostas) : "—";
+      },
+
+      // "Sem veredito" é VALOR FIXO desta fase, de propósito: a spec §5.4 manda
+      // esta frase e só ela, e o veredito é a fase 5. `p.estado` (que o backend
+      // vira para "comparavel" aos 36 meses) ainda não é lido aqui — quando a
+      // fase 5 ramificar por ele, o teste "estado comparavel ainda diz 'Sem
+      // veredito'" (comite-tela.spec.ts) fica vermelho — é o aviso que se quer.
+      // `desde` ausente: sem o mês, só a janela.
+      comitePlacarTexto() {
+        const p = this._comitePlacarDado();
+        if (!p) return "—";
+        const d = lerDesde(p.desde);
+        const partir = d ? ` a partir de ${MESES[d.mes]}/${d.ano}` : "";
+        return `Sem veredito · série curta (36 meses${partir})`;
+      },
+
+      comitePrestacao() {
+        const p = this._comitePlacarDado();
+        const q = p ? prestacao(p.desde) : null;
+        return q ? `${MESES[q.mes]}/${q.ano}` : "—";
+      },
+
+      comitePrestacaoLonga() {
+        const p = this._comitePlacarDado();
+        const q = p ? prestacao(p.desde) : null;
+        return q ? `${MESES_LONGOS[q.mes]} de ${q.ano}` : "";
+      },
+
+      // A fase 5 preenche esta seção com os relatórios de verdade; até lá, o
+      // estado vazio com a data derivada — ou sem ela, quando não há `desde`.
+      comiteRelatoriosVazio() {
+        const longa = this.comitePrestacaoLonga();
+        return longa ? `Nenhum ainda. O primeiro chega em ${longa}.` : "Nenhum ainda.";
       },
 
       comiteUltimaRodada() {

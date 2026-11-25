@@ -75,13 +75,13 @@ mantém o contraste de leitura independente da paleta.
   normal); `--gray`, `--accent`, `--red`, `--amber` e os `--cat-*` sobre
   `--neutral-50` ficam ≥ 3:1 (texto grande, ícone, dot, série de gráfico). O
   helper `contraste()` de `tests/e2e/comite-comum.ts` calcula a razão pela
-  fórmula de luminância relativa da WCAG; **cinco specs** o importam
-  (`comite-registros`, `comite-resposta`, `conferencia`, `reserva`,
+  fórmula de luminância relativa da WCAG; **seis specs** o importam
+  (`comite-pedido`, `comite-resposta`, `comite-tela`, `conferencia`, `reserva`,
   `retorno-esperado`), e `modo-plantao.spec.ts` trava os dois temas com uma
   `function contrast` local, da mesma fórmula. Token que não fecha a razão como
-  texto
-  ganha um degrau escurecido dedicado (`--amber-700`, `--sem-down-texto`) ou um
-  véu (`--etq-veu` + `--etq-texto`).
+  texto ganha um degrau escurecido dedicado (`--amber-700`, `--sem-down-texto`)
+  ou um véu (`--etq-veu` + `--etq-texto`). `--muted-aa` é o cinza secundário que
+  fecha 4,5:1 nos dois temas, para texto pequeno que `--faint` não sustenta.
 - **Sinal usa forma + texto + cor.** Ganho e perda levam glifo (▲/▼), o valor
   escrito e a cor; os selos de tese do dossiê e do Relatório levam ●/◐/▽ mais o
   grau por extenso e a cor; a vigília usa ▲/◇/· do mesmo modo. A cor é o
@@ -332,6 +332,19 @@ os três estados (abaixo, na faixa, acima) · `.aloca-grifo`, deep-link para o
 aporte com preset · `.aporte-chips`/`.aporte-input`, o simulador vivo, com o valor
 em `--num-poster-lg` mono · `.aporte-grifo`, o plano em uma frase · seleção de
 mercado.
+
+**Aportar, três telas na faixa** — Simulação: `.aporte-pedir-linha`, grade
+`2fr 3fr` com `.aporte-agora` (interruptor, `aria-pressed`, glifo SVG — emoji
+ignora `color`) e `.comite-pedir` (valor e horário no subtítulo), ambos de 60px,
+desabilitados juntos · Proposta: `.proposta-cartao`, o pedido em andamento, com
+borda esquerda de destaque, `.proposta-selo` (glifo + fase escrita + cor) e
+`.proposta-passos`, em que o passo corrente se distingue por **peso**, não por
+cor · `.proposta-lista-tit`/`.proposta-item`, acordeão das propostas guardadas,
+cabeçalho de 56px, seta como sinal de forma, **todos fechados** ao abrir ·
+Comitê: `.comite-explica`, três parágrafos com o destaque em peso, e
+`.comite-cartao`, rótulo à esquerda e valor à direita em `tabular-nums`, `—`
+quando o payload não traz o número — menos a linha do Placar, cujo valor é uma
+frase e por isso empilha sob o rótulo, à esquerda.
 
 **Retorno** — `.chip` XIRR/TWR · `.rent2-grande`, o número-veredito em
 `--num-poster` mono com ▲/▼ e cor do sinal · a ponte da rentabilidade, com

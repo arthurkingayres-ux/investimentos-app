@@ -47,6 +47,17 @@ Carteira · Análise · Aportar) e, em cada grupo, uma faixa com as telas dele. 
 telas de um ativo (posição, dossiê, retorno) e os capítulos do diagnóstico são
 telas de push, com "←".
 
+O grupo **Aportar** tem três telas, uma por pergunta:
+
+- **Simulação** — "como a regra dividiria este valor agora?" O motor da regra em
+  tempo real; é daqui que se pede uma proposta ao Comitê.
+- **Proposta** — "o meu pedido está andando? o que o Comitê propôs antes?" O
+  pedido em andamento vale em qualquer aparelho, porque o estado vem do Worker e
+  não do aparelho que pediu; abaixo, as propostas guardadas, em acordeão.
+- **Comitê** — "o que é o Comitê e como ele presta contas?" O que ele é, quando
+  roda, e o livro: quantas propostas, o placar sem veredito enquanto a série é
+  curta, e quando chega o relatório anual.
+
 ## Compromissos de produto
 
 Estes não são gosto; são fronteira. Valem independentemente de como o app vier a

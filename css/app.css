@@ -3816,15 +3816,110 @@ button.ponte-degrau { cursor: pointer; }
   border-radius: 4px;
 }
 
-/* #comite: os registros, do mais novo ao mais antigo. */
-.comite-tela-ajuda,
-.comite-ultima,
-.comite-vazio {
+/* ── 7a.CH.2: a aba Comitê ──────────────────────────────────────────────
+   O cabeçalho que explica (três parágrafos de prosa, o destaque em peso e não
+   em cor), o cartão dos três números e os relatórios anuais. Mesma linguagem
+   restrained do resto do Aportar: hairline, raio 12, nada de realce cromático
+   além do que o cartão da Proposta já usa. */
+.comite-explica {
+  margin: 0 0 20px;
+}
+.comite-explica p {
+  margin: 0 0 12px;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.comite-explica p:last-child { margin-bottom: 0; }
+.comite-explica strong { font-weight: 600; color: var(--ink); }
+
+.comite-cartao {
+  background: var(--surface);
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 0 0 12px;
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+}
+.comite-cartao__linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--neutral-200);
+}
+.comite-cartao__linha:first-child { padding-top: 0; border-top: 0; }
+.comite-cartao__linha:last-child { padding-bottom: 0; }
+/* A linha do Placar é a única cujo valor é uma frase, não um número: em
+   `space-between` ela quebra para a segunda linha e fica alinhada à direita,
+   esfarrapada. Empilha — rótulo em cima, frase embaixo, à esquerda. Pegou na
+   verificação visual, não no teste de transbordo: o que falha é a folga. */
+.comite-cartao__linha[data-linha="placar"] { display: block; }
+.comite-cartao__linha[data-linha="placar"] .comite-cartao__rot { display: block; }
+.comite-cartao__linha[data-linha="placar"] .comite-cartao__val {
+  display: block;
+  margin-top: 2px;
+  text-align: left;
+}
+.comite-cartao__rot {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--gray);
+  min-width: 0;
+}
+.comite-cartao__val {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* A régua de retorno mora na linha do Placar, logo abaixo dela: é a mesma
+   leitura, não um número novo do cartão. */
+.comite-cartao .comite-placar--regua {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  color: var(--gray);
+}
+
+.comite-relatorios {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--neutral-200);
+}
+.comite-relatorios__tit {
+  margin: 0 0 6px;
+  font-size: 0.71875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-aa);
+}
+.comite-relatorios__vazio {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--gray);
+}
+
+/* #comite: a linha pequena da última rodada, sob o cartão. (7a.CH.2: os
+   blocos .comite-registro*, .comite-vazio e .comite-tela-ajuda saíram com a
+   lista de registros.) */
+.comite-ultima {
   margin: 0 0 12px;
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--gray);
 }
+/* A régua de retorno (7a.BY.4) usa esta classe dentro do cartão. */
 .comite-placar {
   margin: 0 0 4px;
   font-size: 0.9375rem;
@@ -3832,64 +3927,6 @@ button.ponte-degrau { cursor: pointer; }
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.comite-registros {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-.comite-registro {
-  padding: 14px 0;
-  border-top: 1px solid var(--neutral-200);
-}
-.comite-registro p { margin: 0; }
-.comite-registro__cab {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.comite-registro__tipo {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-.comite-registro__data {
-  font-family: var(--mono);
-  font-size: var(--num-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--gray);
-}
-.comite-registro .comite-registro__texto {
-  margin-top: 6px;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: var(--ink);
-}
-.comite-registro .comite-registro__bloco,
-.comite-registro .comite-registro__confirmaria,
-.comite-registro .comite-registro__derrubaria,
-.comite-registro .comite-registro__tickers {
-  margin-top: 8px;
-  font-size: 0.875rem;
-  line-height: 1.45;
-  color: var(--ink);
-}
-.comite-registro__rot {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--gray);
-}
-.comite-registro__evidencias {
-  margin: 2px 0 0;
-  padding-left: 1.1em;
-}
-/* Ajuste pós-BW.6: rede para o token sem espaço (caminho que o mapa não
-   reconheceu, texto livre do Comitê) quebrar dentro da largura, nunca empurrar
-   a página para o lado. Vale para todo texto do registro. */
-.comite-registro { min-width: 0; overflow-wrap: anywhere; }
-.comite-registro .comite-registro__tickers { font-family: var(--mono); color: var(--gray); }
-
 /* === Tab bar + Monument typography (sub-fases 7a.I.1 + 7a.I.2) ============= */
 :root {
   --tab-bar-height: 56px;

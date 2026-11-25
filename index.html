@@ -8,14 +8,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="icon" href="assets/favicon.ico">
-  <link rel="stylesheet" href="css/app.css?v=102">
+  <link rel="stylesheet" href="css/app.css?v=103">
   <script src="js/vendor/echarts.min.js?v=40"></script>
   <script src="js/echarts-theme.js?v=42"></script>
   <script src="js/crypto.js?v=64"></script>
   <script src="js/format.js?v=46"></script>
   <script src="js/transitions.js?v=41"></script>
   <script src="js/aportar.js?v=42"></script>
-  <script src="js/comite.js?v=9"></script>
+  <script src="js/comite.js?v=12"></script>
   <script src="js/olho.js?v=1"></script>
   <script src="js/reserva.js?v=1"></script>
   <script src="js/conferencia.js?v=1"></script>
@@ -2886,54 +2886,55 @@
         </template>
       </section>
 
-      <!-- ── Tela #comite (Fase 7a.BW.6) ──────────────────────────────────
-           Tela-membro de Aportar (7a.CC): os registros estratégicos do Comitê
-           (do mais novo ao mais antigo) e a linha do placar. Leitura pura. -->
+      <!-- ── Tela #comite (7a.BW.6; reescrita na 7a.CH.2) ──────────────────
+           Tela-membro de Aportar (7a.CC). Deixou de ser a lista de registros e
+           passou a ser o que o Comitê é e como presta contas (spec 7a.CH §5.4):
+           o cabeçalho de três parágrafos (verbatim do mockup aprovado), o cartão
+           de três números — todos derivados de `json.comite_placar`, nenhum fixo
+           no código —, a régua de retorno e os relatórios anuais. Leitura pura. -->
       <section class="tela-detalhes tela-comite" x-show="rota === 'comite'"
         x-transition:enter.opacity.duration.220ms
         aria-labelledby="comite-tela-titulo" x-cloak>
         <h1 class="sr-only" id="comite-tela-titulo">Comitê</h1>
-        <p class="comite-tela-ajuda">O que o Comitê anotou para a revisão estrutural da política. Os registros nunca mexem no aporte.</p>
-        <template x-if="comiteResposta">
-          <div>
-            <p class="comite-placar" x-text="comitePlacar()"></p>
-            <p class="comite-ultima" x-show="comiteUltimaRodada()" x-text="comiteUltimaRodada()"></p>
-          </div>
-        </template>
-        <template x-if="retornoLinhaPlacar()">
-          <p class="comite-placar comite-placar--regua" data-testid="comite-regua" x-text="retornoLinhaPlacar()"></p>
-        </template>
-        <template x-if="comiteRegistros().length === 0">
-          <p class="comite-vazio">Nenhum registro ainda. Eles chegam com cada proposta e na rodada mensal do dia 12.</p>
-        </template>
-        <ol class="comite-registros" x-show="comiteRegistros().length > 0">
-          <template x-for="r in comiteRegistros()" :key="r.id">
-            <li class="comite-registro" :data-tipo="r.tipo">
-              <p class="comite-registro__cab">
-                <span class="comite-registro__tipo" x-text="comiteTipoRegistro(r.tipo)"></span>
-                <span class="comite-registro__data" x-text="comiteData(r.criado_em)"></span>
-              </p>
-              <p class="comite-registro__texto" x-text="r.texto"></p>
-              <template x-if="(r.evidencias || []).length">
-                <div class="comite-registro__bloco">
-                  <p class="comite-registro__rot">Evidências</p>
-                  <ul class="comite-registro__evidencias">
-                    <template x-for="(e, i) in r.evidencias" :key="i"><li x-text="comiteEvidencia(e)"></li></template>
-                  </ul>
-                </div>
-              </template>
-              <template x-if="r.confirmaria">
-                <p class="comite-registro__confirmaria"><span class="comite-registro__rot">Confirmaria</span> <span x-text="r.confirmaria"></span></p>
-              </template>
-              <template x-if="r.derrubaria">
-                <p class="comite-registro__derrubaria"><span class="comite-registro__rot">Derrubaria</span> <span x-text="r.derrubaria"></span></p>
-              </template>
-              <template x-if="(r.tickers || []).length">
-                <p class="comite-registro__tickers" x-text="r.tickers.join(', ')"></p>
-              </template>
-            </li>
+
+        <section class="comite-explica" aria-label="O que é o Comitê">
+          <p><strong>O que é o Comitê</strong> — Uma inteligência que lê a sua carteira e pensa junto com você o próximo aporte. Ele <strong>propõe, nunca decide</strong>: a regra da sua política é o ponto de partida, e o Comitê só se afasta dela, dentro da faixa de tolerância, quando tem motivo — fundamentos da empresa, retorno esperado, custo ou uma tese em dúvida vigiada pelo Olho.</p>
+          <p><strong>Quando ele roda</strong> — Quando você pede uma proposta (às 3h30, ou na hora com “Rodar agora”). E todo dia 12, sozinho, para observar a carteira e a política — essas anotações ele guarda para si.</p>
+          <p><strong>Como presta contas</strong> — Cada proposta fica no livro, ao lado do que a regra teria feito. Uma vez por ano, ele traz um relatório: como as propostas se saíram, o que observou e perguntas do tipo “valeria mudar isto?”. O placar só dá veredito depois de 36 meses e se a diferença for grande demais para ser sorte.</p>
+        </section>
+
+        <div class="comite-cartao">
+          <p class="comite-cartao__linha" data-linha="propostas">
+            <span class="comite-cartao__rot">Propostas no livro</span>
+            <span class="comite-cartao__val" x-text="comitePropostasNoLivro()"></span>
+          </p>
+          <p class="comite-cartao__linha" data-linha="placar">
+            <span class="comite-cartao__rot">Placar</span>
+            <span class="comite-cartao__val" x-text="comitePlacarTexto()"></span>
+          </p>
+          <!-- A régua de retorno continua na linha do Placar, abaixo dela (§5.4). -->
+          <template x-if="retornoLinhaPlacar()">
+            <p class="comite-placar comite-placar--regua" data-testid="comite-regua" x-text="retornoLinhaPlacar()"></p>
           </template>
-        </ol>
+          <p class="comite-cartao__linha" data-linha="prestacao">
+            <span class="comite-cartao__rot">Próxima prestação de contas</span>
+            <span class="comite-cartao__val" x-text="comitePrestacao()"></span>
+          </p>
+        </div>
+
+        <template x-if="comiteUltimaRodada()">
+          <p class="comite-ultima" x-text="comiteUltimaRodada()"></p>
+        </template>
+
+        <section class="comite-relatorios" aria-labelledby="comite-relatorios-tit">
+          <h2 class="comite-relatorios__tit" id="comite-relatorios-tit">Relatórios anuais</h2>
+          <p class="comite-relatorios__vazio" x-text="comiteRelatoriosVazio()"></p>
+        </section>
+
+        <!-- 7a.CH.2: a lista de registros saiu da TELA, não do dado. Os
+             registros continuam no payload e no livro, intocados — o Comitê os
+             guarda para a prestação anual (fase 5), que os lê de novo. O
+             markup apagado fica no histórico do git. -->
       </section>
 
       <!-- ── Tela #olho: a vigília (7a.BX.4, spec 7a.BX §13.1) ──────────────
