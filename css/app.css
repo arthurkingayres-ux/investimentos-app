@@ -105,6 +105,7 @@
   --surface-2:      #f3f3ec;       /* superfície do grifo / pill */
   --surface:        #ffffff;       /* 7a.S.12: tokeniza os antigos background:#fff/white de cards */
   --faint:          #989e97;       /* eyebrow / captions muted */
+  --muted-aa:       #656b66;       /* 7a.CH.1: muted que passa AA 4,5:1 sobre surface/surface-2 */
   --hero-glow:      transparent;   /* luz do hero — dark acende em S.12 */
   --card-topline:   transparent;   /* hairline superior dos cards — dark em S.12 */
   --shadow-pressed: 0 1px 2px rgba(6, 78, 59, 0.06), 0 3px 10px -4px rgba(6, 78, 59, 0.14);
@@ -3049,61 +3050,6 @@ button.ponte-degrau { cursor: pointer; }
   font-weight: 700;
 }
 
-/* ── Scrubber "e se fosse mais?" (7a.S.10) ───────────────────────── */
-.aporte-scrub-wrap { margin: 0 0 18px; }
-.aporte-scrub-lbl {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.71875rem;
-  color: var(--faint);
-  margin-bottom: 8px;
-  letter-spacing: 0.02em;
-}
-.aporte-scrub {
-  position: relative;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--surface-2);
-}
-.aporte-scrub-fill {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  border-radius: 12px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  opacity: .9;
-  pointer-events: none;
-}
-.aporte-scrub-knob {
-  position: absolute;
-  top: -4px; bottom: -4px;
-  width: 22px;
-  border-radius: 11px;
-  background: var(--neutral-50);
-  border: 2px solid var(--accent);
-  transform: translateX(-50%);
-  box-shadow: var(--card-shadow);
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .aporte-scrub-knob { transition: transform var(--d1) ease; }
-}
-/* Range nativo: invisível por cima do trilho decorativo — dono real do
-   pointer/teclado/a11y (aria-valuenow implícito + arrows/Home/End grátis). */
-.aporte-scrub-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: ew-resize;
-  -webkit-appearance: none;
-  appearance: none;
-}
-.aporte-scrub:focus-within .aporte-scrub-knob {
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
 .aporte-nota {
   font-size: 0.8125rem;
   color: var(--ink);
@@ -3298,6 +3244,204 @@ button.ponte-degrau { cursor: pointer; }
   color: var(--gray);
 }
 
+/* ── 7a.CH.1: a aba Proposta ────────────────────────────────────────────
+   O cartão do pedido em andamento e, abaixo, o acordeão das propostas
+   guardadas. Restrained como o resto do Aportar: a borda de destaque é o
+   único realce, e o passo corrente se distingue por PESO, não por cor. */
+.tela-proposta .proposta-cartao {
+  background: var(--surface);
+  border: 1px solid var(--neutral-200);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 24px;
+  box-shadow: var(--card-shadow);
+}
+.proposta-cartao__cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 6px;
+}
+.proposta-cartao__tit {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+/* Estado por FORMA (glifo) + TEXTO + cor, nunca cor sozinha. */
+.proposta-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.proposta-selo__glifo { color: var(--accent); font-size: 0.8125rem; }
+.proposta-selo[data-fase="sem_resposta"] .proposta-selo__glifo { color: var(--muted-aa); }
+.proposta-valor {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+.proposta-passos {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.proposta-passos li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 26px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--muted-aa);
+}
+.proposta-passos li[data-estado="feito"] { color: var(--ink); }
+.proposta-passos li[data-estado="corrente"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.proposta-passo__glifo {
+  flex: none;
+  width: 1em;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.proposta-passos li[data-estado="feito"] .proposta-passo__glifo { color: var(--accent); }
+.proposta-aviso {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+.proposta-cartao__pe {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--muted-aa);
+  margin: 0;
+}
+.proposta-offline {
+  font-size: 0.75rem;
+  color: var(--muted-aa);
+  margin: 8px 0 0;
+}
+.tela-proposta .proposta-sem-pedido,
+.tela-proposta .proposta-sem-conexao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 0 0 24px;
+}
+.tela-proposta .proposta-sem-pedido a,
+.tela-proposta .proposta-sem-conexao a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 2px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* As propostas guardadas, em acordeão. Cabeçalho de 56 px (alvo de toque),
+   seta como sinal de FORMA do estado aberto/fechado, e o corpo é o mesmo da
+   resposta que vivia na Sugestão — agora por rodada. */
+.proposta-lista-tit {
+  font-size: 0.71875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-aa);
+  margin: 0 0 10px;
+}
+.proposta-item {
+  display: block;
+  border-top: 1px solid var(--neutral-200);
+}
+.proposta-item:last-of-type { border-bottom: 1px solid var(--neutral-200); }
+.proposta-item__cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 2px;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.proposta-item__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.proposta-item__tit {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.proposta-item__sub {
+  font-size: 0.8125rem;
+  color: var(--muted-aa);
+}
+.proposta-item__seta {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--muted-aa);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .proposta-item__seta { transition: color var(--d1) ease; }
+}
+.proposta-corpo { padding: 0 0 16px; }
+.proposta-rodape {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--muted-aa);
+  margin: 12px 0 0;
+}
+.tela-proposta .proposta-vazio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--ink);
+  margin: 0;
+}
+.tela-proposta .proposta-vazio a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
 /* 7a.BW.5: o pedido do Comitê, abaixo do plano da regra. Restrained como o
    resto do #aportar: uma linha fina separa a segunda leitura da primeira, um
    único botão cheio (a ação da tela), campos opcionais recolhidos. Toque de
@@ -3406,14 +3550,67 @@ button.ponte-degrau { cursor: pointer; }
   color: var(--gray);
   margin: 6px 0 0;
 }
-.comite-pedir {
-  display: block;
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 16px;
+/* 7a.CH.1: a linha de dois botoes -- interruptor 2 de 5, pedir 3 de 5, 60 px
+   de altura nos dois (spec 7a.CH §5.2 item 3). */
+.aporte-pedir-linha {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.aporte-agora {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 60px;
+  padding: 8px 10px;
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  border-radius: 10px;
+  /* APAGADO (default ao abrir): branco, borda tracejada, texto e glifo
+     vazados. A forma -- borda tracejada e glifo sem preenchimento -- e o que
+     diz o estado; a cor so acompanha. */
+  background: var(--surface);
+  color: var(--muted-aa);
+  border: 2px dashed var(--neutral-200);
+}
+.aporte-agora__ico {
+  flex: none;
+  /* VAZADO enquanto apagado: so o contorno do raio. */
+  fill: none;
+}
+.aporte-agora[aria-pressed="true"] {
+  /* ACESO: ambar, borda continua, texto escuro, glifo preenchido. */
+  background: #f59e0b;
+  color: #1f1300;
+  border: 2px solid #b45309;
+  border-radius: 999px;
+}
+.aporte-agora[aria-pressed="true"] .aporte-agora__ico {
+  /* CHEIO quando aceso: o raio preenchido. */
+  fill: currentColor;
+}
+.aporte-agora:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (prefers-reduced-motion: no-preference) {
+  .aporte-agora { transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out; }
+}
+
+.comite-pedir {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 12px;
+  font: inherit;
   color: var(--surface);
   background: var(--accent);
   border: none;
@@ -3422,6 +3619,18 @@ button.ponte-degrau { cursor: pointer; }
   touch-action: manipulation;
   transition: transform 120ms ease-out, opacity 150ms ease-out;
 }
+.comite-pedir__tit {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.comite-pedir__sub {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0.9;
+}
+.comite-ajuda-pedido { margin-top: 0; }
 .comite-pedir:active:not(:disabled) { transform: scale(0.98); }
 .comite-pedir:disabled { opacity: 0.45; cursor: not-allowed; }
 .comite-pedir[aria-busy="true"] { cursor: progress; }
@@ -4706,6 +4915,7 @@ body:has(.tab-bar) main {
   --ink:   #f1efe4;
   --gray:  #8fa598;
   --faint: #5d7065;
+  --muted-aa: #93a89c;             /* 7a.CH.1: idem, no Plantao */
 
   /* Teal/accent — teal vira LUZ */
   --accent:      #34d399;

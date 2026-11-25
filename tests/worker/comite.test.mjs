@@ -153,7 +153,7 @@ test("imediato com dispatch falhando: 202 na_fila, ultima_falha registrada, cron
 test("GET estado sem pedido", async () => {
   const r = await getEstado();
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null });
+  assert.deepEqual(await r.json(), { pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null, cifra: null });
 });
 
 test("GET estado sem JWT: 401", async () => {
@@ -162,12 +162,34 @@ test("GET estado sem JWT: 401", async () => {
 });
 
 test("GET estado com pendente nao disparado", async () => {
-  await post({ cifra: cifraFicticia(), imediato: false });
+  // `cifraFicticia()` sorteia um valor novo a cada chamada: capturar antes.
+  const c = cifraFicticia();
+  await post({ cifra: c, imediato: false });
   const est = await (await getEstado()).json();
   assert.equal(est.pendente, true);
   assert.ok(est.recebido_em);
   assert.equal(est.disparado_em, null);
-  assert.equal("cifra" in est, false);
+  assert.equal(est.cifra, c);
+});
+
+// 7a.CH.1 Task 3 (spec 7a.CH D6): a cifra do pendente passa a sair, para o app
+// mostrar o valor do pedido em QUALQUER aparelho. Ela ja atravessa o mesmo
+// Access em /comite/resposta; o Worker continua sem ver o valor. O deepEqual
+// das chaves e o que barra um campo em claro futuro.
+test("GET estado: a cifra sai, e nenhum campo em claro do pedido", async () => {
+  await post({ cifra: cifraFicticia(), imediato: false });
+  const est = await (await getEstado()).json();
+  assert.deepEqual(Object.keys(est).sort(), ["cifra", "disparado_em", "pendente", "recebido_em", "ultima_falha"]);
+  for (const k of ["valor_brl", "nota", "remetido_usd", "nonce", "v"]) assert.equal(k in est, false);
+});
+
+test("GET estado de um pendente ja disparado ainda devolve a cifra", async () => {
+  const c = cifraFicticia();
+  await post({ cifra: c, imediato: true });
+  const est = await (await getEstado()).json();
+  assert.equal(est.pendente, false);
+  assert.ok(est.disparado_em);
+  assert.equal(est.cifra, c);
 });
 
 test("scheduled sem pendente em dia 11 nao chama fetch", async () => {

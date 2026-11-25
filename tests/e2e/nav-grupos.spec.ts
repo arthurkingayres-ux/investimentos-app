@@ -80,7 +80,8 @@ const MEMBROS: [string, string, string][] = [
   ["#/raiox/projecao", "analise", "Projeção"],
   ["#/raiox/relatorio", "analise", "Relatório"],
   ["#/raiox/relatorio/2026-05", "analise", "Relatório"],
-  ["#aportar", "aportar", "Sugestão"],
+  ["#aportar", "aportar", "Simulação"],
+  ["#/aportar/proposta", "aportar", "Proposta"],
   ["#comite", "aportar", "Comitê"],
 ];
 
@@ -124,6 +125,13 @@ test.describe("7a.CC.1 — mapa hash → grupo/tela (faixa)", () => {
       await expect(barraAtiva(page)).toHaveAttribute("data-tab", grupo);
     });
   }
+  // 7a.CH.1: a faixa do Aportar passa a ter três telas, nesta ordem.
+  test("a faixa do Aportar tem as três telas, nesta ordem", async ({ page }) => {
+    await entrar(page);
+    await irPara(page, "#aportar");
+    await expect(page.locator(".grupo-cab nav.faixa a")).toHaveText(["Simulação", "Proposta", "Comitê"]);
+  });
+
   for (const [hash] of PUSHES) {
     test(`push ${hash} não mostra cabeçalho de grupo`, async ({ page }) => {
       await entrar(page, hash);

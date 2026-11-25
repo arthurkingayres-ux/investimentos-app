@@ -2267,7 +2267,6 @@ document.addEventListener("alpine:init", () => {
     // #alocação → #aportar (evita tocar no parser de hash/query do router).
     _aporteRevelados: new Set(),
     _aportePresetPendente: null,
-    aporteScrubMax: 20000,
 
     async init() {
       // 7a.S.12 — Modo Plantão: aplica o tema salvo ANTES de qualquer render
@@ -2563,6 +2562,15 @@ document.addEventListener("alpine:init", () => {
         this.rota = "patrimonio";
         this.tab = this.grupoDaRota(this.rota);
         setTimeout(() => this.hidratarPatrimonio(), 0);
+        return;
+      }
+      if (path === "/aportar/proposta") {
+        // 7a.CH.1: a aba Proposta -- o pedido em andamento (estado vindo do
+        // Worker, igual em qualquer aparelho) e as propostas guardadas em
+        // acordeao. Tela-membro de Aportar; o hash #aportar nao muda.
+        this.rota = "proposta";
+        this.tab = this.grupoDaRota(this.rota);
+        this.propostaAoAbrir();
         return;
       }
       if (path === "aportar") {
@@ -4350,8 +4358,8 @@ document.addEventListener("alpine:init", () => {
     },
 
     // 7a.H.1/7a.S.10: a simulação (R$ por categoria, por ticker, cotas).
-    // `aporteScrubMax` fica: é configuração da régua do scrubber, não dado da
-    // carteira.
+    // 7a.CH.1: a régua saiu da Simulação, e com ela o campo de configuração
+    // que esta nota ressalvava.
     //
     // CRB final round (Finding D): o localStorage `aporte.valor`/`aporte.ts`
     // (TTL 24h, ver `hidratarAportar()`) NÃO é tocado aqui, de propósito —
@@ -5873,11 +5881,12 @@ document.addEventListener("alpine:init", () => {
       }).format(v || 0);
     },
 
-    // 7a.S.10: single source of truth do valor — chips/scrubber escrevem
-    // em `aporteValor` (o MESMO x-model do input de texto) e chamam
+    // 7a.S.10: single source of truth do valor — os chips escrevem em
+    // `aporteValor` (o MESMO x-model do input de texto) e chamam
     // recalcularAporte, exatamente como o @input.debounce já fazia. `animar`
-    // liga o count-up/stagger (chips) vs instantâneo (scrubber em arrasto,
-    // digitação — preserva o timing das specs pré-existentes).
+    // liga o count-up/stagger (chips) vs instantâneo (digitação — preserva o
+    // timing das specs pré-existentes). 7a.CH.1: o scrubber, outro chamador,
+    // saiu da tela.
     aporteSetValor(v, animar = false) {
       const num = Math.max(0, Math.round((Number(v) || 0) * 100) / 100);
       this.aporteValor = String(num);
@@ -5888,12 +5897,6 @@ document.addEventListener("alpine:init", () => {
       this.aporteSetValor(this._parseAporteValor(this.aporteValor) + delta, true);
     },
 
-    // % (0–100) do valor atual sobre aporteScrubMax, clampado — usado pelo
-    // preenchimento visual (.aporte-scrub-fill/-knob) do scrubber 7a.S.10.
-    aporteScrubPct() {
-      const v = this._parseAporteValor(this.aporteValor);
-      return Math.max(0, Math.min(100, (v / this.aporteScrubMax) * 100));
-    },
 
     // 7a.AU: toque no seletor Tudo/Brasil/EUA. Valor fora da lista cai em
     // "tudo" (mesma regra de aportar.js). Remonta o plano com a animação de
@@ -6067,9 +6070,9 @@ document.addEventListener("alpine:init", () => {
     // animados (mesmo racional de ativarCountUpHero — Alpine reatribui
     // aporteCategoriasRecebedoras inteiro a cada recálculo; um x-text
     // reativo nesses nós disputaria com o RAF e reverteria o frame no meio
-    // da animação). `animar=false` (digitação/scrubber) escreve o valor
-    // final direto — só chips tocam a animação (mesma nuance do mockup:
-    // setAp(v, true) nos chips vs setAp(v, false) no arrasto do scrubber).
+    // da animação). `animar=false` (digitação) escreve o valor final direto
+    // — só chips tocam a animação: setAp(v, true) nos chips contra
+    // setAp(v, false) na digitação.
     _aporteAnimarPlano(animar) {
       const tela = document.querySelector(".tela-aportar");
       if (!tela) return;

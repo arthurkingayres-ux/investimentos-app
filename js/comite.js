@@ -52,7 +52,6 @@
   const RODANDO_MAX_MS = 2 * 3600 * 1000;
   // A resposta guardada (só a cifra) e a idade em que a proposta vira "antiga".
   const CHAVE_RESPOSTA = "comite:resposta";
-  const ANTIGA_MS = 30 * 24 * 3600 * 1000;
   // Duas entradas seguidas na tela (boot e desbloqueio re-chamam a rota) não
   // pedem a resposta duas vezes.
   const BUSCA_INTERVALO_MS = 20 * 1000;
@@ -80,6 +79,11 @@
     SAIDA_INVALIDA: "respondeu fora do formato",
     VALIDADOR_FALHOU: "a conferência falhou por erro interno",
   };
+
+  // 7a.CH.1: motivos em que NÃO houve proposta para conferir — o Comitê não
+  // respondeu, respondeu fora do formato, ou o validador quebrou. Não são
+  // reprovação na conferência, e o resumo do acordeão não pode dizer que são.
+  const SEM_CONFERENCIA = new Set(["SAIDA_AUSENTE", "SAIDA_INVALIDA", "VALIDADOR_FALHOU"]);
 
   const TIPO_REGISTRO = {
     pergunta: "Pergunta para você",
@@ -332,6 +336,52 @@
     return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
   }
 
+  // ── 7a.CH.1: a aba Proposta ───────────────────────────────────────────
+  // Brasil sem horário de verão desde 2019 — o MESMO valor e o mesmo nome do
+  // Worker (worker/index.js, BRT_MS). A premissa é compartilhada: o cron do
+  // Comitê roda às 03:30 BRT, e a hora que o cartão mostra tem de ser essa,
+  // qualquer que seja o fuso do aparelho (ele viaja).
+  const BRT_MS = -3 * 3600 * 1000;
+
+  // A janela do §5.3: logo depois do envio o KV da Cloudflare pode ainda não
+  // mostrar o pedido (consistência eventual). Nesses 2 min o aparelho que
+  // pediu confia no próprio `enviado_em` — sem isso, o caminho mais comum de
+  // todos (pedir e ser levado à Proposta) diria "Nenhum pedido em andamento."
+  // segundos depois de ele pedir, que é o defeito de origem desta fase.
+  const ACABEI_DE_PEDIR_MS = 2 * 60 * 1000;
+
+  // A "parede" BRT: o instante deslocado, para ler dia/hora locais do Brasil
+  // com os getters UTC (que não dependem do fuso do aparelho).
+  function paredeBrt(ms) {
+    return new Date(ms + BRT_MS);
+  }
+
+  // Próxima 03:30 BRT depois de `desdeMs`, em epoch. Igual a 03:30 do dia da
+  // parede; se já passou, o dia seguinte.
+  function proxima0330(desdeMs) {
+    const d = paredeBrt(desdeMs);
+    let alvo = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 3, 30, 0, 0) - BRT_MS;
+    if (alvo <= desdeMs) alvo += 24 * 3600 * 1000;
+    return alvo;
+  }
+
+  function dataBrt(ms) {
+    if (!Number.isFinite(ms)) return "";
+    const d = paredeBrt(ms);
+    const p = (x) => String(x).padStart(2, "0");
+    return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}`;
+  }
+
+  // "3h30" na hora de um dígito (o formato do mockup aprovado), "21:40" nas
+  // outras. Uma regra, não uma lista de exceções.
+  function horaBrt(ms) {
+    if (!Number.isFinite(ms)) return "";
+    const d = paredeBrt(ms);
+    const h = d.getUTCHours();
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    return h < 10 ? `${h}h${m}` : `${String(h).padStart(2, "0")}:${m}`;
+  }
+
   // Fora do estado do Alpine (como `iniciado`): a cifra que gerou a resposta
   // em memória, a busca em voo e a hora da última busca.
   let cifraDecifrada = null;
@@ -342,6 +392,16 @@
   // por carga, e uma flag reativa sobreviveria ao "Bloquear sessão" (o
   // lock-higiene.spec.ts compara o estado antes e depois).
   let iniciado = false;
+
+  // 7a.CH.1: o timer do polling da aba Proposta. Fora do Alpine pelo mesmo
+  // motivo dos de cima, e ÚNICO: `_propostaLigarPolling` sempre limpa antes de
+  // criar, e o guard no corpo do tick o mata ao sair da rota.
+  let propostaTimer = null;
+
+  // 7a.CH.1: cada busca de estado leva um número de ordem. Uma resposta lenta
+  // de uma busca ANTIGA não pode sobrescrever o estado que uma mais nova já
+  // gravou (o polling de 20 s e uma reentrada na tela podem se cruzar).
+  let propostaSeq = 0;
 
   function nonceHex() {
     const b = crypto.getRandomValues(new Uint8Array(16));
@@ -366,6 +426,14 @@
       comiteAgora: false,
       comiteErroCampo: "",
       comiteResposta: null,
+      // 7a.CH.1 — a aba Proposta. Entram em `inicial()` de propósito: é o que
+      // faz o "Bloquear sessão" levá-los junto (o corpo de /comite/estado, o
+      // valor decifrado do pedido e quais itens do acordeão estão abertos são
+      // dado do Dr. Arthur, não preferência de UI).
+      propostaWorker: null,   // corpo do GET /comite/estado desta sessão
+      propostaValor: null,    // valor_brl decifrado da cifra do pendente
+      propostaSemRede: false, // a última consulta ao Worker não chegou
+      propostaAberta: {},     // chave da rodada → aberta no acordeão?
     });
     return {
       ...inicial(),
@@ -377,15 +445,306 @@
       _limparEstadoComite() {
         Object.assign(this, inicial());
         cifraDecifrada = null;
+        // Invalida busca em voo: sem isto, uma resposta que chega depois do
+        // "Bloquear sessão" repovoa `propostaWorker` com dado do Dr. Arthur.
+        propostaSeq += 1;
       },
 
       comiteValor() {
         return this._parseAporteValor(this.aporteValor);
       },
 
-      comiteBotaoTexto() {
+      // ── 7a.CH.1: a aba Proposta ───────────────────────────────────────
+      // O estado do pedido vem SEMPRE do Worker, nunca do localStorage: é
+      // isso que o faz valer em qualquer aparelho (spec 7a.CH §5.3). O
+      // `comiteEstado` local continua existindo só para o retorno do envio na
+      // Simulação (enviando, falha, rascunho offline).
+
+      _propostaRecebidoEm() {
+        const t = Date.parse(this.propostaWorker?.recebido_em || "");
+        return Number.isFinite(t) ? t : null;
+      },
+
+      _propostaDisparadoEm() {
+        const t = Date.parse(this.propostaWorker?.disparado_em || "");
+        return Number.isFinite(t) ? t : null;
+      },
+
+      // A resposta já cobre este pedido? `recebido_em` é `toISOString()` do
+      // Worker (com milissegundos) e `criado_em` vem do `iso_z()` do Python:
+      // formatos ISO diferentes comparados como STRING falhariam em silêncio,
+      // e "respondido" nunca disparar deixaria o cartão preso em "sem
+      // resposta" com a proposta já entregue. Date.parse nos dois lados.
+      propostaRespondido() {
+        const recebido = this._propostaRecebidoEm();
+        const quando = Date.parse(this.comiteAtual()?.criado_em || "");
+        if (recebido === null || !Number.isFinite(quando)) return false;
+        return quando >= recebido;
+      },
+
+      // O "Rodar agora" não conseguiu disparar: o Worker deixa o pedido na
+      // fila e registra a falha. O MOTIVO técnico fica no KV, nunca na tela.
+      propostaFalhaDoAgora() {
+        const recebido = this._propostaRecebidoEm();
+        const falha = Date.parse(this.propostaWorker?.ultima_falha?.em || "");
+        return recebido !== null && Number.isFinite(falha) && falha > recebido;
+      },
+
+      propostaFase() {
+        const agora = Date.now();
+        // 1. Acabei de pedir e o KV ainda não propagou (§5.3). O Worker
+        //    respondeu — com sucesso e vazio —, então não é falta de rede.
+        const enviado = lerEnviadoEm();
+        const recebido = this._propostaRecebidoEm();
+        if (recebido === null && enviado !== null && agora - enviado < ACABEI_DE_PEDIR_MS) return "na_fila";
+        // 2. Não consegui conferir. O app NÃO afirma ausência de pedido.
+        if (this.propostaSemRede && !this.propostaWorker) return "sem_conexao";
+        // 3. O Worker diz que HÁ pedido, mas a data não parseia: não dá para
+        //    datar os passos, e ainda assim afirmar "nenhum pedido" seria o
+        //    defeito de origem desta fase. Vale o que o Worker afirma.
+        if (recebido === null && this.propostaWorker?.pendente === true) return "na_fila";
+        // 4/5. Sem pedido, fora da janela de 72 h, ou já respondido.
+        if (recebido === null) return "sem_pedido";
+        if (agora - recebido >= ESTADO_JANELA_MS) return "sem_pedido";
+        if (this.propostaRespondido()) return "sem_pedido";
+        // 5/6/7.
+        if (this.propostaWorker.pendente === true) return "na_fila";
+        const disparado = this._propostaDisparadoEm();
+        if (disparado !== null && agora - disparado < RODANDO_MAX_MS) return "em_analise";
+        return "sem_resposta";
+      },
+
+      // Quando a proposta deve estar pronta: 2 h depois do disparo, ou 2 h
+      // depois da próxima 03:30 enquanto ela não aconteceu. Texto de
+      // ESTIMATIVA ("prevista até"), nunca promessa.
+      _propostaPrevistaMs() {
+        const disparado = this._propostaDisparadoEm();
+        if (disparado !== null) return disparado + RODANDO_MAX_MS;
+        const recebido = this._propostaRecebidoEm() ?? lerEnviadoEm();
+        if (recebido === null) return null;
+        return proxima0330(recebido) + RODANDO_MAX_MS;
+      },
+
+      propostaPassos() {
+        const fase = this.propostaFase();
+        if (fase === "sem_pedido" || fase === "sem_conexao") return [];
+        const recebido = this._propostaRecebidoEm() ?? lerEnviadoEm();
+        const roda = recebido === null ? null : proxima0330(recebido);
+        const prevista = this._propostaPrevistaMs();
+        // Sem data não há sufixo: "Pedido recebido · " com o separador solto
+        // é texto quebrado, e o caminho é alcançável (o Worker afirma
+        // pendente com `recebido_em` ilegível).
+        const quando = (ms) => `${dataBrt(ms)} às ${horaBrt(ms)}`;
+        const passos = [
+          { chave: "recebido", texto: recebido === null ? "Pedido recebido" : `Pedido recebido · ${quando(recebido)}` },
+          { chave: "fila", texto: roda === null ? "Na fila" : `Na fila · roda ${quando(roda)}` },
+          { chave: "analise", texto: "Em análise · até ~2 h" },
+          { chave: "pronta", texto: prevista === null ? "Pronta" : `Pronta · prevista até ${quando(prevista)}` },
+        ];
+        // O passo corrente: na fase `na_fila` é "fila", a menos que o Worker
+        // ainda não mostre o pedido (acabei de pedir), em que é "recebido".
+        // O passo corrente é "recebido" só quando o WORKER ainda não mostra o
+        // pedido (o fallback de 2 min). Se ele afirma `pendente`, o pedido
+        // está na fila, mesmo que a data não parseie.
+        let corrente = "fila";
+        const esperandoOWorker = this._propostaRecebidoEm() === null && this.propostaWorker?.pendente !== true;
+        if (fase === "na_fila" && esperandoOWorker) corrente = "recebido";
+        else if (fase === "em_analise" || fase === "sem_resposta") corrente = "analise";
+        const i = passos.findIndex((p) => p.chave === corrente);
+        for (let k = 0; k < passos.length; k++) {
+          passos[k].estado = k < i ? "feito" : k === i ? "corrente" : "futuro";
+        }
+        return passos;
+      },
+
+      propostaValorTexto() {
+        return Number.isFinite(this.propostaValor) ? brl0(this.propostaValor) : "";
+      },
+
+      // "Volte a partir das 5h30 de 25/11." A data vai explícita: "amanhã"
+      // fica falso na virada da meia-noite e depende do fuso do aparelho.
+      propostaVolteTexto() {
+        const fase = this.propostaFase();
+        if (fase === "sem_pedido" || fase === "sem_conexao" || fase === "sem_resposta") return "";
+        const prevista = this._propostaPrevistaMs();
+        if (prevista === null) return "";
+        return `Volte a partir das ${horaBrt(prevista)} de ${dataBrt(prevista)}.`;
+      },
+
+      // ── As propostas guardadas, em acordeão ───────────────────────────
+      // `atual` primeiro, depois o `historico`: da mais nova para a mais
+      // antiga, no máximo 12. O backend guarda `atual` MAIS até
+      // MAX_HISTORICO = 12 no histórico, ou seja, 13 rodadas; o corte em 12 é
+      // desta tela, e o rodapé diz isso. Entrada sem `criado_em` é
+      // descartada — sem data não há cabeçalho de item.
+      propostaRodadas() {
+        const r = this.comiteResposta;
+        if (!r) return [];
+        const todas = [r.atual, ...(Array.isArray(r.historico) ? r.historico : [])];
+        const vistas = new Set();
+        const saida = [];
+        for (const x of todas) {
+          if (!x || typeof x.criado_em !== "string" || !x.criado_em) continue;
+          // O backend MOVE a `atual` para o `historico` quando ela é
+          // superada, então hoje não há repetida. O dedup é barato e tira a
+          // classe inteira: chave repetida no x-for faz o Alpine compartilhar
+          // o estado "aberta" entre dois itens.
+          const chave = this.propostaChave(x);
+          if (vistas.has(chave)) continue;
+          vistas.add(chave);
+          saida.push(x);
+          if (saida.length === 12) break;
+        }
+        return saida;
+      },
+
+      // Chave do x-for e do mapa de abertos. O `nonce` do pedido é único por
+      // rodada; o `criado_em` é a reserva para payload que não o traga.
+      propostaChave(r) {
+        return (r && (r.nonce || r.criado_em)) || "";
+      },
+
+      propostaCabecalhoItem(r) {
+        if (!r) return "";
+        const v = Number.isFinite(r.valor_pedido) ? brl0(r.valor_pedido) : "sem valor";
+        return `${dataBrt(Date.parse(r.criado_em))} · ${v}`;
+      },
+
+      propostaResumo(r) {
+        if (!r) return "";
+        if (!r.comite) {
+          // `comite: null` cobre mais do que reprovação na conferência:
+          // SAIDA_AUSENTE/SAIDA_INVALIDA/VALIDADOR_FALHOU são o Comitê não ter
+          // respondido a tempo, fora do formato, ou erro interno do
+          // validador. Dizer "não passou na conferência" ali afirmaria um
+          // motivo que o dado não sustenta; o motivo exato está no corpo do
+          // item (`comiteTextoRecusa`).
+          return SEM_CONFERENCIA.has(r.motivo_recusa)
+            ? "Não houve proposta · valeu a regra"
+            : "Não passou na conferência · valeu a regra";
+        }
+        const n = (r.comite.ativos || []).length;
+        return `Comitê propôs · ${n} ${n === 1 ? "ativo" : "ativos"}`;
+      },
+
+      propostaEstaAberta(chave) {
+        return this.propostaAberta[chave] === true;
+      },
+
+      propostaAlternar(chave) {
+        this.propostaAberta = { ...this.propostaAberta, [chave]: !this.propostaEstaAberta(chave) };
+      },
+
+      propostaRodape() {
+        return "Mostra as 12 mais recentes. As anteriores ficam no livro do Comitê.";
+      },
+
+      async _propostaBuscarEstado() {
+        if (!navigator.onLine) {
+          this.propostaSemRede = true;
+          return;
+        }
+        const seq = ++propostaSeq;
+        // Chegou tarde: outra busca, mais nova, já gravou. Descartar.
+        const velha = () => seq !== propostaSeq;
+        let r;
+        try {
+          r = await fetch("./comite/estado", { cache: "no-store", redirect: "manual" });
+        } catch {
+          if (!velha()) this.propostaSemRede = true;
+          return;
+        }
+        // O Access responde redirect para o login quando a sessão venceu.
+        if (!r.ok || r.type === "opaqueredirect") {
+          if (!velha()) this.propostaSemRede = true;
+          return;
+        }
+        let corpo;
+        try {
+          corpo = await r.json();
+        } catch {
+          if (!velha()) this.propostaSemRede = true;
+          return;
+        }
+        if (velha()) return;
+        this.propostaSemRede = false;
+        this.propostaWorker = corpo;
+        await this._propostaDecifrarValor(corpo.cifra);
+        // Recheca DEPOIS do decifrar: duas buscas podem passar pelo guard e
+        // terminar fora de ordem, deixando o valor da cifra antiga.
+        if (velha()) this.propostaValor = null;
+      },
+
+      // A cifra do pendente, decifrada com a frase já desbloqueada. Falha em
+      // silêncio (frase trocada, payload de formato antigo, base64 quebrado):
+      // o cartão aparece com o estado e SEM o valor. Sem console.error — erro
+      // de console derruba a suíte, e aqui não há nada a consertar.
+      async _propostaDecifrarValor(cifra) {
+        if (typeof cifra !== "string" || !cifra || !this.segredo) {
+          this.propostaValor = null;
+          return;
+        }
+        const segredo = this.segredo;
+        let obj;
+        try {
+          obj = JSON.parse(await window.decifrar(cifra, segredo));
+        } catch {
+          this.propostaValor = null;
+          return;
+        }
+        if (this.segredo !== segredo) return; // bloqueou enquanto decifrava
+        this.propostaValor = obj && obj.v === 1 && Number.isFinite(obj.valor_brl) ? obj.valor_brl : null;
+      },
+
+      async propostaAoAbrir() {
+        await this._propostaBuscarEstado();
+        await this.comiteBuscarResposta(true);
+        this._propostaLigarPolling();
+      },
+
+      // UM mecanismo, de propósito. Havia dois (este guard e um $watch de
+      // `rota`), e medido em 25/11/2026 cada um passava sozinho: o teste "sair
+      // da Proposta mata o polling" só ficava vermelho com os DOIS mutados, ou
+      // seja, nenhum dos dois estava trancado. Com um só, reverter esta linha
+      // fica vermelho — que é o ponto de ter o teste.
+      _propostaLigarPolling() {
+        this._propostaPararPolling();
+        if (this.propostaFase() === "sem_pedido") return;
+        propostaTimer = setInterval(() => {
+          if (this.rota !== "proposta") {
+            this._propostaPararPolling();
+            return;
+          }
+          this._propostaBuscarEstado();
+          this.comiteBuscarResposta(true);
+        }, BUSCA_INTERVALO_MS);
+      },
+
+      _propostaPararPolling() {
+        if (propostaTimer !== null) {
+          clearInterval(propostaTimer);
+          propostaTimer = null;
+        }
+      },
+
+      // 7a.CH.1: o rotulo do botao e fixo ("Pedir proposta"); o valor e o
+      // quando vao no SUBTITULO, e o interruptor ao lado diz se roda ja.
+      comiteSubtitulo() {
         const v = this.comiteValor();
-        return v > 0 ? `Pedir proposta para ${this.aporteFmtBrl0(v)}` : "Pedir proposta";
+        if (!(v > 0)) return "";
+        return `${this.aporteFmtBrl0(v)} · ${this.comiteAgora ? "roda já" : "roda às 3h30"}`;
+      },
+
+      comiteAjudaPedido() {
+        if (!(this.comiteValor() > 0)) return "Digite o valor acima para pedir uma proposta.";
+        const quando = this.comiteAgora
+          ? "Roda assim que você pedir (pode falhar se você estiver usando o Claude, porque a cota é a mesma)."
+          : "O Comitê roda às 3h30.";
+        return `${quando} Ao pedir, você vai para a aba Proposta.`;
+      },
+
+      comiteAgoraDesabilitado() {
+        return !(this.comiteValor() > 0) || this.comiteEstado === "enviando";
       },
 
       comiteBotaoDesabilitado() {
@@ -514,32 +873,15 @@
         return (this.comiteResposta && this.comiteResposta.atual) || null;
       },
 
-      comiteTemProposta() {
-        const a = this.comiteAtual();
-        return !!(a && a.comite);
+      // 7a.CH.1: as funcoes de exibicao recebem a RODADA. O default
+      // `comiteAtual()` mantem os chamadores antigos; o acordeao da aba
+      // Proposta passa cada uma das 12 rodadas guardadas.
+      comiteTemProposta(r = this.comiteAtual()) {
+        return !!(r && r.comite);
       },
 
-      comiteDadoVelho() {
-        const a = this.comiteAtual();
-        return !!(a && a.grifo_dado_velho === true);
-      },
-
-      // O plano da regra perde o grifo quando a resposta traz o seu: a razão
-      // principal da proposta, ou o aviso de dado velho (um grifo por tela).
-      comiteTomaGrifo() {
-        return this.comiteTemProposta() || this.comiteDadoVelho();
-      },
-
-      comiteAntiga() {
-        const a = this.comiteAtual();
-        const t = a ? Date.parse(a.criado_em) : NaN;
-        return Number.isFinite(t) && Date.now() - t > ANTIGA_MS;
-      },
-
-      comiteOutroValor() {
-        const a = this.comiteAtual();
-        const v = this.comiteValor();
-        return !!(a && v > 0 && Number.isFinite(a.valor_pedido) && Math.round(v) !== Math.round(a.valor_pedido));
+      comiteDadoVelho(r = this.comiteAtual()) {
+        return !!(r && r.grifo_dado_velho === true);
       },
 
       comiteFmt(n) {
@@ -550,31 +892,14 @@
         return data(iso);
       },
 
-      comiteCabecalho() {
-        const a = this.comiteAtual();
-        if (!a) return "";
-        return `Proposta de ${data(a.criado_em).slice(0, 5)} para ${brl0(a.valor_pedido)}`;
-      },
-
-      comiteTextoOutroValor() {
-        const a = this.comiteAtual();
-        if (!a) return "";
-        return `Esta proposta vale para ${brl0(a.valor_pedido)}; o valor acima é ${brl0(this.comiteValor())}. Para o valor novo, peça outra proposta.`;
-      },
-
-      comiteTextoAntiga() {
-        const a = this.comiteAtual();
-        return a ? `Proposta antiga, de ${data(a.criado_em)}; a carteira mudou desde então.` : "";
-      },
-
-      comiteTextoRecusa() {
-        const a = this.comiteAtual();
+      comiteTextoRecusa(r = this.comiteAtual()) {
+        const a = r;
         const m = a && MOTIVOS[a.motivo_recusa];
         return `O Comitê não passou na conferência${m ? ` (${m})` : ""}; esta é a regra.`;
       },
 
-      comiteTextoIdade() {
-        const a = this.comiteAtual();
+      comiteTextoIdade(r = this.comiteAtual()) {
+        const a = r;
         const i = (a && a.idade_fontes) || {};
         const partes = [];
         if (i.posicoes_ate) partes.push(`posições até ${data(i.posicoes_ate)}`);
@@ -585,7 +910,7 @@
           t += `${t ? "; " : ""}${d} ${d === 1 ? "dia" : "dias"} sem extrato novo`;
         }
         if (!t) return "";
-        if (this.comiteDadoVelho()) {
+        if (this.comiteDadoVelho(r)) {
           return `Dados velhos. ${t}. A proposta usa esses números; atualize a carteira antes de remeter.`;
         }
         return `${t}.`;
@@ -593,8 +918,8 @@
 
       // Uma linha por ativo: os do Comitê primeiro, na ordem dele; depois os
       // que só a regra põe. A diferença vai em texto, nunca só em cor.
-      comiteLinhas() {
-        const a = this.comiteAtual();
+      comiteLinhas(r = this.comiteAtual()) {
+        const a = r;
         if (!a) return [];
         const regra = new Map();
         for (const c of (a.regra && a.regra.categorias) || []) {
@@ -619,39 +944,39 @@
         return linhas;
       },
 
-      comiteCusto(lado) {
-        const c = this.comiteAtual()?.custos;
+      comiteCusto(lado, r = this.comiteAtual()) {
+        const c = r?.custos;
         if (!c) return "—";
         return Number.isFinite(c[lado]) ? brl0(c[lado]) : "sem estimativa";
       },
 
-      comiteCustoNota() {
-        const medido = this.comiteAtual()?.custos?.medido_em;
+      comiteCustoNota(r = this.comiteAtual()) {
+        const medido = r?.custos?.medido_em;
         return `custo estimado; câmbio e IOF por parâmetro${medido ? ` medido em ${data(medido)}` : ""}`;
       },
 
-      comiteEconomia() {
-        const a = this.comiteAtual();
+      comiteEconomia(r = this.comiteAtual()) {
+        const a = r;
         const e = a && a.economia_brl;
         if (!a || !a.comite || !Number.isFinite(e)) return "";
         if (Math.abs(e) < 0.5) return "Os dois caminhos custam o mesmo.";
         return e > 0 ? `O caminho do Comitê custa ${brl0(e)} a menos.` : `O caminho do Comitê custa ${brl0(-e)} a mais.`;
       },
 
-      comiteRisco() {
-        const r = this.comiteAtual()?.comite?.risco_retorno;
-        if (!r) return "";
-        return [LADO_RISCO[r.lado], r.texto].filter(Boolean).join(". ");
+      comiteRisco(r = this.comiteAtual()) {
+        const rr = r?.comite?.risco_retorno;
+        if (!rr) return "";
+        return [LADO_RISCO[rr.lado], rr.texto].filter(Boolean).join(". ");
       },
 
-      comiteConfianca() {
-        const c = this.comiteAtual()?.comite?.confianca;
+      comiteConfianca(r = this.comiteAtual()) {
+        const c = r?.comite?.confianca;
         if (!c || !c.nivel) return "";
         return `Confiança ${c.nivel}${c.motivo ? `: ${c.motivo}` : ""}.`;
       },
 
-      comiteAvisos() {
-        const a = this.comiteAtual();
+      comiteAvisos(r = this.comiteAtual()) {
+        const a = r;
         if (!a) return [];
         return [...(a.avisos || []), ...((a.comite && a.comite.avisos) || [])].filter((x) => typeof x === "string" && x);
       },
@@ -667,15 +992,6 @@
 
       comiteEvidencia(e) {
         return evidenciaLegivel(e);
-      },
-
-      // Os registros da mesma rodada da proposta (mesmo dia) dão a contagem.
-      // 7a.CE: sem registros da rodada não há link (o Comitê está na faixa do Aportar).
-      comiteLinkRegistros() {
-        const a = this.comiteAtual();
-        const dia = a && typeof a.criado_em === "string" ? a.criado_em.slice(0, 10) : null;
-        const n = dia ? this.comiteRegistros().filter((r) => String(r.criado_em || "").slice(0, 10) === dia).length : 0;
-        return n > 0 ? `Anotado para a revisão estrutural (${n})` : "";
       },
 
       // 7a.BW.7: a linha lê `comite_placar` do payload da carteira (o backend
@@ -790,6 +1106,11 @@
           /* 202 sem corpo: na fila */
         }
         this._comitePor(corpo.estado === "disparado" ? "rodando" : "na_fila");
+        // 7a.CH.1 (§5.2 item 5): enviado com sucesso, o app leva a aba
+        // Proposta, onde o estado do pedido vive. O guard da rota importa: o
+        // reenvio automatico do evento "online" pode disparar com ele em
+        // qualquer tela, e arrasta-lo dali seria pior do que nao navegar.
+        if (this.rota === "aportar") this.irParaTela("#/aportar/proposta");
       },
     };
   };

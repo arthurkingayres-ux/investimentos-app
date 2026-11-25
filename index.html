@@ -2540,32 +2540,13 @@
           <button type="button" class="aporte-chip aporte-chip--zero" @click="aporteSetValor(0, true)">zerar</button>
         </div>
 
-        <!-- 7a.S.10: scrubber "e se fosse mais?" (0–20.000, passo 100) ──── -->
-        <div class="aporte-scrub-wrap">
-          <div class="aporte-scrub-lbl">
-            <span>E se fosse mais?</span>
-            <span x-text="'R$ 0 — ' + aporteFmtBrl0(aporteScrubMax)"></span>
-          </div>
-          <div class="aporte-scrub">
-            <div class="aporte-scrub-fill" :style="`width: ${aporteScrubPct()}%`"></div>
-            <div class="aporte-scrub-knob" :style="`left: ${aporteScrubPct()}%`"></div>
-            <input type="range" class="aporte-scrub-input"
-                   min="0" :max="aporteScrubMax" step="100"
-                   :value="Math.min(_parseAporteValor(aporteValor), aporteScrubMax)"
-                   @input="aporteSetValor($event.target.valueAsNumber, false)"
-                   aria-label="Arrastar para escolher o valor do aporte"
-                   aria-valuemin="0" :aria-valuemax="aporteScrubMax"
-                   :aria-valuenow="Math.min(_parseAporteValor(aporteValor), aporteScrubMax)">
-          </div>
-        </div>
-
         <p class="aporte-nota">
           <span x-text="aporteNotaTexto()">O plano prioriza as categorias abaixo do alvo, equal-weight nos picks — zero sobra.</span>
           <!-- 7a.AU: x-if, não x-show — no modo Tudo a linha não existe no DOM. -->
           <template x-if="aporteMercado !== 'tudo'">
             <span class="aporte-nota-mercado" x-text="aporteNotaMercado()"></span>
           </template>
-          <span class="writes">Simulação pura: nada é enviado, nada é gravado.</span>
+          <span class="writes">A simulação acima não envia nem grava nada.</span>
         </p>
 
         <div class="aporte-banner" x-show="aporteBanner" x-cloak>
@@ -2616,10 +2597,9 @@
           </article>
         </template>
 
-        <!-- 7a.BW.6: com resposta do Comitê que traz o seu grifo (a razão
-             principal, ou o aviso de dado velho), este vira texto comum: um
-             grifo por tela (spec 7a.BW §13.1). -->
-        <div class="aporte-grifo" :class="{ grifo: !comiteTomaGrifo() }" x-show="aporteGrifoHtml()" x-cloak x-html="aporteGrifoHtml()"></div>
+        <!-- 7a.CH.1: a proposta saiu da Simulacao, entao o grifo da tela volta
+             a ser SEMPRE o da regra (nao ha mais com quem dividi-lo). -->
+        <div class="aporte-grifo grifo" x-show="aporteGrifoHtml()" x-cloak x-html="aporteGrifoHtml()"></div>
 
         <section class="aporte-outras" x-show="aporteCategoriasNaoRecebedoras.length > 0" x-cloak>
           <h2 class="aporte-section-label">Outras categorias (sem aporte)</h2>
@@ -2656,8 +2636,36 @@
           <h2 class="comite-titulo" id="comite-titulo">Comitê</h2>
           <p class="comite-ajuda">O Comitê lê a carteira e propõe onde pôr este aporte, ao lado do plano da regra acima.</p>
 
+          <!-- 7a.CH.1 (§5.2 item 3): o pedido virou uma linha de dois botoes.
+               A esquerda, "Rodar agora" como INTERRUPTOR (aria-pressed), sem
+               texto ligado/desligado: aceso/apagado ja diz, e o estado sai por
+               FORMA (raio cheio x vazado, borda continua x tracejada) + cor.
+               Vale na sessao; recarregar volta apagado. -->
+          <div class="aporte-pedir-linha">
+            <button type="button" class="aporte-agora"
+                    :aria-pressed="comiteAgora ? 'true' : 'false'"
+                    :disabled="comiteAgoraDesabilitado()"
+                    @click="comiteAgora = !comiteAgora">
+              <!-- SVG, nao o emoji: medido em 25/11/2026, o glifo "⚡" e
+                   renderizado como EMOJI COLORIDO e ignora color e
+                   -webkit-text-stroke -- ficava identico nos dois estados, e o
+                   sinal de forma que o desenho pede nao existia. Com o SVG, o
+                   raio e vazado quando apagado e cheio quando aceso. -->
+              <svg class="aporte-agora__ico" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+                <path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13l1-8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              </svg>Rodar agora
+            </button>
+            <button type="button" class="comite-pedir" @click="comiteEnviar()"
+                    :disabled="comiteBotaoDesabilitado()"
+                    :aria-busy="comiteEstado === 'enviando' ? 'true' : 'false'">
+              <span class="comite-pedir__tit">Pedir proposta</span>
+              <span class="comite-pedir__sub" x-text="comiteSubtitulo()"></span>
+            </button>
+          </div>
+          <p class="comite-ajuda-campo comite-ajuda-pedido" x-text="comiteAjudaPedido()"></p>
+
           <details class="comite-opcoes">
-            <summary>Remessa, nota e horário</summary>
+            <summary>Remessa e nota</summary>
             <div class="comite-campo">
               <label for="comite-remetido">Já remeti para a Avenue (US$)</label>
               <input id="comite-remetido" class="comite-input" type="text" inputmode="decimal"
@@ -2673,130 +2681,209 @@
                         aria-describedby="comite-nota-conta"></textarea>
               <p class="comite-conta" id="comite-nota-conta" x-text="comiteNota.length + '/' + comiteNotaMax"></p>
             </div>
-            <div class="comite-campo comite-campo--check">
-              <input id="comite-agora" type="checkbox" x-model="comiteAgora" aria-describedby="comite-agora-ajuda">
-              <label for="comite-agora">Rodar agora</label>
-              <p class="comite-ajuda-campo" id="comite-agora-ajuda">Sem marcar, roda às 3h30. Agora pode falhar se você estiver usando o Claude, porque a cota é a mesma.</p>
-            </div>
           </details>
-
-          <button type="button" class="comite-pedir" @click="comiteEnviar()"
-                  :disabled="comiteBotaoDesabilitado()"
-                  :aria-busy="comiteEstado === 'enviando' ? 'true' : 'false'"
-                  x-text="comiteBotaoTexto()">Pedir proposta</button>
-          <p class="comite-ajuda-campo" x-show="!(comiteValor() > 0)" x-cloak>Digite o valor acima para pedir uma proposta.</p>
 
           <p class="comite-status" :data-estado="comiteEstado" aria-live="polite" x-text="comiteMensagem"></p>
           <button type="button" class="comite-reenviar" x-show="comiteTemRascunho()" x-cloak
                   @click="comiteReenviar()" x-text="comiteTextoReenviar()"></button>
 
-          <!-- 7a.BW.6: a resposta, lado a lado com a regra (§13.1, D5). x-if:
-               sem resposta decifrada o nó não existe. Coluna do Comitê antes
-               da Regra; a razão principal é o grifo único da tela (ou o aviso
-               de dado velho, quando os dados passaram de 35 dias); argumento
-               contrário visível, nada recolhido. -->
-          <template x-if="comiteAtual()">
-            <article class="comite-resposta" aria-labelledby="comite-resposta-cab">
-              <p class="comite-cabeca" id="comite-resposta-cab" x-text="comiteCabecalho()"></p>
-              <template x-if="comiteAntiga()">
-                <p class="comite-rotulo comite-antiga" x-text="comiteTextoAntiga()"></p>
-              </template>
-              <p class="comite-rotulo comite-outro-valor" x-show="comiteOutroValor()" x-text="comiteTextoOutroValor()"></p>
-              <template x-if="comiteDadoVelho() || comiteTextoIdade()">
-                <p class="comite-idade" :class="{ 'grifo comite-dado-velho': comiteDadoVelho() }" x-text="comiteTextoIdade()"></p>
-              </template>
-
-              <template x-if="comiteTemProposta()">
-                <p class="comite-razao" :class="{ grifo: !comiteDadoVelho() }" x-text="comiteAtual().comite.razao_principal"></p>
-              </template>
-              <template x-if="!comiteTemProposta()">
-                <p class="comite-recusa" x-text="comiteTextoRecusa()"></p>
-              </template>
-
-              <table class="comite-comparacao">
-                <caption x-text="comiteTemProposta() ? 'O que o Comitê propõe, ao lado da regra' : 'O plano da regra'"></caption>
-                <thead>
-                  <tr>
-                    <th scope="col"><span class="sr-only">Ativo</span></th>
-                    <template x-if="comiteTemProposta()"><th scope="col" class="comite-col">Comitê</th></template>
-                    <th scope="col" class="comite-col">Regra</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="l in comiteLinhas()" :key="l.ticker">
-                    <tr class="comite-linha" :data-ticker="l.ticker" :data-dif="l.dif">
-                      <th scope="row">
-                        <span class="comite-tk" x-text="l.ticker"></span>
-                        <span class="comite-dif" x-show="l.dif" x-text="l.dif"></span>
-                        <template x-if="retornoLinhaAportar(l.ticker)">
-                          <span class="comite-ret" x-text="retornoLinhaAportar(l.ticker)"></span>
-                        </template>
-                      </th>
-                      <template x-if="comiteTemProposta()">
-                        <td class="comite-num comite-col-comite" :class="{ 'comite-num--nada': l.comite == null }" x-text="comiteFmt(l.comite)"></td>
-                      </template>
-                      <td class="comite-num comite-col-regra" :class="{ 'comite-num--nada': l.regra == null }" x-text="comiteFmt(l.regra)"></td>
-                    </tr>
-                  </template>
-                </tbody>
-                <tfoot>
-                  <tr class="comite-linha-custo">
-                    <th scope="row">Custo estimado</th>
-                    <template x-if="comiteTemProposta()">
-                      <td class="comite-num" x-text="comiteCusto('comite')"></td>
-                    </template>
-                    <td class="comite-num" x-text="comiteCusto('regra')"></td>
-                  </tr>
-                </tfoot>
-              </table>
-              <p class="comite-custo-nota" x-text="comiteCustoNota()"></p>
-              <template x-if="comiteEconomia()">
-                <p class="comite-economia" x-text="comiteEconomia()"></p>
-              </template>
-
-              <template x-if="comiteTemProposta()">
-                <div class="comite-leitura">
-                  <template x-if="(comiteAtual().comite.porque || []).length">
-                    <section class="comite-parte">
-                      <h3 class="comite-parte__tit">Por quê</h3>
-                      <ul class="comite-porque">
-                        <template x-for="(p, i) in comiteAtual().comite.porque" :key="i">
-                          <li x-text="p.texto"></li>
-                        </template>
-                      </ul>
-                    </section>
-                  </template>
-                  <template x-if="comiteRisco()">
-                    <section class="comite-parte">
-                      <h3 class="comite-parte__tit">Risco e retorno</h3>
-                      <p class="comite-risco" x-text="comiteRisco()"></p>
-                    </section>
-                  </template>
-                  <section class="comite-parte">
-                    <h3 class="comite-parte__tit">Argumento contrário</h3>
-                    <p class="comite-contrario" x-text="comiteAtual().comite.argumento_contrario"></p>
-                  </section>
-                  <section class="comite-parte">
-                    <h3 class="comite-parte__tit">O que mudaria a proposta</h3>
-                    <p class="comite-mudaria" x-text="comiteAtual().comite.o_que_mudaria"></p>
-                  </section>
-                  <p class="comite-confianca" x-text="comiteConfianca()"></p>
-                </div>
-              </template>
-
-              <template x-if="comiteAvisos().length">
-                <ul class="comite-avisos">
-                  <template x-for="(a, i) in comiteAvisos()" :key="i">
-                    <li x-text="a"></li>
-                  </template>
-                </ul>
-              </template>
-            </article>
-          </template>
-          <template x-if="comiteResposta && comiteLinkRegistros()">
-            <a class="comite-link-registros" href="#comite"><span x-text="comiteLinkRegistros()"></span> <span aria-hidden="true">›</span></a>
-          </template>
         </section>
+      </section>
+
+      <!-- ── Tela #/aportar/proposta (Fase 7a.CH.1) ───────────────────────
+           Tela-membro de Aportar: "o meu pedido esta andando? o que o Comite
+           propos antes?". O cartao do pedido (Task 5) e o acordeao das 12
+           rodadas guardadas (Task 6) moram aqui. -->
+      <section class="tela-detalhes tela-proposta" x-show="rota === 'proposta'"
+        x-transition:enter.opacity.duration.220ms
+        aria-labelledby="proposta-tela-titulo" x-cloak>
+        <h1 class="sr-only" id="proposta-tela-titulo">Proposta</h1>
+
+        <!-- O pedido em andamento. O estado vem do Worker (GET /comite/estado)
+             a CADA abertura, sem depender do localStorage: e isso que o faz
+             valer em qualquer aparelho. As horas sao estimativa ("prevista
+             ate"), nunca promessa. -->
+        <template x-if="!['sem_pedido', 'sem_conexao'].includes(propostaFase())">
+          <article class="proposta-cartao" :data-fase="propostaFase()" aria-live="polite">
+            <p class="proposta-cartao__cab">
+              <span class="proposta-cartao__tit">Pedido em andamento</span>
+              <span class="proposta-selo" :data-fase="propostaFase()">
+                <span class="proposta-selo__glifo" aria-hidden="true"
+                      x-text="propostaFase() === 'na_fila' ? '●' : propostaFase() === 'em_analise' ? '◐' : '△'"></span>
+                <span x-text="propostaFase() === 'na_fila' ? 'Na fila' : propostaFase() === 'em_analise' ? 'Em análise' : 'Sem resposta'"></span>
+              </span>
+            </p>
+            <!-- x-if, nao x-show: sem valor decifrado o no NAO existe (o
+                 cartao mostra o estado e nada no lugar do valor). -->
+            <template x-if="propostaValorTexto()">
+              <p class="proposta-valor" x-text="propostaValorTexto()"></p>
+            </template>
+            <ol class="proposta-passos">
+              <template x-for="p in propostaPassos()" :key="p.chave">
+                <li :data-estado="p.estado" :aria-current="p.estado === 'corrente' ? 'step' : null">
+                  <span class="proposta-passo__glifo" aria-hidden="true" x-text="p.estado === 'feito' ? '✓' : '◯'"></span>
+                  <span x-text="p.texto"></span>
+                </li>
+              </template>
+            </ol>
+            <!-- O "Rodar agora" nao conseguiu disparar: o Worker deixa o
+                 pedido na fila. O MOTIVO tecnico fica no KV, nunca na tela. -->
+            <template x-if="propostaFalhaDoAgora()">
+              <p class="proposta-aviso" data-aviso="falha-agora">O "Rodar agora" não conseguiu disparar; ele roda às 3h30.</p>
+            </template>
+            <template x-if="propostaFase() === 'sem_resposta'">
+              <p class="proposta-aviso" data-aviso="sem-resposta">Passou do tempo previsto e a proposta não chegou. Peça de novo na Simulação.</p>
+            </template>
+            <p class="proposta-cartao__pe">
+              <template x-if="propostaVolteTexto()">
+                <span x-text="propostaVolteTexto()"></span>
+              </template>
+              <span>Aparece em qualquer aparelho.</span>
+            </p>
+            <template x-if="propostaSemRede">
+              <p class="proposta-offline">sem conexão</p>
+            </template>
+          </article>
+        </template>
+
+        <template x-if="propostaFase() === 'sem_pedido'">
+          <p class="proposta-sem-pedido">
+            <span>Nenhum pedido em andamento.</span>
+            <a href="#aportar" @click.prevent="irParaTela('#aportar')">Simulação <span aria-hidden="true">›</span></a>
+          </p>
+        </template>
+
+        <!-- A consulta ao Worker nao chegou e nao ha estado conhecido nesta
+             sessao: o app NAO afirma que nao ha pedido -- ele nao conferiu. -->
+        <template x-if="propostaFase() === 'sem_conexao'">
+          <p class="proposta-sem-conexao">
+            <span>Sem conexão — não deu para conferir se há pedido.</span>
+            <a href="#aportar" @click.prevent="irParaTela('#aportar')">Simulação <span aria-hidden="true">›</span></a>
+          </p>
+        </template>
+
+        <template x-if="propostaRodadas().length">
+          <h2 class="proposta-lista-tit">Propostas · da mais nova para a mais antiga</h2>
+        </template>
+        <template x-for="r in propostaRodadas()" :key="propostaChave(r)">
+          <article class="proposta-item">
+            <button type="button" class="proposta-item__cab"
+                    :aria-expanded="propostaEstaAberta(propostaChave(r))"
+                    @click="propostaAlternar(propostaChave(r))">
+              <span class="proposta-item__txt">
+                <span class="proposta-item__tit" x-text="propostaCabecalhoItem(r)"></span>
+                <span class="proposta-item__sub" x-text="propostaResumo(r)"></span>
+              </span>
+              <span class="proposta-item__seta" aria-hidden="true"
+                    x-text="propostaEstaAberta(propostaChave(r)) ? '▾' : '▸'"></span>
+            </button>
+            <!-- x-if, nao x-show: item fechado nao tem corpo no DOM. Todos
+                 comecam fechados, inclusive o mais novo (decisao dele). -->
+            <template x-if="propostaEstaAberta(propostaChave(r))">
+              <div class="proposta-corpo">
+                <template x-if="comiteDadoVelho(r) || comiteTextoIdade(r)">
+                  <p class="comite-idade" :class="{ 'grifo comite-dado-velho': comiteDadoVelho(r) }" x-text="comiteTextoIdade(r)"></p>
+                </template>
+
+                <template x-if="comiteTemProposta(r)">
+                  <p class="comite-razao" :class="{ grifo: !comiteDadoVelho(r) }" x-text="r.comite.razao_principal"></p>
+                </template>
+                <template x-if="!comiteTemProposta(r)">
+                  <p class="comite-recusa" x-text="comiteTextoRecusa(r)"></p>
+                </template>
+
+                <table class="comite-comparacao">
+                  <caption x-text="comiteTemProposta(r) ? 'O que o Comitê propõe, ao lado da regra' : 'O plano da regra'"></caption>
+                  <thead>
+                    <tr>
+                      <th scope="col"><span class="sr-only">Ativo</span></th>
+                      <template x-if="comiteTemProposta(r)"><th scope="col" class="comite-col">Comitê</th></template>
+                      <th scope="col" class="comite-col">Regra</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="l in comiteLinhas(r)" :key="l.ticker">
+                      <tr class="comite-linha" :data-ticker="l.ticker" :data-dif="l.dif">
+                        <th scope="row">
+                          <span class="comite-tk" x-text="l.ticker"></span>
+                          <span class="comite-dif" x-show="l.dif" x-text="l.dif"></span>
+                          <template x-if="retornoLinhaAportar(l.ticker)">
+                            <span class="comite-ret" x-text="retornoLinhaAportar(l.ticker)"></span>
+                          </template>
+                        </th>
+                        <template x-if="comiteTemProposta(r)">
+                          <td class="comite-num comite-col-comite" :class="{ 'comite-num--nada': l.comite == null }" x-text="comiteFmt(l.comite)"></td>
+                        </template>
+                        <td class="comite-num comite-col-regra" :class="{ 'comite-num--nada': l.regra == null }" x-text="comiteFmt(l.regra)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                  <tfoot>
+                    <tr class="comite-linha-custo">
+                      <th scope="row">Custo estimado</th>
+                      <template x-if="comiteTemProposta(r)">
+                        <td class="comite-num" x-text="comiteCusto('comite', r)"></td>
+                      </template>
+                      <td class="comite-num" x-text="comiteCusto('regra', r)"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <p class="comite-custo-nota" x-text="comiteCustoNota(r)"></p>
+                <template x-if="comiteEconomia(r)">
+                  <p class="comite-economia" x-text="comiteEconomia(r)"></p>
+                </template>
+
+                <template x-if="comiteTemProposta(r)">
+                  <div class="comite-leitura">
+                    <template x-if="(r.comite.porque || []).length">
+                      <section class="comite-parte">
+                        <h3 class="comite-parte__tit">Por quê</h3>
+                        <ul class="comite-porque">
+                          <template x-for="(p, i) in r.comite.porque" :key="i">
+                            <li x-text="p.texto"></li>
+                          </template>
+                        </ul>
+                      </section>
+                    </template>
+                    <template x-if="comiteRisco(r)">
+                      <section class="comite-parte">
+                        <h3 class="comite-parte__tit">Risco e retorno</h3>
+                        <p class="comite-risco" x-text="comiteRisco(r)"></p>
+                      </section>
+                    </template>
+                    <section class="comite-parte">
+                      <h3 class="comite-parte__tit">Argumento contrário</h3>
+                      <p class="comite-contrario" x-text="r.comite.argumento_contrario"></p>
+                    </section>
+                    <section class="comite-parte">
+                      <h3 class="comite-parte__tit">O que mudaria a proposta</h3>
+                      <p class="comite-mudaria" x-text="r.comite.o_que_mudaria"></p>
+                    </section>
+                    <p class="comite-confianca" x-text="comiteConfianca(r)"></p>
+                  </div>
+                </template>
+
+                <template x-if="comiteAvisos(r).length">
+                  <ul class="comite-avisos">
+                    <template x-for="(a, i) in comiteAvisos(r)" :key="i">
+                      <li x-text="a"></li>
+                    </template>
+                  </ul>
+                </template>
+
+              </div>
+            </template>
+          </article>
+        </template>
+        <template x-if="propostaRodadas().length">
+          <p class="proposta-rodape" x-text="propostaRodape()"></p>
+        </template>
+        <template x-if="!propostaRodadas().length">
+          <p class="proposta-vazio">
+            <span>Nenhuma proposta ainda.</span>
+            <a href="#aportar" @click.prevent="irParaTela('#aportar')">Peça uma na Simulação <span aria-hidden="true">›</span></a>
+          </p>
+        </template>
       </section>
 
       <!-- ── Tela #comite (Fase 7a.BW.6) ──────────────────────────────────

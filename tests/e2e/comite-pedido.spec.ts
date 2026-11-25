@@ -1,4 +1,5 @@
 import { test, expect, Page, Route } from "@playwright/test";
+import { contraste } from "./comite-comum";
 import path from "path";
 import fs from "fs";
 
@@ -16,7 +17,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 
 type Captura = { corpos: string[] };
 
-async function abrirAportar(page: Page, opcoes: { estado?: object | null; enviadoEm?: string } = {}) {
+async function abrirAportar(page: Page, opcoes: { estado?: object | null; enviadoEm?: string; tema?: "dark" } = {}) {
   await page.route("**/portfolio.json.enc", (route) =>
     route.fulfill({ status: 200, body: FIXTURE, contentType: "text/plain" }),
   );
@@ -31,11 +32,12 @@ async function abrirAportar(page: Page, opcoes: { estado?: object | null; enviad
   await page.route("**/comite/resposta", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: '{"cifra":null,"gravada_em":null}' }),
   );
-  await page.addInitScript((enviadoEm) => {
+  await page.addInitScript(([enviadoEm, tema]) => {
     localStorage.setItem("pin", "123456");
     localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
     if (enviadoEm) localStorage.setItem("comite:enviado_em", enviadoEm);
-  }, opcoes.enviadoEm ?? null);
+    if (tema) localStorage.setItem("tema", tema);
+  }, [opcoes.enviadoEm ?? null, opcoes.tema ?? null] as const);
   await page.goto("/");
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.evaluate(() => (location.hash = "#aportar"));
@@ -62,21 +64,199 @@ async function decifrarNoApp(page: Page, cifra: string) {
 
 const bloco = (page: Page) => page.locator(".comite-bloco");
 const botao = (page: Page) => page.locator(".comite-pedir");
+// 7a.CH.1: o "Rodar agora" virou botao-interruptor, fora do `details`.
+const agora = (page: Page) => page.locator(".aporte-agora");
+const sub = (page: Page) => page.locator(".comite-pedir__sub");
 const status = (page: Page) => page.locator(".comite-status");
 
 test.describe("Comitê: o pedido no #aportar", () => {
-  test("o botão usa o valor digitado no #aportar", async ({ page }) => {
+  // 7a.CH.1: o rotulo do botao virou fixo e o valor foi para o SUBTITULO,
+  // ao lado de quando a rodada acontece.
+  test("o subtítulo do botão usa o valor digitado e diz quando roda", async ({ page }) => {
     await abrirAportar(page);
     await page.locator(".aporte-input").fill("6000");
-    await expect(botao(page)).toHaveText("Pedir proposta para R$ 6.000");
+    await expect(botao(page).locator(".comite-pedir__tit")).toHaveText("Pedir proposta");
+    await expect(sub(page)).toHaveText("R$ 6.000 · roda às 3h30");
     await expect(botao(page)).toBeEnabled();
   });
 
-  test("sem valor, o botão fica desabilitado e diz o que falta", async ({ page }) => {
+  test("sem valor: os dois botões desabilitados, subtítulo vazio e a ajuda diz o que falta", async ({ page }) => {
     await abrirAportar(page);
     await page.locator(".aporte-input").fill("");
     await expect(botao(page)).toBeDisabled();
+    await expect(agora(page)).toBeDisabled();
+    await expect(sub(page)).toHaveText("");
     await expect(bloco(page)).toContainText("Digite o valor acima");
+  });
+
+  test("o interruptor 'Rodar agora' começa apagado, alterna e manda imediato", async ({ page }) => {
+    const captura: Captura = { corpos: [] };
+    await abrirAportar(page);
+    await rotaPedido(page, { status: 202, body: { estado: "disparado" } }, captura);
+    await page.locator(".aporte-input").fill("5000");
+    await expect(agora(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(sub(page)).toHaveText("R$ 5.000 · roda às 3h30");
+    await expect(bloco(page)).toContainText("O Comitê roda às 3h30.");
+    await agora(page).click();
+    await expect(agora(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(sub(page)).toHaveText("R$ 5.000 · roda já");
+    await expect(bloco(page)).toContainText("a cota é a mesma");
+    // Sem texto ligado/desligado no proprio interruptor: aceso/apagado ja diz
+    // (decisao dele). O glifo e decorativo (aria-hidden) e sai da contagem.
+    const rotulo = await agora(page).evaluate((el) =>
+      Array.from(el.childNodes)
+        .filter((n) => n.nodeType === Node.TEXT_NODE)
+        .map((n) => n.textContent || "")
+        .join("")
+        .trim(),
+    );
+    expect(rotulo).toBe("Rodar agora");
+    expect(await agora(page).innerText()).not.toMatch(/ligad|desligad|ativ|inativ/i);
+    await botao(page).click();
+    // A barreira e a navegacao: ela so acontece depois do 202, entao esperar
+    // por ela garante que o POST ja foi capturado.
+    await expect(page.locator(".tela-proposta")).toBeVisible();
+    const { imediato } = JSON.parse(captura.corpos[0]);
+    expect(imediato).toBe(true);
+  });
+
+  test("recarregar volta o interruptor para apagado", async ({ page }) => {
+    await abrirAportar(page);
+    await page.locator(".aporte-input").fill("5000");
+    await agora(page).click();
+    await expect(agora(page)).toHaveAttribute("aria-pressed", "true");
+    await page.reload();
+    await expect(page.locator(".tela-aportar")).toBeVisible({ timeout: 10_000 });
+    await expect(agora(page)).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // Review Focus 5: aceso e depois zerado.
+  test("aceso e depois zerado: desabilita os dois sem enviar nada", async ({ page }) => {
+    const captura: Captura = { corpos: [] };
+    await abrirAportar(page);
+    await rotaPedido(page, { status: 202, body: { estado: "na_fila" } }, captura);
+    await page.locator(".aporte-input").fill("5000");
+    await agora(page).click();
+    await page.locator(".aporte-chip--zero").click();
+    await expect(botao(page)).toBeDisabled();
+    await expect(agora(page)).toBeDisabled();
+    expect(captura.corpos).toEqual([]);
+  });
+
+  test("202: o app vai para a aba Proposta", async ({ page }) => {
+    const captura: Captura = { corpos: [] };
+    await abrirAportar(page);
+    await rotaPedido(page, { status: 202, body: { estado: "na_fila" } }, captura);
+    await page.locator(".aporte-input").fill("5000");
+    await botao(page).click();
+    await expect(page.locator(".tela-proposta")).toBeVisible();
+    expect(await page.evaluate(() => location.hash)).toBe("#/aportar/proposta");
+  });
+
+  test("falha de envio fica na Simulação, com a mensagem e o reenviar", async ({ page }) => {
+    const captura: Captura = { corpos: [] };
+    await abrirAportar(page);
+    await rotaPedido(page, { status: 500 }, captura);
+    await page.locator(".aporte-input").fill("5000");
+    await botao(page).click();
+    await expect(status(page)).toContainText("erro 500");
+    await expect(page.locator(".comite-reenviar")).toBeVisible();
+    await expect(page.locator(".tela-aportar")).toBeVisible();
+    expect(await page.evaluate(() => location.hash)).toBe("#aportar");
+  });
+
+  test("'Remessa e nota' continua, recolhido, e sem 'horário' no rótulo", async ({ page }) => {
+    await abrirAportar(page);
+    await expect(page.locator(".comite-opcoes summary")).toHaveText("Remessa e nota");
+    expect(await page.locator("details.comite-opcoes").evaluate((el: HTMLDetailsElement) => el.open)).toBe(false);
+    await expect(page.locator("#comite-agora")).toHaveCount(0);
+  });
+
+  // §5.5: o contraste do texto escuro sobre ambar e do cinza sobre branco
+  // >= 4,5:1. O construtor MEDE; nao passando, escurece o token.
+  for (const tema of ["claro", "Plantao"] as const) {
+    test(`${tema}: o texto dos dois botões passa AA nos dois estados do interruptor`, async ({ page }) => {
+      await abrirAportar(page, { tema: tema === "Plantao" ? "dark" : undefined });
+      await page.locator(".aporte-input").fill("5000");
+      const medir = () =>
+        page.evaluate(() => {
+          const fundo = (el: Element | null): string => {
+            while (el) {
+              const b = getComputedStyle(el).backgroundColor;
+              if (b && b !== "transparent" && !/rgba\(.*,\s*0\)$/.test(b)) return b;
+              el = el.parentElement;
+            }
+            return getComputedStyle(document.body).backgroundColor;
+          };
+          const out: { t: string; c: string; b: string }[] = [];
+          for (const sel of [".aporte-agora", ".comite-pedir__tit", ".comite-pedir__sub", ".comite-ajuda-pedido"]) {
+            const el = document.querySelector(sel);
+            if (!el || el.getClientRects().length === 0) continue;
+            out.push({ t: sel, c: getComputedStyle(el).color, b: fundo(el) });
+          }
+          return out;
+        });
+      for (const estado of ["apagado", "aceso"] as const) {
+        if (estado === "aceso") {
+          await agora(page).click();
+          // O interruptor tem transicao de 150 ms em color/background: ler
+          // getComputedStyle logo depois do clique devolve o frame INICIAL,
+          // isto e, as cores do estado anterior. Medido em 25/11/2026: sem
+          // esta espera o teste passava mesmo com texto claro sobre ambar.
+          // `toHaveCSS` repete ate casar, que e a barreira certa.
+          await expect(agora(page)).toHaveCSS("background-color", "rgb(245, 158, 11)");
+        }
+        const medidos = await medir();
+        // Sem isto o teste passaria VACUO se um seletor deixasse de casar.
+        expect(medidos.map((m) => m.t)).toEqual([".aporte-agora", ".comite-pedir__tit", ".comite-pedir__sub", ".comite-ajuda-pedido"]);
+        for (const m of medidos) {
+          expect(contraste(m.c, m.b), `${estado} ${m.t}: ${m.c} sobre ${m.b}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    });
+  }
+
+  // O estado do interruptor sai por FORMA, nao so por cor: borda tracejada x
+  // continua, raio 10 px x pilula, e o raio vazado x cheio. A verificacao
+  // visual de 25/11 pegou o que nenhum teste pegava -- o glifo era um emoji
+  // colorido, identico nos dois estados.
+  test("o estado do interruptor tem sinal de forma, não só de cor", async ({ page }) => {
+    await abrirAportar(page);
+    await page.locator(".aporte-input").fill("5000");
+    const ler = () =>
+      page.evaluate(() => {
+        const b = document.querySelector(".aporte-agora") as HTMLElement;
+        const i = document.querySelector(".aporte-agora__ico") as SVGElement;
+        return {
+          borda: getComputedStyle(b).borderTopStyle,
+          raio: getComputedStyle(b).borderTopLeftRadius,
+          fill: getComputedStyle(i).fill,
+        };
+      });
+    const apagado = await ler();
+    await agora(page).click();
+    await expect(agora(page)).toHaveCSS("background-color", "rgb(245, 158, 11)");
+    const aceso = await ler();
+    expect(apagado.borda).toBe("dashed");
+    expect(aceso.borda).toBe("solid");
+    expect(apagado.raio).not.toBe(aceso.raio);
+    expect(apagado.fill).toBe("none");
+    expect(aceso.fill).not.toBe("none");
+  });
+
+  test("os dois botões têm alvo de toque de 60 px e a linha é 2 por 3", async ({ page }) => {
+    await abrirAportar(page);
+    await page.locator(".aporte-input").fill("5000");
+    const [a, b] = await Promise.all([
+      agora(page).evaluate((el) => el.getBoundingClientRect()),
+      botao(page).evaluate((el) => el.getBoundingClientRect()),
+    ]);
+    expect(a.height).toBeGreaterThanOrEqual(60);
+    expect(b.height).toBeGreaterThanOrEqual(60);
+    // 2 de 5 contra 3 de 5, com folga de medicao.
+    expect(b.width / a.width).toBeGreaterThan(1.2);
+    // Folga entre eles: em grid o que falha e a folga, nao o transbordo.
+    expect(b.left - a.right).toBeGreaterThanOrEqual(6);
   });
 
   test("um toque envia, sem modal: corpo cifrado com a frase, valor fora do claro", async ({ page }) => {
@@ -114,7 +294,7 @@ test.describe("Comitê: o pedido no #aportar", () => {
     await page.locator(".comite-opcoes summary").click();
     await page.locator("#comite-remetido").fill("300,50");
     await page.locator("#comite-nota").fill("Priorizar Brasil este mês");
-    await page.locator("#comite-agora").check();
+    await agora(page).click(); // 7a.CH.1: o "rodar agora" e o interruptor, fora do details
     await botao(page).click();
     await expect(status(page)).toHaveText("O Comitê está rodando agora; a resposta chega em alguns minutos.");
     const { cifra, imediato } = JSON.parse(captura.corpos[0]);

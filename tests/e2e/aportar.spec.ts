@@ -612,21 +612,17 @@ test.describe("Tela #aportar · simulador vivo (7a.S.10)", () => {
     await expect(page.locator(".aporte-input")).toHaveValue("5000");
   });
 
-  test("scrubber 0–20.000 passo 100: move o valor + recalcula + a11y", async ({
+  // 7a.CH.1: a regua saiu da Simulacao (spec 7a.CH §5.2 item 1). Os chips
+  // continuam escrevendo no MESMO input -- `aporteSetValor` fica.
+  test("a régua 'E se fosse mais?' não existe mais na Simulação", async ({
     page,
   }) => {
     await abrirAportar(page);
-    const range = page.locator(".aporte-scrub-input");
-    await expect(range).toHaveAttribute("min", "0");
-    await expect(range).toHaveAttribute("max", "20000");
-    await expect(range).toHaveAttribute("step", "100");
-    await expect(range).toHaveAttribute("aria-label", /.+/);
-    await expect(range).toHaveAttribute("aria-valuemin", "0");
-    await expect(range).toHaveAttribute("aria-valuemax", "20000");
+    await expect(page.locator(".aporte-scrub-wrap, .aporte-scrub-input")).toHaveCount(0);
+    await expect(page.locator(".tela-aportar")).not.toContainText("E se fosse mais");
 
-    await range.fill("5300");
-    await expect(page.locator(".aporte-input")).toHaveValue("5300");
-    await expect(range).toHaveAttribute("aria-valuenow", "5300");
+    await page.locator(".aporte-chip--add5k").click();
+    await expect(page.locator(".aporte-input")).toHaveValue("5000");
   });
 
   test("plano se monta: stagger + count-up de cotas + tag 'abaixo · aportar' + grifo (gap parcial)", async ({
@@ -793,12 +789,22 @@ test.describe("Tela #aportar · simulador vivo (7a.S.10)", () => {
   test("zero-write: nota de simulação pura sempre visível", async ({ page }) => {
     await abrirAportar(page);
     await expect(page.locator(".aporte-nota .writes")).toContainText(
-      "Simulação pura",
+      "A simulação acima não envia nem grava nada.",
     );
     await page.locator(".aporte-chip--add5k").click();
     await expect(page.locator(".aporte-nota .writes")).toContainText(
-      "nada é gravado",
+      "não envia nem grava",
     );
+  });
+
+  // 7a.CH.1: a frase antiga ("Simulação pura: nada é enviado, nada é
+  // gravado.") passou a conviver na MESMA tela com dois botões cuja função é
+  // enviar. Copy sobre o que o app faz com dados precisa ser literalmente
+  // verdadeira, e esta diz o que é escopo da simulação.
+  test("a frase da simulação não contradiz os botões de envio logo abaixo", async ({ page }) => {
+    await abrirAportar(page);
+    await expect(page.locator(".aporte-nota .writes")).not.toContainText("nada é enviado");
+    await expect(page.locator(".comite-pedir")).toBeVisible();
   });
 });
 

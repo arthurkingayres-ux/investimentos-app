@@ -8,8 +8,8 @@ import { semTransbordo } from "./olho-comum";
 //
 // Três superfícies, só leitura: a seção "Retorno esperado" (frase,
 // régua do futuro, dispersão de um ano, método, datas, frase de honestidade e
-// "Ver a conta"), o texto secundário sob o ticker na resposta do Comitê em
-// #aportar e a linha "Régua do futuro" em #comite.
+// "Ver a conta"), o texto secundário sob o ticker na resposta do Comitê (na aba
+// Proposta desde a 7a.CH.1) e a linha "Régua do futuro" em #comite.
 //
 // 7a.CC.3 (spec 7a.CC §5.9): a seção saiu da rolagem do Dossiê e ganhou
 // endereço próprio, `#/dossie/:t/retorno` (tela `.tela-retorno`), intacta por
@@ -321,18 +321,24 @@ test.describe("7a.BY.4 — 320 px nos dois temas", () => {
 test.describe("7a.BY.4 — Comitê", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("#aportar: faixa em texto secundário sob o ticker; nada sem faixa", async ({ page }) => {
-    await abrirComite(page, { resposta: resposta(), portfolio: (p) => { p.retorno_esperado = RETORNO(); } });
-    const linha = (t: string) => page.locator(`.tela-aportar .comite-linha[data-ticker="${t}"]`);
+  // 7a.CH.1: a tabela Comitê × Regra saiu da Simulação e vive no item aberto
+  // do acordeão da aba Proposta.
+  test("Proposta: faixa em texto secundário sob o ticker; nada sem faixa", async ({ page }) => {
+    await abrirComite(page, { resposta: resposta(), hash: "#/aportar/proposta", portfolio: (p) => { p.retorno_esperado = RETORNO(); } });
+    await page.locator(".proposta-item").nth(0).locator("button").click();
+    await expect(page.locator(".proposta-corpo")).toBeVisible();
+    const linha = (t: string) => page.locator(`.proposta-corpo .comite-linha[data-ticker="${t}"]`);
     await expect(linha("ZZAA3").locator(".comite-ret")).toHaveText("retorno esperado 6,1% a 9,5% a.a. real");
     await expect(linha("ZZBB11").locator(".comite-ret")).toHaveCount(0);
     await expect(linha("ZZDD").locator(".comite-ret")).toHaveCount(0);
     await expect(linha("ZZAA3").locator(".comite-tk")).toHaveText("ZZAA3");
   });
 
-  test("#aportar sem o bloco: nenhuma linha de retorno", async ({ page }) => {
-    await abrirComite(page, { resposta: resposta() });
-    await expect(page.locator(".tela-aportar .comite-ret")).toHaveCount(0);
+  test("Proposta sem o bloco de retorno: nenhuma linha de retorno", async ({ page }) => {
+    await abrirComite(page, { resposta: resposta(), hash: "#/aportar/proposta" });
+    await page.locator(".proposta-item").nth(0).locator("button").click();
+    await expect(page.locator(".proposta-corpo")).toBeVisible();
+    await expect(page.locator(".proposta-corpo .comite-ret")).toHaveCount(0);
   });
 
   test("#comite: Régua do futuro, histórico curto com N retratos e o primeiro veredito", async ({ page }) => {

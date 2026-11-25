@@ -156,6 +156,12 @@ async function getEstado(env) {
     recebido_em: pendente?.recebido_em ?? null,
     disparado_em: pendente?.disparado_em ?? null,
     ultima_falha: falha ?? null,
+    // 7a.CH.1 (spec 7a.CH D6): a cifra do pedido pendente, para o app mostrar
+    // o valor na aba Proposta em QUALQUER aparelho -- nao so no que pediu. Ela
+    // ja atravessa este mesmo Access em /comite/resposta e e o mesmo
+    // ciphertext; quem decifra e o app, com a frase. O Worker continua sem ver
+    // o valor, e nenhum campo em claro do pedido entra aqui.
+    cifra: typeof pendente?.cifra === "string" && pendente.cifra ? pendente.cifra : null,
   });
 }
 

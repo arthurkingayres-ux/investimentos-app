@@ -119,11 +119,11 @@ test.describe("Comitê: a rota #comite", () => {
 
   // 7a.CC: o Comitê é tela-membro de Aportar, sem "←"; o caminho de volta à
   // sugestão é a faixa do grupo. (Antes: botão Voltar.)
-  test("a faixa (Sugestão) leva ao #aportar; sem voltar na tela", async ({ page }) => {
+  test("a faixa (Simulação) leva ao #aportar; sem voltar na tela", async ({ page }) => {
     await abrir(page, { resposta: resposta(), hash: "#comite" });
     await expect(tela(page)).toBeVisible();
     await expect(tela(page).locator('button[aria-label="Voltar"]')).toHaveCount(0);
-    await page.locator(".grupo-cab nav a", { hasText: /^Sugestão$/ }).click();
+    await page.locator(".grupo-cab nav a", { hasText: /^Simulação$/ }).click();
     await expect(page.locator(".tela-aportar")).toBeVisible();
     expect(await page.evaluate(() => location.hash)).toBe("#aportar");
   });

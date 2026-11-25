@@ -329,8 +329,7 @@ contagem animada · `.aporte-bloco`, o último aporte.
 mono na cor da categoria, chevron, `aria-expanded`/`aria-controls`) ·
 `.aloca-trilho`, barra de progresso com alvo e etiqueta · faixa de tolerância com
 os três estados (abaixo, na faixa, acima) · `.aloca-grifo`, deep-link para o
-aporte com preset · `.aporte-chips`/`.aporte-scrub`/`.aporte-input`, o simulador
-vivo, com `<input type=range>` real (que traz `aria-valuenow` de graça) e o valor
+aporte com preset · `.aporte-chips`/`.aporte-input`, o simulador vivo, com o valor
 em `--num-poster-lg` mono · `.aporte-grifo`, o plano em uma frase · seleção de
 mercado.
 

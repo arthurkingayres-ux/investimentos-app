@@ -56,6 +56,38 @@ export function placar(mudar?: (c: any) => void): any {
   return c;
 }
 
+// 7a.CH.1: um pedido pendente SINTETICO, cifrado como o app o cifra (o mesmo
+// formato de js/crypto.js e src/output/crypto.py). Valor ficticio: o sibling e
+// publico.
+export function pedidoCifrado(valorBrl: number, segredo = SEGREDO_TESTE): string {
+  return cifrar(
+    JSON.stringify({
+      v: 1,
+      valor_brl: valorBrl,
+      remetido_usd: null,
+      nota: null,
+      criado_em: new Date().toISOString(),
+      nonce: crypto.randomBytes(16).toString("hex"),
+    }),
+    segredo,
+  );
+}
+
+// Corpo de GET /comite/estado com um pedido na fila, incluindo a cifra que o
+// Worker passou a devolver (7a.CH.1 Task 3).
+export function estadoPendente(
+  valorBrl: number,
+  o: { recebido_em?: string; disparado_em?: string | null; ultima_falha?: any; pendente?: boolean; segredo?: string } = {},
+): any {
+  return {
+    pendente: o.pendente ?? (o.disparado_em ? false : true),
+    recebido_em: o.recebido_em ?? new Date().toISOString(),
+    disparado_em: o.disparado_em ?? null,
+    ultima_falha: o.ultima_falha ?? null,
+    cifra: pedidoCifrado(valorBrl, o.segredo),
+  };
+}
+
 // A fixture com o `criado_em` da proposta atual a uma hora de agora (pronta,
 // não antiga); `mudar` ajusta o resto.
 export function resposta(mudar?: (r: any) => void): any {
@@ -70,6 +102,18 @@ export type Abrir = {
   enviadoEm?: string | null; // pedido recente DESTE aparelho
   cache?: any | null; // resposta já guardada (só a cifra) em localStorage
   estado?: any; // corpo de GET /comite/estado (padrão: nada pendente)
+  // 7a.CH.1: status HTTP da consulta de estado (502 = Worker fora do ar),
+  // cifra que não decifra neste aparelho, e um gancho para CONTAR consultas
+  // (page.on("request") não é confiável com a rota interceptada).
+  estadoStatus?: number;
+  cifraQuebrada?: boolean;
+  aoConsultarEstado?: () => void;
+  // 7a.CH.1: congela `Date.now()` da página. Teste com data ABSOLUTA no
+  // estado do pedido PRECISA disto: sem relógio fixo ele fica verde hoje e
+  // vermelho sozinho 72 h depois, quando a janela de `propostaFase` expira
+  // (o padrão "expiração por construção estoura na suíte"). `setFixedTime`
+  // não mexe nos timers, então o polling continua funcionando.
+  relogio?: string;
   tema?: "dark" | null;
   hash?: string;
   erros?: string[];
@@ -91,13 +135,17 @@ export async function abrir(page: Page, o: Abrir = {}) {
   await page.route("**/relatorios_index.json.enc", (route) =>
     route.fulfill({ status: 200, body: IDX_REL, contentType: "text/plain" }),
   );
-  await page.route("**/comite/estado", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(o.estado ?? { pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null }),
-    }),
-  );
+  const estadoBase = o.estado ?? { pendente: false, recebido_em: null, disparado_em: null, ultima_falha: null, cifra: null };
+  const estadoCorpo = o.cifraQuebrada
+    ? { ...estadoBase, cifra: pedidoCifrado(5000, "outra-frase-de-teste") }
+    : estadoBase;
+  await page.route("**/comite/estado", (route) => {
+    if (o.aoConsultarEstado) o.aoConsultarEstado();
+    if (o.estadoStatus && o.estadoStatus !== 200) {
+      return route.fulfill({ status: o.estadoStatus, contentType: "application/json", body: JSON.stringify({ erro: "x" }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(estadoCorpo) });
+  });
   const corpo = o.resposta
     ? { cifra: cifrar(JSON.stringify(o.resposta)), gravada_em: new Date().toISOString() }
     : { cifra: null, gravada_em: null };
@@ -125,10 +173,13 @@ export async function abrir(page: Page, o: Abrir = {}) {
     },
     [o.enviadoEm === undefined ? new Date().toISOString() : o.enviadoEm, cache, o.tema ?? null] as const,
   );
+  if (o.relogio) await page.clock.setFixedTime(new Date(o.relogio));
   await page.goto("/");
   await expect(page.locator(".raiox")).toBeVisible({ timeout: 10_000 });
   await page.evaluate((h) => (location.hash = h), o.hash ?? "#aportar");
-  if ((o.hash ?? "#aportar") === "#aportar") await expect(page.locator(".tela-aportar")).toBeVisible();
+  const h = o.hash ?? "#aportar";
+  if (h === "#aportar") await expect(page.locator(".tela-aportar")).toBeVisible();
+  if (h === "#/aportar/proposta") await expect(page.locator(".tela-proposta")).toBeVisible();
 }
 
 // Texto que nunca pode aparecer na voz do Comitê (verbo de ordem).

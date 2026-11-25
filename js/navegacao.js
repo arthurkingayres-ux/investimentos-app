@@ -23,6 +23,8 @@
   "use strict";
 
   // §5.1, verbatim, com Raio-X › Reserva e Carteira › Ativos (CC.2).
+  // 7a.CH.1: o Aportar passa a ter tres telas -- a Sugestao virou "Simulacao"
+  // (so a regra) e a Proposta nasceu com o pedido em andamento e o historico.
   const GRUPOS = [
     { id: "raiox", rotulo: "Raio-X", telas: [
       { rota: "", hash: "#", rotulo: "Hoje" },
@@ -46,7 +48,8 @@
       { rota: "relatorio", hash: "#/raiox/relatorio", rotulo: "Relatório" },
     ] },
     { id: "aportar", rotulo: "Aportar", telas: [
-      { rota: "aportar", hash: "#aportar", rotulo: "Sugestão" },
+      { rota: "aportar", hash: "#aportar", rotulo: "Simulação" },
+      { rota: "proposta", hash: "#/aportar/proposta", rotulo: "Proposta" },
       { rota: "comite", hash: "#comite", rotulo: "Comitê" },
     ] },
   ];

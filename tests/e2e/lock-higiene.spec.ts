@@ -1,4 +1,5 @@
 import { test, expect, Page } from "@playwright/test";
+import { cifrar, estadoPendente, resposta as respostaComite } from "./comite-comum";
 import path from "path";
 import fs from "fs";
 
@@ -43,6 +44,22 @@ async function mockTudo(page: Page) {
     }));
   await page.route("**/dossies_index.json.enc", (r) =>
     r.fulfill({ status: 200, body: IDX_DOSSIES, contentType: "text/plain" }));
+  // 7a.CH.1: a aba Proposta le o Worker. Pedido pendente SINTETICO + resposta
+  // sintetica, para que propostaWorker/propostaValor/propostaAberta estejam
+  // POPULADOS quando o lock acontecer -- senao os campos novos nunca
+  // divergiriam do virgem e este teste-invariante passaria vacuo neles.
+  await page.route("**/comite/estado", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(estadoPendente(5000, { recebido_em: new Date(Date.now() - 600_000).toISOString() })),
+    }));
+  await page.route("**/comite/resposta", (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ cifra: cifrar(JSON.stringify(respostaComite())), gravada_em: new Date().toISOString() }),
+    }));
   await page.route("**/d_*.json.enc", (r) => {
     const nome = r.request().url().split("/").pop()!.split("?")[0];
     const ticker = MAPA[nome];
@@ -94,6 +111,17 @@ async function abrirAportar(page: Page, valor = "5000") {
   await expect(page.locator(".tela-aportar")).toBeVisible();
   await page.locator(".aporte-input").fill(valor);
   await expect(page.locator(".aporte-card").first()).toBeVisible({ timeout: 5_000 });
+}
+
+// 7a.CH.1: a aba Proposta, com o cartão do pedido e um item do acordeão
+// ABERTO. O clique não é decorativo: é o único escritor de `propostaAberta`.
+async function abrirProposta(page: Page) {
+  await page.goto("/#/aportar/proposta");
+  await expect(page.locator(".tela-proposta")).toBeVisible();
+  await expect(page.locator(".proposta-cartao")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".proposta-valor")).toHaveText("R$ 5.000");
+  await page.locator(".proposta-item").first().locator("button").click();
+  await expect(page.locator(".proposta-corpo")).toBeVisible();
 }
 
 // Cada render dá dispose só no PRÓPRIO gráfico, então as 3 instâncias
@@ -1067,6 +1095,7 @@ test.describe("7a.U — higiene de sessão no lock", () => {
     await abrirRelatorio(page);
     await abrirDossie(page, "HGLG11");
     await abrirAportar(page, "5000");
+    await abrirProposta(page);
     await renderizarOsTresGraficos(page);
     await abrirTelaProjecao(page);
     await abrirAtivo(page, "HGLG11");
