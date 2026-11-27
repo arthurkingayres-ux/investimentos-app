@@ -114,10 +114,34 @@
     return { mes: mes - 1, ano: Number(m[1]) };
   }
 
-  // A prestação de contas é anual: mesmo mês, ano + 1 (spec 7a.CH §5.4, D7).
+  // A prestação de contas é anual e RECORRENTE: "a cada 12 meses" (decisão do
+  // Dr. Arthur, 7a.CH D7, reafirmada em 27/11/2026). O que a tela mostra é o
+  // PRÓXIMO aniversário de `desde` — o primeiro `desde + 12·k`, k >= 1, que
+  // ainda não passou. A D7 da 7a.CH entregou `desde + 12` fixo, o que depois
+  // de nov/2027 mostraria uma data passada sob o rótulo "Próxima"; a 7a.CJ
+  // troca a soma única pela recorrência.
+  //
+  // Três regras da spec 7a.CJ §3, cada uma visível no código abaixo:
+  //   - o mês do aniversário AINDA é o próximo (`>=`, não `>`): durante
+  //     nov/2027 a linha diz nov/2027, e só em dez/2027 passa a nov/2028;
+  //   - a comparação é por MÊS, nunca por dia — a prestação é mês/ano, sem
+  //     dia, e um índice absoluto de mês (ano * 12 + mes) não tem fuso;
+  //   - k começa em 1: `desde` no mês corrente ou no futuro dá `desde` + 12.
+  //     A primeira prestação nunca é o próprio mês de início.
+  //
+  // "Hoje" é o relógio do aparelho, lido uma vez por chamada: não há data de
+  // referência no payload, e o relógio local já decide o resto das datas
+  // relativas do app. Nos testes ele é fixado pelo `page.clock` (ver
+  // `comite-tela.spec.ts`), e por isso a função não recebe um parâmetro
+  // injetável — ele seria código morto.
   function prestacao(desde) {
     const d = lerDesde(desde);
-    return d ? { mes: d.mes, ano: d.ano + 1 } : null;
+    if (!d) return null;
+    const agora = new Date();
+    const mesCorrente = agora.getFullYear() * 12 + agora.getMonth();
+    let ano = d.ano + 1;
+    while (ano * 12 + d.mes < mesCorrente) ano += 1;
+    return { mes: d.mes, ano };
   }
 
   const TEXTO = {

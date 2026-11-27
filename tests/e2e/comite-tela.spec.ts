@@ -27,10 +27,11 @@ const assentada = (page: Page) =>
     return !!t && t.getAnimations({ subtree: true }).length === 0 && !t.className.includes("push-");
   });
 
-const comPlacar = (page: Page, mudar?: (c: any) => void) =>
+const comPlacar = (page: Page, mudar?: (c: any) => void, relogio?: string) =>
   abrir(page, {
     resposta: resposta(),
     hash: "#comite",
+    relogio,
     portfolio: (p) => {
       p.comite_placar = placar(mudar);
     },
@@ -55,10 +56,14 @@ test.describe("Comitê: a aba que explica e presta contas", () => {
     expect(erros).toEqual([]);
   });
 
+  // Relógio pinado pelo mesmo motivo do teste dos relatórios anuais: a linha
+  // da prestação é derivada do calendário desde a 7a.CJ, e um `nov/2027` lido
+  // do relógio real ficaria vermelho por construção em dez/2027.
   test("as três linhas do cartão vêm de comite_placar", async ({ page }) => {
     await abrir(page, {
       resposta: resposta(),
       hash: "#comite",
+      relogio: "2026-11-27T12:00:00-03:00",
       portfolio: (p) => {
         p.comite_placar = placar();
         p.retorno_esperado = retornoSintetico();
@@ -123,18 +128,41 @@ test.describe("Comitê: a aba que explica e presta contas", () => {
     expect(Math.abs(m.textoNX - m.rotX)).toBeLessThan(1);
   });
 
-  // Dois `desde` diferentes, com a conta feita à mão: 2026-11 → nov/2027;
-  // 2027-03 → mar/2028. Trava a soma de 12 meses, não só o formato.
-  for (const [desde, mes, longo] of [
-    ["2026-11", "nov/2027", "novembro de 2027"],
-    ["2027-03", "mar/2028", "março de 2028"],
-  ] as const) {
-    test(`desde ${desde}: prestação em ${mes}`, async ({ page }) => {
-      await comPlacar(page, (c) => (c.desde = desde));
-      await expect(page.locator('[data-linha="prestacao"]')).toContainText(mes, { timeout: 10_000 });
-      await expect(tela(page).locator(".comite-relatorios")).toContainText(longo);
-    });
-  }
+  // 7a.CJ: "a cada 12 meses" é recorrência, não data única. A prestação é o
+  // primeiro aniversário de `desde` que ainda NÃO passou — e o mês do
+  // aniversário ainda conta como próximo (spec 7a.CJ §3). A conta é feita à
+  // mão em cada caso: trava a recorrência, não só o formato.
+  //
+  // O relógio é pinado em TODOS os casos. Os dois primeiros são a prova
+  // canônica do anti-objetivo (a tela de 27/11/2026 não muda com esta fase) e,
+  // sem pinar, quebrariam sozinhos a partir de dez/2027 — vermelho por
+  // construção. Meio-dia + `timezoneId` para que o caso do último dia do mês
+  // não vire de mês conforme o fuso do runner (o CI tende a UTC).
+  test.describe("a próxima prestação é o próximo aniversário", () => {
+    test.use({ timezoneId: "America/Sao_Paulo" });
+
+    for (const [rotulo, relogio, desde, mes, longo] of [
+      // k = 1: `desde` no mês corrente e `desde` no futuro.
+      ["hoje, desde 2026-11", "2026-11-27T12:00:00-03:00", "2026-11", "nov/2027", "novembro de 2027"],
+      ["hoje, desde no futuro", "2026-11-27T12:00:00-03:00", "2027-03", "mar/2028", "março de 2028"],
+      // O 1º aniversário passou: anda para o seguinte.
+      ["depois do 1º aniversário", "2027-12-15T12:00:00-03:00", "2026-11", "nov/2028", "novembro de 2028"],
+      // Fronteira do `>=`: no último dia do mês do aniversário ele ainda é o
+      // próximo. Com `>` em vez de `>=` isto daria nov/2028.
+      ["no último dia do mês do aniversário", "2027-11-30T12:00:00-03:00", "2026-11", "nov/2027", "novembro de 2027"],
+      // k > 2: trava o laço, não só o primeiro salto.
+      ["k > 2", "2031-03-01T12:00:00-03:00", "2026-11", "nov/2031", "novembro de 2031"],
+      // O mês importa, não só o ano: jan/2027 ainda está adiante de dez/2026.
+      ["mês de desde já passou no ano corrente", "2026-12-10T12:00:00-03:00", "2026-01", "jan/2027", "janeiro de 2027"],
+      ["virada de ano", "2028-01-01T12:00:00-03:00", "2026-11", "nov/2028", "novembro de 2028"],
+    ] as const) {
+      test(`${rotulo}: prestação em ${mes}`, async ({ page }) => {
+        await comPlacar(page, (c) => (c.desde = desde), relogio);
+        await expect(page.locator('[data-linha="prestacao"]')).toContainText(mes, { timeout: 10_000 });
+        await expect(tela(page).locator(".comite-relatorios")).toContainText(longo);
+      });
+    }
+  });
 
   // `estado` vira "comparavel" no backend aos 36 meses (src/comite/placar.py).
   // Esta fase mostra "Sem veredito" de qualquer jeito, por decisão da spec §5.4
@@ -217,8 +245,11 @@ test.describe("Comitê: a aba que explica e presta contas", () => {
     expect(erros).toEqual([]);
   });
 
+  // Relógio pinado em 27/11/2026: com a regra da 7a.CJ, a data derivada anda
+  // com o calendário, e um "novembro de 2027" lido do relógio real ficaria
+  // vermelho por construção em dez/2027. Faxina antes da data, não depois.
   test("relatórios anuais: nenhum ainda, com a data derivada", async ({ page }) => {
-    await comPlacar(page);
+    await comPlacar(page, undefined, "2026-11-27T12:00:00-03:00");
     await expect(tela(page).locator(".comite-relatorios")).toContainText(
       "Nenhum ainda. O primeiro chega em novembro de 2027.",
       { timeout: 10_000 },

@@ -163,15 +163,30 @@ export async function abrir(page: Page, o: Abrir = {}) {
     });
   }
   const cache = o.cache ? JSON.stringify({ cifra: cifrar(JSON.stringify(o.cache)), gravada_em: new Date().toISOString() }) : null;
+  // O `pinTimestamp` é derivado do relógio PEDIDO, não do relógio real: o
+  // `Date.now()` dentro do init script lê o tempo real, porque este script é
+  // adicionado ANTES do relógio falso (`setFixedTime`, abaixo) e os init
+  // scripts rodam na ordem de adição. Com `relogio` no futuro, um
+  // `pinTimestamp` real ficava mais de `SESSION_TTL_MS` (7 dias, `js/app.js`)
+  // atrás do relógio da página: `tentarAutoResume` chamava `limparSessao()` e
+  // o app nunca chegava ao raio X — o teste morria no timeout do `.raiox`, não
+  // na asserção. Calcular a base aqui, no Node, é robusto a qualquer ordem de
+  // instalação (7a.CJ, G2).
+  const base = o.relogio ? new Date(o.relogio).getTime() : Date.now();
   await page.addInitScript(
-    ([enviadoEm, cacheStr, tema]) => {
+    ([enviadoEm, cacheStr, tema, pinTs]) => {
       localStorage.setItem("pin", "123456");
-      localStorage.setItem("pinTimestamp", String(Date.now() - 24 * 60 * 60 * 1000));
+      localStorage.setItem("pinTimestamp", String(pinTs));
       if (enviadoEm) localStorage.setItem("comite:enviado_em", enviadoEm);
       if (cacheStr) localStorage.setItem("comite:resposta", cacheStr);
       if (tema) localStorage.setItem("tema", tema);
     },
-    [o.enviadoEm === undefined ? new Date().toISOString() : o.enviadoEm, cache, o.tema ?? null] as const,
+    [
+      o.enviadoEm === undefined ? new Date().toISOString() : o.enviadoEm,
+      cache,
+      o.tema ?? null,
+      base - 24 * 60 * 60 * 1000,
+    ] as const,
   );
   if (o.relogio) await page.clock.setFixedTime(new Date(o.relogio));
   await page.goto("/");
