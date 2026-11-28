@@ -16,9 +16,18 @@
 
 const TTL_JWKS_MS = 60 * 60 * 1000;
 
-// 7a.CK.1: folga de relogio das conferencias temporais. 60 s e o skew padrao de
-// JWT -- grande o bastante para absorver a deriva entre o emissor do Access e
-// este isolate, pequeno o bastante para nao valer como janela de ataque.
+// 7a.CK.1: folga de relogio do `nbf`, e SO dele. 60 s e o skew padrao de JWT --
+// grande o bastante para absorver a deriva entre o emissor do Access e este
+// isolate, pequeno o bastante para nao valer como janela de ataque.
+//
+// O `exp` logo abaixo NAO tem folga, e a assimetria e deliberada: dar folga ao
+// `exp` estenderia a vida de um token vencido (falha ABERTA), enquanto dar folga
+// ao `nbf` so evita barrar um token legitimo cujo emissor esta alguns segundos
+// adiantado (falha FECHADA sem a folga, mas com falso negativo). Errar para o
+// lado seguro tem direcao oposta nos dois claims. O comentario desta constante
+// dizia "conferencias temporais", no plural, e sugeria que a folga cobria as
+// duas -- achado do board da 7a.CK.1.
+//
 // Exportada para que o teste importe o valor em vez de repetir o literal.
 export const TOLERANCIA_RELOGIO_MS = 60 * 1000;
 const cacheJwks = new Map(); // team -> { chaves: Map<kid, CryptoKey>, em }
