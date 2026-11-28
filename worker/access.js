@@ -15,6 +15,12 @@
 // subdominio da conta) nao entram em arquivo dele (plano 7a.BW, Task 2.4).
 
 const TTL_JWKS_MS = 60 * 60 * 1000;
+
+// 7a.CK.1: folga de relogio das conferencias temporais. 60 s e o skew padrao de
+// JWT -- grande o bastante para absorver a deriva entre o emissor do Access e
+// este isolate, pequeno o bastante para nao valer como janela de ataque.
+// Exportada para que o teste importe o valor em vez de repetir o literal.
+export const TOLERANCIA_RELOGIO_MS = 60 * 1000;
 const cacheJwks = new Map(); // team -> { chaves: Map<kid, CryptoKey>, em }
 
 function normalizarTeam(team) {
@@ -100,6 +106,12 @@ export async function verificarAccess(request, env, jwksFetcher = (...a) => fetc
   if (!auds.includes(env.ACCESS_AUD)) return { ok: false, status: 403 };
   if (claims.iss !== team) return { ok: false, status: 403 };
   if (typeof claims.exp !== "number" || claims.exp * 1000 <= Date.now()) return { ok: false, status: 403 };
+  // `nbf` (7a.CK.1): fechado onde o claim EXISTE -- um JWT emitido para o
+  // futuro nao vale ainda. Tolerante onde ele NAO existe, e onde vem com tipo
+  // errado: o Access nem sempre emite `nbf`, e exigi-lo barraria login
+  // legitimo. Por isso o teste de tipo e a condicao, nao um `else` de erro.
+  if (typeof claims.nbf === "number" && claims.nbf * 1000 > Date.now() + TOLERANCIA_RELOGIO_MS)
+    return { ok: false, status: 403 };
 
   return { ok: true, email: claims.email ?? null };
 }

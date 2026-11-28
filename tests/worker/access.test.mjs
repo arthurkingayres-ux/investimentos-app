@@ -1,7 +1,7 @@
 // 7a.BW.5 Task 5.1: verificarAccess confere o JWT do Cloudflare Access.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { verificarAccess } from "../../worker/access.js";
+import { TOLERANCIA_RELOGIO_MS, verificarAccess } from "../../worker/access.js";
 import { AUD, TEAM, assinarJwt, claimsValidas, envBase, fetchFalso, kvMemoria, parDeChaves } from "./helpers.mjs";
 
 const par = await parDeChaves();
@@ -69,3 +69,51 @@ test("team domain sem https:// e normalizado", async () => {
   const host = { ...env, ACCESS_TEAM_DOMAIN: TEAM.replace("https://", "") };
   assert.equal((await verificarAccess(req(jwt), host, fetchFalso(par))).ok, true);
 });
+
+// ---------------------------------------------------------------------------
+// 7a.CK.1 Task 1.1: `nbf` (not before). O Access ja barra quem nao logou, mas
+// `verificarAccess` conferia `aud`, `iss` e `exp` e NAO `nbf`: um JWT emitido
+// para o futuro era aceito antes de valer.
+//
+// Fechado onde o claim EXISTE, tolerante onde ele nao existe -- o Access nem
+// sempre emite `nbf`, e exigi-lo barraria login legitimo.
+//
+// A tolerancia e IMPORTADA do modulo de proposito: um literal repetido aqui
+// deixaria estes testes verdes depois de alguem trocar a constante no codigo.
+const SEG = (ms) => Math.floor((Date.now() + ms) / 1000);
+
+test("TOLERANCIA_RELOGIO_MS e exportada e nomeada (nao numero solto)", () => {
+  assert.equal(typeof TOLERANCIA_RELOGIO_MS, "number");
+  assert.ok(
+    TOLERANCIA_RELOGIO_MS > 0 && TOLERANCIA_RELOGIO_MS <= 300_000,
+    `tolerancia fora da faixa de skew plausivel: ${TOLERANCIA_RELOGIO_MS}`,
+  );
+});
+
+test("nbf no futuro alem da tolerancia: 403", async () => {
+  const jwt = await assinarJwt(par, claimsValidas({ nbf: SEG(TOLERANCIA_RELOGIO_MS + 60_000) }));
+  assert.deepEqual(await verificarAccess(req(jwt), env, fetchFalso(par)), { ok: false, status: 403 });
+});
+
+test("nbf no futuro DENTRO da tolerancia: passa (relogio adiantado)", async () => {
+  const jwt = await assinarJwt(par, claimsValidas({ nbf: SEG(TOLERANCIA_RELOGIO_MS / 2) }));
+  assert.equal((await verificarAccess(req(jwt), env, fetchFalso(par))).ok, true);
+});
+
+test("nbf no passado: passa", async () => {
+  const jwt = await assinarJwt(par, claimsValidas({ nbf: SEG(-3_600_000) }));
+  assert.equal((await verificarAccess(req(jwt), env, fetchFalso(par))).ok, true);
+});
+
+test("nbf ausente: passa (o Access nem sempre o emite)", async () => {
+  const jwt = await assinarJwt(par, claimsValidas());
+  assert.equal((await verificarAccess(req(jwt), env, fetchFalso(par))).ok, true);
+});
+
+// Review Focus 1: claim de tipo errado nao barra nem lanca.
+for (const [rotulo, nbf] of [["string", "1764200000"], ["null", null], ["objeto", {}]]) {
+  test(`nbf como ${rotulo}: passa sem lancar`, async () => {
+    const jwt = await assinarJwt(par, claimsValidas({ nbf }));
+    assert.equal((await verificarAccess(req(jwt), env, fetchFalso(par))).ok, true);
+  });
+}
